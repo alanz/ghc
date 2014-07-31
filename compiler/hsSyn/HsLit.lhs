@@ -13,6 +13,12 @@
 -- for details
 
 {-# LANGUAGE CPP, DeriveDataTypeable #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module HsLit where
 
@@ -21,6 +27,7 @@ module HsLit where
 import {-# SOURCE #-} HsExpr( SyntaxExpr, pprExpr )
 import BasicTypes ( FractionalLit(..) )
 import Type	( Type, Kind )
+import Id
 import Outputable
 import FastString
 
@@ -37,13 +44,23 @@ import Data.Data
 
 \begin{code}
 type PostTcKind = Kind
-type PostTcType = Type		-- Used for slots in the abstract syntax
+-- type PostTcType = Type		-- Used for slots in the abstract syntax
 				-- where we want to keep slot for a type
 				-- to be added by the type checker...but
 				-- before typechecking it's just bogus
 
+type family PostTcType a where
+  PostTcType Id    = Type
+  PostTcType other = ()
+-- data WF = WF deriving (Typeable,Data) -- wrong phase
+
+{-
 placeHolderType :: PostTcType	-- Used before typechecking
 placeHolderType  = panic "Evaluated the place holder for a PostTcType"
+-}
+placeHolderType :: PostTcType ()	-- Used before typechecking
+placeHolderType  = ()
+
 
 placeHolderKind :: PostTcKind	-- Used before typechecking
 placeHolderKind  = panic "Evaluated the place holder for a PostTcKind"
@@ -97,8 +114,11 @@ data HsOverLit id 	-- An overloaded literal
 	ol_val :: OverLitVal, 
 	ol_rebindable :: Bool,		-- Note [ol_rebindable]
 	ol_witness :: SyntaxExpr id,	-- Note [Overloaded literal witnesses]
-	ol_type :: PostTcType }
-  deriving (Data, Typeable)
+	ol_type :: PostTcType id}
+  deriving (Typeable)
+
+deriving instance (Data (PostTcType id), Data id) => Data (HsOverLit id)
+-- deriving instance (Typeable id) => Typeable (HsOverLit id)
 
 data OverLitVal
   = HsIntegral   !Integer   	-- Integer-looking literals;
@@ -106,7 +126,8 @@ data OverLitVal
   | HsIsString   !FastString 	-- String-looking literals
   deriving (Data, Typeable)
 
-overLitType :: HsOverLit a -> Type
+-- overLitType :: HsOverLit a -> Type
+overLitType :: HsOverLit a -> PostTcType a
 overLitType = ol_type
 \end{code}
 

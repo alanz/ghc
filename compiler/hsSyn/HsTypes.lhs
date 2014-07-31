@@ -7,6 +7,9 @@ HsTypes: Abstract syntax: user-defined types
 
 \begin{code}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module HsTypes (
         HsType(..), LHsType, HsKind, LHsKind,
@@ -136,7 +139,9 @@ data LHsTyVarBndrs name
            , hsq_tvs :: [LHsTyVarBndr name]     -- Type variables
              -- See Note [HsForAllTy tyvar binders]
     }
-  deriving( Data, Typeable )
+  deriving( Typeable )
+
+deriving instance (Data (PostTcType name), Data name) => Data (LHsTyVarBndrs name)
 
 mkHsQTvs :: [LHsTyVarBndr RdrName] -> LHsTyVarBndrs RdrName
 -- Just at RdrName because in the Name variant we should know just
@@ -186,7 +191,9 @@ data HsTyVarBndr name
   | KindedTyVar
          name
          (LHsKind name)  -- The user-supplied kind signature
-  deriving (Data, Typeable)
+  deriving (Typeable)
+
+deriving instance (Data (PostTcType name), Data name) => Data (HsTyVarBndr name)
 
 data HsType name
   = HsForAllTy  HsExplicitFlag          -- Renamer leaves this flag unchanged, to record the way
@@ -251,8 +258,9 @@ data HsType name
   | HsTyLit HsTyLit      -- A promoted numeric literal.
 
   | HsWrapTy HsTyWrapper (HsType name)  -- only in typechecker output
-  deriving (Data, Typeable)
+  deriving (Typeable)
 
+deriving instance (Data (PostTcType name), Data name) => Data (HsType name)
 
 data HsTyLit
   = HsNumTy Integer
@@ -371,7 +379,9 @@ data ConDeclField name  -- Record fields have Haddoc docs on them
   = ConDeclField { cd_fld_name :: Located name,
                    cd_fld_type :: LBangType name, 
                    cd_fld_doc  :: Maybe LHsDocString }
-  deriving (Data, Typeable)
+  deriving (Typeable)
+
+deriving instance (Data (PostTcType name), Data name) => Data (ConDeclField name)
 
 -----------------------
 -- Combine adjacent for-alls. 

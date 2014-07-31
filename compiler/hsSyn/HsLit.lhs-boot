@@ -1,0 +1,15 @@
+\begin{code}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RoleAnnotations #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
+
+module HsLit where
+
+import Data.Data
+
+type family PostTcType a where ..
+
+
+\end{code}

@@ -1,14 +1,19 @@
 \begin{code}
 {-# LANGUAGE CPP, KindSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE RoleAnnotations #-}
 
 module HsPat where
 import SrcLoc( Located )
+import {-# SOURCE #-} HsLit(PostTcType)
 
 import Data.Data
 import Outputable
 
-data Pat (i :: *)
-type LPat i = Located (Pat i)
+type role Pat nominal
+data Pat (id :: *)
+type LPat id = Located (Pat id)
 
 #if __GLASGOW_HASKELL__ > 706
 instance Typeable Pat
@@ -16,6 +21,7 @@ instance Typeable Pat
 instance Typeable1 Pat
 #endif
 
-instance Data i => Data (Pat i)
+-- instance Data i => Data (Pat i)
+instance (Data (PostTcType id), Data id) => Data (Pat id)
 instance (OutputableBndr name) => Outputable (Pat name)
 \end{code}

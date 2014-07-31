@@ -1,18 +1,32 @@
 \begin{code}
 {-# LANGUAGE CPP, KindSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE RoleAnnotations #-}
+
 module HsExpr where
 
 import SrcLoc     ( Located )
 import Outputable ( SDoc, OutputableBndr, Outputable )
 import {-# SOURCE #-} HsPat  ( LPat )
+import {-# SOURCE #-} HsLit  ( PostTcType )
 
 import Data.Data
 
-data HsExpr (i :: *)
-data HsCmd  (i :: *)
-data HsSplice (i :: *)
-data MatchGroup (a :: *) (body :: *)
-data GRHSs (a :: *) (body :: *)
+type role HsExpr nominal
+data HsExpr (id :: *)
+
+type role HsCmd nominal
+data HsCmd  (id :: *)
+
+type role HsSplice nominal
+data HsSplice (id :: *)
+
+type role MatchGroup nominal representational
+data MatchGroup (id :: *) (body :: *)
+
+type role GRHSs nominal representational
+data GRHSs (id :: *) (body :: *)
 
 #if __GLASGOW_HASKELL__ > 706
 instance Typeable HsSplice
@@ -27,17 +41,19 @@ instance Typeable2 MatchGroup
 instance Typeable2 GRHSs
 #endif
 
-instance Data i => Data (HsSplice i)
-instance Data i => Data (HsExpr i)
-instance Data i => Data (HsCmd i)
-instance (Data i, Data body) => Data (MatchGroup i body)
-instance (Data i, Data body) => Data (GRHSs i body)
+
+instance (Data (PostTcType i), Data i) => Data (HsSplice i)
+instance (Data (PostTcType i), Data i) => Data (HsExpr i)
+instance (Data (PostTcType i), Data i) => Data (HsCmd i)
+instance (Data (PostTcType i), Data i, Data (PostTcType body), Data body) => Data (MatchGroup i body)
+instance (Data (PostTcType i), Data i, Data (PostTcType body), Data body) => Data (GRHSs i body)
+
 
 instance OutputableBndr id => Outputable (HsExpr id)
 instance OutputableBndr id => Outputable (HsCmd id)
 
-type LHsExpr a = Located (HsExpr a)
-type SyntaxExpr a = HsExpr a
+type LHsExpr id = Located (HsExpr id)
+type SyntaxExpr id = HsExpr id
 
 pprLExpr :: (OutputableBndr i) => 
         LHsExpr i -> SDoc

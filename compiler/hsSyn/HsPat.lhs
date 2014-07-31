@@ -6,6 +6,12 @@
 
 \begin{code}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module HsPat (
         Pat(..), InPat, OutPat, LPat,
@@ -56,7 +62,7 @@ type LPat id = Located (Pat id)
 
 data Pat id
   =     ------------ Simple patterns ---------------
-    WildPat     PostTcType              -- Wild card
+    WildPat     (PostTcType id)         -- Wild card
         -- The sole reason for a type on a WildPat is to
         -- support hsPatType :: Pat Id -> Type
 
@@ -69,15 +75,15 @@ data Pat id
 
         ------------ Lists, tuples, arrays ---------------
   | ListPat     [LPat id]                            -- Syntactic list
-                PostTcType                           -- The type of the elements
-                (Maybe (PostTcType, SyntaxExpr id))  -- For rebindable syntax
+                (PostTcType id)                      -- The type of the elements
+                (Maybe (PostTcType id, SyntaxExpr id))  -- For rebindable syntax
                    -- For OverloadedLists a Just (ty,fn) gives
                    -- overall type of the pattern, and the toList
                    -- function to convert the scrutinee to a list value
 
   | TuplePat    [LPat id]    -- Tuple sub-patterns
                 Boxity       -- UnitPat is TuplePat []
-                [PostTcType] -- [] before typechecker, filled in afterwards with
+                [PostTcType id] -- [] before typechecker, filled in afterwards with
                              -- the types of the tuple components
         -- You might think that the PostTcType was redundant, because we can 
         -- get the pattern type by getting the types of the sub-patterns.
@@ -96,7 +102,7 @@ data Pat id
         --           will be wrapped in CoPats, no?)
 
   | PArrPat     [LPat id]               -- Syntactic parallel array
-                PostTcType              -- The type of the elements
+                (PostTcType id)         -- The type of the elements
 
         ------------ Constructor patterns ---------------
   | ConPatIn    (Located id)
@@ -121,7 +127,7 @@ data Pat id
         ------------ View patterns ---------------
   | ViewPat       (LHsExpr id)
                   (LPat id)
-                  PostTcType        -- The overall type of the pattern
+                  (PostTcType id)   -- The overall type of the pattern
                                     -- (= the argument type of the view function)
                                     -- for hsPatType.
 
@@ -162,7 +168,10 @@ data Pat id
                 Type                    -- Type of whole pattern, t1
         -- During desugaring a (CoPat co pat) turns into a cast with 'co' on
         -- the scrutinee, followed by a match on 'pat'
-  deriving (Data, Typeable)
+  -- deriving (Data, Typeable)
+  deriving (Typeable)
+
+deriving instance (Data (PostTcType id), Data id) => Data (Pat id)
 \end{code}
 
 HsConDetails is use for patterns/expressions *and* for data type declarations

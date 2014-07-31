@@ -186,9 +186,9 @@ mkParPat lp@(L loc p) | hsPatNeedsParens p = L loc (ParPat lp)
 -- These are the bits of syntax that contain rebindable names
 -- See RnEnv.lookupSyntaxName
 
-mkHsIntegral   :: Integer -> PostTcType -> HsOverLit id
-mkHsFractional :: FractionalLit -> PostTcType -> HsOverLit id
-mkHsIsString   :: FastString -> PostTcType -> HsOverLit id
+mkHsIntegral   :: Integer -> PostTcType id -> HsOverLit id
+mkHsFractional :: FractionalLit -> PostTcType id -> HsOverLit id
+mkHsIsString   :: FastString -> PostTcType id -> HsOverLit id
 mkHsDo         :: HsStmtContext Name -> [ExprLStmt id] -> HsExpr id
 mkHsComp       :: HsStmtContext Name -> [ExprLStmt id] -> LHsExpr id -> HsExpr id
 

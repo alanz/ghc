@@ -8,6 +8,12 @@ Datatype for: @BindGroup@, @Bind@, @Sig@, @Bind@.
 
 \begin{code}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module HsBinds where
 
@@ -64,7 +70,11 @@ data HsLocalBindsLR idL idR
   = HsValBinds (HsValBindsLR idL idR)
   | HsIPBinds  (HsIPBinds idR)
   | EmptyLocalBinds
-  deriving (Data, Typeable)
+  -- deriving (Data, Typeable)
+  deriving (Typeable)
+
+deriving instance (Data (PostTcType idL), Data (PostTcType idR), Data idL, Data idR)
+   => Data (HsLocalBindsLR idL idR)
 
 type HsValBinds id = HsValBindsLR id id
 
@@ -83,7 +93,11 @@ data HsValBindsLR idL idR
   | ValBindsOut            
         [(RecFlag, LHsBinds idL)]       
         [LSig Name]
-  deriving (Data, Typeable)
+  -- deriving (Data, Typeable)
+  deriving (Typeable)
+
+deriving instance (Data (PostTcType idR), Data (PostTcType idL), Data idL, Data idR)
+     => Data (HsValBindsLR idL idR)
 
 type LHsBind  id = LHsBindLR  id id
 type LHsBinds id = LHsBindsLR id id
@@ -137,7 +151,7 @@ data HsBindLR idL idR
   | PatBind {   
         pat_lhs    :: LPat idL,
         pat_rhs    :: GRHSs idR (LHsExpr idR),
-        pat_rhs_ty :: PostTcType,       -- ^ Type of the GRHSs
+        pat_rhs_ty :: PostTcType idR,   -- ^ Type of the GRHSs
         bind_fvs   :: NameSet,          -- ^ See Note [Bind free vars]
         pat_ticks  :: (Maybe (Tickish Id), [Maybe (Tickish Id)])
                -- ^ Tick to put on the rhs, if any, and ticks to put on
@@ -168,7 +182,8 @@ data HsBindLR idL idR
 
   | PatSynBind (PatSynBind idL idR)
 
-  deriving (Data, Typeable)
+  -- deriving (Data, Typeable)
+  deriving (Typeable)
         -- Consider (AbsBinds tvs ds [(ftvs, poly_f, mono_f) binds]
         --
         -- Creates bindings for (polymorphic, overloaded) poly_f
@@ -180,6 +195,9 @@ data HsBindLR idL idR
         --      3. ftvs includes all tyvars free in ds
         --
         -- See Note [AbsBinds]
+
+deriving instance (Data (PostTcType idL), Data (PostTcType idR), Data idL, Data idR)
+   => Data (HsBindLR idL idR)
 
 data ABExport id
   = ABE { abe_poly  :: id           -- ^ Any INLINE pragmas is attached to this Id
@@ -195,7 +213,10 @@ data PatSynBind idL idR
           psb_args :: HsPatSynDetails (Located idR), -- ^ Formal parameter names
           psb_def  :: LPat idR,                      -- ^ Right-hand side
           psb_dir  :: HsPatSynDir idR                -- ^ Directionality
-  } deriving (Data, Typeable)
+  } deriving (Typeable)
+
+deriving instance (Data (PostTcType idL), Data idL,Data (PostTcType idR), Data idR)
+   => Data (PatSynBind idL idR)
 
 -- | Used for the NameSet in FunBind and PatBind prior to the renamer
 placeHolderNames :: NameSet
@@ -500,7 +521,9 @@ data HsIPBinds id
         [LIPBind id]
         TcEvBinds       -- Only in typechecker output; binds
                         -- uses of the implicit parameters
-  deriving (Data, Typeable)
+  deriving (Typeable)
+
+deriving instance (Data (PostTcType id), Data id) => Data (HsIPBinds id)
 
 isEmptyIPBinds :: HsIPBinds id -> Bool
 isEmptyIPBinds (IPBinds is ds) = null is && isEmptyTcEvBinds ds
@@ -514,7 +537,9 @@ that way until after type-checking when they are replaced with
 evidene for the implicit parameter. -}
 data IPBind id
   = IPBind (Either HsIPName id) (LHsExpr id)
-  deriving (Data, Typeable)
+  deriving (Typeable)
+
+deriving instance (Data (PostTcType id), Data id) => Data (IPBind id)
 
 instance (OutputableBndr id) => Outputable (HsIPBinds id) where
   ppr (IPBinds bs ds) = pprDeeperList vcat (map ppr bs)
@@ -605,7 +630,9 @@ data Sig name
         -- > {-# MINIMAL a | (b, c | (d | e)) #-}
   | MinimalSig (BooleanFormula (Located name))
 
-  deriving (Data, Typeable)
+  deriving (Typeable)
+
+deriving instance (Data (PostTcType id), Data id) => Data (Sig id)
 
 
 type LFixitySig name = Located (FixitySig name)
@@ -795,5 +822,7 @@ data HsPatSynDir id
   = Unidirectional
   | ImplicitBidirectional
   | ExplicitBidirectional (MatchGroup id (LHsExpr id))
-  deriving (Data, Typeable)
+  deriving (Typeable)
+
+deriving instance (Data (PostTcType id), Data id) => Data (HsPatSynDir id)
 \end{code}
