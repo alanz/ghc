@@ -171,7 +171,7 @@ data Pat id
   -- deriving (Data, Typeable)
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (Pat id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (Pat id)
 \end{code}
 
 HsConDetails is use for patterns/expressions *and* for data type declarations
@@ -200,7 +200,7 @@ data HsRecFields id arg         -- A bunch of record fields
         -- Used for both expressions and patterns
   = HsRecFields { rec_flds   :: [HsRecField id arg],
                   rec_dotdot :: Maybe Int }  -- Note [DotDot fields]
-  deriving (Data, Typeable)
+  deriving (Typeable)
 
 -- Note [DotDot fields]
 -- ~~~~~~~~~~~~~~~~~~~~
@@ -220,7 +220,7 @@ data HsRecField id arg = HsRecField {
         hsRecFieldId  :: Located id,
         hsRecFieldArg :: arg,           -- Filled in by renamer
         hsRecPun      :: Bool           -- Note [Punning]
-  } deriving (Data, Typeable)
+  } deriving (Typeable)
 
 -- Note [Punning]
 -- ~~~~~~~~~~~~~~

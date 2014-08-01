@@ -3,6 +3,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RoleAnnotations #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module HsExpr where
 
@@ -41,18 +43,20 @@ instance Typeable2 MatchGroup
 instance Typeable2 GRHSs
 #endif
 
-
+{-
 instance (Data (PostTcType i), Data i) => Data (HsSplice i)
 instance (Data (PostTcType i), Data i) => Data (HsExpr i)
 instance (Data (PostTcType i), Data i) => Data (HsCmd i)
 instance (Data (PostTcType i), Data i, Data (PostTcType body), Data body) => Data (MatchGroup i body)
 instance (Data (PostTcType i), Data i, Data (PostTcType body), Data body) => Data (GRHSs i body)
-
+-}
 
 instance OutputableBndr id => Outputable (HsExpr id)
 instance OutputableBndr id => Outputable (HsCmd id)
 
 type LHsExpr id = Located (HsExpr id)
+-- instance (Data (PostTcType i), Data i) => Data (LHsExpr i)
+
 type SyntaxExpr id = HsExpr id
 
 pprLExpr :: (OutputableBndr i) => 

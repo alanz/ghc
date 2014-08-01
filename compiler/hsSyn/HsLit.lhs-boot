@@ -8,8 +8,14 @@
 module HsLit where
 
 import Data.Data
+import Id
+import Name
+import RdrName
 
-type family PostTcType a where ..
-
+-- type family PostTcType a where ..
+type family PostTcType id :: *
+-- instance (Data a) => Data (PostTcType a)
+-- instance Data (PostTcType Name)
+-- instance Data (PostTcType RdrName)
 
 \end{code}

@@ -73,8 +73,8 @@ data HsLocalBindsLR idL idR
   -- deriving (Data, Typeable)
   deriving (Typeable)
 
-deriving instance (Data (PostTcType idL), Data (PostTcType idR), Data idL, Data idR)
-   => Data (HsLocalBindsLR idL idR)
+-- deriving instance (Data (PostTcType idL), Data (PostTcType idR), Data idL, Data idR)
+--    => Data (HsLocalBindsLR idL idR)
 
 type HsValBinds id = HsValBindsLR id id
 
@@ -96,8 +96,8 @@ data HsValBindsLR idL idR
   -- deriving (Data, Typeable)
   deriving (Typeable)
 
-deriving instance (Data (PostTcType idR), Data (PostTcType idL), Data idL, Data idR)
-     => Data (HsValBindsLR idL idR)
+-- deriving instance (Data (PostTcType idR), Data (PostTcType idL), Data idL, Data idR)
+--      => Data (HsValBindsLR idL idR)
 
 type LHsBind  id = LHsBindLR  id id
 type LHsBinds id = LHsBindsLR id id
@@ -196,8 +196,10 @@ data HsBindLR idL idR
         --
         -- See Note [AbsBinds]
 
+{-
 deriving instance (Data (PostTcType idL), Data (PostTcType idR), Data idL, Data idR)
    => Data (HsBindLR idL idR)
+-}
 
 data ABExport id
   = ABE { abe_poly  :: id           -- ^ Any INLINE pragmas is attached to this Id
@@ -215,8 +217,8 @@ data PatSynBind idL idR
           psb_dir  :: HsPatSynDir idR                -- ^ Directionality
   } deriving (Typeable)
 
-deriving instance (Data (PostTcType idL), Data idL,Data (PostTcType idR), Data idR)
-   => Data (PatSynBind idL idR)
+-- deriving instance (Data (PostTcType idL), Data idL,Data (PostTcType idR), Data idR)
+--   => Data (PatSynBind idL idR)
 
 -- | Used for the NameSet in FunBind and PatBind prior to the renamer
 placeHolderNames :: NameSet
@@ -523,7 +525,7 @@ data HsIPBinds id
                         -- uses of the implicit parameters
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (HsIPBinds id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (HsIPBinds id)
 
 isEmptyIPBinds :: HsIPBinds id -> Bool
 isEmptyIPBinds (IPBinds is ds) = null is && isEmptyTcEvBinds ds
@@ -539,7 +541,7 @@ data IPBind id
   = IPBind (Either HsIPName id) (LHsExpr id)
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (IPBind id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (IPBind id)
 
 instance (OutputableBndr id) => Outputable (HsIPBinds id) where
   ppr (IPBinds bs ds) = pprDeeperList vcat (map ppr bs)
@@ -632,12 +634,12 @@ data Sig name
 
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (Sig id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (Sig id)
 
 
 type LFixitySig name = Located (FixitySig name)
 data FixitySig name = FixitySig (Located name) Fixity
-  deriving (Data, Typeable)
+  deriving (Typeable)
 
 -- | TsSpecPrags conveys pragmas from the type checker to the desugarer
 data TcSpecPrags
@@ -824,5 +826,5 @@ data HsPatSynDir id
   | ExplicitBidirectional (MatchGroup id (LHsExpr id))
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (HsPatSynDir id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (HsPatSynDir id)
 \end{code}

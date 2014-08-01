@@ -127,7 +127,7 @@ data HsDecl id
   | RoleAnnotD  (RoleAnnotDecl id)
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (HsDecl id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (HsDecl id)
 
 -- NB: all top-level fixity decls are contained EITHER
 -- EITHER SigDs
@@ -174,7 +174,7 @@ data HsGroup id
         hs_docs   :: [LDocDecl]
   } deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (HsGroup id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (HsGroup id)
 
 emptyGroup, emptyRdrGroup, emptyRnGroup :: HsGroup a
 emptyRdrGroup = emptyGroup { hs_valds = emptyValBindsIn }
@@ -296,7 +296,7 @@ data SpliceDecl id
                                 -- Implicit <=> f x y,  i.e. a naked top level expression
     deriving (Typeable)
 
-deriving instance (Data (PostTcType name), Data name) => Data (SpliceDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (SpliceDecl name)
 
 instance OutputableBndr name => Outputable (SpliceDecl name) where
    ppr (SpliceDecl (L _ e) _) = pprUntypedSplice e
@@ -488,7 +488,7 @@ data TyClDecl name
     
   deriving (Typeable)
 
-deriving instance (Data (PostTcType name), Data name) => Data (TyClDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (TyClDecl name)
 
  -- This is used in TcTyClsDecls to represent
  -- strongly connected components of decls
@@ -500,7 +500,7 @@ data TyClGroup name
               , group_roles  :: [LRoleAnnotDecl name] }
     deriving (Typeable)
 
-deriving instance (Data (PostTcType name), Data name) => Data (TyClGroup name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (TyClGroup name)
 
 tyClGroupConcat :: [TyClGroup name] -> [LTyClDecl name]
 tyClGroupConcat = concatMap group_tyclds
@@ -516,7 +516,7 @@ data FamilyDecl name = FamilyDecl
   , fdKindSig :: Maybe (LHsKind name) }     -- result kind
   deriving( Typeable )
 
-deriving instance (Data (PostTcType name), Data name) => Data (FamilyDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (FamilyDecl name)
 
 data FamilyInfo name
   = DataFamily
@@ -526,7 +526,7 @@ data FamilyInfo name
   | ClosedTypeFamily [LTyFamInstEqn name]
   deriving( Typeable )
 
-deriving instance (Data (PostTcType name), Data name) => Data (FamilyInfo name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (FamilyInfo name)
 
 \end{code}
 
@@ -760,7 +760,7 @@ data HsDataDefn name   -- The payload of a data type defn
     }
     deriving( Typeable )
 
-deriving instance (Data (PostTcType name), Data name) => Data (HsDataDefn name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (HsDataDefn name)
 
 data NewOrData
   = NewType                     -- ^ @newtype Blah ...@
@@ -820,7 +820,7 @@ data ConDecl name
         -- need to report decprecated use
     } deriving (Typeable)
 
-deriving instance (Data (PostTcType name), Data name) => Data (ConDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (ConDecl name)
 
 type HsConDeclDetails name = HsConDetails (LBangType name) [ConDeclField name]
 
@@ -954,9 +954,11 @@ data TyFamEqn name pats
        , tfe_rhs   :: LHsType name }
   deriving( Typeable )
 
+{-
 deriving instance (Data (PostTcType name), Data name,
                    Data (PostTcType pats), Data pats)
    => Data (TyFamEqn name pats)
+-}
 
 type LTyFamInstDecl name = Located (TyFamInstDecl name)
 data TyFamInstDecl name
@@ -965,7 +967,7 @@ data TyFamInstDecl name
        , tfid_fvs  :: NameSet }
   deriving( Typeable )
 
-deriving instance (Data (PostTcType name), Data name) => Data (TyFamInstDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (TyFamInstDecl name)
 
 ----------------- Data family instances -------------
 
@@ -978,7 +980,7 @@ data DataFamInstDecl name
        , dfid_fvs   :: NameSet }          -- Rree vars for dependency analysis
   deriving( Typeable )
 
-deriving instance (Data (PostTcType name), Data name) => Data (DataFamInstDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (DataFamInstDecl name)
 
 ----------------- Class instances -------------
 
@@ -996,7 +998,7 @@ data ClsInstDecl name
       }
   deriving (Typeable)
 
-deriving instance (Data (PostTcType name), Data name) => Data (ClsInstDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (ClsInstDecl name)
 
 ----------------- Instances of all kinds -------------
 
@@ -1010,7 +1012,7 @@ data InstDecl name  -- Both class and family instances
       { tfid_inst :: TyFamInstDecl name }
   deriving (Typeable)
 
-deriving instance (Data (PostTcType name), Data name) => Data (InstDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (InstDecl name)
 
 \end{code}
 
@@ -1134,7 +1136,7 @@ data DerivDecl name = DerivDecl { deriv_type :: LHsType name
                                 }
   deriving (Typeable)
 
-deriving instance (Data (PostTcType name), Data name) => Data (DerivDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (DerivDecl name)
 
 instance (OutputableBndr name) => Outputable (DerivDecl name) where
     ppr (DerivDecl ty o)
@@ -1157,7 +1159,7 @@ type LDefaultDecl name = Located (DefaultDecl name)
 data DefaultDecl name
   = DefaultDecl [LHsType name]
   deriving (Typeable)
-deriving instance (Data (PostTcType name), Data name) => Data (DefaultDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (DefaultDecl name)
 
 instance (OutputableBndr name)
               => Outputable (DefaultDecl name) where
@@ -1200,7 +1202,7 @@ data ForeignDecl name
     Thus if the declaration is valid, then rep_ty will only use types
     such as Int and IO that we know how to make foreign calls with.
 -}
-deriving instance (Data (PostTcType name), Data name) => Data (ForeignDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (ForeignDecl name)
 
 noForeignImportCoercionYet :: Coercion
 noForeignImportCoercionYet
@@ -1303,14 +1305,14 @@ data RuleDecl name
         (Located (HsExpr name)) -- RHS
         NameSet                 -- Free-vars from the RHS
   deriving (Typeable)
-deriving instance (Data (PostTcType name), Data name) => Data (RuleDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (RuleDecl name)
 
 data RuleBndr name
   = RuleBndr (Located name)
   | RuleBndrSig (Located name) (HsWithBndrs (LHsType name))
   deriving (Typeable)
 
-deriving instance (Data (PostTcType name), Data name) => Data (RuleBndr name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (RuleBndr name)
 
 collectRuleBndrSigTys :: [RuleBndr name] -> [HsWithBndrs (LHsType name)]
 collectRuleBndrSigTys bndrs = [ty | RuleBndrSig _ ty <- bndrs]
@@ -1371,7 +1373,7 @@ data VectDecl name
   | HsVectInstOut               -- post type-checking (always SCALAR) !!!FIXME: should be superfluous now
       ClsInst
   deriving (Typeable)
-deriving instance (Data (PostTcType name), Data name) => Data (VectDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (VectDecl name)
 
 lvectDeclName :: NamedThing name => LVectDecl name -> Name
 lvectDeclName (L _ (HsVect         (L _ name) _))   = getName name
@@ -1481,7 +1483,7 @@ type LAnnDecl name = Located (AnnDecl name)
 data AnnDecl name = HsAnnotation (AnnProvenance name) (Located (HsExpr name))
   deriving (Typeable)
 
-deriving instance (Data (PostTcType name), Data name) => Data (AnnDecl name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (AnnDecl name)
 
 instance (OutputableBndr name) => Outputable (AnnDecl name) where
     ppr (HsAnnotation provenance expr) 
@@ -1518,7 +1520,7 @@ type LRoleAnnotDecl name = Located (RoleAnnotDecl name)
 data RoleAnnotDecl name
   = RoleAnnotDecl (Located name)         -- type constructor
                   [Located (Maybe Role)] -- optional annotations
-  deriving (Data, Typeable)
+  deriving (Typeable)
 
 instance OutputableBndr name => Outputable (RoleAnnotDecl name) where
   ppr (RoleAnnotDecl ltycon roles)

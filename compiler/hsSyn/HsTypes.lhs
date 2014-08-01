@@ -141,7 +141,7 @@ data LHsTyVarBndrs name
     }
   deriving( Typeable )
 
-deriving instance (Data (PostTcType name), Data name) => Data (LHsTyVarBndrs name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (LHsTyVarBndrs name)
 
 mkHsQTvs :: [LHsTyVarBndr RdrName] -> LHsTyVarBndrs RdrName
 -- Just at RdrName because in the Name variant we should know just
@@ -193,7 +193,7 @@ data HsTyVarBndr name
          (LHsKind name)  -- The user-supplied kind signature
   deriving (Typeable)
 
-deriving instance (Data (PostTcType name), Data name) => Data (HsTyVarBndr name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (HsTyVarBndr name)
 
 data HsType name
   = HsForAllTy  HsExplicitFlag          -- Renamer leaves this flag unchanged, to record the way
@@ -260,7 +260,7 @@ data HsType name
   | HsWrapTy HsTyWrapper (HsType name)  -- only in typechecker output
   deriving (Typeable)
 
-deriving instance (Data (PostTcType name), Data name) => Data (HsType name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (HsType name)
 
 data HsTyLit
   = HsNumTy Integer
@@ -381,7 +381,7 @@ data ConDeclField name  -- Record fields have Haddoc docs on them
                    cd_fld_doc  :: Maybe LHsDocString }
   deriving (Typeable)
 
-deriving instance (Data (PostTcType name), Data name) => Data (ConDeclField name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (ConDeclField name)
 
 -----------------------
 -- Combine adjacent for-alls. 

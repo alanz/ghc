@@ -139,7 +139,8 @@ unguardedRHS :: Located (body id) -> [LGRHS id (Located (body id))]
 unguardedRHS rhs@(L loc _) = [L loc (GRHS [] rhs)]
 
 mkMatchGroup :: Origin -> [LMatch id (Located (body id))] -> MatchGroup id (Located (body id))
-mkMatchGroup origin matches = MG { mg_alts = matches, mg_arg_tys = [], mg_res_ty = placeHolderType, mg_origin = origin }
+-- mkMatchGroup origin matches = MG { mg_alts = matches, mg_arg_tys = [], mg_res_ty = placeHolderType, mg_origin = origin }
+mkMatchGroup origin matches = MG { mg_alts = matches, mg_arg_tys = [], mg_res_ty = (), mg_origin = origin }
 
 mkHsAppTy :: LHsType name -> LHsType name -> LHsType name
 mkHsAppTy t1 t2 = addCLoc t1 t2 (HsAppTy t1 t2)

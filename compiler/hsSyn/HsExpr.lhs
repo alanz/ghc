@@ -335,7 +335,7 @@ data HsExpr id
   -- deriving (Data, Typeable)
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (HsExpr id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (HsExpr id)
 
 
 -- | HsTupArg is used for tuple sections
@@ -346,7 +346,7 @@ data HsTupArg id
   | Missing (PostTcType id)     -- ^ The argument is missing, but this is its type
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (HsTupArg id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (HsTupArg id)
 
 tupArgPresent :: HsTupArg id -> Bool
 tupArgPresent (Present {}) = True
@@ -371,7 +371,7 @@ data PendingRnSplice name
   | PendingRnCrossStageSplice name
   deriving (Typeable)
 
-deriving instance (Data (PostTcType name), Data name) => Data (PendingRnSplice name)
+-- deriving instance (Data (PostTcType name), Data name) => Data (PendingRnSplice name)
 
 
 type PendingTcSplice = (Name, LHsExpr Id)
@@ -785,7 +785,7 @@ data HsCmd id
                 
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (HsCmd id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (HsCmd id)
 
 data HsArrAppType = HsHigherOrderApp | HsFirstOrderApp
   deriving (Data, Typeable)
@@ -806,7 +806,7 @@ data HsCmdTop id
              (CmdSyntaxTable id) -- See Note [CmdSyntaxTable]
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (HsCmdTop id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (HsCmdTop id)
 \end{code}
 
 
@@ -943,8 +943,8 @@ data MatchGroup id body
      -- where there are n patterns
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id, Data (PostTcType body), Data body)
-  => Data (MatchGroup id body)
+-- deriving instance (Data (PostTcType id), Data id, Data (PostTcType body), Data body)
+--   => Data (MatchGroup id body)
 
 type LMatch id body = Located (Match id body)
 
@@ -956,8 +956,10 @@ data Match id body
         (GRHSs id body)
   deriving (Typeable)
 
+{-
 deriving instance (Data (PostTcType id), Data id, Data (PostTcType body), Data body)
   => Data (Match id body)
+-}
 
 isEmptyMatchGroup :: MatchGroup id body -> Bool
 isEmptyMatchGroup (MG { mg_alts = ms }) = null ms
@@ -979,8 +981,10 @@ data GRHSs id body
       grhssLocalBinds :: (HsLocalBinds id) -- ^ The where clause
     } deriving (Typeable)
 
+{-
 deriving instance (Data (PostTcType id), Data id, Data (PostTcType body), Data body)
    => Data (GRHSs id body)
+-}
 
 type LGRHS id body = Located (GRHS id body)
 
@@ -989,9 +993,11 @@ data GRHS id body = GRHS [GuardLStmt id] -- Guards
                          body            -- Right hand side
   deriving (Typeable)
 
+{-
 deriving instance (Data (PostTcType id),   Data id,
                    Data (PostTcType body), Data body)
    => Data (GRHS id body)
+-}
 \end{code}
 
 We know the list must have at least one @Match@ in it.
@@ -1179,11 +1185,12 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
       }
 
   deriving (Typeable)
-
+{-
 deriving instance (Data (PostTcType idL), Data idL,
                    Data (PostTcType idR), Data idR,
                    Data (PostTcType body), Data body)
   => Data (StmtLR idL idR body)
+-}
 
 data TransForm   -- The 'f' below is the 'using' function, 'e' is the by function
   = ThenForm     -- then f               or    then f by e             (depending on trS_by)
@@ -1197,9 +1204,11 @@ data ParStmtBlock idL idR
         (SyntaxExpr idR)   -- The return operator
   deriving( Typeable )
 
+{-
 deriving instance (Data (PostTcType idL), Data idL,
                    Data (PostTcType idR), Data idR)
   => Data (ParStmtBlock idL idR)
+-}
 \end{code}
 
 Note [The type of bind in Stmts]
@@ -1427,7 +1436,7 @@ data HsSplice id  = HsSplice            --  $z  or $(f 4)
                         (LHsExpr id)    -- identify this splice point
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (HsSplice id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (HsSplice id)
 
 instance OutputableBndr id => Outputable (HsSplice id) where
   ppr (HsSplice n e) = angleBrackets (ppr n <> comma <+> ppr e)
@@ -1462,7 +1471,7 @@ data HsBracket id = ExpBr (LHsExpr id)   -- [|  expr  |]
                   | TExpBr (LHsExpr id)  -- [||  expr  ||]
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (HsBracket id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (HsBracket id)
 
 isTypedBracket :: HsBracket id -> Bool
 isTypedBracket (TExpBr {}) = True
@@ -1515,7 +1524,7 @@ data ArithSeqInfo id
                     (LHsExpr id)
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (ArithSeqInfo id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (ArithSeqInfo id)
 \end{code}
 
 \begin{code}

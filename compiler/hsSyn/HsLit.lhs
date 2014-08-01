@@ -28,6 +28,8 @@ import {-# SOURCE #-} HsExpr( SyntaxExpr, pprExpr )
 import BasicTypes ( FractionalLit(..) )
 import Type	( Type, Kind )
 import Id
+import Name
+import RdrName
 import Outputable
 import FastString
 
@@ -49,16 +51,30 @@ type PostTcKind = Kind
 				-- to be added by the type checker...but
 				-- before typechecking it's just bogus
 
+{-
 type family PostTcType a where
   PostTcType Id    = Type
   PostTcType other = ()
--- data WF = WF deriving (Typeable,Data) -- wrong phase
+-}
+{-
+type family Post thing id :: * where
+  type Post thing Id = thing
+  type Post thing _ = ()
+
+type PostTcType id = Post Type id
+-}
+type family PostTcType id :: *
+type instance PostTcType Id = Type
+type instance PostTcType Name = ()
+type instance PostTcType RdrName = ()
+
+
 
 {-
 placeHolderType :: PostTcType	-- Used before typechecking
 placeHolderType  = panic "Evaluated the place holder for a PostTcType"
 -}
-placeHolderType :: PostTcType ()	-- Used before typechecking
+placeHolderType :: PostTcType RdrName	-- Used before typechecking
 placeHolderType  = ()
 
 
@@ -117,7 +133,7 @@ data HsOverLit id 	-- An overloaded literal
 	ol_type :: PostTcType id}
   deriving (Typeable)
 
-deriving instance (Data (PostTcType id), Data id) => Data (HsOverLit id)
+-- deriving instance (Data (PostTcType id), Data id) => Data (HsOverLit id)
 -- deriving instance (Typeable id) => Typeable (HsOverLit id)
 
 data OverLitVal
