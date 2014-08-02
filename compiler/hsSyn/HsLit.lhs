@@ -28,6 +28,8 @@ import {-# SOURCE #-} HsExpr( SyntaxExpr, pprExpr )
 import BasicTypes ( FractionalLit(..) )
 import Type	( Type, Kind )
 import Id
+import Name
+import RdrName
 import Outputable
 import FastString
 
@@ -49,18 +51,25 @@ type PostTcKind = Kind
 				-- to be added by the type checker...but
 				-- before typechecking it's just bogus
 
+type family PostTcType id :: *
+type instance PostTcType Id = Type
+type instance PostTcType Name = ()
+type instance PostTcType RdrName = ()
+
+{-
 type family PostTcType a where
   PostTcType Id    = Type
   PostTcType other = ()
 -- data WF = WF deriving (Typeable,Data) -- wrong phase
+-}
 
 {-
 placeHolderType :: PostTcType	-- Used before typechecking
 placeHolderType  = panic "Evaluated the place holder for a PostTcType"
--}
+
 placeHolderType :: PostTcType ()	-- Used before typechecking
 placeHolderType  = ()
-
+-}
 
 placeHolderKind :: PostTcKind	-- Used before typechecking
 placeHolderKind  = panic "Evaluated the place holder for a PostTcKind"

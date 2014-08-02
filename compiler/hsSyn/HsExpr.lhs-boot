@@ -13,19 +13,19 @@ import {-# SOURCE #-} HsLit  ( PostTcType )
 
 import Data.Data
 
-type role HsExpr nominal
+-- type role HsExpr nominal
 data HsExpr (id :: *)
 
-type role HsCmd nominal
+-- type role HsCmd nominal
 data HsCmd  (id :: *)
 
-type role HsSplice nominal
+-- type role HsSplice nominal
 data HsSplice (id :: *)
 
-type role MatchGroup nominal representational
+-- type role MatchGroup nominal representational
 data MatchGroup (id :: *) (body :: *)
 
-type role GRHSs nominal representational
+-- type role GRHSs nominal representational
 data GRHSs (id :: *) (body :: *)
 
 #if __GLASGOW_HASKELL__ > 706

@@ -9,7 +9,6 @@ module HsLit where
 
 import Data.Data
 
-type family PostTcType a where ..
-
+type family PostTcType id :: *
 
 \end{code}

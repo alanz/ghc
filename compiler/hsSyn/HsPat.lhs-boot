@@ -21,7 +21,6 @@ instance Typeable Pat
 instance Typeable1 Pat
 #endif
 
--- instance Data i => Data (Pat i)
 instance (Data (PostTcType id), Data id) => Data (Pat id)
 instance (OutputableBndr name) => Outputable (Pat name)
 \end{code}
