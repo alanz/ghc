@@ -14,6 +14,7 @@ Datatype for: @BindGroup@, @Bind@, @Sig@, @Bind@.
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 module HsBinds where
 
@@ -196,8 +197,20 @@ data HsBindLR idL idR
         --
         -- See Note [AbsBinds]
 
-deriving instance (Data (PostTcType idL), Data (PostTcType idR), Data idL, Data idR)
-   => Data (HsBindLR idL idR)
+-- deriving instance (Data (PostTcType idL), Data (PostTcType idR), Data idL, Data idR)
+-- deriving instance (PostTcTypeData idL, PostTcTypeData idR, Data idL, Data idR)
+--   => Data (HsBindLR idL idR)
+
+deriving instance
+  ( tyL ~ PostTcType idL
+  , tyR ~ PostTcType idR
+  , Data tyL
+  , Data tyR
+  , Data idL
+  , Data idR
+  ) => Data (HsBindLR idL idR)
+
+
 
 data ABExport id
   = ABE { abe_poly  :: id           -- ^ Any INLINE pragmas is attached to this Id

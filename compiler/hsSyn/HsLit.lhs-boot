@@ -1,14 +1,15 @@
 \begin{code}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE RoleAnnotations #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 module HsLit where
 
 import Data.Data
 
 type family PostTcType id :: *
+type PostTcTypeData a = (PostTcType a, Data (PostTcType a))
 
 \end{code}

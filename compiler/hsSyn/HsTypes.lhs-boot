@@ -1,0 +1,9 @@
+\begin{code}
+{-# LANGUAGE KindSignatures #-}
+module HsTypes where
+import SrcLoc( Located )
+
+data HsType ( name :: *)
+type LHsType name = Located (HsType name)
+
+\end{code}

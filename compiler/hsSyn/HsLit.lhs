@@ -19,6 +19,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 module HsLit where
 
@@ -51,10 +52,17 @@ type PostTcKind = Kind
 				-- to be added by the type checker...but
 				-- before typechecking it's just bogus
 
+
 type family PostTcType id :: *
 type instance PostTcType Id = Type
 type instance PostTcType Name = ()
 type instance PostTcType RdrName = ()
+
+-- Apply constraint to PostTcType
+-- type EfficientSetLike a = (SetLike (EfficientSet a),Elem (EfficientSet a) ~ a)
+-- type PostTcTypeData a = (PostTcType a,Data a ~ a)
+type PostTcTypeData a = (PostTcType a,Data a ~ Data (PostTcType a))
+
 
 {-
 type family PostTcType a where

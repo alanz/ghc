@@ -2,8 +2,9 @@
 {-# LANGUAGE CPP, KindSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
+#if __GLASGOW_HASKELL__ > 708
 {-# LANGUAGE RoleAnnotations #-}
-
+#endif
 module HsPat where
 import SrcLoc( Located )
 import {-# SOURCE #-} HsLit(PostTcType)
@@ -11,7 +12,9 @@ import {-# SOURCE #-} HsLit(PostTcType)
 import Data.Data
 import Outputable
 
+#if __GLASGOW_HASKELL__ > 708
 type role Pat nominal
+#endif
 data Pat (id :: *)
 type LPat id = Located (Pat id)
 

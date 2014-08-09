@@ -2,7 +2,10 @@
 {-# LANGUAGE CPP, KindSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
+#if __GLASGOW_HASKELL__ > 708
 {-# LANGUAGE RoleAnnotations #-}
+#endif
+
 
 module HsExpr where
 
@@ -13,19 +16,29 @@ import {-# SOURCE #-} HsLit  ( PostTcType )
 
 import Data.Data
 
--- type role HsExpr nominal
+#if __GLASGOW_HASKELL__ > 708
+type role HsExpr nominal
+#endif
 data HsExpr (id :: *)
 
--- type role HsCmd nominal
+#if __GLASGOW_HASKELL__ > 708
+type role HsCmd nominal
+#endif
 data HsCmd  (id :: *)
 
--- type role HsSplice nominal
+#if __GLASGOW_HASKELL__ > 708
+type role HsSplice nominal
+#endif
 data HsSplice (id :: *)
 
--- type role MatchGroup nominal representational
+#if __GLASGOW_HASKELL__ > 708
+type role MatchGroup nominal representational
+#endif
 data MatchGroup (id :: *) (body :: *)
 
--- type role GRHSs nominal representational
+#if __GLASGOW_HASKELL__ > 708
+type role GRHSs nominal representational
+#endif
 data GRHSs (id :: *) (body :: *)
 
 #if __GLASGOW_HASKELL__ > 706
