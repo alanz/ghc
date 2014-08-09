@@ -117,17 +117,17 @@ import GHC.Exts         ( unsafeCoerce# )
 %************************************************************************
 
 \begin{code}
-tcTypedBracket   :: HsBracket Name -> TcRhoType -> TcM (HsExpr TcId)
-tcUntypedBracket :: HsBracket Name -> [PendingRnSplice] -> TcRhoType -> TcM (HsExpr TcId)
-tcSpliceExpr     :: HsSplice Name  -> TcRhoType -> TcM (HsExpr TcId)
+tcTypedBracket   :: HsBracket Name PostTcType -> TcRhoType -> TcM (HsExpr TcId PostTcType)
+tcUntypedBracket :: HsBracket Name PostTcType -> [PendingRnSplice PostTcType] -> TcRhoType -> TcM (HsExpr TcId PostTcType)
+tcSpliceExpr     :: HsSplice Name PostTcType  -> TcRhoType -> TcM (HsExpr TcId PostTcType)
         -- None of these functions add constraints to the LIE
 
-runQuasiQuoteExpr :: HsQuasiQuote RdrName -> RnM (LHsExpr RdrName)
-runQuasiQuotePat  :: HsQuasiQuote RdrName -> RnM (LPat RdrName)
-runQuasiQuoteType :: HsQuasiQuote RdrName -> RnM (LHsType RdrName)
-runQuasiQuoteDecl :: HsQuasiQuote RdrName -> RnM [LHsDecl RdrName]
+runQuasiQuoteExpr :: HsQuasiQuote RdrName -> RnM (LHsExpr RdrName PreTcType)
+runQuasiQuotePat  :: HsQuasiQuote RdrName -> RnM (LPat RdrName PreTcType)
+runQuasiQuoteType :: HsQuasiQuote RdrName -> RnM (LHsType RdrName PreTcType)
+runQuasiQuoteDecl :: HsQuasiQuote RdrName -> RnM [LHsDecl RdrName PreTcType]
 
-runAnnotation     :: CoreAnnTarget -> LHsExpr Name -> TcM Annotation
+runAnnotation     :: CoreAnnTarget -> LHsExpr Name PostTcType -> TcM Annotation
 
 #ifndef GHCI
 tcTypedBracket   x _   = failTH x "Template Haskell bracket"

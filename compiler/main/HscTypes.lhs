@@ -2572,7 +2572,7 @@ instance Binary IfaceTrustInfo where
 
 \begin{code}
 data HsParsedModule = HsParsedModule {
-    hpm_module    :: Located (HsModule RdrName),
+    hpm_module    :: Located (HsModule RdrName PreTcType),
     hpm_src_files :: [FilePath]
        -- ^ extra source files (e.g. from #includes).  The lexer collects
        -- these from '# <file> <line>' pragmas, which the C preprocessor

@@ -4,25 +4,25 @@ import HsSyn    ( HsExpr, LHsExpr )
 import Name     ( Name )
 import TcType   ( TcType, TcRhoType, TcSigmaType )
 import TcRnTypes( TcM, TcId, CtOrigin )
-
+import HsLit    ( PostTcType )
 tcPolyExpr :: 
-          LHsExpr Name
+          LHsExpr Name PostTcType
        -> TcSigmaType
-       -> TcM (LHsExpr TcId)
+       -> TcM (LHsExpr TcId PostTcType)
 
 tcMonoExpr, tcMonoExprNC :: 
-          LHsExpr Name
+          LHsExpr Name PostTcType
        -> TcRhoType
-       -> TcM (LHsExpr TcId)
+       -> TcM (LHsExpr TcId PostTcType)
 
 tcInferRho, tcInferRhoNC :: 
-          LHsExpr Name
-       -> TcM (LHsExpr TcId, TcRhoType)
+          LHsExpr Name PostTcType
+       -> TcM (LHsExpr TcId PostTcType, TcRhoType)
 
 tcSyntaxOp :: CtOrigin
-           -> HsExpr Name
+           -> HsExpr Name PostTcType
            -> TcType
-           -> TcM (HsExpr TcId)
+           -> TcM (HsExpr TcId PostTcType)
 
-tcCheckId :: Name -> TcRhoType -> TcM (HsExpr TcId)
+tcCheckId :: Name -> TcRhoType -> TcM (HsExpr TcId PostTcType)
 \end{code}

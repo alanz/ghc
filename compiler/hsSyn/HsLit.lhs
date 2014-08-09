@@ -13,6 +13,7 @@
 -- for details
 
 {-# LANGUAGE CPP, DeriveDataTypeable #-}
+{-# LANGUAGE CPP, TypeSynonymInstances #-}
 
 module HsLit where
 
@@ -40,10 +41,19 @@ type PostTcKind = Kind
 type PostTcType = Type		-- Used for slots in the abstract syntax
 				-- where we want to keep slot for a type
 				-- to be added by the type checker...but
-				-- before typechecking it's just bogus
+				-- [before typechecking it's just bogus]
+type PreTcType = ()             -- used before typechecking
 
-placeHolderType :: PostTcType	-- Used before typechecking
-placeHolderType  = panic "Evaluated the place holder for a PostTcType"
+
+class PlaceHolderType a where
+  placeHolderType :: a
+
+instance PlaceHolderType PostTcType where
+  -- placeHolderType :: PostTcType	-- Used before typechecking
+  placeHolderType  = panic "Evaluated the place holder for a PostTcType"
+
+instance PlaceHolderType PreTcType where
+  placeHolderType = ()
 
 placeHolderKind :: PostTcKind	-- Used before typechecking
 placeHolderKind  = panic "Evaluated the place holder for a PostTcKind"
@@ -92,12 +102,12 @@ instance Eq HsLit where
   (HsDoublePrim x1) == (HsDoublePrim x2) = x1==x2
   _                 == _                 = False
 
-data HsOverLit id 	-- An overloaded literal
+data HsOverLit id ptt	-- An overloaded literal
   = OverLit {
 	ol_val :: OverLitVal, 
-	ol_rebindable :: Bool,		-- Note [ol_rebindable]
-	ol_witness :: SyntaxExpr id,	-- Note [Overloaded literal witnesses]
-	ol_type :: PostTcType }
+	ol_rebindable :: Bool,          -- Note [ol_rebindable]
+	ol_witness :: SyntaxExpr id ptt,-- Note [Overloaded literal witnesses]
+	ol_type :: ptt }
   deriving (Data, Typeable)
 
 data OverLitVal
@@ -106,7 +116,7 @@ data OverLitVal
   | HsIsString   !FastString 	-- String-looking literals
   deriving (Data, Typeable)
 
-overLitType :: HsOverLit a -> Type
+overLitType :: HsOverLit a ptt -> ptt
 overLitType = ol_type
 \end{code}
 
@@ -141,7 +151,7 @@ found to have.
 \begin{code}
 -- Comparison operations are needed when grouping literals
 -- for compiling pattern-matching (module MatchLit)
-instance Eq (HsOverLit id) where
+instance Eq (HsOverLit id ptt) where
   (OverLit {ol_val = val1}) == (OverLit {ol_val=val2}) = val1 == val2
 
 instance Eq OverLitVal where
@@ -150,7 +160,7 @@ instance Eq OverLitVal where
   (HsIsString s1)   == (HsIsString s2)   = s1 == s2
   _                 == _                 = False
 
-instance Ord (HsOverLit id) where
+instance Ord (HsOverLit id ptt) where
   compare (OverLit {ol_val=val1}) (OverLit {ol_val=val2}) = val1 `compare` val2
 
 instance Ord OverLitVal where
@@ -183,7 +193,7 @@ instance Outputable HsLit where
     ppr (HsWord64Prim w) = integer w  <> text "L##"
 
 -- in debug mode, print the expression that it's resolved to, too
-instance OutputableBndr id => Outputable (HsOverLit id) where
+instance OutputableBndr id => Outputable (HsOverLit id ptt) where
   ppr (OverLit {ol_val=val, ol_witness=witness}) 
 	= ppr val <+> (ifPprDebug (parens (pprExpr witness)))
 

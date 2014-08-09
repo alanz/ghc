@@ -6,13 +6,14 @@ import Name     ( Name )
 import TcType   ( TcRhoType )
 import TcRnTypes( TcM, TcId )
 --import SrcLoc   ( Located )
+import HsLit    ( PostTcType )
 
-tcGRHSsPat    :: GRHSs Name (LHsExpr Name)
+tcGRHSsPat    :: GRHSs Name (LHsExpr Name PostTcType) PostTcType
               -> TcRhoType
               -> TcM (GRHSs TcId (LHsExpr TcId))
 
 tcMatchesFun :: Name -> Bool
-             -> MatchGroup Name (LHsExpr Name)
+             -> MatchGroup Name (LHsExpr Name PostTcType) PostTcType
              -> TcRhoType
-             -> TcM (HsWrapper, MatchGroup TcId (LHsExpr TcId))
+             -> TcM (HsWrapper, MatchGroup TcId (LHsExpr TcId PostTcType) PostTcType)
 \end{code}

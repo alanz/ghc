@@ -6,10 +6,11 @@ import Id        ( Id )
 import HsSyn     ( PatSynBind, LHsBinds )
 import TcRnTypes ( TcM )
 import PatSyn    ( PatSyn )
+import HsLit     ( PostTcType )
 
-tcPatSynDecl :: PatSynBind Name Name
-             -> TcM (PatSyn, LHsBinds Id)
+tcPatSynDecl :: PatSynBind Name Name PostTcType
+             -> TcM (PatSyn, LHsBinds Id PostTcType)
 
-tcPatSynWrapper :: PatSynBind Name Name
-                -> TcM (LHsBinds Id)
+tcPatSynWrapper :: PatSynBind Name Name PostTcType
+                -> TcM (LHsBinds Id PostTcType)
 \end{code}

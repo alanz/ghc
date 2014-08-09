@@ -87,8 +87,8 @@ data DerivStuff     -- Please add this auxiliary stuff
   | DerivFamInst (FamInst)             -- New type family instances
 
   -- New top-level auxiliary bindings
-  | DerivHsBind (LHsBind RdrName, LSig RdrName) -- Also used for SYB
-  | DerivInst (InstInfo RdrName)                -- New, auxiliary instances
+  | DerivHsBind (LHsBind RdrName PreTcType, LSig RdrName PreTcType) -- Also used for SYB
+  | DerivInst (InstInfo RdrName PreTcType)          -- New, auxiliary instances
 \end{code}
 
 %************************************************************************
@@ -2051,7 +2051,7 @@ genAuxBindSpec loc (DerivMaxTag tycon)
                  data_cons -> toInteger ((length data_cons) - fIRST_TAG)
 
 type SeparateBagsDerivStuff = -- AuxBinds and SYB bindings
-                              ( Bag (LHsBind RdrName, LSig RdrName)
+                              ( Bag (LHsBind RdrName PreTcType, LSig RdrName PreTcType)
                                 -- Extra bindings (used by Generic only)
                               , Bag TyCon   -- Extra top-level datatypes
                               , Bag (FamInst)           -- Extra family instances

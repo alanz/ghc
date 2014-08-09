@@ -40,22 +40,22 @@ import {-# SOURCE #-} TcSplice ( runMetaD, runMetaE, runMetaP, runMetaT, tcTopSp
 
 \begin{code}
 #ifndef GHCI
-rnBracket :: HsExpr RdrName -> HsBracket RdrName -> RnM (HsExpr Name, FreeVars)
+rnBracket :: HsExpr RdrName PreTcType-> HsBracket RdrName PreTcType -> RnM (HsExpr Name PostTcType, FreeVars)
 rnBracket e _ = failTH e "Template Haskell bracket"
 
-rnTopSpliceDecls :: HsSplice RdrName -> RnM ([LHsDecl RdrName], FreeVars)
+rnTopSpliceDecls :: HsSplice RdrName PreTcType -> RnM ([LHsDecl RdrName PreTcType], FreeVars)
 rnTopSpliceDecls e = failTH e "Template Haskell top splice"
 
-rnSpliceType :: HsSplice RdrName -> PostTcKind -> RnM (HsType Name, FreeVars)
+rnSpliceType :: HsSplice RdrName PreTcType -> PostTcKind -> RnM (HsType Name PostTcType, FreeVars)
 rnSpliceType e _ = failTH e "Template Haskell type splice"
 
-rnSpliceExpr :: Bool -> HsSplice RdrName -> RnM (HsExpr Name, FreeVars)
+rnSpliceExpr :: Bool -> HsSplice RdrName PreTcType -> RnM (HsExpr Name PostTcType, FreeVars)
 rnSpliceExpr _ e = failTH e "Template Haskell splice"
 
-rnSplicePat :: HsSplice RdrName -> RnM (Pat Name, FreeVars)
+rnSplicePat :: HsSplice RdrName PreTcType -> RnM (Pat Name PostTcType, FreeVars)
 rnSplicePat e = failTH e "Template Haskell pattern splice"
 
-rnSpliceDecl :: SpliceDecl RdrName -> RnM (SpliceDecl Name, FreeVars)
+rnSpliceDecl :: SpliceDecl RdrName PreTcType -> RnM (SpliceDecl Name PostTcType, FreeVars)
 rnSpliceDecl e = failTH e "Template Haskell declaration splice"
 #else
 \end{code}

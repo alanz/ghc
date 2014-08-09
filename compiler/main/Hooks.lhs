@@ -28,6 +28,7 @@ import HscTypes
 import HsDecls
 import HsBinds
 import HsExpr
+import HsLit
 import {-# SOURCE #-} DsMonad
 import OrdList
 import Id
@@ -59,9 +60,9 @@ emptyHooks = Hooks Nothing Nothing Nothing Nothing Nothing Nothing
                    Nothing Nothing Nothing Nothing Nothing Nothing
 
 data Hooks = Hooks
-  { dsForeignsHook         :: Maybe ([LForeignDecl Id] -> DsM (ForeignStubs, OrdList (Id, CoreExpr)))
-  , tcForeignImportsHook   :: Maybe ([LForeignDecl Name] -> TcM ([Id], [LForeignDecl Id], Bag GlobalRdrElt))
-  , tcForeignExportsHook   :: Maybe ([LForeignDecl Name] -> TcM (LHsBinds TcId, [LForeignDecl TcId], Bag GlobalRdrElt))
+  { dsForeignsHook         :: Maybe ([LForeignDecl Id PostTcType] -> DsM (ForeignStubs, OrdList (Id, CoreExpr)))
+  , tcForeignImportsHook   :: Maybe ([LForeignDecl Name PostTcType] -> TcM ([Id], [LForeignDecl Id PostTcType], Bag GlobalRdrElt))
+  , tcForeignExportsHook   :: Maybe ([LForeignDecl Name PostTcType] -> TcM (LHsBinds TcId PostTcType, [LForeignDecl TcId PostTcType], Bag GlobalRdrElt))
   , hscFrontendHook        :: Maybe (ModSummary -> Hsc TcGblEnv)
   , hscCompileOneShotHook  :: Maybe (HscEnv -> ModSummary -> SourceModified -> IO HscStatus)
   , hscCompileCoreExprHook :: Maybe (HscEnv -> SrcSpan -> CoreExpr -> IO HValue)
@@ -69,7 +70,7 @@ data Hooks = Hooks
   , runPhaseHook           :: Maybe (PhasePlus -> FilePath -> DynFlags -> CompPipeline (PhasePlus, FilePath))
   , linkHook               :: Maybe (GhcLink -> DynFlags -> Bool -> HomePackageTable -> IO SuccessFlag)
   , runQuasiQuoteHook      :: Maybe (HsQuasiQuote Name -> RnM (HsQuasiQuote Name))
-  , runRnSpliceHook        :: Maybe (LHsExpr Name -> RnM (LHsExpr Name))
+  , runRnSpliceHook        :: Maybe (LHsExpr Name PostTcType -> RnM (LHsExpr Name PostTcType))
   , getValueSafelyHook     :: Maybe (HscEnv -> Name -> Type -> IO (Maybe HValue))
   }
 

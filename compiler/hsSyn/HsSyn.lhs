@@ -51,7 +51,7 @@ import Data.Data hiding ( Fixity )
 
 \begin{code}
 -- | All we actually declare here is the top-level structure for a module.
-data HsModule name
+data HsModule name ptt
   = HsModule {
       hsmodName :: Maybe (Located ModuleName),
         -- ^ @Nothing@: \"module X where\" is omitted (in which case the next
@@ -69,7 +69,7 @@ data HsModule name
         -- ^ We snaffle interesting stuff out of the imported interfaces early
         -- on, adding that info to TyDecls/etc; so this list is often empty,
         -- downstream.
-      hsmodDecls :: [LHsDecl name],
+      hsmodDecls :: [LHsDecl name ptt],
         -- ^ Type, class, value, and interface signature decls
       hsmodDeprecMessage :: Maybe WarningTxt,
         -- ^ reason\/explanation for warning/deprecation of this module
@@ -81,7 +81,7 @@ data HsModule name
 
 \begin{code}
 instance (OutputableBndr name, HasOccName name)
-        => Outputable (HsModule name) where
+        => Outputable (HsModule name ptt) where
 
     ppr (HsModule Nothing _ imports decls _ mbDoc)
       = pp_mb mbDoc $$ pp_nonnull imports $$ pp_nonnull decls

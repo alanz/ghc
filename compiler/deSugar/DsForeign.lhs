@@ -79,11 +79,11 @@ so we reuse the desugaring code in @DsCCall@ to deal with these.
 type Binding = (Id, CoreExpr)   -- No rec/nonrec structure;
                                 -- the occurrence analyser will sort it all out
 
-dsForeigns :: [LForeignDecl Id]
+dsForeigns :: [LForeignDecl Id PostTcType]
            -> DsM (ForeignStubs, OrdList Binding)
 dsForeigns fos = getHooked dsForeignsHook dsForeigns' >>= ($ fos)
 
-dsForeigns' :: [LForeignDecl Id]
+dsForeigns' :: [LForeignDecl Id PostTcType]
             -> DsM (ForeignStubs, OrdList Binding)
 dsForeigns' []
   = return (NoStubs, nilOL)

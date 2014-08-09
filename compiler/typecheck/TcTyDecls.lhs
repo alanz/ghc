@@ -118,12 +118,12 @@ synTyConsOfType ty
 ---------------------------------------- END NOTE ]
 
 \begin{code}
-mkSynEdges :: [LTyClDecl Name] -> [(LTyClDecl Name, Name, [Name])]
+mkSynEdges :: [LTyClDecl Name PostTcType] -> [(LTyClDecl Name PostTcType, Name, [Name])]
 mkSynEdges syn_decls = [ (ldecl, name, nameSetToList fvs)
                        | ldecl@(L _ (SynDecl { tcdLName = L _ name
                                              , tcdFVs = fvs })) <- syn_decls ]
 
-calcSynCycles :: [LTyClDecl Name] -> [SCC (LTyClDecl Name)]
+calcSynCycles :: [LTyClDecl Name PostTcType] -> [SCC (LTyClDecl Name PostTcType)]
 calcSynCycles = stronglyConnCompFromEdgedVertices . mkSynEdges
 \end{code}
 
@@ -540,7 +540,7 @@ isPromotableType rec_tcs con_arg_ty
 \begin{code}
 type RoleAnnots = NameEnv (LRoleAnnotDecl Name)
 
-extractRoleAnnots :: TyClGroup Name -> RoleAnnots
+extractRoleAnnots :: TyClGroup Name PostTcType -> RoleAnnots
 extractRoleAnnots (TyClGroup { group_roles = roles })
   = mkNameEnv [ (tycon, role_annot)
               | role_annot@(L _ (RoleAnnotDecl (L _ tycon) _)) <- roles ]

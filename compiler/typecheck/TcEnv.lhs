@@ -574,7 +574,7 @@ zapLclTypeEnv thing_inside
 %************************************************************************
 
 \begin{code}
-tcExtendRules :: [LRuleDecl Id] -> TcM a -> TcM a
+tcExtendRules :: [LRuleDecl Id PostTcType] -> TcM a -> TcM a
         -- Just pop the new rules into the EPS and envt resp
         -- All the rules come from an interface file, not source
         -- Nevertheless, some may be for this module, if we read
@@ -639,7 +639,7 @@ tcMetaTy tc_name = do
     t <- tcLookupTyCon tc_name
     return (mkTyConApp t [])
 
-isBrackStage :: ThStage -> Bool
+isBrackStage :: ThStage PostTcType -> Bool
 isBrackStage (Brack {}) = True
 isBrackStage _other     = False
 \end{code}
@@ -712,19 +712,19 @@ But local instance decls includes
 as well as explicit user written ones.
 
 \begin{code}
-data InstInfo a
+data InstInfo a ptt
   = InstInfo {
       iSpec   :: ClsInst,        -- Includes the dfun id.  Its forall'd type
-      iBinds  :: InstBindings a   -- variables scope over the stuff in InstBindings!
+      iBinds  :: InstBindings a ptt -- variables scope over the stuff in InstBindings!
     }
 
-iDFunId :: InstInfo a -> DFunId
+iDFunId :: InstInfo a ptt -> DFunId
 iDFunId info = instanceDFunId (iSpec info)
 
-data InstBindings a
+data InstBindings a ptt
   = InstBindings
-      { ib_binds :: (LHsBinds a)  -- Bindings for the instance methods
-      , ib_pragmas :: [LSig a]    -- User pragmas recorded for generating 
+      { ib_binds :: (LHsBinds a ptt)  -- Bindings for the instance methods
+      , ib_pragmas :: [LSig a ptt]    -- User pragmas recorded for generating 
                                   -- specialised instances
       , ib_extensions :: [ExtensionFlag] -- any extra extensions that should
                                          -- be enabled when type-checking this
@@ -736,25 +736,25 @@ data InstBindings a
            --          Used only to improve error messages
       }
 
-instance OutputableBndr a => Outputable (InstInfo a) where
+instance OutputableBndr a => Outputable (InstInfo a ptt) where
     ppr = pprInstInfoDetails
 
-pprInstInfoDetails :: OutputableBndr a => InstInfo a -> SDoc
+pprInstInfoDetails :: OutputableBndr a => InstInfo a ptt -> SDoc
 pprInstInfoDetails info 
    = hang (pprInstanceHdr (iSpec info) <+> ptext (sLit "where"))
         2 (details (iBinds info))
   where
     details (InstBindings { ib_binds = b }) = pprLHsBinds b
 
-simpleInstInfoClsTy :: InstInfo a -> (Class, Type)
+simpleInstInfoClsTy :: InstInfo a ptt -> (Class, Type)
 simpleInstInfoClsTy info = case instanceHead (iSpec info) of
                            (_, cls, [ty]) -> (cls, ty)
                            _ -> panic "simpleInstInfoClsTy"
 
-simpleInstInfoTy :: InstInfo a -> Type
+simpleInstInfoTy :: InstInfo a ptt -> Type
 simpleInstInfoTy info = snd (simpleInstInfoClsTy info)
 
-simpleInstInfoTyCon :: InstInfo a -> TyCon
+simpleInstInfoTyCon :: InstInfo a ptt -> TyCon
   -- Gets the type constructor for a simple instance declaration,
   -- i.e. one of the form       instance (...) => C (T a b c) where ...
 simpleInstInfoTyCon inst = tcTyConAppTyCon (simpleInstInfoTy inst)

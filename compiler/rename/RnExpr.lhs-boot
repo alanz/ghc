@@ -7,15 +7,16 @@ import RdrName    ( RdrName )
 import TcRnTypes
 import SrcLoc     ( Located )
 import Outputable ( Outputable )
+import HsLit ( PreTcType,PostTcType )
 
-rnLExpr :: LHsExpr RdrName
-        -> RnM (LHsExpr Name, FreeVars)
+rnLExpr :: LHsExpr RdrName PreTcType
+        -> RnM (LHsExpr Name PostTcType, FreeVars)
 
 rnStmts :: --forall thing body.
            Outputable (body RdrName) => HsStmtContext Name 
         -> (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-        -> [LStmt RdrName (Located (body RdrName))]
+        -> [LStmt RdrName (Located (body RdrName)) PreTcType]
         -> ([Name] -> RnM (thing, FreeVars))
-        -> RnM (([LStmt Name (Located (body Name))], thing), FreeVars)   
+        -> RnM (([LStmt Name (Located (body Name)) PostTcType], thing), FreeVars)   
 \end{code}
 

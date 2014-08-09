@@ -28,7 +28,7 @@ import FastString
 
 #ifndef GHCI
 
-tcAnnotations :: [LAnnDecl Name] -> TcM [Annotation]
+tcAnnotations :: [LAnnDecl Name PostTcType] -> TcM [Annotation]
 -- No GHCI; emit a warning (not an error) and ignore. cf Trac #4268
 tcAnnotations [] = return []
 tcAnnotations anns@(L loc _ : _)
@@ -58,7 +58,7 @@ annProvenanceToTarget _   (TypeAnnProvenance name)  = NamedTarget name
 annProvenanceToTarget mod ModuleAnnProvenance       = ModuleTarget mod
 #endif
 
-annCtxt :: OutputableBndr id => AnnDecl id -> SDoc
+annCtxt :: OutputableBndr id => AnnDecl id ptt -> SDoc
 annCtxt ann
   = hang (ptext (sLit "In the annotation:")) 2 (ppr ann)
 \end{code}

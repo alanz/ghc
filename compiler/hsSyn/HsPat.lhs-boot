@@ -1,5 +1,8 @@
 \begin{code}
 {-# LANGUAGE CPP, KindSignatures #-}
+#if __GLASGOW_HASKELL__ > 706
+{-# LANGUAGE CPP, RoleAnnotations #-}
+#endif
 
 module HsPat where
 import SrcLoc( Located )
@@ -7,8 +10,8 @@ import SrcLoc( Located )
 import Data.Data
 import Outputable
 
-data Pat (i :: *)
-type LPat i = Located (Pat i)
+data Pat (i :: *) (p :: *)
+type LPat i p = Located (Pat i p)
 
 #if __GLASGOW_HASKELL__ > 706
 instance Typeable Pat
@@ -16,6 +19,10 @@ instance Typeable Pat
 instance Typeable1 Pat
 #endif
 
-instance Data i => Data (Pat i)
-instance (OutputableBndr name) => Outputable (Pat name)
+#if __GLASGOW_HASKELL__ > 706
+type role Pat representational nominal
+#endif
+
+instance (Data i, Data ptt) => Data (Pat i ptt)
+instance (OutputableBndr name) => Outputable (Pat name ptt)
 \end{code}

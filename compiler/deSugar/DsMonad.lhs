@@ -81,7 +81,7 @@ data DsMatchContext
   deriving ()
 
 data EquationInfo
-  = EqnInfo { eqn_pats :: [Pat Id],     -- The patterns for an eqn
+  = EqnInfo { eqn_pats :: [Pat Id PostTcType],     -- The patterns for an eqn
               eqn_rhs  :: MatchResult } -- What to do after match
 
 instance Outputable EquationInfo where
@@ -186,7 +186,7 @@ data DsMetaVal
                         -- Will be dynamically alpha renamed.
                         -- The Id has type THSyntax.Var
 
-   | Splice (HsExpr Id) -- These bindings are introduced by
+   | Splice (HsExpr Id PostTcType) -- These bindings are introduced by
                         -- the PendingSplices on a HsBracketOut
 
 initDs :: HscEnv

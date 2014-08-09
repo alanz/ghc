@@ -304,7 +304,7 @@ data TcGblEnv
                 -- Keep the renamed imports regardless.  They are not
                 -- voluminous and are needed if you want to report unused imports
 
-        tcg_rn_decls :: Maybe (HsGroup Name),
+        tcg_rn_decls :: Maybe (HsGroup Name PostTcType),
           -- ^ Renamed decls, maybe.  @Nothing@ <=> Don't retain renamed
           -- decls.
 
@@ -328,7 +328,7 @@ data TcGblEnv
 
         -- Things defined in this module, or (in GHCi) in the interactive package
         --   For the latter, see Note [The interactive package] in HscTypes
-        tcg_binds     :: LHsBinds Id,       -- Value bindings in this module
+        tcg_binds     :: LHsBinds Id PostTcType, -- Value bindings in this module
         tcg_sigs      :: NameSet,           -- ...Top-level names that *lack* a signature
         tcg_imp_specs :: [LTcSpecPrag],     -- ...SPECIALISE prags for imported Ids
         tcg_warns     :: Warnings,          -- ...Warnings and deprecations
@@ -336,9 +336,9 @@ data TcGblEnv
         tcg_tcs       :: [TyCon],           -- ...TyCons and Classes
         tcg_insts     :: [ClsInst],         -- ...Instances
         tcg_fam_insts :: [FamInst],         -- ...Family instances
-        tcg_rules     :: [LRuleDecl Id],    -- ...Rules
-        tcg_fords     :: [LForeignDecl Id], -- ...Foreign import & exports
-        tcg_vects     :: [LVectDecl Id],    -- ...Vectorisation declarations
+        tcg_rules     :: [LRuleDecl Id PostTcType], -- ...Rules
+        tcg_fords     :: [LForeignDecl Id PostTcType], -- ...Foreign import & exports
+        tcg_vects     :: [LVectDecl Id PostTcType],    -- ...Vectorisation declarations
         tcg_patsyns   :: [PatSyn],          -- ...Pattern synonyms
 
         tcg_doc_hdr   :: Maybe LHsDocString, -- ^ Maybe Haddock header docs
@@ -464,7 +464,7 @@ data TcLclEnv           -- Changes as we move inside an expression
         tcl_ctxt       :: [ErrCtxt],       -- Error context, innermost on top
         tcl_untch      :: Untouchables,    -- Birthplace for new unification variables
 
-        tcl_th_ctxt    :: ThStage,         -- Template Haskell context
+        tcl_th_ctxt    :: ThStage PostTcType, -- Template Haskell context
         tcl_th_bndrs   :: ThBindEnv,       -- Binding level of in-scope Names
                                            -- defined in this module (not imported)
 
@@ -537,7 +537,7 @@ pass it inwards.
 -- Template Haskell stages and levels
 ---------------------------
 
-data ThStage    -- See Note [Template Haskell state diagram] in TcSplice
+data ThStage ptt -- See Note [Template Haskell state diagram] in TcSplice
   = Splice      -- Top-level splicing
                 -- This code will be run *at compile time*;
                 --   the result replaces the splice
@@ -548,25 +548,25 @@ data ThStage    -- See Note [Template Haskell state diagram] in TcSplice
                 -- Binding level = 1
 
   | Brack                       -- Inside brackets
-      ThStage                   --   Enclosing stage
-      PendingStuff
+      (ThStage ptt)             --   Enclosing stage
+      (PendingStuff ptt)
 
-data PendingStuff
+data PendingStuff ptt
   = RnPendingUntyped              -- Renaming the inside of an *untyped* bracket
-      (TcRef [PendingRnSplice])   -- Pending splices in here
+      (TcRef [PendingRnSplice ptt]) -- Pending splices in here
 
   | RnPendingTyped                -- Renaming the inside of a *typed* bracket
 
   | TcPending                     -- Typechecking the iniside of a typed bracket
-      (TcRef [PendingTcSplice])   --   Accumulate pending splices here
+      (TcRef [PendingTcSplice ptt])   --   Accumulate pending splices here
       (TcRef WantedConstraints)   --     and type constraints here
 
-topStage, topAnnStage, topSpliceStage :: ThStage
+topStage, topAnnStage, topSpliceStage :: ThStage ptt
 topStage       = Comp
 topAnnStage    = Splice False
 topSpliceStage = Splice False
 
-instance Outputable ThStage where
+instance Outputable (ThStage ptt) where
    ppr (Splice _)  = text "Splice"
    ppr Comp        = text "Comp"
    ppr (Brack s _) = text "Brack" <> parens (ppr s)
@@ -582,7 +582,7 @@ impLevel, outerLevel :: ThLevel
 impLevel = 0    -- Imported things; they can be used inside a top level splice
 outerLevel = 1  -- Things defined outside brackets
 
-thLevel :: ThStage -> ThLevel
+thLevel :: ThStage ptt -> ThLevel
 thLevel (Splice _)  = 0
 thLevel Comp        = 1
 thLevel (Brack s _) = thLevel s + 1
@@ -1796,11 +1796,11 @@ data CtOrigin
 
   | IPOccOrigin  HsIPName       -- Occurrence of an implicit parameter
 
-  | LiteralOrigin (HsOverLit Name)      -- Occurrence of a literal
+  | LiteralOrigin (HsOverLit Name PostTcType)      -- Occurrence of a literal
   | NegateOrigin                        -- Occurrence of syntactic negation
 
-  | ArithSeqOrigin (ArithSeqInfo Name) -- [x..], [x..y] etc
-  | PArrSeqOrigin  (ArithSeqInfo Name) -- [:x..y:] and [:x,y..z:]
+  | ArithSeqOrigin (ArithSeqInfo Name PostTcType) -- [x..], [x..y] etc
+  | PArrSeqOrigin  (ArithSeqInfo Name PostTcType) -- [:x..y:] and [:x,y..z:]
   | SectionOrigin
   | TupleOrigin                        -- (..,..)
   | AmbigOrigin UserTypeCtxt    -- Will be FunSigCtxt, InstDeclCtxt, or SpecInstCtxt

@@ -1,5 +1,9 @@
 \begin{code}
 {-# LANGUAGE CPP, KindSignatures #-}
+{-# LANGUAGE CPP, RankNTypes #-}
+#if __GLASGOW_HASKELL__ > 706
+{-# LANGUAGE CPP, RoleAnnotations #-}
+#endif
 module HsExpr where
 
 import SrcLoc     ( Located )
@@ -8,11 +12,11 @@ import {-# SOURCE #-} HsPat  ( LPat )
 
 import Data.Data
 
-data HsExpr (i :: *)
-data HsCmd  (i :: *)
-data HsSplice (i :: *)
-data MatchGroup (a :: *) (body :: *)
-data GRHSs (a :: *) (body :: *)
+data HsExpr (i :: *) (ptt :: *)
+data HsCmd  (i :: *) (ptt :: *)
+data HsSplice (i :: *) (ptt :: *)
+data MatchGroup (a :: *) (body :: *) (ptt :: *)
+data GRHSs (a :: *) (body :: *) (ptt :: *)
 
 #if __GLASGOW_HASKELL__ > 706
 instance Typeable HsSplice
@@ -27,30 +31,37 @@ instance Typeable2 MatchGroup
 instance Typeable2 GRHSs
 #endif
 
-instance Data i => Data (HsSplice i)
-instance Data i => Data (HsExpr i)
-instance Data i => Data (HsCmd i)
-instance (Data i, Data body) => Data (MatchGroup i body)
-instance (Data i, Data body) => Data (GRHSs i body)
+instance (Data i, Data p) => Data (HsSplice i p)
+instance (Data i, Data p) => Data (HsExpr i p)
+instance (Data i, Data p) => Data (HsCmd i p)
+instance (Data i, Data body, Data p) => Data (MatchGroup i body p)
+instance (Data i, Data body, Data p) => Data (GRHSs i body p)
 
-instance OutputableBndr id => Outputable (HsExpr id)
-instance OutputableBndr id => Outputable (HsCmd id)
+instance OutputableBndr id => Outputable (HsExpr id p)
+instance OutputableBndr id => Outputable (HsCmd id p)
 
-type LHsExpr a = Located (HsExpr a)
-type SyntaxExpr a = HsExpr a
+#if __GLASGOW_HASKELL__ > 706
+type role HsExpr representational nominal
+type role HsCmd representational nominal
+type role MatchGroup representational representational nominal
+type role GRHSs representational representational nominal
+type role HsSplice representational nominal
+#endif
+type LHsExpr a p = Located (HsExpr a p)
+type SyntaxExpr a p = HsExpr a p
 
 pprLExpr :: (OutputableBndr i) => 
-        LHsExpr i -> SDoc
+        LHsExpr i p -> SDoc
 
 pprExpr :: (OutputableBndr i) => 
-        HsExpr i -> SDoc
+        HsExpr i p -> SDoc
 
 pprUntypedSplice :: (OutputableBndr i) => 
-                    HsSplice i -> SDoc
+                    HsSplice i p -> SDoc
 
-pprPatBind :: (OutputableBndr bndr, OutputableBndr id, Outputable body)
-           => LPat bndr -> GRHSs id body -> SDoc
+pprPatBind :: forall bndr id body ptt. (OutputableBndr bndr, OutputableBndr id, Outputable body)
+           => LPat bndr ptt -> GRHSs id body ptt -> SDoc
 
 pprFunBind :: (OutputableBndr idL, OutputableBndr idR, Outputable body) 
-           => idL -> Bool -> MatchGroup idR body -> SDoc
+           => idL -> Bool -> MatchGroup idR body ptt -> SDoc
 \end{code}

@@ -15,7 +15,7 @@ import Util
 import Data.Char
 
 -- | Source Statistics
-ppSourceStats :: Bool -> Located (HsModule RdrName) -> SDoc
+ppSourceStats :: Bool -> Located (HsModule RdrName PreTcType) -> SDoc
 ppSourceStats short (L _ (HsModule _ exports imports ldecls _ _))
   = (if short then hcat else vcat)
         (map pp_val

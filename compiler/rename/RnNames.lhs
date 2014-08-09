@@ -458,7 +458,7 @@ used for source code.
         *** See "THE NAMING STORY" in HsDecls ****
 
 \begin{code}
-getLocalNonValBinders :: MiniFixityEnv -> HsGroup RdrName
+getLocalNonValBinders :: MiniFixityEnv -> HsGroup RdrName PreTcType
                       -> RnM ((TcGblEnv, TcLclEnv), NameSet)
 -- Get all the top-level binders bound the group *except*
 -- for value bindings, which are treated separately

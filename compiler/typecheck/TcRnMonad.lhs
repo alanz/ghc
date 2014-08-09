@@ -1175,17 +1175,17 @@ keepAlive name
        ; traceRn (ptext (sLit "keep alive") <+> ppr name)
        ; updTcRef (tcg_keep env) (`addOneToNameSet` name) }
 
-getStage :: TcM ThStage
+getStage :: TcM (ThStage PostTcType)
 getStage = do { env <- getLclEnv; return (tcl_th_ctxt env) }
 
-getStageAndBindLevel :: Name -> TcRn (Maybe (TopLevelFlag, ThLevel, ThStage))
+getStageAndBindLevel :: Name -> TcRn (Maybe (TopLevelFlag, ThLevel, ThStage PostTcType))
 getStageAndBindLevel name
   = do { env <- getLclEnv;
        ; case lookupNameEnv (tcl_th_bndrs env) name of
            Nothing                  -> return Nothing
            Just (top_lvl, bind_lvl) -> return (Just (top_lvl, bind_lvl, tcl_th_ctxt env)) }
 
-setStage :: ThStage -> TcM a -> TcRn a
+setStage :: ThStage PostTcType -> TcM a -> TcRn a
 setStage s = updLclEnv (\ env -> env { tcl_th_ctxt = s })
 \end{code}
 
