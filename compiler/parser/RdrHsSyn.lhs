@@ -119,11 +119,11 @@ mkTyClD (L loc d) = L loc (TyClD d)
 mkInstD :: LInstDecl n ptt -> LHsDecl n ptt
 mkInstD (L loc d) = L loc (InstD d)
 
-mkClassDecl :: SrcSpan
-            -> Located (Maybe (LHsContext RdrName PreTcType), LHsType RdrName PreTcType)
+mkClassDecl :: (PlaceHolderType ptt) => SrcSpan
+            -> Located (Maybe (LHsContext RdrName ptt), LHsType RdrName ptt)
             -> Located [Located (FunDep RdrName)]
-            -> Located (OrdList (LHsDecl RdrName PreTcType))
-            -> P (LTyClDecl RdrName PreTcType)
+            -> Located (OrdList (LHsDecl RdrName ptt))
+            -> P (LTyClDecl RdrName ptt)
 
 mkClassDecl loc (L _ (mcxt, tycl_hdr)) fds where_cls
   = do { let (binds, sigs, ats, at_insts, _, docs) = cvBindsAndSigs (unLoc where_cls)
@@ -136,8 +136,8 @@ mkClassDecl loc (L _ (mcxt, tycl_hdr)) fds where_cls
                                     tcdATs = ats, tcdATDefs = at_defs, tcdDocs  = docs,
                                     tcdFVs = placeHolderNames })) }
 
-mkATDefault :: LTyFamInstDecl RdrName PreTcType
-            -> Either (SrcSpan, SDoc) (LTyFamDefltEqn RdrName PreTcType)
+mkATDefault :: LTyFamInstDecl RdrName ptt
+            -> Either (SrcSpan, SDoc) (LTyFamDefltEqn RdrName ptt)
 -- Take a type-family instance declaration and turn it into
 -- a type-family default equation for a class declaration
 -- We parse things as the former and use this function to convert to the latter
@@ -154,11 +154,11 @@ mkATDefault (L loc (TyFamInstDecl { tfid_eqn = L _ e }))
 mkTyData :: SrcSpan
          -> NewOrData
          -> Maybe CType
-         -> Located (Maybe (LHsContext RdrName PreTcType), LHsType RdrName PreTcType)
-         -> Maybe (LHsKind RdrName PreTcType)
-         -> [LConDecl RdrName PreTcType]
-         -> Maybe [LHsType RdrName PreTcType]
-         -> P (LTyClDecl RdrName PreTcType)
+         -> Located (Maybe (LHsContext RdrName ptt), LHsType RdrName ptt)
+         -> Maybe (LHsKind RdrName ptt)
+         -> [LConDecl RdrName ptt]
+         -> Maybe [LHsType RdrName ptt]
+         -> P (LTyClDecl RdrName ptt)
 mkTyData loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
   = do { (tc, tparams) <- checkTyClHdr tycl_hdr
        ; tyvars <- checkTyVarsP (ppr new_or_data) equalsDots tc tparams
@@ -169,11 +169,11 @@ mkTyData loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
 
 mkDataDefn :: NewOrData
            -> Maybe CType
-           -> Maybe (LHsContext RdrName PreTcType)
-           -> Maybe (LHsKind RdrName PreTcType)
-           -> [LConDecl RdrName PreTcType]
-           -> Maybe [LHsType RdrName PreTcType]
-           -> P (HsDataDefn RdrName PreTcType)
+           -> Maybe (LHsContext RdrName ptt)
+           -> Maybe (LHsKind RdrName ptt)
+           -> [LConDecl RdrName ptt]
+           -> Maybe [LHsType RdrName ptt]
+           -> P (HsDataDefn RdrName ptt)
 mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
   = do { checkDatatypeContext mcxt
        ; let cxt = fromMaybe (noLoc []) mcxt
@@ -184,18 +184,18 @@ mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
                             , dd_derivs = maybe_deriv }) }
 
 mkTySynonym :: SrcSpan
-            -> LHsType RdrName PreTcType  -- LHS
-            -> LHsType RdrName PreTcType -- RHS
-            -> P (LTyClDecl RdrName PreTcType)
+            -> LHsType RdrName ptt -- LHS
+            -> LHsType RdrName ptt -- RHS
+            -> P (LTyClDecl RdrName ptt)
 mkTySynonym loc lhs rhs
   = do { (tc, tparams) <- checkTyClHdr lhs
        ; tyvars <- checkTyVarsP (ptext (sLit "type")) equalsDots tc tparams
        ; return (L loc (SynDecl { tcdLName = tc, tcdTyVars = tyvars
                                 , tcdRhs = rhs, tcdFVs = placeHolderNames })) }
 
-mkTyFamInstEqn :: LHsType RdrName PreTcType
-               -> LHsType RdrName PreTcType
-               -> P (TyFamInstEqn RdrName PreTcType)
+mkTyFamInstEqn :: LHsType RdrName ptt
+               -> LHsType RdrName ptt
+               -> P (TyFamInstEqn RdrName ptt)
 mkTyFamInstEqn lhs rhs
   = do { (tc, tparams) <- checkTyClHdr lhs
        ; return (TyFamEqn { tfe_tycon = tc
@@ -205,11 +205,11 @@ mkTyFamInstEqn lhs rhs
 mkDataFamInst :: SrcSpan
          -> NewOrData
          -> Maybe CType
-         -> Located (Maybe (LHsContext RdrName PreTcType), LHsType RdrName PreTcType)
-         -> Maybe (LHsKind RdrName PreTcType)
-         -> [LConDecl RdrName PreTcType]
-         -> Maybe [LHsType RdrName PreTcType]
-         -> P (LInstDecl RdrName PreTcType)
+         -> Located (Maybe (LHsContext RdrName ptt), LHsType RdrName ptt)
+         -> Maybe (LHsKind RdrName ptt)
+         -> [LConDecl RdrName ptt]
+         -> Maybe [LHsType RdrName ptt]
+         -> P (LInstDecl RdrName ptt)
 mkDataFamInst loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
   = do { (tc, tparams) <- checkTyClHdr tycl_hdr
        ; defn <- mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
@@ -218,17 +218,17 @@ mkDataFamInst loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_
                                   , dfid_defn = defn, dfid_fvs = placeHolderNames }))) }
 
 mkTyFamInst :: SrcSpan
-            -> LTyFamInstEqn RdrName PreTcType
-            -> P (LInstDecl RdrName PreTcType)
+            -> LTyFamInstEqn RdrName ptt
+            -> P (LInstDecl RdrName ptt)
 mkTyFamInst loc eqn
   = return (L loc (TyFamInstD (TyFamInstDecl { tfid_eqn  = eqn
                                              , tfid_fvs  = placeHolderNames })))
 
 mkFamDecl :: SrcSpan
-          -> FamilyInfo RdrName PreTcType
-          -> LHsType RdrName PreTcType   -- LHS
-          -> Maybe (LHsKind RdrName PreTcType) -- Optional kind signature
-          -> P (LTyClDecl RdrName PreTcType)
+          -> FamilyInfo RdrName ptt
+          -> LHsType RdrName ptt   -- LHS
+          -> Maybe (LHsKind RdrName ptt) -- Optional kind signature
+          -> P (LTyClDecl RdrName ptt)
 mkFamDecl loc info lhs ksig
   = do { (tc, tparams) <- checkTyClHdr lhs
        ; tyvars <- checkTyVarsP (ppr info) equals_or_where tc tparams
@@ -240,7 +240,7 @@ mkFamDecl loc info lhs ksig
                         OpenTypeFamily      -> empty
                         ClosedTypeFamily {} -> whereDots
 
-mkSpliceDecl :: LHsExpr RdrName PreTcType -> HsDecl RdrName PreTcType
+mkSpliceDecl :: LHsExpr RdrName ptt -> HsDecl RdrName ptt
 -- If the user wrote
 --      [pads| ... ]   then return a QuasiQuoteD
 --      $(e)           then return a SpliceD
@@ -306,26 +306,26 @@ analyser.
 
 \begin{code}
 --  | Groups together bindings for a single function
-cvTopDecls :: OrdList (LHsDecl RdrName PreTcType) -> [LHsDecl RdrName PreTcType]
+cvTopDecls :: (PlaceHolderType ptt) => OrdList (LHsDecl RdrName ptt) -> [LHsDecl RdrName ptt]
 cvTopDecls decls = go (fromOL decls)
   where
-    go :: [LHsDecl RdrName PreTcType] -> [LHsDecl RdrName PreTcType]
+    -- go :: [LHsDecl RdrName ptt] -> [LHsDecl RdrName ptt]
     go []                   = []
     go (L l (ValD b) : ds)  = L l' (ValD b') : go ds'
                             where (L l' b', ds') = getMonoBind (L l b) ds
     go (d : ds)             = d : go ds
 
 -- Declaration list may only contain value bindings and signatures.
-cvBindGroup :: OrdList (LHsDecl RdrName PreTcType) -> HsValBinds RdrName PreTcType
+cvBindGroup :: (PlaceHolderType ptt) => OrdList (LHsDecl RdrName ptt) -> HsValBinds RdrName ptt
 cvBindGroup binding
   = case cvBindsAndSigs binding of
       (mbs, sigs, fam_ds, tfam_insts, dfam_insts, _) 
          -> ASSERT( null fam_ds && null tfam_insts && null dfam_insts)
             ValBindsIn mbs sigs
 
-cvBindsAndSigs :: OrdList (LHsDecl RdrName PreTcType)
-  -> (LHsBinds RdrName PreTcType, [LSig RdrName PreTcType], [LFamilyDecl RdrName PreTcType]
-          , [LTyFamInstDecl RdrName PreTcType], [LDataFamInstDecl RdrName PreTcType], [LDocDecl])
+cvBindsAndSigs :: (PlaceHolderType ptt) => OrdList (LHsDecl RdrName ptt)
+  -> (LHsBinds RdrName ptt, [LSig RdrName ptt], [LFamilyDecl RdrName ptt]
+          , [LTyFamInstDecl RdrName ptt], [LDataFamInstDecl RdrName ptt], [LDocDecl])
 -- Input decls contain just value bindings and signatures
 -- and in case of class or instance declarations also
 -- associated type declarations. They might also contain Haddock comments.
@@ -350,8 +350,8 @@ cvBindsAndSigs  fb = go (fromOL fb)
 -----------------------------------------------------------------------------
 -- Group function bindings into equation groups
 
-getMonoBind :: LHsBind RdrName PreTcType -> [LHsDecl RdrName PreTcType]
-  -> (LHsBind RdrName PreTcType, [LHsDecl RdrName PreTcType])
+getMonoBind :: (PlaceHolderType ptt) => LHsBind RdrName ptt -> [LHsDecl RdrName ptt]
+  -> (LHsBind RdrName ptt, [LHsDecl RdrName ptt])
 -- Suppose      (b',ds') = getMonoBind b ds
 --      ds is a list of parsed bindings
 --      b is a MonoBinds that has just been read off the front
@@ -385,7 +385,7 @@ getMonoBind (L loc1 (FunBind { fun_id = fun_id1@(L _ f1), fun_infix = is_infix1,
 
 getMonoBind bind binds = (bind, binds)
 
-has_args :: [LMatch RdrName (LHsExpr RdrName PreTcType) PreTcType] -> Bool
+has_args :: [LMatch RdrName (LHsExpr RdrName ptt) ptt] -> Bool
 has_args []                           = panic "RdrHsSyn:has_args"
 has_args ((L _ (Match args _ _)) : _) = not (null args)
         -- Don't group together FunBinds if they have
@@ -482,9 +482,9 @@ toPatSynMatchGroup (L _ patsyn_name) (L _ decls) =
 
 mkDeprecatedGadtRecordDecl :: SrcSpan
                            -> Located RdrName
-                           -> [ConDeclField RdrName PreTcType]
-                           -> LHsType RdrName PreTcType
-                           ->  P (LConDecl RdrName PreTcType)
+                           -> [ConDeclField RdrName ptt]
+                           -> LHsType RdrName ptt
+                           ->  P (LConDecl RdrName ptt)
 -- This one uses the deprecated syntax
 --    C { x,y ::Int } :: T a b
 -- We give it a RecCon details right away
@@ -499,9 +499,9 @@ mkDeprecatedGadtRecordDecl loc (L con_loc con) flds res_ty
                                 , con_res      = ResTyGADT res_ty
                                 , con_doc      = Nothing })) }
 
-mkSimpleConDecl :: Located RdrName -> [LHsTyVarBndr RdrName PreTcType]
-                -> LHsContext RdrName PreTcType -> HsConDeclDetails RdrName PreTcType
-                -> ConDecl RdrName PreTcType
+mkSimpleConDecl :: Located RdrName -> [LHsTyVarBndr RdrName ptt]
+                -> LHsContext RdrName ptt -> HsConDeclDetails RdrName ptt
+                -> ConDecl RdrName ptt
 
 mkSimpleConDecl name qvars cxt details
   = ConDecl { con_old_rec  = False
@@ -570,8 +570,8 @@ we can bring x,y into scope.  So:
    * For RecCon we do not
 
 \begin{code}
-checkTyVarsP :: SDoc -> SDoc -> Located RdrName -> [LHsType RdrName PreTcType]
-  -> P (LHsTyVarBndrs RdrName PreTcType)
+checkTyVarsP :: SDoc -> SDoc -> Located RdrName -> [LHsType RdrName ptt]
+  -> P (LHsTyVarBndrs RdrName ptt)
 -- Same as checkTyVars, but in the P monad
 checkTyVarsP pp_what equals_or_where tc tparms 
   = eitherToP $ checkTyVars pp_what equals_or_where tc tparms 
@@ -580,8 +580,8 @@ eitherToP :: Either (SrcSpan, SDoc) a -> P a
 -- Adapts the Either monad to the P monad
 eitherToP (Left (loc, doc)) = parseErrorSDoc loc doc
 eitherToP (Right thing)     = return thing
-checkTyVars :: SDoc -> SDoc -> Located RdrName -> [LHsType RdrName PreTcType] 
-            -> Either (SrcSpan, SDoc) (LHsTyVarBndrs RdrName PreTcType)
+checkTyVars :: SDoc -> SDoc -> Located RdrName -> [LHsType RdrName ptt]
+            -> Either (SrcSpan, SDoc) (LHsTyVarBndrs RdrName ptt)
 -- Check whether the given list of type parameters are all type variables
 -- (possibly with a kind signature)
 -- We use the Either monad because it's also called (via mkATDefault) from
@@ -610,7 +610,7 @@ whereDots, equalsDots :: SDoc
 whereDots  = ptext (sLit "where ...")
 equalsDots = ptext (sLit "= ...")
 
-checkDatatypeContext :: Maybe (LHsContext RdrName PreTcType) -> P ()
+checkDatatypeContext :: Maybe (LHsContext RdrName ptt) -> P ()
 checkDatatypeContext Nothing = return ()
 checkDatatypeContext (Just (L loc c))
     = do allowed <- extension datatypeContextsEnabled
@@ -628,9 +628,9 @@ checkRecordSyntax lr@(L loc r)
                       (text "Illegal record syntax (use TraditionalRecordSyntax):" <+>
                        ppr r)
 
-checkTyClHdr :: LHsType RdrName PreTcType
+checkTyClHdr :: LHsType RdrName ptt
              -> P (Located RdrName,             -- the head symbol (type or class name)
-                   [LHsType RdrName PreTcType]) -- parameters of head symbol
+                   [LHsType RdrName ptt]) -- parameters of head symbol
 -- Well-formedness check and decomposition of type and class heads.
 -- Decomposes   T ty1 .. tyn   into    (T, [ty1, ..., tyn])
 --              Int :*: Bool   into    (:*:, [Int, Bool])

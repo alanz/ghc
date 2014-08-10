@@ -126,10 +126,10 @@ revert to SimplCheck when going under an implication.
 
 
 \begin{code}
-tcRules :: [LRuleDecl Name] -> TcM [LRuleDecl TcId]
+tcRules :: [LRuleDecl Name PostTcType] -> TcM [LRuleDecl TcId PostTcType]
 tcRules decls = mapM (wrapLocM tcRule) decls
 
-tcRule :: RuleDecl Name -> TcM (RuleDecl TcId)
+tcRule :: RuleDecl Name PostTcType -> TcM (RuleDecl TcId PostTcType)
 tcRule (HsRule name act hs_bndrs lhs fv_lhs rhs fv_rhs)
   = addErrCtxt (ruleCtxt name)	$
     do { traceTc "---- Rule ------" (ppr name)
@@ -204,7 +204,7 @@ tcRule (HsRule name act hs_bndrs lhs fv_lhs rhs fv_rhs)
 		    (mkHsDictLet (TcEvBinds lhs_binds_var) lhs') fv_lhs
 		    (mkHsDictLet (TcEvBinds rhs_binds_var) rhs') fv_rhs) }
 
-tcRuleBndrs :: [RuleBndr Name] -> TcM [Var]
+tcRuleBndrs :: [RuleBndr Name PostTcType] -> TcM [Var]
 tcRuleBndrs [] 
   = return []
 tcRuleBndrs (RuleBndr (L _ name) : rule_bndrs)

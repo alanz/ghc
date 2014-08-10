@@ -259,16 +259,16 @@ mkRecStmt stmts = emptyRecStmt { recS_stmts = stmts }
 mkHsOpApp :: LHsExpr id ptt -> id -> LHsExpr id ptt -> HsExpr id ptt
 mkHsOpApp e1 op e2 = OpApp e1 (noLoc (HsVar op)) (error "mkOpApp:fixity") e2
 
-mkHsSplice :: LHsExpr RdrName PreTcType -> HsSplice RdrName PreTcType
+mkHsSplice :: LHsExpr RdrName ptt -> HsSplice RdrName ptt
 mkHsSplice e = HsSplice unqualSplice e
 
-mkHsSpliceE :: LHsExpr RdrName PreTcType -> HsExpr RdrName PreTcType
+mkHsSpliceE :: LHsExpr RdrName ptt -> HsExpr RdrName ptt
 mkHsSpliceE e = HsSpliceE False (mkHsSplice e)
 
-mkHsSpliceTE :: LHsExpr RdrName PreTcType -> HsExpr RdrName PreTcType
+mkHsSpliceTE :: LHsExpr RdrName ptt -> HsExpr RdrName ptt
 mkHsSpliceTE e = HsSpliceE True (mkHsSplice e)
 
-mkHsSpliceTy :: LHsExpr RdrName PreTcType -> HsType RdrName PreTcType
+mkHsSpliceTy :: LHsExpr RdrName ptt -> HsType RdrName ptt
 mkHsSpliceTy e = HsSpliceTy (mkHsSplice e) placeHolderKind
 
 unqualSplice :: RdrName
@@ -339,7 +339,7 @@ nlConPat con pats = noLoc (ConPatIn (noLoc con) (PrefixCon pats))
 nlNullaryConPat :: id -> LPat id ptt
 nlNullaryConPat con = noLoc (ConPatIn (noLoc con) (PrefixCon []))
 
-nlWildConPat :: DataCon -> LPat RdrName PreTcType
+nlWildConPat :: (PlaceHolderType ptt) => DataCon -> LPat RdrName ptt
 nlWildConPat con = noLoc (ConPatIn (noLoc (getRdrName con))
 				   (PrefixCon (nOfThem (dataConSourceArity con) nlWildPat)))
 
@@ -405,7 +405,7 @@ missingTupArg = Missing placeHolderType
 This is needed to implement GeneralizedNewtypeDeriving.
 
 \begin{code}
-toHsType :: Type -> LHsType RdrName PreTcType
+toHsType :: Type -> LHsType RdrName ptt
 toHsType ty
   | [] <- tvs_only
   , [] <- theta
@@ -435,7 +435,7 @@ toHsType ty
 
     mk_hs_tvb tv = noLoc $ KindedTyVar (getRdrName tv) (toHsKind (tyVarKind tv))
 
-toHsKind :: Kind -> LHsKind RdrName PreTcType
+toHsKind :: Kind -> LHsKind RdrName ptt
 toHsKind = toHsType
 
 \end{code}
@@ -482,7 +482,7 @@ l
 %************************************************************************
 
 \begin{code}
-mkFunBind :: Located RdrName -> [LMatch RdrName (LHsExpr RdrName PreTcType) PreTcType] -> HsBind RdrName PreTcType
+mkFunBind :: (PlaceHolderType ptt) => Located RdrName -> [LMatch RdrName (LHsExpr RdrName ptt) ptt] -> HsBind RdrName ptt
 -- Not infix, with place holders for coercion and free vars
 mkFunBind fn ms = FunBind { fun_id = fn, fun_infix = False
                           , fun_matches = mkMatchGroup Generated ms
@@ -498,14 +498,14 @@ mkTopFunBind origin fn ms = FunBind { fun_id = fn, fun_infix = False
                                     , bind_fvs = emptyNameSet	-- NB: closed binding
                                     , fun_tick = Nothing }
 
-mkHsVarBind :: SrcSpan -> RdrName -> LHsExpr RdrName PreTcType -> LHsBind RdrName PreTcType
+mkHsVarBind :: (PlaceHolderType ptt) => SrcSpan -> RdrName -> LHsExpr RdrName ptt -> LHsBind RdrName ptt
 mkHsVarBind loc var rhs = mk_easy_FunBind loc var [] rhs
 
 mkVarBind :: id -> LHsExpr id ptt -> LHsBind id ptt
 mkVarBind var rhs = L (getLoc rhs) $
 		    VarBind { var_id = var, var_rhs = rhs, var_inline = False }
 
-mkPatSynBind :: Located RdrName -> HsPatSynDetails (Located RdrName) -> LPat RdrName PreTcType -> HsPatSynDir RdrName PreTcType -> HsBind RdrName PreTcType
+mkPatSynBind :: Located RdrName -> HsPatSynDetails (Located RdrName) -> LPat RdrName ptt -> HsPatSynDir RdrName ptt -> HsBind RdrName ptt
 mkPatSynBind name details lpat dir = PatSynBind psb
   where
     psb = PSB{ psb_id = name
@@ -515,8 +515,8 @@ mkPatSynBind name details lpat dir = PatSynBind psb
              , psb_fvs = placeHolderNames }
 
 ------------
-mk_easy_FunBind :: SrcSpan -> RdrName -> [LPat RdrName PreTcType]
-		-> LHsExpr RdrName PreTcType -> LHsBind RdrName PreTcType
+mk_easy_FunBind :: (PlaceHolderType ptt) => SrcSpan -> RdrName -> [LPat RdrName ptt]
+                -> LHsExpr RdrName ptt -> LHsBind RdrName ptt
 mk_easy_FunBind loc fun pats expr
   = L loc $ mkFunBind (L loc fun) [mkMatch pats expr emptyLocalBinds]
 

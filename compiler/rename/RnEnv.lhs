@@ -934,7 +934,7 @@ data HsSigCtxt
   | HsBootCtxt               -- Top level of a hs-boot file
 
 lookupSigOccRn :: HsSigCtxt
-               -> Sig RdrName PreTcType
+               -> Sig RdrName ptt
                -> Located RdrName -> RnM (Located Name)
 lookupSigOccRn ctxt sig
   = wrapLocM $ \ rdr_name ->
@@ -1218,7 +1218,7 @@ We treat the orignal (standard) names as free-vars too, because the type checker
 checks the type of the user thing against the type of the standard thing.
 
 \begin{code}
-lookupIfThenElse :: RnM (Maybe (SyntaxExpr Name PostTcType), FreeVars)
+lookupIfThenElse :: RnM (Maybe (SyntaxExpr Name ptt), FreeVars)
 -- Different to lookupSyntaxName because in the non-rebindable
 -- case we desugar directly rather than calling an existing function
 -- Hence the (Maybe (SyntaxExpr Name)) return type
@@ -1230,7 +1230,7 @@ lookupIfThenElse
                  ; return (Just (HsVar ite), unitFV ite) } }
 
 lookupSyntaxName :: Name                                -- The standard name
-                 -> RnM (SyntaxExpr Name PostTcType, FreeVars)     -- Possibly a non-standard name
+                 -> RnM (SyntaxExpr Name ptt, FreeVars)     -- Possibly a non-standard name
 lookupSyntaxName std_name
   = do { rebindable_on <- xoptM Opt_RebindableSyntax
        ; if not rebindable_on then 
@@ -1241,7 +1241,7 @@ lookupSyntaxName std_name
               ; return (HsVar usr_name, unitFV usr_name) } }
 
 lookupSyntaxNames :: [Name]                          -- Standard names
-                  -> RnM ([HsExpr Name PostTcType], FreeVars)   -- See comments with HsExpr.ReboundNames
+                  -> RnM ([HsExpr Name ptt], FreeVars)   -- See comments with HsExpr.ReboundNames
 lookupSyntaxNames std_names
   = do { rebindable_on <- xoptM Opt_RebindableSyntax
        ; if not rebindable_on then 

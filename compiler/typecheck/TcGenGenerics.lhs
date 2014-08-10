@@ -64,13 +64,13 @@ For the generic representation we need to generate:
 \end{itemize}
 
 \begin{code}
-gen_Generic_binds :: GenericKind -> TyCon -> MetaTyCons -> Module
-                 -> TcM (LHsBinds RdrName PreTcType, FamInst)
+gen_Generic_binds :: (PlaceHolderType ptt) => GenericKind -> TyCon -> MetaTyCons -> Module
+                 -> TcM (LHsBinds RdrName ptt, FamInst)
 gen_Generic_binds gk tc metaTyCons mod = do
   repTyInsts <- tc_mkRepFamInsts gk tc metaTyCons mod
   return (mkBindsRep gk tc, repTyInsts)
 
-genGenericMetaTyCons :: TyCon -> Module -> TcM (MetaTyCons, BagDerivStuff)
+genGenericMetaTyCons :: TyCon -> Module -> TcM (MetaTyCons, BagDerivStuff ptt)
 genGenericMetaTyCons tc mod =
   do  loc <- getSrcSpanM
       let
@@ -106,7 +106,7 @@ genGenericMetaTyCons tc mod =
       (,) metaDts `fmap` metaTyConsToDerivStuff tc metaDts
 
 -- both the tycon declarations and related instances
-metaTyConsToDerivStuff :: TyCon -> MetaTyCons -> TcM BagDerivStuff
+metaTyConsToDerivStuff :: TyCon -> MetaTyCons -> TcM (BagDerivStuff ptt)
 metaTyConsToDerivStuff tc metaDts =
   do  loc <- getSrcSpanM
       dflags <- getDynFlags
@@ -403,7 +403,7 @@ canDoGenerics1 rep_tc tc_args =
 
 \begin{code}
 type US = Int   -- Local unique supply, just a plain Int
-type Alt = (LPat RdrName PreTcType, LHsExpr RdrName PreTcType)
+type Alt ptt = (LPat RdrName ptt, LHsExpr RdrName ptt)
 
 -- GenericKind serves to mark if a datatype derives Generic (Gen0) or
 -- Generic1 (Gen1).
@@ -428,7 +428,7 @@ gk2gkDC Gen1_{} d = Gen1_DC $ last $ dataConUnivTyVars d
 
 
 -- Bindings for the Generic instance
-mkBindsRep :: GenericKind -> TyCon -> LHsBinds RdrName PreTcType
+mkBindsRep :: (PlaceHolderType ptt) => GenericKind -> TyCon -> LHsBinds RdrName ptt
 mkBindsRep gk tycon =
     unitBag (mkRdrFunBind (L loc from01_RDR) from_matches)
   `unionBags`
@@ -444,7 +444,7 @@ mkBindsRep gk tycon =
                                    Gen1 -> (from1_RDR, to1_RDR)
 
         -- Recurse over the sum first
-        from_alts, to_alts :: [Alt]
+        -- from_alts, to_alts :: (PlaceHolderType ptt) => [Alt ptt]
         (from_alts, to_alts) = mkSum gk_ (1 :: US) tycon datacons
           where gk_ = case gk of
                   Gen0 -> Gen0_
@@ -668,9 +668,9 @@ metaTyCons2TyCons (MetaTyCons d c s) = listToBag (d : c ++ concat s)
 
 -- Bindings for Datatype, Constructor, and Selector instances
 mkBindsMetaD :: FixityEnv -> TyCon
-             -> ( LHsBinds RdrName PreTcType      -- Datatype instance
-                , [LHsBinds RdrName PreTcType]    -- Constructor instances
-                , [[LHsBinds RdrName PreTcType]]) -- Selector instances
+             -> ( LHsBinds RdrName ptt      -- Datatype instance
+                , [LHsBinds RdrName ptt]    -- Constructor instances
+                , [[LHsBinds RdrName ptt]]) -- Selector instances
 mkBindsMetaD fix_env tycon = (dtBinds, allConBinds, allSelBinds)
       where
         mkBag l = foldr1 unionBags
@@ -701,6 +701,8 @@ mkBindsMetaD fix_env tycon = (dtBinds, allConBinds, allSelBinds)
         selBinds s    = mkBag [(selName_RDR, selName_matches s)]
 
         loc           = srcLocSpan (getSrcLoc tycon)
+        mkStringLHS :: (PlaceHolderType ptt)
+                    => String -> [LMatch id (Located (HsExpr id ptt)) ptt]
         mkStringLHS s = [mkSimpleHsAlt nlWildPat (nlHsLit (mkHsString s))]
         datacons      = tyConDataCons tycon
         datasels      = map dataConFieldLabels datacons
@@ -709,6 +711,7 @@ mkBindsMetaD fix_env tycon = (dtBinds, allConBinds, allSelBinds)
                            Just (ptycon, _) -> tyConName ptycon
                            Nothing          -> tyConName tycon
 
+        -- dtName_matches :: (PlaceHolderType ptt) => [LMatch RdrName (LHsExpr RdrName ptt) ptt]
         dtName_matches     = mkStringLHS . occNameString . nameOccName
                            $ tyConName_user
         moduleName_matches = mkStringLHS . moduleNameString . moduleName
@@ -727,12 +730,13 @@ mkBindsMetaD fix_env tycon = (dtBinds, allConBinds, allSelBinds)
 -- Dealing with sums
 --------------------------------------------------------------------------------
 
-mkSum :: GenericKind_ -- Generic or Generic1?
+mkSum :: PlaceHolderType ptt
+      => GenericKind_ -- Generic or Generic1?
       -> US          -- Base for generating unique names
       -> TyCon       -- The type constructor
       -> [DataCon]   -- The data constructors
-      -> ([Alt],     -- Alternatives for the T->Trep "from" function
-          [Alt])     -- Alternatives for the Trep->T "to" function
+      -> ([Alt ptt], -- Alternatives for the T->Trep "from" function
+          [Alt ptt]) -- Alternatives for the Trep->T "to" function
 
 -- Datatype without any constructors
 mkSum _ _ tycon [] = ([from_alt], [to_alt])
@@ -757,8 +761,8 @@ mk1Sum :: GenericKind_DC -- Generic or Generic1?
        -> Int       -- The index of this constructor
        -> Int       -- Total number of constructors
        -> DataCon   -- The data constructor
-       -> (Alt,     -- Alternative for the T->Trep "from" function
-           Alt)     -- Alternative for the Trep->T "to" function
+       -> (Alt ptt, -- Alternative for the T->Trep "from" function
+           Alt ptt) -- Alternative for the Trep->T "to" function
 mk1Sum gk_ us i n datacon = (from_alt, to_alt)
   where
     gk = forgetArgVar gk_
@@ -793,7 +797,7 @@ mk1Sum gk_ us i n datacon = (from_alt, to_alt)
 
 
 -- Generates the L1/R1 sum pattern
-genLR_P :: Int -> Int -> LPat RdrName PreTcType -> LPat RdrName PreTcType
+genLR_P :: Int -> Int -> LPat RdrName ptt -> LPat RdrName ptt
 genLR_P i n p
   | n == 0       = error "impossible"
   | n == 1       = p
@@ -802,7 +806,7 @@ genLR_P i n p
                      where m = div n 2
 
 -- Generates the L1/R1 sum expression
-genLR_E :: Int -> Int -> LHsExpr RdrName PreTcType -> LHsExpr RdrName PreTcType
+genLR_E :: Int -> Int -> LHsExpr RdrName ptt -> LHsExpr RdrName ptt
 genLR_E i n e
   | n == 0       = error "impossible"
   | n == 1       = e
@@ -818,7 +822,7 @@ genLR_E i n e
 mkProd_E :: GenericKind_DC      -- Generic or Generic1?
          -> US              -- Base for unique names
          -> [(RdrName, Type)] -- List of variables matched on the lhs and their types
-         -> LHsExpr RdrName PreTcType -- Resulting product expression
+         -> LHsExpr RdrName ptt -- Resulting product expression
 mkProd_E _   _ []     = mkM1_E (nlHsVar u1DataCon_RDR)
 mkProd_E gk_ _ varTys = mkM1_E (foldBal prod appVars)
                      -- These M1s are meta-information for the constructor
@@ -826,7 +830,7 @@ mkProd_E gk_ _ varTys = mkM1_E (foldBal prod appVars)
     appVars = map (wrapArg_E gk_) varTys
     prod a b = prodDataCon_RDR `nlHsApps` [a,b]
 
-wrapArg_E :: GenericKind_DC -> (RdrName, Type) -> LHsExpr RdrName PreTcType
+wrapArg_E :: GenericKind_DC -> (RdrName, Type) -> LHsExpr RdrName ptt
 wrapArg_E Gen0_DC          (var, _)  = mkM1_E (k1DataCon_RDR `nlHsVarApps` [var])
                          -- This M1 is meta-information for the selector
 wrapArg_E (Gen1_DC argVar) (var, ty) = mkM1_E $ converter ty `nlHsApp` nlHsVar var
@@ -844,7 +848,7 @@ wrapArg_E (Gen1_DC argVar) (var, ty) = mkM1_E $ converter ty `nlHsApp` nlHsVar v
 mkProd_P :: GenericKind   -- Gen0 or Gen1
          -> US                  -- Base for unique names
                -> [RdrName]     -- List of variables to match
-               -> LPat RdrName PreTcType -- Resulting product pattern
+               -> LPat RdrName ptt -- Resulting product pattern
 mkProd_P _  _ []   = mkM1_P (nlNullaryConPat u1DataCon_RDR)
 mkProd_P gk _ vars = mkM1_P (foldBal prod appVars)
                      -- These M1s are meta-information for the constructor
@@ -852,7 +856,7 @@ mkProd_P gk _ vars = mkM1_P (foldBal prod appVars)
     appVars = map (wrapArg_P gk) vars
     prod a b = prodDataCon_RDR `nlConPat` [a,b]
 
-wrapArg_P :: GenericKind -> RdrName -> LPat RdrName PreTcType
+wrapArg_P :: GenericKind -> RdrName -> LPat RdrName ptt
 wrapArg_P Gen0 v = mkM1_P (k1DataCon_RDR `nlConVarPat` [v])
                    -- This M1 is meta-information for the selector
 wrapArg_P Gen1 v = m1DataCon_RDR `nlConVarPat` [v]
@@ -860,13 +864,13 @@ wrapArg_P Gen1 v = m1DataCon_RDR `nlConVarPat` [v]
 mkGenericLocal :: US -> RdrName
 mkGenericLocal u = mkVarUnqual (mkFastString ("g" ++ show u))
 
-mkM1_E :: LHsExpr RdrName PreTcType -> LHsExpr RdrName PreTcType
+mkM1_E :: LHsExpr RdrName ptt -> LHsExpr RdrName ptt
 mkM1_E e = nlHsVar m1DataCon_RDR `nlHsApp` e
 
-mkM1_P :: LPat RdrName PreTcType -> LPat RdrName PreTcType
+mkM1_P :: LPat RdrName ptt -> LPat RdrName ptt
 mkM1_P p = m1DataCon_RDR `nlConPat` [p]
 
-nlHsCompose :: LHsExpr RdrName PreTcType -> LHsExpr RdrName PreTcType -> LHsExpr RdrName PreTcType
+nlHsCompose :: LHsExpr RdrName ptt -> LHsExpr RdrName ptt -> LHsExpr RdrName ptt
 nlHsCompose x y = compose_RDR `nlHsApps` [x, y]
 
 -- | Variant of foldr1 for producing balanced lists

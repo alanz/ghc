@@ -71,10 +71,10 @@ rnExprs ls = rnExprs' ls emptyUniqSet
 Variables. We look up the variable and return the resulting name.
 
 \begin{code}
-rnLExpr :: LHsExpr RdrName -> RnM (LHsExpr Name, FreeVars)
+rnLExpr :: LHsExpr RdrName ptt -> RnM (LHsExpr Name ptt, FreeVars)
 rnLExpr = wrapLocFstM rnExpr
 
-rnExpr :: HsExpr RdrName -> RnM (HsExpr Name, FreeVars)
+rnExpr :: HsExpr RdrName PreTcType -> RnM (HsExpr Name ptt, FreeVars)
 
 finishHsVar :: Name -> RnM (HsExpr Name, FreeVars)
 -- Separated from rnExpr because it's also used

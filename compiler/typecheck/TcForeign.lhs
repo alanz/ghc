@@ -66,12 +66,12 @@ import Control.Monad
 
 \begin{code}
 -- Defines a binding
-isForeignImport :: LForeignDecl name -> Bool
+isForeignImport :: LForeignDecl name ptt -> Bool
 isForeignImport (L _ (ForeignImport _ _ _ _)) = True
 isForeignImport _                             = False
 
 -- Exports a binding
-isForeignExport :: LForeignDecl name -> Bool
+isForeignExport :: LForeignDecl name ptt -> Bool
 isForeignExport (L _ (ForeignExport _ _ _ _)) = True
 isForeignExport _                             = False
 \end{code}
@@ -223,11 +223,11 @@ to the module's usages.
 %************************************************************************
 
 \begin{code}
-tcForeignImports :: [LForeignDecl Name] -> TcM ([Id], [LForeignDecl Id], Bag GlobalRdrElt)
+tcForeignImports :: [LForeignDecl Name PostTcType] -> TcM ([Id], [LForeignDecl Id PostTcType], Bag GlobalRdrElt)
 tcForeignImports decls
   = getHooked tcForeignImportsHook tcForeignImports' >>= ($ decls)
 
-tcForeignImports' :: [LForeignDecl Name] -> TcM ([Id], [LForeignDecl Id], Bag GlobalRdrElt)
+tcForeignImports' :: [LForeignDecl Name PostTcType] -> TcM ([Id], [LForeignDecl Id PostTcType], Bag GlobalRdrElt)
 -- For the (Bag GlobalRdrElt) result, 
 -- see Note [Newtype constructor usage in foreign declarations]
 tcForeignImports' decls
@@ -235,7 +235,7 @@ tcForeignImports' decls
                                filter isForeignImport decls
        ; return (ids, decls, unionManyBags gres) }
 
-tcFImport :: LForeignDecl Name -> TcM (Id, LForeignDecl Id, Bag GlobalRdrElt)
+tcFImport :: LForeignDecl Name PostTcType -> TcM (Id, LForeignDecl Id PostTcType, Bag GlobalRdrElt)
 tcFImport (L dloc fo@(ForeignImport (L nloc nm) hs_ty _ imp_decl))
   = setSrcSpan dloc $ addErrCtxt (foreignDeclCtxt fo)  $
     do { sig_ty <- tcHsSigType (ForSigCtxt nm) hs_ty
@@ -357,13 +357,13 @@ checkMissingAmpersand dflags arg_tys res_ty
 %************************************************************************
 
 \begin{code}
-tcForeignExports :: [LForeignDecl Name]
-                 -> TcM (LHsBinds TcId, [LForeignDecl TcId], Bag GlobalRdrElt)
+tcForeignExports :: [LForeignDecl Name PostTcType]
+                 -> TcM (LHsBinds TcId PostTcType, [LForeignDecl TcId PostTcType], Bag GlobalRdrElt)
 tcForeignExports decls =
   getHooked tcForeignExportsHook tcForeignExports' >>= ($ decls)
 
-tcForeignExports' :: [LForeignDecl Name]
-                 -> TcM (LHsBinds TcId, [LForeignDecl TcId], Bag GlobalRdrElt)
+tcForeignExports' :: [LForeignDecl Name PostTcType]
+                 -> TcM (LHsBinds TcId PostTcType, [LForeignDecl TcId PostTcType], Bag GlobalRdrElt)
 -- For the (Bag GlobalRdrElt) result, 
 -- see Note [Newtype constructor usage in foreign declarations]
 tcForeignExports' decls
@@ -373,7 +373,7 @@ tcForeignExports' decls
        (b, f, gres2) <- setSrcSpan loc (tcFExport fe)
        return (b `consBag` binds, L loc f : fs, gres1 `unionBags` gres2)
 
-tcFExport :: ForeignDecl Name -> TcM (LHsBind Id, ForeignDecl Id, Bag GlobalRdrElt)
+tcFExport :: ForeignDecl Name PostTcType -> TcM (LHsBind Id PostTcType, ForeignDecl Id PostTcType, Bag GlobalRdrElt)
 tcFExport fo@(ForeignExport (L loc nm) hs_ty _ spec)
   = addErrCtxt (foreignDeclCtxt fo) $ do
 
@@ -555,7 +555,7 @@ badCName :: CLabelString -> MsgDoc
 badCName target
   = sep [quotes (ppr target) <+> ptext (sLit "is not a valid C identifier")]
 
-foreignDeclCtxt :: ForeignDecl Name -> SDoc
+foreignDeclCtxt :: ForeignDecl Name PostTcType -> SDoc
 foreignDeclCtxt fo
   = hang (ptext (sLit "When checking declaration:"))
        2 (ppr fo)

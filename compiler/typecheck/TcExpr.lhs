@@ -75,9 +75,9 @@ import qualified Data.Set as Set
 
 \begin{code}
 tcPolyExpr, tcPolyExprNC
-         :: LHsExpr Name        -- Expression to type check
-         -> TcSigmaType         -- Expected type (could be a polytype)
-         -> TcM (LHsExpr TcId)  -- Generalised expr with expected type
+         :: LHsExpr Name PostTcType        -- Expression to type check
+         -> TcSigmaType                    -- Expected type (could be a polytype)
+         -> TcM (LHsExpr TcId PostTcType)  -- Generalised expr with expected type
 
 -- tcPolyExpr is a convenient place (frequent but not too frequent)
 -- place to add context information.
@@ -96,10 +96,10 @@ tcPolyExprNC expr res_ty
 
 ---------------
 tcMonoExpr, tcMonoExprNC
-    :: LHsExpr Name      -- Expression to type check
-    -> TcRhoType         -- Expected type (could be a type variable)
-                         -- Definitely no foralls at the top
-    -> TcM (LHsExpr TcId)
+    :: LHsExpr Name PostTcType  -- Expression to type check
+    -> TcRhoType                -- Expected type (could be a type variable)
+                                -- Definitely no foralls at the top
+    -> TcM (LHsExpr TcId PostTcType)
 
 tcMonoExpr expr res_ty
   = addErrCtxt (exprCtxt expr) $
@@ -112,7 +112,7 @@ tcMonoExprNC (L loc expr) res_ty
         ; return (L loc expr') }
 
 ---------------
-tcInferRho, tcInferRhoNC :: LHsExpr Name -> TcM (LHsExpr TcId, TcRhoType)
+tcInferRho, tcInferRhoNC :: LHsExpr Name PostTcType -> TcM (LHsExpr TcId PostTcType, TcRhoType)
 -- Infer a *rho*-type.  This is, in effect, a special case
 -- for ids and partial applications, so that if
 --     f :: Int -> (forall a. a -> a) -> Int
@@ -128,14 +128,14 @@ tcInferRhoNC (L loc expr)
     do { (expr', rho) <- tcInfExpr expr
        ; return (L loc expr', rho) }
 
-tcInfExpr :: HsExpr Name -> TcM (HsExpr TcId, TcRhoType)
+tcInfExpr :: HsExpr Name PostTcType -> TcM (HsExpr TcId PostTcType, TcRhoType)
 tcInfExpr (HsVar f)     = tcInferId f
 tcInfExpr (HsPar e)     = do { (e', ty) <- tcInferRhoNC e
                              ; return (HsPar e', ty) }
 tcInfExpr (HsApp e1 e2) = tcInferApp e1 [e2]
 tcInfExpr e             = tcInfer (tcExpr e)
 
-tcHole :: OccName -> TcRhoType -> TcM (HsExpr TcId)
+tcHole :: OccName -> TcRhoType -> TcM (HsExpr TcId PostTcType)
 tcHole occ res_ty
  = do { ty <- newFlexiTyVarTy liftedTypeKind
       ; name <- newSysName occ
@@ -154,7 +154,7 @@ tcHole occ res_ty
 %************************************************************************
 
 \begin{code}
-tcExpr :: HsExpr Name -> TcRhoType -> TcM (HsExpr TcId)
+tcExpr :: HsExpr Name PostTcType -> TcRhoType -> TcM (HsExpr TcId PostTcType)
 tcExpr e res_ty | debugIsOn && isSigmaTy res_ty     -- Sanity check
                 = pprPanic "tcExpr: sigma" (ppr res_ty $$ ppr e)
 
@@ -835,8 +835,8 @@ tcExpr other _ = pprPanic "tcMonoExpr" (ppr other)
 %************************************************************************
 
 \begin{code}
-tcArithSeq :: Maybe (SyntaxExpr Name) -> ArithSeqInfo Name -> TcRhoType
-           -> TcM (HsExpr TcId)
+tcArithSeq :: Maybe (SyntaxExpr Name PostTcType) -> ArithSeqInfo Name PostTcType -> TcRhoType
+           -> TcM (HsExpr TcId PostTcType)
 
 tcArithSeq witness seq@(From expr) res_ty
   = do { (coi, elt_ty, wit') <- arithSeqEltType witness res_ty
@@ -871,8 +871,8 @@ tcArithSeq witness seq@(FromThenTo expr1 expr2 expr3) res_ty
         ; return $ mkHsWrapCo coi (ArithSeq eft wit' (FromThenTo expr1' expr2' expr3')) }
 
 -----------------
-arithSeqEltType :: Maybe (SyntaxExpr Name) -> TcRhoType
-              -> TcM (TcCoercion, TcType, Maybe (SyntaxExpr Id))
+arithSeqEltType :: Maybe (SyntaxExpr Name PostTcType) -> TcRhoType
+              -> TcM (TcCoercion, TcType, Maybe (SyntaxExpr Id PostTcType))
 arithSeqEltType Nothing res_ty
   = do { (coi, elt_ty) <- matchExpectedListTy res_ty
        ; return (coi, elt_ty, Nothing) }
@@ -890,8 +890,8 @@ arithSeqEltType (Just fl) res_ty
 %************************************************************************
 
 \begin{code}
-tcApp :: LHsExpr Name -> [LHsExpr Name] -- Function and args
-      -> TcRhoType -> TcM (HsExpr TcId) -- Translated fun and args
+tcApp :: LHsExpr Name PostTcType -> [LHsExpr Name PostTcType] -- Function and args
+      -> TcRhoType -> TcM (HsExpr TcId PostTcType) -- Translated fun and args
 
 tcApp (L _ (HsPar e)) args res_ty
   = tcApp e args res_ty
@@ -932,13 +932,13 @@ tcApp fun args res_ty
         ; return (unLoc app) }
 
 
-mk_app_msg :: LHsExpr Name -> SDoc
+mk_app_msg :: LHsExpr Name PostTcType -> SDoc
 mk_app_msg fun = sep [ ptext (sLit "The function") <+> quotes (ppr fun)
                      , ptext (sLit "is applied to")]
 
 ----------------
-tcInferApp :: LHsExpr Name -> [LHsExpr Name] -- Function and args
-           -> TcM (HsExpr TcId, TcRhoType) -- Translated fun and args
+tcInferApp :: LHsExpr Name PostTcType -> [LHsExpr Name PostTcType] -- Function and args
+           -> TcM (HsExpr TcId PostTcType, TcRhoType) -- Translated fun and args
 
 tcInferApp (L _ (HsPar e))     args = tcInferApp e args
 tcInferApp (L _ (HsApp e1 e2)) args = tcInferApp e1 (e2:args)
@@ -954,7 +954,7 @@ tcInferApp fun args
         ; return (unLoc app, actual_res_ty) }
 
 ----------------
-tcInferFun :: LHsExpr Name -> TcM (LHsExpr TcId, TcRhoType)
+tcInferFun :: LHsExpr Name PostTcType -> TcM (LHsExpr TcId PostTcType, TcRhoType)
 -- Infer and instantiate the type of a function
 tcInferFun (L loc (HsVar name))
   = do { (fun, ty) <- setSrcSpan loc (tcInferId name)
@@ -973,22 +973,22 @@ tcInferFun fun
        ; return (mkLHsWrap wrap fun, rho) }
 
 ----------------
-tcArgs :: LHsExpr Name                          -- The function (for error messages)
-       -> [LHsExpr Name] -> [TcSigmaType]       -- Actual arguments and expected arg types
-       -> TcM [LHsExpr TcId]                    -- Resulting args
+tcArgs :: LHsExpr Name PostTcType                    -- The function (for error messages)
+       -> [LHsExpr Name PostTcType] -> [TcSigmaType] -- Actual arguments and expected arg types
+       -> TcM [LHsExpr TcId PostTcType]              -- Resulting args
 
 tcArgs fun args expected_arg_tys
   = mapM (tcArg fun) (zip3 args expected_arg_tys [1..])
 
 ----------------
-tcArg :: LHsExpr Name                           -- The function (for error messages)
-       -> (LHsExpr Name, TcSigmaType, Int)      -- Actual argument and expected arg type
-       -> TcM (LHsExpr TcId)                    -- Resulting argument
+tcArg :: LHsExpr Name PostTcType                           -- The function (for error messages)
+       -> (LHsExpr Name PostTcType, TcSigmaType, Int)      -- Actual argument and expected arg type
+       -> TcM (LHsExpr TcId PostTcType)                    -- Resulting argument
 tcArg fun (arg, ty, arg_no) = addErrCtxt (funAppCtxt fun arg arg_no)
                                          (tcPolyExprNC arg ty)
 
 ----------------
-tcTupArgs :: [HsTupArg Name] -> [TcSigmaType] -> TcM [HsTupArg TcId]
+tcTupArgs :: [HsTupArg Name PostTcType] -> [TcSigmaType] -> TcM [HsTupArg TcId PostTcType]
 tcTupArgs args tys
   = ASSERT( equalLength args tys ) mapM go (args `zip` tys)
   where
@@ -997,7 +997,7 @@ tcTupArgs args tys
                                    ; return (Present expr') }
 
 ----------------
-unifyOpFunTysWrap :: LHsExpr Name -> Arity -> TcRhoType
+unifyOpFunTysWrap :: LHsExpr Name PostTcType -> Arity -> TcRhoType
                   -> TcM (TcCoercion, [TcSigmaType], TcRhoType)
 -- A wrapper for matchExpectedFunTys
 unifyOpFunTysWrap op arity ty = matchExpectedFunTys herald arity ty
@@ -1005,7 +1005,7 @@ unifyOpFunTysWrap op arity ty = matchExpectedFunTys herald arity ty
     herald = ptext (sLit "The operator") <+> quotes (ppr op) <+> ptext (sLit "takes")
 
 ---------------------------
-tcSyntaxOp :: CtOrigin -> HsExpr Name -> TcType -> TcM (HsExpr TcId)
+tcSyntaxOp :: CtOrigin -> HsExpr Name PostTcType -> TcType -> TcM (HsExpr TcId PostTcType)
 -- Typecheck a syntax operator, checking that it has the specified type
 -- The operator is always a variable at this stage (i.e. renamer output)
 -- This version assumes res_ty is a monotype
@@ -1047,19 +1047,19 @@ in the other order, the extra signature in f2 is reqd.
 %************************************************************************
 
 \begin{code}
-tcCheckId :: Name -> TcRhoType -> TcM (HsExpr TcId)
+tcCheckId :: Name -> TcRhoType -> TcM (HsExpr TcId PostTcType)
 tcCheckId name res_ty
   = do { (expr, actual_res_ty) <- tcInferId name
        ; addErrCtxtM (funResCtxt False (HsVar name) actual_res_ty res_ty) $
          tcWrapResult expr actual_res_ty res_ty }
 
 ------------------------
-tcInferId :: Name -> TcM (HsExpr TcId, TcRhoType)
+tcInferId :: Name -> TcM (HsExpr TcId PostTcType, TcRhoType)
 -- Infer type, and deeply instantiate
 tcInferId n = tcInferIdWithOrig (OccurrenceOf n) n
 
 ------------------------
-tcInferIdWithOrig :: CtOrigin -> Name -> TcM (HsExpr TcId, TcRhoType)
+tcInferIdWithOrig :: CtOrigin -> Name -> TcM (HsExpr TcId PostTcType, TcRhoType)
 -- Look up an occurrence of an Id, and instantiate it (deeply)
 
 tcInferIdWithOrig orig id_name
@@ -1100,7 +1100,7 @@ tcInferIdWithOrig orig id_name
       | otherwise                  = return ()
 
 ------------------------
-instantiateOuter :: CtOrigin -> TcId -> TcM (HsExpr TcId, TcSigmaType)
+instantiateOuter :: CtOrigin -> TcId -> TcM (HsExpr TcId PostTcType, TcSigmaType)
 -- Do just the first level of instantiation of an Id
 --   a) Deal with method sharing
 --   b) Deal with stupid checks
@@ -1202,8 +1202,8 @@ constructors of F [Int] but here we have to do it explicitly.
 It's all grotesquely complicated.
 
 \begin{code}
-tcSeq :: SrcSpan -> Name -> LHsExpr Name -> LHsExpr Name
-      -> TcRhoType -> TcM (HsExpr TcId)
+tcSeq :: SrcSpan -> Name -> LHsExpr Name PostTcType -> LHsExpr Name PostTcType
+      -> TcRhoType -> TcM (HsExpr TcId PostTcType)
 -- (seq e1 e2) :: res_ty
 -- We need a special typing rule because res_ty can be unboxed
 tcSeq loc fun_name arg1 arg2 res_ty
@@ -1214,7 +1214,8 @@ tcSeq loc fun_name arg1 arg2 res_ty
               ty_args = WpTyApp res_ty <.> WpTyApp arg1_ty
         ; return (HsApp (L loc (HsApp fun' arg1')) arg2') }
 
-tcTagToEnum :: SrcSpan -> Name -> LHsExpr Name -> TcRhoType -> TcM (HsExpr TcId)
+tcTagToEnum :: SrcSpan -> Name -> LHsExpr Name PostTcType -> TcRhoType
+            -> TcM (HsExpr TcId PostTcType)
 -- tagToEnum# :: forall a. Int# -> a
 -- See Note [tagToEnum#]   Urgh!
 tcTagToEnum loc fun_name arg res_ty
@@ -1393,8 +1394,8 @@ This extends OK when the field types are universally quantified.
 tcRecordBinds
         :: DataCon
         -> [TcType]     -- Expected type for each field
-        -> HsRecordBinds Name
-        -> TcM (HsRecordBinds TcId)
+        -> HsRecordBinds Name PostTcType
+        -> TcM (HsRecordBinds TcId PostTcType)
 
 tcRecordBinds data_con arg_tys (HsRecFields rbinds dd)
   = do  { mb_binds <- mapM do_bind rbinds
@@ -1417,7 +1418,7 @@ tcRecordBinds data_con arg_tys (HsRecFields rbinds dd)
       = do { addErrTc (badFieldCon (RealDataCon data_con) field_lbl)
            ; return Nothing }
 
-checkMissingFields :: DataCon -> HsRecordBinds Name -> TcM ()
+checkMissingFields :: DataCon -> HsRecordBinds Name PostTcType -> TcM ()
 checkMissingFields data_con rbinds
   | null field_labels   -- Not declared as a record;
                         -- But C{} is still valid if no strict fields
@@ -1465,10 +1466,10 @@ checkMissingFields data_con rbinds
 
 Boring and alphabetical:
 \begin{code}
-addExprErrCtxt :: LHsExpr Name -> TcM a -> TcM a
+addExprErrCtxt :: LHsExpr Name PostTcType -> TcM a -> TcM a
 addExprErrCtxt expr = addErrCtxt (exprCtxt expr)
 
-exprCtxt :: LHsExpr Name -> SDoc
+exprCtxt :: LHsExpr Name PostTcType -> SDoc
 exprCtxt expr
   = hang (ptext (sLit "In the expression:")) 2 (ppr expr)
 
@@ -1476,14 +1477,14 @@ fieldCtxt :: Name -> SDoc
 fieldCtxt field_name
   = ptext (sLit "In the") <+> quotes (ppr field_name) <+> ptext (sLit "field of a record")
 
-funAppCtxt :: LHsExpr Name -> LHsExpr Name -> Int -> SDoc
+funAppCtxt :: LHsExpr Name PostTcType -> LHsExpr Name PostTcType -> Int -> SDoc
 funAppCtxt fun arg arg_no
   = hang (hsep [ ptext (sLit "In the"), speakNth arg_no, ptext (sLit "argument of"),
                     quotes (ppr fun) <> text ", namely"])
        2 (quotes (ppr arg))
 
 funResCtxt :: Bool  -- There is at least one argument
-           -> HsExpr Name -> TcType -> TcType
+           -> HsExpr Name PostTcType -> TcType -> TcType
            -> TidyEnv -> TcM (TidyEnv, MsgDoc)
 -- When we have a mis-match in the return type of a function
 -- try to give a helpful message about too many/few arguments

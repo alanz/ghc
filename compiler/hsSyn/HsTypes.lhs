@@ -138,7 +138,7 @@ data LHsTyVarBndrs name ptt
     }
   deriving( Data, Typeable )
 
-mkHsQTvs :: [LHsTyVarBndr RdrName PreTcType] -> LHsTyVarBndrs RdrName PreTcType
+mkHsQTvs :: [LHsTyVarBndr RdrName ptt] -> LHsTyVarBndrs RdrName ptt
 -- Just at RdrName because in the Name variant we should know just
 -- what the kind-variable binders are; and we don't
 -- We put an empty list (rather than a panic) for the kind vars so 
@@ -383,18 +383,18 @@ data ConDeclField name ptt -- Record fields have Haddoc docs on them
 --
 -- A valid type must have one for-all at the top of the type, or of the fn arg types
 
-mkImplicitHsForAllTy ::                                     LHsContext RdrName PreTcType -> LHsType RdrName PreTcType -> HsType RdrName PreTcType
-mkExplicitHsForAllTy :: [LHsTyVarBndr RdrName PreTcType] -> LHsContext RdrName PreTcType -> LHsType RdrName PreTcType -> HsType RdrName PreTcType
+mkImplicitHsForAllTy ::                               LHsContext RdrName ptt -> LHsType RdrName ptt -> HsType RdrName ptt
+mkExplicitHsForAllTy :: [LHsTyVarBndr RdrName ptt] -> LHsContext RdrName ptt -> LHsType RdrName ptt -> HsType RdrName ptt
 mkImplicitHsForAllTy     ctxt ty = mkHsForAllTy Implicit []  ctxt ty
 mkExplicitHsForAllTy tvs ctxt ty = mkHsForAllTy Explicit tvs ctxt ty
 
-mkHsForAllTy :: HsExplicitFlag -> [LHsTyVarBndr RdrName PreTcType] -> LHsContext RdrName PreTcType -> LHsType RdrName PreTcType -> HsType RdrName PreTcType
+mkHsForAllTy :: HsExplicitFlag -> [LHsTyVarBndr RdrName ptt] -> LHsContext RdrName ptt -> LHsType RdrName ptt -> HsType RdrName ptt
 -- Smart constructor for HsForAllTy
 mkHsForAllTy exp tvs (L _ []) ty = mk_forall_ty exp tvs ty
 mkHsForAllTy exp tvs ctxt     ty = HsForAllTy exp (mkHsQTvs tvs) ctxt ty
 
 -- mk_forall_ty makes a pure for-all type (no context)
-mk_forall_ty :: HsExplicitFlag -> [LHsTyVarBndr RdrName PreTcType] -> LHsType RdrName PreTcType -> HsType RdrName PreTcType
+mk_forall_ty :: HsExplicitFlag -> [LHsTyVarBndr RdrName ptt] -> LHsType RdrName ptt -> HsType RdrName ptt
 mk_forall_ty exp  tvs  (L _ (HsParTy ty))                    = mk_forall_ty exp tvs ty
 mk_forall_ty exp1 tvs1 (L _ (HsForAllTy exp2 qtvs2 ctxt ty)) = mkHsForAllTy (exp1 `plus` exp2) (tvs1 ++ hsq_tvs qtvs2) ctxt ty
 mk_forall_ty exp  tvs  ty                                    = HsForAllTy exp (mkHsQTvs tvs) (noLoc []) ty
@@ -408,7 +408,7 @@ plus :: HsExplicitFlag -> HsExplicitFlag -> HsExplicitFlag
 Implicit `plus` Implicit = Implicit
 _        `plus` _        = Explicit
 
-hsExplicitTvs :: LHsType Name PostTcType -> [Name]
+hsExplicitTvs :: LHsType Name ptt -> [Name]
 -- The explicitly-given forall'd type variables of a HsType
 hsExplicitTvs (L _ (HsForAllTy Explicit tvs _ _)) = hsLKiTyVarNames tvs
 hsExplicitTvs _                                   = []
@@ -425,7 +425,7 @@ hsLTyVarNames :: LHsTyVarBndrs name ptt -> [name]
 -- Type variables only
 hsLTyVarNames qtvs = map hsLTyVarName (hsQTvBndrs qtvs)
 
-hsLKiTyVarNames :: LHsTyVarBndrs Name PostTcType -> [Name]
+hsLKiTyVarNames :: LHsTyVarBndrs Name ptt -> [Name]
 -- Kind and type variables
 hsLKiTyVarNames (HsQTvs { hsq_kvs = kvs, hsq_tvs = tvs })
   = kvs ++ map hsLTyVarName tvs
@@ -512,7 +512,7 @@ splitLHsClassTy_maybe ty
 --      splitHsFunType (a -> (b -> c)) = ([a,b], c)
 -- Also deals with (->) t1 t2; that is why it only works on LHsType Name
 --   (see Trac #9096)
-splitHsFunType :: LHsType Name PostTcType -> ([LHsType Name PostTcType], LHsType Name PostTcType)
+splitHsFunType :: LHsType Name ptt -> ([LHsType Name ptt], LHsType Name ptt)
 splitHsFunType (L _ (HsParTy ty)) 
   = splitHsFunType ty
 
