@@ -350,7 +350,7 @@ tcInfer tc_infer = do { ty  <- newFlexiTyVarTy openTypeKind
 		      ; return (res, ty) }
 
 -----------------
-tcWrapResult :: HsExpr TcId -> TcRhoType -> TcRhoType -> TcM (HsExpr TcId)
+tcWrapResult :: HsExpr TcId PostTcType -> TcRhoType -> TcRhoType -> TcM (HsExpr TcId PostTcType)
 tcWrapResult expr actual_ty res_ty
   = do { cow <- unifyType actual_ty res_ty
        	        -- Both types are deeply skolemised

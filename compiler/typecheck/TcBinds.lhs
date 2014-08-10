@@ -156,7 +156,7 @@ Then we get
                                fm
 
 \begin{code}
-tcTopBinds :: HsValBinds Name -> TcM (TcGblEnv, TcLclEnv)
+tcTopBinds :: HsValBinds Name PostTcType -> TcM (TcGblEnv, TcLclEnv)
 -- The TcGblEnv contains the new tcg_binds and tcg_spects
 -- The TcLclEnv has an extended type envt for the new bindings
 tcTopBinds (ValBindsOut binds sigs)
@@ -178,7 +178,7 @@ tcTopBinds (ValBindsOut binds sigs)
 
 tcTopBinds (ValBindsIn {}) = panic "tcTopBinds"
 
-tcRecSelBinds :: HsValBinds Name -> TcM TcGblEnv
+tcRecSelBinds :: HsValBinds Name PostTcType -> TcM TcGblEnv
 tcRecSelBinds (ValBindsOut binds sigs)
   = tcExtendGlobalValEnv [sel_id | L _ (IdSig sel_id) <- sigs] $
     do { (rec_sel_binds, tcg_env) <- discardWarnings (tcValBinds TopLevel binds sigs getGblEnv)
@@ -192,7 +192,7 @@ tcRecSelBinds (ValBindsOut binds sigs)
        ; return tcg_env' }
 tcRecSelBinds (ValBindsIn {}) = panic "tcRecSelBinds"
 
-tcHsBootSigs :: HsValBinds Name -> TcM [Id]
+tcHsBootSigs :: HsValBinds Name PostTcType -> TcM [Id]
 -- A hs-boot file has only one BindGroup, and it only has type
 -- signatures in it.  The renamer checked all this
 tcHsBootSigs (ValBindsOut binds sigs)
@@ -211,8 +211,8 @@ badBootDeclErr :: MsgDoc
 badBootDeclErr = ptext (sLit "Illegal declarations in an hs-boot file")
 
 ------------------------
-tcLocalBinds :: HsLocalBinds Name -> TcM thing
-             -> TcM (HsLocalBinds TcId, thing)
+tcLocalBinds :: HsLocalBinds Name PostTcType -> TcM thing
+             -> TcM (HsLocalBinds TcId PostTcType, thing)
 
 tcLocalBinds EmptyLocalBinds thing_inside 
   = do  { thing <- thing_inside
@@ -300,9 +300,9 @@ tcTyVar, doesn't look inside the TcTyThing.
 
 \begin{code}
 tcValBinds :: TopLevelFlag 
-           -> [(RecFlag, LHsBinds Name)] -> [LSig Name]
+           -> [(RecFlag, LHsBinds Name PostTcType)] -> [LSig Name PostTcType]
            -> TcM thing
-           -> TcM ([(RecFlag, LHsBinds TcId)], thing) 
+           -> TcM ([(RecFlag, LHsBinds TcId PostTcType)], thing) 
 
 tcValBinds top_lvl binds sigs thing_inside
   = do  {  -- Typecheck the signature
@@ -333,8 +333,8 @@ tcValBinds top_lvl binds sigs thing_inside
 
 ------------------------
 tcBindGroups :: TopLevelFlag -> TcSigFun -> PragFun
-             -> [(RecFlag, LHsBinds Name)] -> TcM thing
-             -> TcM ([(RecFlag, LHsBinds TcId)], thing)
+             -> [(RecFlag, LHsBinds Name PostTcType)] -> TcM thing
+             -> TcM ([(RecFlag, LHsBinds TcId PostTcType)], thing)
 -- Typecheck a whole lot of value bindings,
 -- one strongly-connected component at a time
 -- Here a "strongly connected component" has the strightforward
@@ -354,8 +354,8 @@ tcBindGroups top_lvl sig_fn prag_fn (group : groups) thing_inside
 ------------------------
 tc_group :: forall thing. 
             TopLevelFlag -> TcSigFun -> PragFun
-         -> (RecFlag, LHsBinds Name) -> TcM thing
-         -> TcM ([(RecFlag, LHsBinds TcId)], thing)
+         -> (RecFlag, LHsBinds Name PostTcType) -> TcM thing
+         -> TcM ([(RecFlag, LHsBinds TcId PostTcType)], thing)
 
 -- Typecheck one strongly-connected component of the original program.
 -- We get a list of groups back, because there may 
@@ -389,10 +389,10 @@ tc_group top_lvl sig_fn prag_fn (Recursive, binds) thing_inside
     isPatSyn PatSynBind{} = True
     isPatSyn _ = False
 
-    sccs :: [SCC (LHsBind Name)]
+    sccs :: [SCC (LHsBind Name PostTcType)]
     sccs = stronglyConnCompFromEdgedVertices (mkEdges sig_fn binds)
 
-    go :: [SCC (LHsBind Name)] -> TcM (LHsBinds TcId, [TcId], thing)
+    go :: [SCC (LHsBind Name PostTcType)] -> TcM (LHsBinds TcId PostTcType, [TcId], thing)
     go (scc:sccs) = do  { (binds1, ids1, closed) <- tc_scc scc
                         ; (binds2, ids2, thing)  <- tcExtendLetEnv top_lvl closed ids1 $ 
                                                     go sccs
@@ -404,7 +404,7 @@ tc_group top_lvl sig_fn prag_fn (Recursive, binds) thing_inside
 
     tc_sub_group = tcPolyBinds top_lvl sig_fn prag_fn Recursive
 
-recursivePatSynErr :: OutputableBndr name => LHsBinds name -> TcM a
+recursivePatSynErr :: OutputableBndr name => LHsBinds name ptt -> TcM a
 recursivePatSynErr binds
   = failWithTc $
     hang (ptext (sLit "Recursive pattern synonym definition with following bindings:"))
@@ -416,8 +416,8 @@ recursivePatSynErr binds
 
 tc_single :: forall thing.
             TopLevelFlag -> TcSigFun -> PragFun
-          -> LHsBind Name -> TcM thing
-          -> TcM (LHsBinds TcId, thing)
+          -> LHsBind Name PostTcType -> TcM thing
+          -> TcM (LHsBinds TcId PostTcType, thing)
 tc_single _top_lvl _sig_fn _prag_fn (L _ (PatSynBind psb)) thing_inside
   = do { (pat_syn, aux_binds) <- tcPatSynDecl psb
 
@@ -438,8 +438,8 @@ tc_single top_lvl sig_fn prag_fn lbind thing_inside
        ; return (binds1, thing) }
           
 ------------------------
-mkEdges :: TcSigFun -> LHsBinds Name
-        -> [(LHsBind Name, BKey, [BKey])]
+mkEdges :: TcSigFun -> LHsBinds Name PostTcType
+        -> [(LHsBind Name PostTcType, BKey, [BKey])]
 
 type BKey  = Int -- Just number off the bindings
 
@@ -458,7 +458,7 @@ mkEdges sig_fn binds
     key_map = mkNameEnv [(bndr, key) | (L _ bind, key) <- keyd_binds
                                      , bndr <- bindersOfHsBind bind ]
 
-bindersOfHsBind :: HsBind Name -> [Name]
+bindersOfHsBind :: HsBind Name PostTcType -> [Name]
 bindersOfHsBind (PatBind { pat_lhs = pat })           = collectPatBinders pat
 bindersOfHsBind (FunBind { fun_id = L _ f })          = [f]
 bindersOfHsBind (PatSynBind PSB{ psb_id = L _ psyn }) = [psyn]
@@ -470,8 +470,8 @@ tcPolyBinds :: TopLevelFlag -> TcSigFun -> PragFun
             -> RecFlag       -- Whether the group is really recursive
             -> RecFlag       -- Whether it's recursive after breaking
                              -- dependencies based on type signatures
-            -> [LHsBind Name]
-            -> TcM (LHsBinds TcId, [TcId], TopLevelFlag)
+            -> [LHsBind Name PostTcType]
+            -> TcM (LHsBinds TcId PostTcType, [TcId], TopLevelFlag)
 
 -- Typechecks a single bunch of bindings all together, 
 -- and generalises them.  The bunch may be only part of a recursive
@@ -521,8 +521,8 @@ tcPolyNoGen     -- No generalisation whatsoever
   :: RecFlag       -- Whether it's recursive after breaking
                    -- dependencies based on type signatures
   -> PragFun -> TcSigFun
-  -> [LHsBind Name]
-  -> TcM (LHsBinds TcId, [TcId], TopLevelFlag)
+  -> [LHsBind Name PostTcType]
+  -> TcM (LHsBinds TcId PostTcType, [TcId], TopLevelFlag)
 
 tcPolyNoGen rec_tc prag_fn tc_sig_fn bind_list
   = do { (binds', mono_infos) <- tcMonoBinds rec_tc tc_sig_fn
@@ -546,8 +546,8 @@ tcPolyNoGen rec_tc prag_fn tc_sig_fn bind_list
 tcPolyCheck :: RecFlag       -- Whether it's recursive after breaking
                              -- dependencies based on type signatures
             -> PragFun -> TcSigInfo 
-            -> LHsBind Name
-            -> TcM (LHsBinds TcId, [TcId], TopLevelFlag)
+            -> LHsBind Name PostTcType
+            -> TcM (LHsBinds TcId PostTcType, [TcId], TopLevelFlag)
 -- There is just one binding, 
 --   it binds a single variable,
 --   it has a signature,
@@ -588,8 +588,8 @@ tcPolyInfer
   -> PragFun -> TcSigFun 
   -> Bool         -- True <=> apply the monomorphism restriction
   -> Bool         -- True <=> free vars have closed types
-  -> [LHsBind Name]
-  -> TcM (LHsBinds TcId, [TcId], TopLevelFlag)
+  -> [LHsBind Name PostTcType]
+  -> TcM (LHsBinds TcId PostTcType, [TcId], TopLevelFlag)
 tcPolyInfer rec_tc prag_fn tc_sig_fn mono closed bind_list
   = do { ((binds', mono_infos), wanted)
              <- captureConstraints $
@@ -760,14 +760,14 @@ where F is a non-injective type function.
 
 
 \begin{code}
-type PragFun = Name -> [LSig Name]
+type PragFun = Name -> [LSig Name PostTcType]
 
-mkPragFun :: [LSig Name] -> LHsBinds Name -> PragFun
+mkPragFun :: [LSig Name PostTcType] -> LHsBinds Name PostTcType -> PragFun
 mkPragFun sigs binds = \n -> lookupNameEnv prag_env n `orElse` []
   where
     prs = mapMaybe get_sig sigs
 
-    get_sig :: LSig Name -> Maybe (Located Name, LSig Name)
+    get_sig :: LSig Name PostTcType -> Maybe (Located Name, LSig Name PostTcType)
     get_sig (L l (SpecSig nm ty inl)) = Just (nm, L l $ SpecSig  nm ty (add_arity nm inl))
     get_sig (L l (InlineSig nm inl))  = Just (nm, L l $ InlineSig nm   (add_arity nm inl))
     get_sig _                         = Nothing
@@ -778,7 +778,7 @@ mkPragFun sigs binds = \n -> lookupNameEnv prag_env n `orElse` []
         -- add arity only for real INLINE pragmas, not INLINABLE
       | otherwise                         = inl_prag
 
-    prag_env :: NameEnv [LSig Name]
+    prag_env :: NameEnv [LSig Name PostTcType]
     prag_env = foldl add emptyNameEnv prs
     add env (L _ n,p) = extendNameEnv_Acc (:) singleton env n p
 
@@ -786,13 +786,13 @@ mkPragFun sigs binds = \n -> lookupNameEnv prag_env n `orElse` []
     ar_env :: NameEnv Arity
     ar_env = foldrBag lhsBindArity emptyNameEnv binds
 
-lhsBindArity :: LHsBind Name -> NameEnv Arity -> NameEnv Arity
+lhsBindArity :: LHsBind Name PostTcType -> NameEnv Arity -> NameEnv Arity
 lhsBindArity (L _ (FunBind { fun_id = id, fun_matches = ms })) env
   = extendNameEnv env (unLoc id) (matchGroupArity ms)
 lhsBindArity _ env = env        -- PatBind/VarBind
 
 ------------------
-tcSpecPrags :: Id -> [LSig Name]
+tcSpecPrags :: Id -> [LSig Name PostTcType]
             -> TcM [LTcSpecPrag]
 -- Add INLINE and SPECIALSE pragmas
 --    INLINE prags are added to the (polymorphic) Id directly
@@ -813,7 +813,7 @@ tcSpecPrags poly_id prag_sigs
 
 
 --------------
-tcSpec :: TcId -> Sig Name -> TcM TcSpecPrag
+tcSpec :: TcId -> Sig Name PostTcType -> TcM TcSpecPrag
 tcSpec poly_id prag@(SpecSig fun_name hs_ty inl) 
   -- The Name fun_name in the SpecSig may not be the same as that of the poly_id
   -- Example: SPECIALISE for a class method: the Name in the SpecSig is
@@ -838,7 +838,7 @@ tcSpec poly_id prag@(SpecSig fun_name hs_ty inl)
 tcSpec _ prag = pprPanic "tcSpec" (ppr prag)
 
 --------------
-tcImpPrags :: [LSig Name] -> TcM [LTcSpecPrag]
+tcImpPrags :: [LSig Name PostTcType] -> TcM [LTcSpecPrag]
 -- SPECIALISE pragmas for imported things
 tcImpPrags prags
   = do { this_mod <- getModule
@@ -861,7 +861,7 @@ tcImpPrags prags
                       HscInterpreted -> True
                       _other         -> False
 
-tcImpSpec :: (Name, Sig Name) -> TcM TcSpecPrag
+tcImpSpec :: (Name, Sig Name PostTcType) -> TcM TcSpecPrag
 tcImpSpec (name, prag)
  = do { id <- tcLookupId name
       ; unless (isAnyInlinePragma (idInlinePragma id))
@@ -879,7 +879,7 @@ impSpecErr name
     mod = nameModule name
 
 --------------
-tcVectDecls :: [LVectDecl Name] -> TcM ([LVectDecl TcId])
+tcVectDecls :: [LVectDecl Name PostTcType] -> TcM ([LVectDecl TcId PostTcType])
 tcVectDecls decls 
   = do { decls' <- mapM (wrapLocM tcVect) decls
        ; let ids  = [lvectDeclName decl | decl <- decls', not $ lvectInstDecl decl]
@@ -895,7 +895,7 @@ tcVectDecls decls
     reportVectDups _ = return ()
 
 --------------
-tcVect :: VectDecl Name -> TcM (VectDecl TcId)
+tcVect :: VectDecl Name PostTcType -> TcM (VectDecl TcId PostTcType)
 -- FIXME: We can't typecheck the expression of a vectorisation declaration against the vectorised
 --   type of the original definition as this requires internals of the vectoriser not available
 --   during type checking.  Instead, constrain the rhs of a vectorisation declaration to be a single
@@ -980,7 +980,7 @@ scalarTyConMustBeNullary = ptext (sLit "VECTORISE SCALAR type constructor must b
 -- If typechecking the binds fails, then return with each
 -- signature-less binder given type (forall a.a), to minimise 
 -- subsequent error messages
-recoveryCode :: [Name] -> TcSigFun -> TcM (LHsBinds TcId, [Id], TopLevelFlag)
+recoveryCode :: [Name] -> TcSigFun -> TcM (LHsBinds TcId PostTcType, [Id], TopLevelFlag)
 recoveryCode binder_names sig_fn
   = do  { traceTc "tcBindsWithSigs: error recovery" (ppr binder_names)
         ; poly_ids <- mapM mk_dummy binder_names
@@ -1054,8 +1054,8 @@ tcMonoBinds :: RecFlag  -- Whether the binding is recursive for typechecking pur
                         -- i.e. the binders are mentioned in their RHSs, and
                         --      we are not rescued by a type signature
             -> TcSigFun -> LetBndrSpec 
-            -> [LHsBind Name]
-            -> TcM (LHsBinds TcId, [MonoBindInfo])
+            -> [LHsBind Name PostTcType]
+            -> TcM (LHsBinds TcId PostTcType, [MonoBindInfo])
 
 tcMonoBinds is_rec sig_fn no_gen
            [ L b_loc (FunBind { fun_id = L nm_loc name, fun_infix = inf,
@@ -1114,14 +1114,14 @@ tcMonoBinds _ sig_fn no_gen binds
 -- it; hence the TcMonoBind data type in which the LHS is done but the RHS isn't
 
 data TcMonoBind         -- Half completed; LHS done, RHS not done
-  = TcFunBind  MonoBindInfo  SrcSpan Bool (MatchGroup Name (LHsExpr Name)) 
-  | TcPatBind [MonoBindInfo] (LPat TcId) (GRHSs Name (LHsExpr Name)) TcSigmaType
+  = TcFunBind  MonoBindInfo  SrcSpan Bool (MatchGroup Name (LHsExpr Name PostTcType) PostTcType)
+  | TcPatBind [MonoBindInfo] (LPat TcId PostTcType) (GRHSs Name (LHsExpr Name PostTcType) PostTcType) TcSigmaType
 
 type MonoBindInfo = (Name, Maybe TcSigInfo, TcId)
         -- Type signature (if any), and
         -- the monomorphic bound things
 
-tcLhs :: TcSigFun -> LetBndrSpec -> HsBind Name -> TcM TcMonoBind
+tcLhs :: TcSigFun -> LetBndrSpec -> HsBind Name PostTcType -> TcM TcMonoBind
 tcLhs sig_fn no_gen (FunBind { fun_id = L nm_loc name, fun_infix = inf, fun_matches = matches })
   | Just sig <- sig_fn name
   = ASSERT2( case no_gen of { LetLclBndr -> True; LetGblBndr {} -> False }
@@ -1155,7 +1155,7 @@ tcLhs _ _ other_bind = pprPanic "tcLhs" (ppr other_bind)
         -- AbsBind, VarBind impossible
 
 -------------------
-tcRhs :: TcMonoBind -> TcM (HsBind TcId)
+tcRhs :: TcMonoBind -> TcM (HsBind TcId PostTcType)
 -- When we are doing pattern bindings, or multiple function bindings at a time
 -- we *don't* bring any scoped type variables into scope
 -- Wny not?  They are not completely rigid.
@@ -1277,7 +1277,7 @@ is wrong (eg at the top level of the module),
 which is over-conservative
 
 \begin{code}
-tcTySigs :: [LSig Name] -> TcM ([TcId], TcSigFun)
+tcTySigs :: [LSig Name PostTcType] -> TcM ([TcId], TcSigFun)
 tcTySigs hs_sigs
   = checkNoErrs $   -- See Note [Fail eagerly on bad signatures]
     do { ty_sigs_s<- mapAndRecoverM tcTySig hs_sigs
@@ -1285,7 +1285,7 @@ tcTySigs hs_sigs
              env = mkNameEnv [(idName (sig_id sig), sig) | sig <- ty_sigs]
        ; return (map sig_id ty_sigs, lookupNameEnv env) }
 
-tcTySig :: LSig Name -> TcM [TcSigInfo]
+tcTySig :: LSig Name PostTcType -> TcM [TcSigInfo]
 tcTySig (L loc (IdSig id))
   = do { sig <- instTcTySigFromId loc id
        ; return [sig] }
@@ -1308,7 +1308,7 @@ instTcTySigFromId loc id
     -- those type variables to refer to the class decl, rather to
     -- the instance decl
 
-instTcTySig :: LHsType Name -> TcType    -- HsType and corresponding TcType
+instTcTySig :: LHsType Name PostTcType -> TcType    -- HsType and corresponding TcType
             -> Name -> TcM TcSigInfo
 instTcTySig hs_ty@(L loc _) sigma_ty name
   = do { (inst_tvs, theta, tau) <- tcInstType tcInstSigTyVars sigma_ty
@@ -1326,7 +1326,7 @@ data GeneralisationPlan
        Bool             --   True <=> bindings mention only variables with closed types
                         --            See Note [Bindings with closed types] in TcRnTypes
 
-  | CheckGen (LHsBind Name) TcSigInfo
+  | CheckGen (LHsBind Name PostTcType) TcSigInfo
                         -- One binding with a signature
                         -- Explicit generalisation; there is an AbsBinds
 
@@ -1340,7 +1340,7 @@ instance Outputable GeneralisationPlan where
 
 decideGeneralisationPlan
    :: DynFlags -> TcTypeEnv -> [Name]
-   -> [LHsBind Name] -> TcSigFun -> GeneralisationPlan
+   -> [LHsBind Name PostTcType] -> TcSigFun -> GeneralisationPlan
 decideGeneralisationPlan dflags type_env bndr_names lbinds sig_fn
   | strict_pat_binds                                 = NoGen
   | Just (lbind, sig) <- one_funbind_with_sig lbinds = CheckGen lbind sig
@@ -1412,8 +1412,8 @@ decideGeneralisationPlan dflags type_env bndr_names lbinds sig_fn
 
 -------------------
 checkStrictBinds :: TopLevelFlag -> RecFlag
-                 -> [LHsBind Name]
-                 -> LHsBinds TcId -> [Id]
+                 -> [LHsBind Name PostTcType]
+                 -> LHsBinds TcId PostTcType -> [Id]
                  -> TcM ()
 -- Check that non-overloaded unlifted bindings are
 --      a) non-recursive,
@@ -1461,18 +1461,18 @@ checkStrictBinds top_lvl rec_group orig_binds tc_binds poly_ids
                      = null tvs && null evs
     is_monomorphic _ = True
 
-unliftedMustBeBang :: [LHsBind Name] -> SDoc
+unliftedMustBeBang :: [LHsBind Name PostTcType] -> SDoc
 unliftedMustBeBang binds
   = hang (text "Pattern bindings containing unlifted types should use an outermost bang pattern:")
        2 (vcat (map ppr binds))
 
-polyBindErr :: [LHsBind Name] -> SDoc
+polyBindErr :: [LHsBind Name PostTcType] -> SDoc
 polyBindErr binds
   = hang (ptext (sLit "You can't mix polymorphic and unlifted bindings"))
        2 (vcat [vcat (map ppr binds), 
                 ptext (sLit "Probable fix: use a bang pattern")])
 
-strictBindErr :: String -> Bool -> [LHsBind Name] -> SDoc
+strictBindErr :: String -> Bool -> [LHsBind Name PostTcType] -> SDoc
 strictBindErr flavour unlifted_bndrs binds
   = hang (text flavour <+> msg <+> ptext (sLit "aren't allowed:")) 
        2 (vcat (map ppr binds))
@@ -1494,7 +1494,7 @@ Note [Binding scoped type variables]
 \begin{code}
 -- This one is called on LHS, when pat and grhss are both Name 
 -- and on RHS, when pat is TcId and grhss is still Name
-patMonoBindsCtxt :: (OutputableBndr id, Outputable body) => LPat id -> GRHSs Name body -> SDoc
+patMonoBindsCtxt :: (OutputableBndr id, Outputable body) => LPat id ptt -> GRHSs Name body ptt -> SDoc
 patMonoBindsCtxt pat grhss
   = hang (ptext (sLit "In a pattern binding:")) 2 (pprPatBind pat grhss)
 \end{code}

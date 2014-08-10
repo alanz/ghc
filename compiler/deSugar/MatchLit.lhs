@@ -100,12 +100,12 @@ dsLit (HsRat r ty) = do
                                    (head (tyConDataCons tycon), i_ty)
                 x -> pprPanic "dsLit" (ppr x)
 
-dsOverLit :: HsOverLit Id -> DsM CoreExpr
+dsOverLit :: HsOverLit Id PostTcType -> DsM CoreExpr
 dsOverLit lit = do { dflags <- getDynFlags
                    ; warnAboutOverflowedLiterals dflags lit
                    ; dsOverLit' dflags lit }
 
-dsOverLit' :: DynFlags -> HsOverLit Id -> DsM CoreExpr
+dsOverLit' :: DynFlags -> HsOverLit Id PostTcType -> DsM CoreExpr
 -- Post-typechecker, the SyntaxExpr field of an OverLit contains
 -- (an expression for) the literal value itself
 dsOverLit' dflags (OverLit { ol_val = val, ol_rebindable = rebindable
@@ -155,7 +155,7 @@ conversionNames
 \end{code}
 
 \begin{code}
-warnAboutOverflowedLiterals :: DynFlags -> HsOverLit Id -> DsM ()
+warnAboutOverflowedLiterals :: DynFlags -> HsOverLit Id PostTcType -> DsM ()
 warnAboutOverflowedLiterals dflags lit
  | wopt Opt_WarnOverflowedLiterals dflags
  , Just (i, tc) <- getIntegralLit lit
@@ -201,7 +201,9 @@ We get an erroneous suggestion for
 but perhaps that does not matter too much.
 
 \begin{code}
-warnAboutEmptyEnumerations :: DynFlags -> LHsExpr Id -> Maybe (LHsExpr Id) -> LHsExpr Id -> DsM ()
+warnAboutEmptyEnumerations :: DynFlags -> LHsExpr Id PostTcType
+                           -> Maybe (LHsExpr Id PostTcType)
+                           -> LHsExpr Id PostTcType -> DsM ()
 -- Warns about [2,3 .. 1] which returns the empty list
 -- Only works for integral types, not floating point
 warnAboutEmptyEnumerations dflags fromExpr mThnExpr toExpr
@@ -233,7 +235,7 @@ warnAboutEmptyEnumerations dflags fromExpr mThnExpr toExpr
 
   | otherwise = return ()
 
-getLHsIntegralLit :: LHsExpr Id -> Maybe (Integer, Name)
+getLHsIntegralLit :: LHsExpr Id PostTcType -> Maybe (Integer, Name)
 -- See if the expression is an Integral literal
 -- Remember to look through automatically-added tick-boxes! (Trac #8384)
 getLHsIntegralLit (L _ (HsPar e))            = getLHsIntegralLit e
@@ -242,7 +244,7 @@ getLHsIntegralLit (L _ (HsBinTick _ _ e))    = getLHsIntegralLit e
 getLHsIntegralLit (L _ (HsOverLit over_lit)) = getIntegralLit over_lit
 getLHsIntegralLit _ = Nothing
 
-getIntegralLit :: HsOverLit Id -> Maybe (Integer, Name)
+getIntegralLit :: HsOverLit Id PostTcType -> Maybe (Integer, Name)
 getIntegralLit (OverLit { ol_val = HsIntegral i, ol_type = ty })
   | Just tc <- tyConAppTyCon_maybe ty
   = Just (i, tyConName tc)
@@ -257,7 +259,7 @@ getIntegralLit _ = Nothing
 %************************************************************************
 
 \begin{code}
-tidyLitPat :: HsLit -> Pat Id
+tidyLitPat :: HsLit -> Pat Id PostTcType
 -- Result has only the following HsLits:
 --      HsIntPrim, HsWordPrim, HsCharPrim, HsFloatPrim
 --      HsDoublePrim, HsStringPrim, HsString
@@ -273,13 +275,13 @@ tidyLitPat (HsString s)
 tidyLitPat lit = LitPat lit
 
 ----------------
-tidyNPat :: (HsLit -> Pat Id)   -- How to tidy a LitPat
+tidyNPat :: (HsLit -> Pat Id PostTcType)   -- How to tidy a LitPat
                  -- We need this argument because tidyNPat is called
                  -- both by Match and by Check, but they tidy LitPats
                  -- slightly differently; and we must desugar
                  -- literals consistently (see Trac #5117)
-         -> HsOverLit Id -> Maybe (SyntaxExpr Id) -> SyntaxExpr Id
-         -> Pat Id
+         -> HsOverLit Id PostTcType -> Maybe (SyntaxExpr Id PostTcType) -> SyntaxExpr Id PostTcType
+         -> Pat Id PostTcType
 tidyNPat tidy_lit_pat (OverLit val False _ ty) mb_neg _
         -- False: Take short cuts only if the literal is not using rebindable syntax
         --
@@ -298,7 +300,7 @@ tidyNPat tidy_lit_pat (OverLit val False _ ty) mb_neg _
   | isDoubleTy ty, Just rat_lit <- mb_rat_lit = mk_con_pat doubleDataCon (HsDoublePrim rat_lit)
   | isStringTy ty, Just str_lit <- mb_str_lit = tidy_lit_pat (HsString str_lit)
   where
-    mk_con_pat :: DataCon -> HsLit -> Pat Id
+    mk_con_pat :: DataCon -> HsLit -> Pat Id PostTcType
     mk_con_pat con lit = unLoc (mkPrefixConPat con [noLoc $ LitPat lit] [])
 
     mb_int_lit :: Maybe Integer
@@ -392,7 +394,7 @@ hsLitKey _      (HsString s)      = MachStr    (fastStringToByteString s)
 hsLitKey _      l                 = pprPanic "hsLitKey" (ppr l)
 
 ---------------------------
-hsOverLitKey :: OutputableBndr a => HsOverLit a -> Bool -> Literal
+hsOverLitKey :: OutputableBndr a => HsOverLit a ptt -> Bool -> Literal
 -- Ditto for HsOverLit; the boolean indicates to negate
 hsOverLitKey (OverLit { ol_val = l }) neg = litValKey l neg
 

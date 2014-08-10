@@ -516,8 +516,9 @@ zonkLTcSpecPrags env ps
 
 \begin{code}
 zonkMatchGroup :: ZonkEnv
-               -> (ZonkEnv -> Located (body TcId) -> TcM (Located (body Id)))
-               -> MatchGroup TcId (Located (body TcId)) PostTcType -> TcM (MatchGroup Id (Located (body Id)) PostTcType)
+               -> (ZonkEnv -> Located (body TcId PostTcType) -> TcM (Located (body Id PostTcType)))
+               -> MatchGroup TcId (Located (body TcId PostTcType)) PostTcType
+               -> TcM (MatchGroup Id (Located (body Id PostTcType)) PostTcType)
 zonkMatchGroup env zBody (MG { mg_alts = ms, mg_arg_tys = arg_tys, mg_res_ty = res_ty, mg_origin = origin })
   = do  { ms' <- mapM (zonkMatch env zBody) ms
         ; arg_tys' <- zonkTcTypeToTypes env arg_tys
@@ -1155,7 +1156,7 @@ zonkRule env (HsRule name act (vars{-::[RuleBndr TcId]-}) lhs fv_lhs rhs fv_rhs)
 
        ; unbound_tkvs <- readMutVar unbound_tkv_set
 
-       ; let final_bndrs :: [RuleBndr Var]
+       ; let final_bndrs :: [RuleBndr Var PostTcType]
              final_bndrs = map (RuleBndr . noLoc)
                                (varSetElemsKvsFirst unbound_tkvs)
                            ++ new_bndrs

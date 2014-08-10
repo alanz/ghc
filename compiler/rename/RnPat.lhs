@@ -205,7 +205,7 @@ matchNameMaker ctxt = LamMk report_unused
                       StmtCtxt GhciStmtCtxt -> False
                       _                     -> True
 
-rnHsSigCps :: HsWithBndrs (LHsType RdrName) -> CpsRn (HsWithBndrs (LHsType Name))
+rnHsSigCps :: HsWithBndrs (LHsType RdrName PostTcType) -> CpsRn (HsWithBndrs (LHsType Name PostTcType))
 rnHsSigCps sig 
   = CpsRn (rnHsBndrSig PatCtx sig)
 
@@ -273,8 +273,8 @@ There are various entry points to renaming patterns, depending on
 --   * unused and duplicate checking
 --   * no fixities
 rnPats :: HsMatchContext Name -- for error messages
-       -> [LPat RdrName] 
-       -> ([LPat Name] -> RnM (a, FreeVars))
+       -> [LPat RdrName PostTcType]
+       -> ([LPat Name PostTcType] -> RnM (a, FreeVars))
        -> RnM (a, FreeVars)
 rnPats ctxt pats thing_inside
   = do  { envs_before <- getRdrEnvs
@@ -297,8 +297,8 @@ rnPats ctxt pats thing_inside
     doc_pat = ptext (sLit "In") <+> pprMatchContext ctxt
 
 rnPat :: HsMatchContext Name -- for error messages
-      -> LPat RdrName 
-      -> (LPat Name -> RnM (a, FreeVars))
+      -> LPat RdrName PostTcType
+      -> (LPat Name PostTcType-> RnM (a, FreeVars))
       -> RnM (a, FreeVars)     -- Variables bound by pattern do not 
                                -- appear in the result FreeVars 
 rnPat ctxt pat thing_inside 
@@ -315,8 +315,8 @@ applyNameMaker mk rdr = do { (n, _fvs) <- runCps (newPatName mk rdr); return n }
 --   * no unused and duplicate checking
 --   * fixities might be coming in
 rnBindPat :: NameMaker
-          -> LPat RdrName
-          -> RnM (LPat Name, FreeVars)
+          -> LPat RdrName PostTcType
+          -> RnM (LPat Name PostTcType, FreeVars)
    -- Returned FreeVars are the free variables of the pattern,
    -- of course excluding variables bound by this pattern 
 
@@ -334,17 +334,17 @@ rnBindPat name_maker pat = runCps (rnLPatAndThen name_maker pat)
 -- ----------- Entry point 3: rnLPatAndThen -------------------
 -- General version: parametrized by how you make new names
 
-rnLPatsAndThen :: NameMaker -> [LPat RdrName] -> CpsRn [LPat Name]
+rnLPatsAndThen :: NameMaker -> [LPat RdrName PostTcType] -> CpsRn [LPat Name PostTcType]
 rnLPatsAndThen mk = mapM (rnLPatAndThen mk)
   -- Despite the map, the monad ensures that each pattern binds
   -- variables that may be mentioned in subsequent patterns in the list
 
 --------------------
 -- The workhorse
-rnLPatAndThen :: NameMaker -> LPat RdrName -> CpsRn (LPat Name)
+rnLPatAndThen :: NameMaker -> LPat RdrName PostTcType -> CpsRn (LPat Name PostTcType)
 rnLPatAndThen nm lpat = wrapSrcSpanCps (rnPatAndThen nm) lpat
 
-rnPatAndThen :: NameMaker -> Pat RdrName -> CpsRn (Pat Name)
+rnPatAndThen :: NameMaker -> Pat RdrName PostTcType -> CpsRn (Pat Name PostTcType)
 rnPatAndThen _  (WildPat _)   = return (WildPat placeHolderType)
 rnPatAndThen mk (ParPat pat)  = do { pat' <- rnLPatAndThen mk pat; return (ParPat pat') }
 rnPatAndThen mk (LazyPat pat) = do { pat' <- rnLPatAndThen mk pat; return (LazyPat pat') }
@@ -452,8 +452,8 @@ rnPatAndThen _ pat = pprPanic "rnLPatAndThen" (ppr pat)
 --------------------
 rnConPatAndThen :: NameMaker
                 -> Located RdrName          -- the constructor
-                -> HsConPatDetails RdrName 
-                -> CpsRn (Pat Name)
+                -> HsConPatDetails RdrName PostTcType
+                -> CpsRn (Pat Name PostTcType)
 
 rnConPatAndThen mk con (PrefixCon pats)
   = do  { con' <- lookupConCps con
@@ -475,8 +475,8 @@ rnConPatAndThen mk con (RecCon rpats)
 --------------------
 rnHsRecPatsAndThen :: NameMaker
                    -> Located Name      -- Constructor
-                   -> HsRecFields RdrName (LPat RdrName)
-                   -> CpsRn (HsRecFields Name (LPat Name))
+                   -> HsRecFields RdrName (LPat RdrName PostTcType)
+                   -> CpsRn (HsRecFields Name (LPat Name PostTcType))
 rnHsRecPatsAndThen mk (L _ con) hs_rec_fields@(HsRecFields { rec_dotdot = dd })
   = do { flds <- liftCpsFV $ rnHsRecFields1 (HsRecFieldPat con) VarPat hs_rec_fields
        ; flds' <- mapM rn_field (flds `zip` [1..])
@@ -681,7 +681,7 @@ generalizeOverLitVal (HsFractional (FL {fl_value=val}))
     | denominator val == 1 = HsIntegral (numerator val)
 generalizeOverLitVal lit = lit
 
-rnOverLit :: HsOverLit t -> RnM (HsOverLit Name, FreeVars)
+rnOverLit :: HsOverLit t PostTcType -> RnM (HsOverLit Name PostTcType, FreeVars)
 rnOverLit origLit
   = do  { opt_NumDecimals <- xoptM Opt_NumDecimals
         ; let { lit@(OverLit {ol_val=val})
@@ -713,7 +713,7 @@ bogusCharError :: Char -> SDoc
 bogusCharError c
   = ptext (sLit "character literal out of range: '\\") <> char c  <> char '\''
 
-badViewPat :: Pat RdrName -> SDoc
+badViewPat :: Pat RdrName PreTcType -> SDoc
 badViewPat pat = vcat [ptext (sLit "Illegal view pattern: ") <+> ppr pat,
                        ptext (sLit "Use ViewPatterns to enable view patterns")]
 \end{code}

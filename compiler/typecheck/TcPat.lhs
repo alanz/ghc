@@ -64,9 +64,9 @@ import Control.Monad
 
 \begin{code}
 tcLetPat :: TcSigFun -> LetBndrSpec
-      	 -> LPat Name -> TcSigmaType 
+      	 -> LPat Name PostTcType -> TcSigmaType
      	 -> TcM a
-      	 -> TcM (LPat TcId, a)
+      	 -> TcM (LPat TcId PostTcType, a)
 tcLetPat sig_fn no_gen pat pat_ty thing_inside
   = tc_lpat pat pat_ty penv thing_inside 
   where
@@ -75,10 +75,10 @@ tcLetPat sig_fn no_gen pat pat_ty thing_inside
 
 -----------------
 tcPats :: HsMatchContext Name
-       -> [LPat Name]		 -- Patterns,
+       -> [LPat Name PostTcType] -- Patterns,
        -> [TcSigmaType]	         --   and their types
        -> TcM a                  --   and the checker for the body
-       -> TcM ([LPat TcId], a)
+       -> TcM ([LPat TcId PostTcType], a)
 
 -- This is the externally-callable wrapper function
 -- Typecheck the patterns, extend the environment to bind the variables,
@@ -97,10 +97,10 @@ tcPats ctxt pats pat_tys thing_inside
     penv = PE { pe_lazy = False, pe_ctxt = LamPat ctxt }
 
 tcPat :: HsMatchContext Name
-      -> LPat Name -> TcSigmaType 
+      -> LPat Name PostTcType -> TcSigmaType
       -> TcM a                 -- Checker for body, given
                                -- its result type
-      -> TcM (LPat TcId, a)
+      -> TcM (LPat TcId PostTcType, a)
 tcPat ctxt pat pat_ty thing_inside
   = tc_lpat pat pat_ty penv thing_inside
   where
@@ -139,7 +139,7 @@ patSigCtxt (PE { pe_ctxt = LetPat {} }) = BindPatSigCtxt
 patSigCtxt (PE { pe_ctxt = LamPat {} }) = LamPatSigCtxt
 
 ---------------
-type TcPragFun = Name -> [LSig Name]
+type TcPragFun = Name -> [LSig Name PostTcType]
 type TcSigFun  = Name -> Maybe TcSigInfo
 
 data TcSigInfo
@@ -160,7 +160,7 @@ data TcSigInfo
     }
 
 findScopedTyVars  -- See Note [Binding scoped type variables]
-  :: LHsType Name             -- The HsType
+  :: LHsType Name PostTcType  -- The HsType
   -> TcType                   -- The corresponding Type:
                               --   uses same Names as the HsType
   -> [TcTyVar]                -- The instantiated forall variables of the Type
@@ -279,7 +279,7 @@ newNoSigLetBndr (LetGblBndr prags) name ty
        ; addInlinePrags id (prags name) }
 
 ----------
-addInlinePrags :: TcId -> [LSig Name] -> TcM TcId
+addInlinePrags :: TcId -> [LSig Name PostTcType] -> TcM TcId
 addInlinePrags poly_id prags
   = do { traceTc "addInlinePrags" (ppr poly_id $$ ppr prags) 
        ; tc_inl inl_sigs }
@@ -295,7 +295,7 @@ addInlinePrags poly_id prags
     warn_dup_inline = warnPrags poly_id inl_sigs $
                       ptext (sLit "Duplicate INLINE pragmas for")
 
-warnPrags :: Id -> [LSig Name] -> SDoc -> TcM ()
+warnPrags :: Id -> [LSig Name PostTcType] -> SDoc -> TcM ()
 warnPrags id bad_sigs herald
   = addWarnTc (hang (herald <+> quotes (ppr id))
                   2 (ppr_sigs bad_sigs))
@@ -382,11 +382,11 @@ tcMultiple tc_pat args penv thing_inside
 	; loop penv args }
 
 --------------------
-tc_lpat :: LPat Name 
+tc_lpat :: LPat Name  PostTcType
 	-> TcSigmaType
 	-> PatEnv
 	-> TcM a
-	-> TcM (LPat TcId, a)
+	-> TcM (LPat TcId PostTcType, a)
 tc_lpat (L span pat) pat_ty penv thing_inside
   = setSrcSpan span $
     do	{ (pat', res) <- maybeWrapPatCtxt pat (tc_pat penv pat pat_ty)
@@ -394,9 +394,9 @@ tc_lpat (L span pat) pat_ty penv thing_inside
 	; return (L span pat', res) }
 
 tc_lpats :: PatEnv
-	 -> [LPat Name] -> [TcSigmaType]
+	 -> [LPat Name PostTcType] -> [TcSigmaType]
        	 -> TcM a	
-       	 -> TcM ([LPat TcId], a)
+       	 -> TcM ([LPat TcId PostTcType], a)
 tc_lpats penv pats tys thing_inside 
   = ASSERT2( equalLength pats tys, ppr pats $$ ppr tys )
     tcMultiple (\(p,t) -> tc_lpat p t) 
@@ -405,10 +405,10 @@ tc_lpats penv pats tys thing_inside
 
 --------------------
 tc_pat	:: PatEnv
-        -> Pat Name 
+        -> Pat Name  PostTcType
         -> TcSigmaType	-- Fully refined result type
         -> TcM a		-- Thing inside
-        -> TcM (Pat TcId, 	-- Translated pattern
+        -> TcM (Pat TcId PostTcType, -- Translated pattern
                 a)		-- Result of thing inside
 
 tc_pat penv (VarPat name) pat_ty thing_inside
@@ -696,8 +696,8 @@ to express the local scope of GADT refinements.
 
 tcConPat :: PatEnv -> Located Name 
 	 -> TcRhoType  	       	-- Type of the pattern
-	 -> HsConPatDetails Name -> TcM a
-	 -> TcM (Pat TcId, a)
+	 -> HsConPatDetails Name  PostTcType-> TcM a
+	 -> TcM (Pat TcId PostTcType, a)
 tcConPat penv con_lname@(L _ con_name) pat_ty arg_pats thing_inside
   = do  { con_like <- tcLookupConLike con_name
         ; case con_like of
@@ -709,8 +709,8 @@ tcConPat penv con_lname@(L _ con_name) pat_ty arg_pats thing_inside
 
 tcDataConPat :: PatEnv -> Located Name -> DataCon
 	     -> TcRhoType  	       	-- Type of the pattern
-	     -> HsConPatDetails Name -> TcM a
-	     -> TcM (Pat TcId, a)
+	     -> HsConPatDetails Name PostTcType -> TcM a
+	     -> TcM (Pat TcId PostTcType, a)
 tcDataConPat penv (L con_span con_name) data_con pat_ty arg_pats thing_inside
   = do	{ let tycon = dataConTyCon data_con
          	  -- For data families this is the representation tycon
@@ -788,8 +788,8 @@ tcDataConPat penv (L con_span con_name) data_con pat_ty arg_pats thing_inside
 
 tcPatSynPat :: PatEnv -> Located Name -> PatSyn
 	    -> TcRhoType  	       	-- Type of the pattern
-	    -> HsConPatDetails Name -> TcM a
-	    -> TcM (Pat TcId, a)
+	    -> HsConPatDetails Name PostTcType -> TcM a
+	    -> TcM (Pat TcId PostTcType, a)
 tcPatSynPat penv (L con_span _) pat_syn pat_ty arg_pats thing_inside
   = do	{ let (univ_tvs, ex_tvs, prov_theta, req_theta, arg_tys, ty) = patSynSig pat_syn
 
@@ -922,7 +922,7 @@ Suppose (coi, tys) = matchExpectedConType data_tc pat_ty
 
 \begin{code}
 tcConArgs :: ConLike -> [TcSigmaType]
-	  -> Checker (HsConPatDetails Name) (HsConPatDetails Id)
+	  -> Checker (HsConPatDetails Name PostTcType) (HsConPatDetails Id PostTcType)
 
 tcConArgs con_like arg_tys (PrefixCon arg_pats) penv thing_inside
   = do	{ checkTc (con_arity == no_of_args)	-- Check correct arity
@@ -949,7 +949,7 @@ tcConArgs con_like arg_tys (RecCon (HsRecFields rpats dd)) penv thing_inside
   = do	{ (rpats', res) <- tcMultiple tc_field rpats penv thing_inside
 	; return (RecCon (HsRecFields rpats' dd), res) }
   where
-    tc_field :: Checker (HsRecField FieldLabel (LPat Name)) (HsRecField TcId (LPat TcId))
+    tc_field :: Checker (HsRecField FieldLabel (LPat Name PostTcType)) (HsRecField TcId (LPat TcId PostTcType))
     tc_field (HsRecField field_lbl pat pun) penv thing_inside
       = do { (sel_id, pat_ty) <- wrapLocFstM find_field_ty field_lbl
 	   ; (pat', res) <- tcConArg (pat, pat_ty) penv thing_inside
@@ -985,7 +985,7 @@ conLikeArity :: ConLike -> Arity
 conLikeArity (RealDataCon data_con) = dataConSourceArity data_con
 conLikeArity (PatSynCon   pat_syn)  = patSynArity pat_syn
 
-tcConArg :: Checker (LPat Name, TcSigmaType) (LPat Id)
+tcConArg :: Checker (LPat Name PostTcType, TcSigmaType) (LPat Id PostTcType)
 tcConArg (arg_pat, arg_ty) penv thing_inside
   = tc_lpat arg_pat arg_ty penv thing_inside
 \end{code}
@@ -1100,7 +1100,7 @@ Meanwhile, the strategy is:
 %************************************************************************
 
 \begin{code}
-maybeWrapPatCtxt :: Pat Name -> (TcM a -> TcM b) -> TcM a -> TcM b
+maybeWrapPatCtxt :: Pat Name PostTcType -> (TcM a -> TcM b) -> TcM a -> TcM b
 -- Not all patterns are worth pushing a context
 maybeWrapPatCtxt pat tcm thing_inside 
   | not (worth_wrapping pat) = tcm thing_inside
@@ -1147,7 +1147,7 @@ polyPatSig sig_ty
   = hang (ptext (sLit "Illegal polymorphic type signature in pattern:"))
        2 (ppr sig_ty)
 
-lazyUnliftedPatErr :: OutputableBndr name => Pat name -> TcM ()
+lazyUnliftedPatErr :: OutputableBndr name => Pat name ptt -> TcM ()
 lazyUnliftedPatErr pat
   = failWithTc $
     hang (ptext (sLit "A lazy (~) pattern cannot contain unlifted types:"))

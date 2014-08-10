@@ -118,7 +118,7 @@ matchPatSyn (var:vars) ty eqns
         _ -> panic "matchPatSyn: not PatSynCon"
 matchPatSyn _ _ _ = panic "matchPatSyn []"
 
-type ConArgPats = HsConDetails (LPat Id) (HsRecFields Id (LPat Id))
+type ConArgPats = HsConDetails (LPat Id PostTcType) (HsRecFields Id (LPat Id PostTcType))
 
 matchOneConLike :: [Id]
                 -> Type
@@ -207,7 +207,7 @@ compatible_pats (RecCon flds1, _) _                 = null (rec_flds flds1)
 compatible_pats _                 (RecCon flds2, _) = null (rec_flds flds2)
 compatible_pats _                 _                 = True -- Prefix or infix con
 
-same_fields :: HsRecFields Id (LPat Id) -> HsRecFields Id (LPat Id) -> Bool
+same_fields :: HsRecFields Id (LPat Id PostTcType) -> HsRecFields Id (LPat Id PostTcType) -> Bool
 same_fields flds1 flds2 
   = all2 (\f1 f2 -> unLoc (hsRecFieldId f1) == unLoc (hsRecFieldId f2))
 	 (rec_flds flds1) (rec_flds flds2)
@@ -223,7 +223,7 @@ conArgPats :: [Type]	-- Instantiated argument types
 			-- Used only to fill in the types of WildPats, which
 			-- are probably never looked at anyway
 	   -> ConArgPats
-	   -> [Pat Id]
+	   -> [Pat Id PostTcType]
 conArgPats _arg_tys (PrefixCon ps)   = map unLoc ps
 conArgPats _arg_tys (InfixCon p1 p2) = [unLoc p1, unLoc p2]
 conArgPats  arg_tys (RecCon (HsRecFields { rec_flds = rpats }))

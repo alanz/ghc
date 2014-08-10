@@ -299,15 +299,15 @@ tcBody body res_ty
 
 \begin{code}
 
-type TcExprStmtChecker = TcStmtChecker HsExpr
+type TcExprStmtChecker = TcStmtChecker HsExpr 
 type TcCmdStmtChecker  = TcStmtChecker HsCmd
 
 type TcStmtChecker body
   =  forall thing. HsStmtContext Name
-                -> Stmt Name (Located (body Name))
+                -> Stmt Name (Located (body Name)) PostTcType
                 -> TcRhoType                    -- Result type for comprehension
                 -> (TcRhoType -> TcM thing)     -- Checker for what follows the stmt
-                -> TcM (Stmt TcId (Located (body TcId)), thing)
+                -> TcM (Stmt TcId (Located (body TcId)) PostTcType, thing)
 
 tcStmts :: (Outputable (body Name)) => HsStmtContext Name
         -> TcStmtChecker body   -- NB: higher-rank type

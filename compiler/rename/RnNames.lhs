@@ -522,7 +522,7 @@ getLocalNonValBinders fixity_env
              ; names@(main_name : _) <- mapM newTopSrcBinder bndrs
              ; return (AvailTC main_name names) }
 
-    new_assoc :: LInstDecl RdrName -> RnM [AvailInfo]
+    new_assoc :: LInstDecl RdrName PreTcType -> RnM [AvailInfo]
     new_assoc (L _ (TyFamInstD {})) = return []
       -- type instances don't bind new names
 
@@ -539,7 +539,7 @@ getLocalNonValBinders fixity_env
       = return []     -- Do not crash on ill-formed instances
                       -- Eg   instance !Show Int   Trac #3811c
 
-    new_di :: Maybe Name -> DataFamInstDecl RdrName -> RnM AvailInfo
+    new_di :: Maybe Name -> DataFamInstDecl RdrName PreTcType -> RnM AvailInfo
     new_di mb_cls ti_decl
         = do { main_name <- lookupFamInstName mb_cls (dfid_tycon ti_decl)
              ; sub_names <- mapM newTopSrcBinder (hsDataFamInstBinders ti_decl)

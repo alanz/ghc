@@ -96,7 +96,7 @@ hand, which should indeed be bound to the pattern as a whole, then use it;
 otherwise, make one up.
 
 \begin{code}
-selectSimpleMatchVarL :: LPat Id -> DsM Id
+selectSimpleMatchVarL :: LPat Id PostTcType -> DsM Id
 selectSimpleMatchVarL pat = selectMatchVar (unLoc pat)
 
 -- (selectMatchVars ps tys) chooses variables of type tys
@@ -115,10 +115,10 @@ selectSimpleMatchVarL pat = selectMatchVar (unLoc pat)
 --    Then we must not choose (x::Int) as the matching variable!
 -- And nowadays we won't, because the (x::Int) will be wrapped in a CoPat
 
-selectMatchVars :: [Pat Id] -> DsM [Id]
+selectMatchVars :: [Pat Id PostTcType] -> DsM [Id]
 selectMatchVars ps = mapM selectMatchVar ps
 
-selectMatchVar :: Pat Id -> DsM Id
+selectMatchVar :: Pat Id PostTcType -> DsM Id
 selectMatchVar (BangPat pat) = selectMatchVar (unLoc pat)
 selectMatchVar (LazyPat pat) = selectMatchVar (unLoc pat)
 selectMatchVar (ParPat pat)  = selectMatchVar (unLoc pat)
@@ -177,7 +177,7 @@ The ``equation info'' used by @match@ is relatively complicated and
 worthy of a type synonym and a few handy functions.
 
 \begin{code}
-firstPat :: EquationInfo -> Pat Id
+firstPat :: EquationInfo -> Pat Id PostTcType
 firstPat eqn = ASSERT( notNull (eqn_pats eqn) ) head (eqn_pats eqn)
 
 shiftEqns :: [EquationInfo] -> [EquationInfo]
@@ -608,7 +608,7 @@ cases like
 
 \begin{code}
 mkSelectorBinds :: [Maybe (Tickish Id)]  -- ticks to add, possibly
-                -> LPat Id      -- The pattern
+                -> LPat Id PostTcType    -- The pattern
 		-> CoreExpr	-- Expression to which the pattern is bound
 		-> DsM [(Id,CoreExpr)]
 
@@ -698,31 +698,31 @@ They work over *Ids*, and create tuples replete with their types,
 which is whey they are not in HsUtils.
 
 \begin{code}
-mkLHsPatTup :: [LPat Id] -> LPat Id
+mkLHsPatTup :: [LPat Id PostTcType] -> LPat Id PostTcType
 mkLHsPatTup []     = noLoc $ mkVanillaTuplePat [] Boxed
 mkLHsPatTup [lpat] = lpat
 mkLHsPatTup lpats  = L (getLoc (head lpats)) $ 
 		     mkVanillaTuplePat lpats Boxed
 
-mkLHsVarPatTup :: [Id] -> LPat Id
+mkLHsVarPatTup :: [Id] -> LPat Id PostTcType
 mkLHsVarPatTup bs  = mkLHsPatTup (map nlVarPat bs)
 
-mkVanillaTuplePat :: [OutPat Id] -> Boxity -> Pat Id
+mkVanillaTuplePat :: [OutPat Id PostTcType] -> Boxity -> Pat Id PostTcType
 -- A vanilla tuple pattern simply gets its type from its sub-patterns
 mkVanillaTuplePat pats box = TuplePat pats box (map hsLPatType pats)
 
 -- The Big equivalents for the source tuple expressions
-mkBigLHsVarTup :: [Id] -> LHsExpr Id
+mkBigLHsVarTup :: [Id] -> LHsExpr Id PostTcType
 mkBigLHsVarTup ids = mkBigLHsTup (map nlHsVar ids)
 
-mkBigLHsTup :: [LHsExpr Id] -> LHsExpr Id
+mkBigLHsTup :: [LHsExpr Id PostTcType] -> LHsExpr Id PostTcType
 mkBigLHsTup = mkChunkified mkLHsTupleExpr
 
 -- The Big equivalents for the source tuple patterns
-mkBigLHsVarPatTup :: [Id] -> LPat Id
+mkBigLHsVarPatTup :: [Id] -> LPat Id PostTcType
 mkBigLHsVarPatTup bs = mkBigLHsPatTup (map nlVarPat bs)
 
-mkBigLHsPatTup :: [LPat Id] -> LPat Id
+mkBigLHsPatTup :: [LPat Id PostTcType] -> LPat Id PostTcType
 mkBigLHsPatTup = mkChunkified mkLHsPatTup
 \end{code}
 

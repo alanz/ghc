@@ -44,7 +44,7 @@ producing an expression with a runtime error in the corner if
 necessary.  The type argument gives the type of the @ei@.
 
 \begin{code}
-dsGuarded :: GRHSs Id (LHsExpr Id) -> Type -> DsM CoreExpr
+dsGuarded :: GRHSs Id (LHsExpr Id PostTcType) PostTcType -> Type -> DsM CoreExpr
 
 dsGuarded grhss rhs_ty = do
     match_result <- dsGRHSs PatBindRhs [] grhss rhs_ty
@@ -55,9 +55,9 @@ dsGuarded grhss rhs_ty = do
 In contrast, @dsGRHSs@ produces a @MatchResult@.
 
 \begin{code}
-dsGRHSs :: HsMatchContext Name -> [Pat Id]      -- These are to build a MatchContext from
-        -> GRHSs Id (LHsExpr Id)                -- Guarded RHSs
-        -> Type                                 -- Type of RHS
+dsGRHSs :: HsMatchContext Name -> [Pat Id PostTcType]  -- These are to build a MatchContext from
+        -> GRHSs Id (LHsExpr Id PostTcType) PostTcType -- Guarded RHSs
+        -> Type                                        -- Type of RHS
         -> DsM MatchResult
 dsGRHSs hs_ctx _ (GRHSs grhss binds) rhs_ty 
   = ASSERT( notNull grhss )
@@ -67,7 +67,7 @@ dsGRHSs hs_ctx _ (GRHSs grhss binds) rhs_ty
                              -- NB: nested dsLet inside matchResult
        ; return match_result2 }
 
-dsGRHS :: HsMatchContext Name -> Type -> LGRHS Id (LHsExpr Id) -> DsM MatchResult
+dsGRHS :: HsMatchContext Name -> Type -> LGRHS Id (LHsExpr Id PostTcType) PostTcType -> DsM MatchResult
 dsGRHS hs_ctx rhs_ty (L _ (GRHS guards rhs))
   = matchGuards (map unLoc guards) (PatGuard hs_ctx) rhs rhs_ty
 \end{code}
@@ -80,10 +80,10 @@ dsGRHS hs_ctx rhs_ty (L _ (GRHS guards rhs))
 %************************************************************************
 
 \begin{code}
-matchGuards :: [GuardStmt Id]       -- Guard
-            -> HsStmtContext Name   -- Context
-            -> LHsExpr Id           -- RHS
-            -> Type                 -- Type of RHS of guard
+matchGuards :: [GuardStmt Id PostTcType] -- Guard
+            -> HsStmtContext Name        -- Context
+            -> LHsExpr Id PostTcType     -- RHS
+            -> Type                      -- Type of RHS of guard
             -> DsM MatchResult
 
 -- See comments with HsExpr.Stmt re what a BodyStmt means
@@ -127,7 +127,7 @@ matchGuards (ParStmt   {} : _) _ _ _ = panic "matchGuards ParStmt"
 matchGuards (TransStmt {} : _) _ _ _ = panic "matchGuards TransStmt"
 matchGuards (RecStmt   {} : _) _ _ _ = panic "matchGuards RecStmt"
 
-isTrueLHsExpr :: LHsExpr Id -> Maybe (CoreExpr -> DsM CoreExpr)
+isTrueLHsExpr :: LHsExpr Id PostTcType -> Maybe (CoreExpr -> DsM CoreExpr)
 
 -- Returns Just {..} if we're sure that the expression is True
 -- I.e.   * 'True' datacon

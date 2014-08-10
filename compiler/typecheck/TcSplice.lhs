@@ -123,7 +123,7 @@ tcSpliceExpr     :: HsSplice Name PostTcType  -> TcRhoType -> TcM (HsExpr TcId P
         -- None of these functions add constraints to the LIE
 
 runQuasiQuoteExpr :: HsQuasiQuote RdrName -> RnM (LHsExpr RdrName PreTcType)
-runQuasiQuotePat  :: HsQuasiQuote RdrName -> RnM (LPat RdrName PreTcType)
+runQuasiQuotePat  :: HsQuasiQuote RdrName -> RnM (LPat RdrName PostTcType)
 runQuasiQuoteType :: HsQuasiQuote RdrName -> RnM (LHsType RdrName PreTcType)
 runQuasiQuoteDecl :: HsQuasiQuote RdrName -> RnM [LHsDecl RdrName PreTcType]
 

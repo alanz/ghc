@@ -44,7 +44,7 @@ turned on'' (if you read Gill {\em et al.}'s paper on the subject).
 There will be at least one ``qualifier'' in the input.
 
 \begin{code}
-dsListComp :: [ExprLStmt Id]
+dsListComp :: [ExprLStmt Id PostTcType]
            -> Type              -- Type of entire list
            -> DsM CoreExpr
 dsListComp lquals res_ty = do
@@ -79,7 +79,7 @@ dsListComp lquals res_ty = do
 -- This function lets you desugar a inner list comprehension and a list of the binders
 -- of that comprehension that we need in the outer comprehension into such an expression
 -- and the type of the elements that it outputs (tuples of binders)
-dsInnerListComp :: (ParStmtBlock Id Id) -> DsM (CoreExpr, Type)
+dsInnerListComp :: (ParStmtBlock Id Id PostTcType) -> DsM (CoreExpr, Type)
 dsInnerListComp (ParStmtBlock stmts bndrs _)
   = do { expr <- dsListComp (stmts ++ [noLoc $ mkLastStmt (mkBigLHsVarTup bndrs)])
                             (mkListTy bndrs_tuple_type)
@@ -90,7 +90,7 @@ dsInnerListComp (ParStmtBlock stmts bndrs _)
 -- This function factors out commonality between the desugaring strategies for GroupStmt.
 -- Given such a statement it gives you back an expression representing how to compute the transformed
 -- list and the tuple that you need to bind from that list in order to proceed with your desugaring
-dsTransStmt :: ExprStmt Id -> DsM (CoreExpr, LPat Id)
+dsTransStmt :: ExprStmt Id PostTcType -> DsM (CoreExpr, LPat Id PostTcType)
 dsTransStmt (TransStmt { trS_form = form, trS_stmts = stmts, trS_bndrs = binderMap
                        , trS_by = by, trS_using = using }) = do
     let (from_bndrs, to_bndrs) = unzip binderMap
@@ -205,7 +205,7 @@ with the Unboxed variety.
 
 \begin{code}
 
-deListComp :: [ExprStmt Id] -> CoreExpr -> DsM CoreExpr
+deListComp :: [ExprStmt Id PostTcType] -> CoreExpr -> DsM CoreExpr
 
 deListComp [] _ = panic "deListComp"
 
@@ -255,9 +255,9 @@ deListComp (RecStmt {} : _) _ = panic "deListComp RecStmt"
 
 
 \begin{code}
-deBindComp :: OutPat Id
+deBindComp :: OutPat Id PostTcType
            -> CoreExpr
-           -> [ExprStmt Id]
+           -> [ExprStmt Id PostTcType]
            -> CoreExpr
            -> DsM (Expr Id)
 deBindComp pat core_list1 quals core_list2 = do
@@ -310,8 +310,8 @@ TE[ e | p <- l , q ] c n = let
 \end{verbatim}
 
 \begin{code}
-dfListComp :: Id -> Id      -- 'c' and 'n'
-        -> [ExprStmt Id]    -- the rest of the qual's
+dfListComp :: Id -> Id              -- 'c' and 'n'
+        -> [ExprStmt Id PostTcType] -- the rest of the qual's
         -> DsM CoreExpr
 
 dfListComp _ _ [] = panic "dfListComp"
@@ -347,9 +347,9 @@ dfListComp c_id n_id (BindStmt pat list1 _ _ : quals) = do
 dfListComp _ _ (ParStmt {} : _) = panic "dfListComp ParStmt"
 dfListComp _ _ (RecStmt {} : _) = panic "dfListComp RecStmt"
 
-dfBindComp :: Id -> Id          -- 'c' and 'n'
-           -> (LPat Id, CoreExpr)
-           -> [ExprStmt Id]     -- the rest of the qual's
+dfBindComp :: Id -> Id                 -- 'c' and 'n'
+           -> (LPat Id PostTcType, CoreExpr)
+           -> [ExprStmt Id PostTcType] -- the rest of the qual's
            -> DsM CoreExpr
 dfBindComp c_id n_id (pat, core_list1) quals = do
     -- find the required type
@@ -470,7 +470,7 @@ mkUnzipBind _ elt_tys
 --
 --   [:e | qss:] = <<[:e | qss:]>> () [:():]
 --
-dsPArrComp :: [ExprStmt Id]
+dsPArrComp :: [ExprStmt Id PostTcType]
             -> DsM CoreExpr
 
 -- Special case for parallel comprehension
@@ -506,9 +506,9 @@ dsPArrComp qs = do -- no ParStmt in `qs'
 
 -- the work horse
 --
-dePArrComp :: [ExprStmt Id]
-           -> LPat Id           -- the current generator pattern
-           -> CoreExpr          -- the current generator expression
+dePArrComp :: [ExprStmt Id PostTcType]
+           -> LPat Id PostTcType -- the current generator pattern
+           -> CoreExpr           -- the current generator expression
            -> DsM CoreExpr
 
 dePArrComp [] _ _ = panic "dePArrComp"
@@ -602,7 +602,7 @@ dePArrComp (RecStmt   {} : _) _ _ = panic "DsListComp.dePArrComp: RecStmt"
 --    where
 --      {x_1, ..., x_n} = DV (qs)
 --
-dePArrParComp :: [ParStmtBlock Id Id] -> [ExprStmt Id] -> DsM CoreExpr
+dePArrParComp :: [ParStmtBlock Id Id PostTcType] -> [ExprStmt Id PostTcType] -> DsM CoreExpr
 dePArrParComp qss quals = do
     (pQss, ceQss) <- deParStmt qss
     dePArrComp quals pQss ceQss
@@ -629,8 +629,8 @@ dePArrParComp qss quals = do
 -- generate Core corresponding to `\p -> e'
 --
 deLambda :: Type                        -- type of the argument
-          -> LPat Id                    -- argument pattern
-          -> LHsExpr Id                 -- body
+          -> LPat Id PostTcType         -- argument pattern
+          -> LHsExpr Id PostTcType      -- body
           -> DsM (CoreExpr, Type)
 deLambda ty p e =
     mkLambda ty p =<< dsLExpr e
@@ -638,7 +638,7 @@ deLambda ty p e =
 -- generate Core for a lambda pattern match, where the body is already in Core
 --
 mkLambda :: Type                        -- type of the argument
-         -> LPat Id                     -- argument pattern
+         -> LPat Id PostTcType          -- argument pattern
          -> CoreExpr                    -- desugared body
          -> DsM (CoreExpr, Type)
 mkLambda ty p ce = do
@@ -664,15 +664,15 @@ Translation for monad comprehensions
 
 \begin{code}
 -- Entry point for monad comprehension desugaring
-dsMonadComp :: [ExprLStmt Id] -> DsM CoreExpr
+dsMonadComp :: [ExprLStmt Id PostTcType] -> DsM CoreExpr
 dsMonadComp stmts = dsMcStmts stmts
 
-dsMcStmts :: [ExprLStmt Id] -> DsM CoreExpr
+dsMcStmts :: [ExprLStmt Id PostTcType] -> DsM CoreExpr
 dsMcStmts []                    = panic "dsMcStmts"
 dsMcStmts (L loc stmt : lstmts) = putSrcSpanDs loc (dsMcStmt stmt lstmts)
 
 ---------------
-dsMcStmt :: ExprStmt Id -> [ExprLStmt Id] -> DsM CoreExpr
+dsMcStmt :: ExprStmt Id PostTcType -> [ExprLStmt Id PostTcType] -> DsM CoreExpr
 
 dsMcStmt (LastStmt body ret_op) stmts
   = ASSERT( null stmts )
@@ -798,11 +798,11 @@ matchTuple ids body
 
 -- general `rhs' >>= \pat -> stmts` desugaring where `rhs'` is already a
 -- desugared `CoreExpr`
-dsMcBindStmt :: LPat Id
+dsMcBindStmt :: LPat Id PostTcType
              -> CoreExpr        -- ^ the desugared rhs of the bind statement
-             -> SyntaxExpr Id
-             -> SyntaxExpr Id
-             -> [ExprLStmt Id]
+             -> SyntaxExpr Id PostTcType
+             -> SyntaxExpr Id PostTcType
+             -> [ExprLStmt Id PostTcType]
              -> DsM CoreExpr
 dsMcBindStmt pat rhs' bind_op fail_op stmts
   = do  { body     <- dsMcStmts stmts
@@ -837,9 +837,9 @@ dsMcBindStmt pat rhs' bind_op fail_op stmts
 -- returns the desugaring of
 --       [ (a,b,c) | quals ]
 
-dsInnerMonadComp :: [ExprLStmt Id]
-                 -> [Id]        -- Return a tuple of these variables
-                 -> HsExpr Id   -- The monomorphic "return" operator
+dsInnerMonadComp :: [ExprLStmt Id PostTcType]
+                 -> [Id]                 -- Return a tuple of these variables
+                 -> HsExpr Id PostTcType -- The monomorphic "return" operator
                  -> DsM CoreExpr
 dsInnerMonadComp stmts bndrs ret_op
   = dsMcStmts (stmts ++ [noLoc (LastStmt (mkBigLHsVarTup bndrs) ret_op)])
@@ -856,7 +856,7 @@ dsInnerMonadComp stmts bndrs ret_op
 --       , fmap (selN2 :: (t1, t2) -> t2) ys )
 
 mkMcUnzipM :: TransForm
-           -> SyntaxExpr TcId   -- fmap
+           -> SyntaxExpr TcId PostTcType -- fmap
            -> Id                -- Of type n (a,b,c)
            -> [Type]            -- [a,b,c]
            -> DsM CoreExpr      -- Of type (n a, n b, n c)

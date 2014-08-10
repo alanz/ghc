@@ -10,7 +10,7 @@ import HsLit    ( PostTcType )
 
 tcGRHSsPat    :: GRHSs Name (LHsExpr Name PostTcType) PostTcType
               -> TcRhoType
-              -> TcM (GRHSs TcId (LHsExpr TcId))
+              -> TcM (GRHSs TcId (LHsExpr TcId PostTcType) PostTcType)
 
 tcMatchesFun :: Name -> Bool
              -> MatchGroup Name (LHsExpr Name PostTcType) PostTcType

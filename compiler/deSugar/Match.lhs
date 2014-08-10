@@ -155,7 +155,7 @@ pp_context (DsMatchContext kind _loc) msg rest_of_msg_fun
 ppr_pats :: Outputable a => [a] -> SDoc
 ppr_pats pats = sep (map ppr pats)
 
-ppr_shadow_pats :: HsMatchContext Name -> [Pat Id] -> SDoc
+ppr_shadow_pats :: HsMatchContext Name -> [Pat Id PostTcType] -> SDoc
 ppr_shadow_pats kind pats
   = sep [ppr_pats pats, matchSeparator kind, ptext (sLit "...")]
 
@@ -405,12 +405,12 @@ matchOverloadedList (var:vars) ty (eqns@(eqn1:_))
 matchOverloadedList _ _ _ = panic "matchOverloadedList"
 
 -- decompose the first pattern and leave the rest alone
-decomposeFirstPat :: (Pat Id -> Pat Id) -> EquationInfo -> EquationInfo
+decomposeFirstPat :: (Pat Id PostTcType -> Pat Id PostTcType) -> EquationInfo -> EquationInfo
 decomposeFirstPat extractpat (eqn@(EqnInfo { eqn_pats = pat : pats }))
         = eqn { eqn_pats = extractpat pat : pats}
 decomposeFirstPat _ _ = panic "decomposeFirstPat"
 
-getCoPat, getBangPat, getViewPat, getOLPat :: Pat Id -> Pat Id
+getCoPat, getBangPat, getViewPat, getOLPat :: Pat Id PostTcType -> Pat Id PostTcType
 getCoPat (CoPat _ pat _)     = pat
 getCoPat _                   = panic "getCoPat"
 getBangPat (BangPat pat  )   = unLoc pat
@@ -503,10 +503,10 @@ tidyEqnInfo v eqn@(EqnInfo { eqn_pats = pat : pats })
   = do { (wrap, pat') <- tidy1 v pat
        ; return (wrap, eqn { eqn_pats = do pat' : pats }) }
 
-tidy1 :: Id               -- The Id being scrutinised
-      -> Pat Id           -- The pattern against which it is to be matched
-      -> DsM (DsWrapper,  -- Extra bindings to do before the match
-              Pat Id)     -- Equivalent pattern
+tidy1 :: Id                      -- The Id being scrutinised
+      -> Pat Id PostTcType       -- The pattern against which it is to be matched
+      -> DsM (DsWrapper,         -- Extra bindings to do before the match
+              Pat Id PostTcType) -- Equivalent pattern
 
 -------------------------------------------------------
 --      (pat', mr') = tidy1 v pat mr
@@ -586,7 +586,7 @@ tidy1 _ non_interesting_pat
   = return (idDsWrapper, non_interesting_pat)
 
 --------------------
-tidy_bang_pat :: Id -> SrcSpan -> Pat Id -> DsM (DsWrapper, Pat Id)
+tidy_bang_pat :: Id -> SrcSpan -> Pat Id PostTcType -> DsM (DsWrapper, Pat Id PostTcType)
 
 -- Discard bang around strict pattern
 tidy_bang_pat v _ p@(ListPat {})   = tidy1 v p
@@ -724,7 +724,7 @@ Call @match@ with all of this information!
 
 \begin{code}
 matchWrapper :: HsMatchContext Name         -- For shadowing warning messages
-             -> MatchGroup Id (LHsExpr Id)  -- Matches being desugared
+             -> MatchGroup Id (LHsExpr Id PostTcType) PostTcType -- Matches being desugared
              -> DsM ([Id], CoreExpr)        -- Results
 \end{code}
 
@@ -800,7 +800,7 @@ pattern. It returns an expression.
 \begin{code}
 matchSimply :: CoreExpr                 -- Scrutinee
             -> HsMatchContext Name      -- Match kind
-            -> LPat Id                  -- Pattern it should match
+            -> LPat Id PostTcType       -- Pattern it should match
             -> CoreExpr                 -- Return this if it matches
             -> CoreExpr                 -- Return this if it doesn't
             -> DsM CoreExpr
@@ -813,7 +813,7 @@ matchSimply scrut hs_ctx pat result_expr fail_expr = do
     match_result' <- matchSinglePat scrut hs_ctx pat rhs_ty match_result
     extractMatchResult match_result' fail_expr
 
-matchSinglePat :: CoreExpr -> HsMatchContext Name -> LPat Id
+matchSinglePat :: CoreExpr -> HsMatchContext Name -> LPat Id PostTcType
                -> Type -> MatchResult -> DsM MatchResult
 -- Do not warn about incomplete patterns
 -- Used for things like [ e | pat <- stuff ], where
@@ -849,7 +849,7 @@ data PatGroup
   | PgBang              -- Bang patterns
   | PgCo Type           -- Coercion patterns; the type is the type
                         --      of the pattern *inside*
-  | PgView (LHsExpr Id) -- view pattern (e -> p):
+  | PgView (LHsExpr Id PostTcType) -- view pattern (e -> p):
                         -- the LHsExpr is the expression e
            Type         -- the Type is the type of p (equivalently, the result type of e)
   | PgOverloadedList
@@ -924,14 +924,14 @@ sameGroup _          _          = False
 -- NB we can't assume that the two view expressions have the same type.  Consider
 --   f (e1 -> True) = ...
 --   f (e2 -> "hi") = ...
-viewLExprEq :: (LHsExpr Id,Type) -> (LHsExpr Id,Type) -> Bool
+viewLExprEq :: (LHsExpr Id PostTcType,Type) -> (LHsExpr Id PostTcType,Type) -> Bool
 viewLExprEq (e1,_) (e2,_) = lexp e1 e2
   where
-    lexp :: LHsExpr Id -> LHsExpr Id -> Bool
+    lexp :: LHsExpr Id PostTcType -> LHsExpr Id PostTcType -> Bool
     lexp e e' = exp (unLoc e) (unLoc e')
 
     ---------
-    exp :: HsExpr Id -> HsExpr Id -> Bool
+    exp :: HsExpr Id PostTcType -> HsExpr Id PostTcType -> Bool
     -- real comparison is on HsExpr's
     -- strip parens
     exp (HsPar (L _ e)) e'   = exp e e'
@@ -1016,7 +1016,7 @@ viewLExprEq (e1,_) (e2,_) = lexp e1 e2
     eq_co (TcTyConAppCo r1 tc1 cos1) (TcTyConAppCo r2 tc2 cos2) = r1 == r2 && tc1==tc2 && eq_list eq_co cos1 cos2
     eq_co _ _ = False
 
-patGroup :: DynFlags -> Pat Id -> PatGroup
+patGroup :: DynFlags -> Pat Id PostTcType -> PatGroup
 patGroup _      (WildPat {})                  = PgAny
 patGroup _      (BangPat {})                  = PgBang
 patGroup _      (ConPatOut { pat_con = con }) = case unLoc con of

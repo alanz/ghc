@@ -84,23 +84,23 @@ import Control.Monad(liftM)
 %************************************************************************
 
 \begin{code}
-dsTopLHsBinds :: LHsBinds Id -> DsM (OrdList (Id,CoreExpr))
+dsTopLHsBinds :: LHsBinds Id PostTcType -> DsM (OrdList (Id,CoreExpr))
 dsTopLHsBinds binds = ds_lhs_binds binds
 
-dsLHsBinds :: LHsBinds Id -> DsM [(Id,CoreExpr)]
+dsLHsBinds :: LHsBinds Id PostTcType -> DsM [(Id,CoreExpr)]
 dsLHsBinds binds = do { binds' <- ds_lhs_binds binds
                       ; return (fromOL binds') }
 
 ------------------------
-ds_lhs_binds :: LHsBinds Id -> DsM (OrdList (Id,CoreExpr))
+ds_lhs_binds :: LHsBinds Id PostTcType -> DsM (OrdList (Id,CoreExpr))
 
 ds_lhs_binds binds = do { ds_bs <- mapBagM dsLHsBind binds
                         ; return (foldBag appOL id nilOL ds_bs) }
 
-dsLHsBind :: LHsBind Id -> DsM (OrdList (Id,CoreExpr))
+dsLHsBind :: LHsBind Id PostTcType -> DsM (OrdList (Id,CoreExpr))
 dsLHsBind (L loc bind) = putSrcSpanDs loc $ dsHsBind bind
 
-dsHsBind :: HsBind Id -> DsM (OrdList (Id,CoreExpr))
+dsHsBind :: HsBind Id PostTcType -> DsM (OrdList (Id,CoreExpr))
 
 dsHsBind (VarBind { var_id = var, var_rhs = expr, var_inline = inline_regardless })
   = do  { dflags <- getDynFlags

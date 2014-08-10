@@ -85,7 +85,7 @@ emitWanted origin pred
              CtWanted { ctev_pred = pred, ctev_evar = ev, ctev_loc = loc }
        ; return ev }
 
-newMethodFromName :: CtOrigin -> Name -> TcRhoType -> TcM (HsExpr TcId)
+newMethodFromName :: CtOrigin -> Name -> TcRhoType -> TcM (HsExpr TcId PostTcType)
 -- Used when Name is the wired-in name for a wired-in class method,
 -- so the caller knows its type for sure, which should be of form
 --    forall a. C a => <blah>
@@ -249,18 +249,18 @@ cases (the rest are caught in lookupInst).
 
 \begin{code}
 newOverloadedLit :: CtOrigin
-                 -> HsOverLit Name
+                 -> HsOverLit Name PostTcType
                  -> TcRhoType
-                 -> TcM (HsOverLit TcId)
+                 -> TcM (HsOverLit TcId PostTcType)
 newOverloadedLit orig lit res_ty
     = do dflags <- getDynFlags
          newOverloadedLit' dflags orig lit res_ty
 
 newOverloadedLit' :: DynFlags
                   -> CtOrigin
-                  -> HsOverLit Name
+                  -> HsOverLit Name PostTcType
                   -> TcRhoType
-                  -> TcM (HsOverLit TcId)
+                  -> TcM (HsOverLit TcId PostTcType)
 newOverloadedLit' dflags orig
   lit@(OverLit { ol_val = val, ol_rebindable = rebindable
 	       , ol_witness = meth_name }) res_ty
@@ -332,9 +332,9 @@ just use the expression inline.
 
 \begin{code}
 tcSyntaxName :: CtOrigin
-	     -> TcType			-- Type to instantiate it at
-	     -> (Name, HsExpr Name)	-- (Standard name, user name)
-	     -> TcM (Name, HsExpr TcId)	-- (Standard name, suitable expression)
+	     -> TcType                             -- Type to instantiate it at
+	     -> (Name, HsExpr Name PostTcType)     -- (Standard name, user name)
+	     -> TcM (Name, HsExpr TcId PostTcType) -- (Standard name, suitable expression)
 -- USED ONLY FOR CmdTop (sigh) ***
 -- See Note [CmdSyntaxTable] in HsExpr
 
@@ -361,7 +361,7 @@ tcSyntaxName orig ty (std_nm, user_nm_expr) = do
      expr <- tcPolyExpr (L span user_nm_expr) sigma1
      return (std_nm, unLoc expr)
 
-syntaxNameCtxt :: HsExpr Name -> CtOrigin -> Type -> TidyEnv
+syntaxNameCtxt :: HsExpr Name PostTcType -> CtOrigin -> Type -> TidyEnv
                -> TcRn (TidyEnv, SDoc)
 syntaxNameCtxt name orig ty tidy_env
   = do { inst_loc <- getCtLoc orig

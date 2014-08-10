@@ -855,7 +855,7 @@ validDerivPred tv_set pred
 %************************************************************************
 
 \begin{code}
-checkValidInstance :: UserTypeCtxt -> LHsType Name -> Type
+checkValidInstance :: UserTypeCtxt -> LHsType Name PostTcType -> Type
                    -> TcM ([TyVar], ThetaType, Class, [Type])
 checkValidInstance ctxt hs_type ty
   | Just (clas,inst_tys) <- getClassPredTys_maybe tau

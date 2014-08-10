@@ -17,9 +17,9 @@ import Id       ( Id )
 import qualified Language.Haskell.TH as TH
 #endif
 
-tcSpliceExpr :: HsSplice Name
+tcSpliceExpr :: HsSplice Name PostTcType
              -> TcRhoType
-             -> TcM (HsExpr TcId)
+             -> TcM (HsExpr TcId PostTcType)
 
 tcUntypedBracket :: HsBracket Name PostTcType
                  -> [PendingRnSplice PostTcType]
@@ -32,7 +32,7 @@ tcTypedBracket :: HsBracket Name PostTcType
 runQuasiQuoteDecl :: HsQuasiQuote RdrName -> TcM [LHsDecl RdrName PreTcType]
 runQuasiQuoteExpr :: HsQuasiQuote RdrName -> TcM (LHsExpr RdrName PreTcType)
 runQuasiQuoteType :: HsQuasiQuote RdrName -> TcM (LHsType RdrName PreTcType)
-runQuasiQuotePat  :: HsQuasiQuote RdrName -> TcM (LPat RdrName PreTcType)
+runQuasiQuotePat  :: HsQuasiQuote RdrName -> TcM (LPat RdrName PostTcType)
 runAnnotation     :: CoreAnnTarget -> LHsExpr Name PostTcType -> TcM Annotation
 
 #ifdef GHCI

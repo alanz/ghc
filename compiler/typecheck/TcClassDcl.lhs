@@ -95,8 +95,8 @@ Death to "ExpandingDicts".
 
 \begin{code}
 tcClassSigs :: Name	             -- Name of the class
-	    -> [LSig Name]
-	    -> LHsBinds Name
+	    -> [LSig Name PostTcType]
+	    -> LHsBinds Name PostTcType
 	    -> TcM ([TcMethInfo],    -- Exactly one for each method
                     NameEnv Type)    -- Types of the generic-default methods
 tcClassSigs clas sigs def_methods
@@ -147,8 +147,8 @@ tcClassSigs clas sigs def_methods
 %************************************************************************
 
 \begin{code}
-tcClassDecl2 :: LTyClDecl Name		-- The class declaration
-	     -> TcM (LHsBinds Id)
+tcClassDecl2 :: LTyClDecl Name PostTcType  -- The class declaration
+	     -> TcM (LHsBinds Id PostTcType)
 
 tcClassDecl2 (L loc (ClassDecl {tcdLName = class_name, tcdSigs = sigs, 
 				tcdMeths = default_binds}))
@@ -184,9 +184,9 @@ tcClassDecl2 (L loc (ClassDecl {tcdLName = class_name, tcdSigs = sigs,
 
 tcClassDecl2 d = pprPanic "tcClassDecl2" (ppr d)
     
-tcDefMeth :: Class -> [TyVar] -> EvVar -> LHsBinds Name
+tcDefMeth :: Class -> [TyVar] -> EvVar -> LHsBinds Name PostTcType
           -> HsSigFun -> PragFun -> ClassOpItem
-          -> TcM (LHsBinds TcId)
+          -> TcM (LHsBinds TcId PostTcType)
 -- Generate code for polymorphic default methods only (hence DefMeth)
 -- (Generic default methods have turned into instance decls by now.)
 -- This is incompatible with Hugs, which expects a polymorphic 
@@ -239,8 +239,8 @@ tcDefMeth clas tyvars this_dict binds_in hs_sig_fn prag_fn (sel_id, dm_info)
 ---------------
 tcInstanceMethodBody :: SkolemInfo -> [TcTyVar] -> [EvVar]
                      -> Id -> TcSigInfo
-          	     -> TcSpecPrags -> LHsBind Name
-          	     -> TcM (LHsBind Id)
+          	     -> TcSpecPrags -> LHsBind Name PostTcType
+          	     -> TcM (LHsBind Id PostTcType)
 tcInstanceMethodBody skol_info tyvars dfun_ev_vars
                      meth_id local_meth_sig
 		     specs (L loc bind)
@@ -265,7 +265,7 @@ tcInstanceMethodBody skol_info tyvars dfun_ev_vars
     		    		-- they are all for meth_id
 
 ---------------
-tcClassMinimalDef :: Name -> [LSig Name] -> [TcMethInfo] -> TcM ClassMinimalDef
+tcClassMinimalDef :: Name -> [LSig Name PostTcType] -> [TcMethInfo] -> TcM ClassMinimalDef
 tcClassMinimalDef _clas sigs op_info
   = case findMinimalDef sigs of
       Nothing -> return defMindef
@@ -311,23 +311,23 @@ instantiateMethod clas sel_id inst_tys
 
 
 ---------------------------
-type HsSigFun = NameEnv (LHsType Name)
+type HsSigFun = NameEnv (LHsType Name PostTcType)
 
 emptyHsSigs :: HsSigFun
 emptyHsSigs = emptyNameEnv
 
-mkHsSigFun :: [LSig Name] -> HsSigFun
+mkHsSigFun :: [LSig Name PostTcType] -> HsSigFun
 mkHsSigFun sigs = mkNameEnv [(n, hs_ty) 
                             | L _ (TypeSig ns hs_ty) <- sigs
                             , L _ n <- ns ]
 
-lookupHsSig :: HsSigFun -> Name -> Maybe (LHsType Name)
+lookupHsSig :: HsSigFun -> Name -> Maybe (LHsType Name PostTcType)
 lookupHsSig = lookupNameEnv
 
 ---------------------------
 findMethodBind	:: Name  	        -- Selector name
-          	-> LHsBinds Name 	-- A group of bindings
-		-> Maybe (LHsBind Name, SrcSpan)
+          	-> LHsBinds Name PostTcType -- A group of bindings
+		-> Maybe (LHsBind Name PostTcType, SrcSpan)
           	-- Returns the binding, and the binding 
                 -- site of the method binder
 findMethodBind sel_name binds
@@ -339,10 +339,10 @@ findMethodBind sel_name binds
     f _other = Nothing
 
 ---------------------------
-findMinimalDef :: [LSig Name] -> Maybe ClassMinimalDef
+findMinimalDef :: [LSig Name PostTcType] -> Maybe ClassMinimalDef
 findMinimalDef = firstJusts . map toMinimalDef
   where
-    toMinimalDef :: LSig Name -> Maybe ClassMinimalDef
+    toMinimalDef :: LSig Name PostTcType -> Maybe ClassMinimalDef
     toMinimalDef (L _ (MinimalSig bf)) = Just (fmap unLoc bf)
     toMinimalDef _                     = Nothing
 \end{code}
@@ -381,11 +381,11 @@ This makes the error messages right.
 %************************************************************************
 
 \begin{code}
-tcMkDeclCtxt :: TyClDecl Name -> SDoc
+tcMkDeclCtxt :: TyClDecl Name PostTcType -> SDoc
 tcMkDeclCtxt decl = hsep [ptext (sLit "In the"), pprTyClDeclFlavour decl, 
                       ptext (sLit "declaration for"), quotes (ppr (tcdName decl))]
 
-tcAddDeclCtxt :: TyClDecl Name -> TcM a -> TcM a
+tcAddDeclCtxt :: TyClDecl Name PostTcType -> TcM a -> TcM a
 tcAddDeclCtxt decl thing_inside
   = addErrCtxt (tcMkDeclCtxt decl) thing_inside
 
@@ -418,7 +418,7 @@ dupGenericInsts tc_inst_infos
   where 
     ppr_inst_ty (_,inst) = ppr (simpleInstInfoTy inst)
 -}
-badDmPrag :: Id -> Sig Name -> TcM ()
+badDmPrag :: Id -> Sig Name PostTcType -> TcM ()
 badDmPrag sel_id prag
   = addErrTc (ptext (sLit "The") <+> hsSigDoc prag <+> ptext (sLit "for default method") 
               <+> quotes (ppr sel_id) 

@@ -163,7 +163,7 @@ the TyCon being defined.
 %************************************************************************
 
 \begin{code}
-tcHsSigType, tcHsSigTypeNC :: UserTypeCtxt -> LHsType Name -> TcM Type
+tcHsSigType, tcHsSigTypeNC :: UserTypeCtxt -> LHsType Name PostTcType -> TcM Type
   -- NB: it's important that the foralls that come from the top-level
   --	 HsForAllTy in hs_ty occur *first* in the returned type.
   --     See Note [Scoped] with TcSigInfo
@@ -189,7 +189,7 @@ tcHsSigTypeNC ctxt (L loc hs_ty)
         ; return ty }
 
 -----------------
-tcHsInstHead :: UserTypeCtxt -> LHsType Name -> TcM ([TyVar], ThetaType, Class, [Type])
+tcHsInstHead :: UserTypeCtxt -> LHsType Name PostTcType -> TcM ([TyVar], ThetaType, Class, [Type])
 -- Like tcHsSigTypeNC, but for an instance head.
 tcHsInstHead user_ctxt lhs_ty@(L loc hs_ty)
   = setSrcSpan loc $    -- The "In the type..." context comes from the caller
@@ -199,7 +199,7 @@ tcHsInstHead user_ctxt lhs_ty@(L loc hs_ty)
        ; inst_ty <- zonkSigType (mkForAllTys kvs inst_ty)
        ; checkValidInstance user_ctxt lhs_ty inst_ty }
 
-tc_inst_head :: HsType Name -> TcM TcType
+tc_inst_head :: HsType Name PostTcType -> TcM TcType
 tc_inst_head (HsForAllTy _ hs_tvs hs_ctxt hs_ty)
   = tcHsTyVarBndrs hs_tvs $ \ tvs -> 
     do { ctxt <- tcHsContext hs_ctxt
@@ -210,7 +210,7 @@ tc_inst_head hs_ty
   = tc_hs_type hs_ty ekConstraint
 
 -----------------
-tcHsDeriv :: HsType Name -> TcM ([TyVar], Class, [Type], Kind)
+tcHsDeriv :: HsType Name PostTcType -> TcM ([TyVar], Class, [Type], Kind)
 -- Like tcHsSigTypeNC, but for the ...deriving( C t1 ty2 ) clause
 -- Returns the C, [ty1, ty2, and the kind of C's *next* argument
 -- E.g.    class C (a::*) (b::k->k)
@@ -230,7 +230,7 @@ tcHsDeriv hs_ty
 
 -- Used for 'VECTORISE [SCALAR] instance' declarations
 --
-tcHsVectInst :: LHsType Name -> TcM (Class, [Type])
+tcHsVectInst :: LHsType Name PostTcType -> TcM (Class, [Type])
 tcHsVectInst ty
   | Just (L _ cls_name, tys) <- splitLHsClassTy_maybe ty
   = do { (cls, cls_kind) <- tcClass cls_name
@@ -254,13 +254,13 @@ tcHsVectInst ty
 	First a couple of simple wrappers for kcHsType
 
 \begin{code}
-tcClassSigType :: LHsType Name -> TcM Type
+tcClassSigType :: LHsType Name PostTcType -> TcM Type
 tcClassSigType lhs_ty@(L _ hs_ty)
   = addTypeCtxt lhs_ty $
     do { ty <- tcCheckHsTypeAndGen hs_ty liftedTypeKind
        ; zonkSigType ty }
 
-tcHsConArgType :: NewOrData ->  LHsType Name -> TcM Type
+tcHsConArgType :: NewOrData ->  LHsType Name PostTcType -> TcM Type
 -- Permit a bang, but discard it
 tcHsConArgType NewType  bty = tcHsLiftedType (getBangType bty)
   -- Newtypes can't have bangs, but we don't check that
@@ -272,37 +272,37 @@ tcHsConArgType DataType bty = tcHsOpenType (getBangType bty)
   -- And newtypes can't be bang'd
 
 ---------------------------
-tcHsArgTys :: SDoc -> [LHsType Name] -> [Kind] -> TcM [TcType]
+tcHsArgTys :: SDoc -> [LHsType Name PostTcType] -> [Kind] -> TcM [TcType]
 tcHsArgTys what tys kinds
   = sequence [ addTypeCtxt ty $
                tc_lhs_type ty (expArgKind what kind n)
              | (ty,kind,n) <- zip3 tys kinds [1..] ]
 
-tc_hs_arg_tys :: SDoc -> [LHsType Name] -> [Kind] -> TcM [TcType]
+tc_hs_arg_tys :: SDoc -> [LHsType Name PostTcType] -> [Kind] -> TcM [TcType]
 -- Just like tcHsArgTys but without the addTypeCtxt
 tc_hs_arg_tys what tys kinds
   = sequence [ tc_lhs_type ty (expArgKind what kind n)
              | (ty,kind,n) <- zip3 tys kinds [1..] ]
 
 ---------------------------
-tcHsOpenType, tcHsLiftedType :: LHsType Name -> TcM TcType
+tcHsOpenType, tcHsLiftedType :: LHsType Name PostTcType -> TcM TcType
 -- Used for type signatures
 -- Do not do validity checking
 tcHsOpenType ty   = addTypeCtxt ty $ tc_lhs_type ty ekOpen
 tcHsLiftedType ty = addTypeCtxt ty $ tc_lhs_type ty ekLifted
 
 -- Like tcHsType, but takes an expected kind
-tcCheckLHsType :: LHsType Name -> Kind -> TcM Type
+tcCheckLHsType :: LHsType Name PostTcType -> Kind -> TcM Type
 tcCheckLHsType hs_ty exp_kind
   = addTypeCtxt hs_ty $ 
     tc_lhs_type hs_ty (EK exp_kind expectedKindMsg)
 
-tcLHsType :: LHsType Name -> TcM (TcType, TcKind)
+tcLHsType :: LHsType Name PostTcType -> TcM (TcType, TcKind)
 -- Called from outside: set the context
 tcLHsType ty = addTypeCtxt ty (tc_infer_lhs_type ty)
 
 ---------------------------
-tcCheckHsTypeAndGen :: HsType Name -> Kind -> TcM Type
+tcCheckHsTypeAndGen :: HsType Name PostTcType -> Kind -> TcM Type
 -- Input type is HsType, not LhsType; the caller adds the context
 -- Typecheck a type signature, and kind-generalise it
 -- The result is not necessarily zonked, and has not been checked for validity
@@ -320,23 +320,23 @@ tc_lhs_type_fresh, to first create a new meta kind variable and use that as
 the expected kind.
 
 \begin{code}
-tc_infer_lhs_type :: LHsType Name -> TcM (TcType, TcKind)
+tc_infer_lhs_type :: LHsType Name PostTcType -> TcM (TcType, TcKind)
 tc_infer_lhs_type ty =
   do { kv <- newMetaKindVar
      ; r <- tc_lhs_type ty (EK kv expectedKindMsg)
      ; return (r, kv) }
 
-tc_lhs_type :: LHsType Name -> ExpKind -> TcM TcType
+tc_lhs_type :: LHsType Name PostTcType -> ExpKind -> TcM TcType
 tc_lhs_type (L span ty) exp_kind
   = setSrcSpan span $
     do { traceTc "tc_lhs_type:" (ppr ty $$ ppr exp_kind)
        ; tc_hs_type ty exp_kind }
 
-tc_lhs_types :: [(LHsType Name, ExpKind)] -> TcM [TcType]
+tc_lhs_types :: [(LHsType Name PostTcType, ExpKind)] -> TcM [TcType]
 tc_lhs_types tys_w_kinds = mapM (uncurry tc_lhs_type) tys_w_kinds
 
 ------------------------------------------
-tc_fun_type :: HsType Name -> LHsType Name -> LHsType Name -> ExpKind -> TcM TcType
+tc_fun_type :: HsType Name PostTcType -> LHsType Name PostTcType -> LHsType Name PostTcType -> ExpKind -> TcM TcType
 -- We need to recognise (->) so that we can construct a FunTy, 
 -- *and* we need to do by looking at the Name, not the TyCon
 -- (see Note [Zonking inside the knot]).  For example,
@@ -348,7 +348,7 @@ tc_fun_type ty ty1 ty2 exp_kind@(EK _ ctxt)
        ; return (mkFunTy ty1' ty2') }
 
 ------------------------------------------
-tc_hs_type :: HsType Name -> ExpKind -> TcM TcType
+tc_hs_type :: HsType Name PostTcType -> ExpKind -> TcM TcType
 tc_hs_type (HsParTy ty)        exp_kind = tc_lhs_type ty exp_kind
 tc_hs_type (HsDocTy ty _)      exp_kind = tc_lhs_type ty exp_kind
 tc_hs_type (HsQuasiQuoteTy {}) _ = panic "tc_hs_type: qq"	-- Eliminated by renamer
@@ -545,7 +545,7 @@ tupKindSort_maybe k
   | isLiftedTypeKind k = Just BoxedTuple
   | otherwise          = Nothing
 
-tc_tuple :: HsType Name -> TupleSort -> [LHsType Name] -> ExpKind -> TcM TcType
+tc_tuple :: HsType Name PostTcType -> TupleSort -> [LHsType Name PostTcType] -> ExpKind -> TcM TcType
 tc_tuple hs_ty tup_sort tys exp_kind
   = do { tau_tys <- tc_hs_arg_tys cxt_doc tys (repeat arg_kind)
        ; finish_tuple hs_ty tup_sort tau_tys exp_kind }
@@ -559,7 +559,7 @@ tc_tuple hs_ty tup_sort tys exp_kind
                  UnboxedTuple    -> ptext (sLit "an unboxed tuple")
                  ConstraintTuple -> ptext (sLit "a constraint tuple")
 
-finish_tuple :: HsType Name -> TupleSort -> [TcType] -> ExpKind -> TcM TcType
+finish_tuple :: HsType Name PostTcType -> TupleSort -> [TcType] -> ExpKind -> TcM TcType
 finish_tuple hs_ty tup_sort tau_tys exp_kind
   = do { checkExpectedKind hs_ty res_kind exp_kind
        ; checkWiredInTyCon tycon
@@ -575,7 +575,7 @@ finish_tuple hs_ty tup_sort tau_tys exp_kind
 tcInferApps :: Outputable a
        => a 
        -> TcKind			-- Function kind
-       -> [LHsType Name]		-- Arg types
+       -> [LHsType Name PostTcType]     -- Arg types
        -> TcM ([TcType], TcKind)	-- Kind-checked args
 tcInferApps the_fun fun_kind args
   = do { (args_w_kinds, res_kind) <- splitFunKind (ppr the_fun) fun_kind args
@@ -583,9 +583,9 @@ tcInferApps the_fun fun_kind args
        ; return (args', res_kind) }
 
 tcCheckApps :: Outputable a 
-            => HsType Name     -- The type being checked (for err messages only)
-            -> a               -- The function
-            -> TcKind -> [LHsType Name]   -- Fun kind and arg types
+            => HsType Name PostTcType -- The type being checked (for err messages only)
+            -> a                      -- The function
+            -> TcKind -> [LHsType Name PostTcType] -- Fun kind and arg types
 	    -> ExpKind 	                  -- Expected kind
 	    -> TcM [TcType]
 tcCheckApps hs_ty the_fun fun_kind args exp_kind
@@ -612,10 +612,10 @@ splitFunKind the_fun fun_kind args
 
 
 ---------------------------
-tcHsContext :: LHsContext Name -> TcM [PredType]
+tcHsContext :: LHsContext Name PostTcType -> TcM [PredType]
 tcHsContext ctxt = mapM tcHsLPredType (unLoc ctxt)
 
-tcHsLPredType :: LHsType Name -> TcM PredType
+tcHsLPredType :: LHsType Name PostTcType -> TcM PredType
 tcHsLPredType pred = tc_lhs_type pred ekConstraint
 
 ---------------------------
@@ -887,7 +887,7 @@ Help functions for type applications
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 \begin{code}
-addTypeCtxt :: LHsType Name -> TcM a -> TcM a
+addTypeCtxt :: LHsType Name PostTcType -> TcM a -> TcM a
 	-- Wrap a context around only if we want to show that contexts.  
 	-- Omit invisble ones and ones user's won't grok
 addTypeCtxt (L _ ty) thing 
@@ -1063,7 +1063,7 @@ data KindCheckingStrategy   -- See Note [Kind-checking strategies]
   deriving (Eq)
 
 -- determine the appropriate strategy for a decl
-kcStrategy :: TyClDecl Name -> KindCheckingStrategy
+kcStrategy :: TyClDecl Name PostTcType -> KindCheckingStrategy
 kcStrategy d@(ForeignType {}) = pprPanic "kcStrategy" (ppr d)
 kcStrategy (FamDecl fam_decl)
   = kcStrategyFamDecl fam_decl
@@ -1074,7 +1074,7 @@ kcStrategy (DataDecl { tcdDataDefn = HsDataDefn { dd_kindSig = m_ksig }})
 kcStrategy (ClassDecl {})     = ParametricKinds
 
 -- if the ClosedTypeFamily has no equations, do the defaulting to *, etc.
-kcStrategyFamDecl :: FamilyDecl Name -> KindCheckingStrategy
+kcStrategyFamDecl :: FamilyDecl Name PostTcType -> KindCheckingStrategy
 kcStrategyFamDecl (FamilyDecl { fdInfo = ClosedTypeFamily (_:_) }) = NonParametricKinds
 kcStrategyFamDecl _                                                = FullKindSignature
 
@@ -1098,7 +1098,7 @@ kcScopedKindVars kv_ns thing_inside
        ; tcExtendTyVarEnv2 (kv_ns `zip` kvs) thing_inside } 
 
 kcHsTyVarBndrs :: KindCheckingStrategy
-               -> LHsTyVarBndrs Name 
+               -> LHsTyVarBndrs Name  PostTcType
 	       -> TcM (Kind, r)   -- the result kind, possibly with other info
 	       -> TcM (Kind, r)
 -- Used in getInitialKind
@@ -1123,7 +1123,7 @@ kcHsTyVarBndrs strat (HsQTvs { hsq_kvs = kv_ns, hsq_tvs = hs_tvs }) thing_inside
           NonParametricKinds -> (True,  False, True)
           FullKindSignature  -> (True,  True,  True)
 
-    kc_hs_tv :: HsTyVarBndr Name -> TcM (Name, TcKind)
+    kc_hs_tv :: HsTyVarBndr Name PostTcType -> TcM (Name, TcKind)
     kc_hs_tv (UserTyVar n)
       = do { mb_thing <- tcLookupLcl_maybe n
            ; kind <- case mb_thing of
@@ -1143,7 +1143,7 @@ kcHsTyVarBndrs strat (HsQTvs { hsq_kvs = kv_ns, hsq_tvs = hs_tvs }) thing_inside
                Just thing       -> pprPanic "check_in_scope" (ppr thing)
            ; return (n, kind) }
 
-tcHsTyVarBndrs :: LHsTyVarBndrs Name 
+tcHsTyVarBndrs :: LHsTyVarBndrs Name  PostTcType
 	       -> ([TcTyVar] -> TcM r)
 	       -> TcM r
 -- Bind the kind variables to fresh skolem variables
@@ -1163,7 +1163,7 @@ tcHsTyVarBndrs (HsQTvs { hsq_kvs = kv_ns, hsq_tvs = hs_tvs }) thing_inside
                                         , text "Type vars:" <+> ppr tvs ])
        ; return res  } }
 
-tcHsTyVarBndr :: LHsTyVarBndr Name -> TcM TcTyVar
+tcHsTyVarBndr :: LHsTyVarBndr Name PostTcType -> TcM TcTyVar
 -- Return a type variable 
 -- initialised with a kind variable.
 -- Typically the Kind inside the HsTyVarBndr will be a tyvar with a mutable kind 
@@ -1253,7 +1253,7 @@ kcLookupKind nm
            AGlobal (ATyCon tc) -> return (tyConKind tc)
            _                   -> pprPanic "kcLookupKind" (ppr tc_ty_thing) }
 
-kcTyClTyVars :: Name -> LHsTyVarBndrs Name -> TcM a -> TcM a
+kcTyClTyVars :: Name -> LHsTyVarBndrs Name PostTcType -> TcM a -> TcM a
 -- Used for the type variables of a type or class decl,
 -- when doing the initial kind-check.  
 kcTyClTyVars name (HsQTvs { hsq_kvs = kvs, hsq_tvs = hs_tvs }) thing_inside
@@ -1269,7 +1269,7 @@ kcTyClTyVars name (HsQTvs { hsq_kvs = kvs, hsq_tvs = hs_tvs }) thing_inside
     -- variables, but tiresomely we need to check them *again* 
     -- to match the kind variables they mention against the ones 
     -- we've freshly brought into scope
-    kc_tv :: LHsTyVarBndr Name -> Kind -> TcM (Name, Kind)
+    kc_tv :: LHsTyVarBndr Name PostTcType -> Kind -> TcM (Name, Kind)
     kc_tv (L _ (UserTyVar n)) exp_k 
       = return (n, exp_k)
     kc_tv (L _ (KindedTyVar n hs_k)) exp_k
@@ -1278,7 +1278,7 @@ kcTyClTyVars name (HsQTvs { hsq_kvs = kvs, hsq_tvs = hs_tvs }) thing_inside
            ; return (n, exp_k) }
 
 -----------------------
-tcTyClTyVars :: Name -> LHsTyVarBndrs Name	-- LHS of the type or class decl
+tcTyClTyVars :: Name -> LHsTyVarBndrs Name PostTcType -- LHS of the type or class decl
              -> ([TyVar] -> Kind -> TcM a) -> TcM a
 -- Used for the type variables of a type or class decl,
 -- on the second pass when constructing the final result
@@ -1406,7 +1406,7 @@ Historical note:
 
 \begin{code}
 tcHsPatSigType :: UserTypeCtxt
-	       -> HsWithBndrs (LHsType Name)  -- The type signature
+	       -> HsWithBndrs (LHsType Name PostTcType) -- The type signature
 	      -> TcM ( Type                   -- The signature
                       , [(Name, TcTyVar)] )   -- The new bit of type environment, binding
 				              -- the scoped type variables
@@ -1436,7 +1436,7 @@ tcHsPatSigType ctxt (HsWB { hswb_cts = hs_ty, hswb_kvs = sig_kvs, hswb_tvs = sig
           _              -> newSigTyVar name kind  -- See Note [Unifying SigTvs]
 
 tcPatSig :: UserTypeCtxt
-	 -> HsWithBndrs (LHsType Name)
+	 -> HsWithBndrs (LHsType Name PostTcType)
 	 -> TcSigmaType
 	 -> TcM (TcType,	    -- The type to use for "inside" the signature
 		 [(Name, TcTyVar)], -- The new bit of type environment, binding
@@ -1682,15 +1682,15 @@ It fails when the kinds are not well-formed (eg. data A :: * Int), or if there
 are non-promotable or non-fully applied kinds.
 
 \begin{code}
-tcLHsKind :: LHsKind Name -> TcM Kind
+tcLHsKind :: LHsKind Name PostTcType -> TcM Kind
 tcLHsKind k = addErrCtxt (ptext (sLit "In the kind") <+> quotes (ppr k)) $
               tc_lhs_kind k
 
-tc_lhs_kind :: LHsKind Name -> TcM Kind
+tc_lhs_kind :: LHsKind Name PostTcType -> TcM Kind
 tc_lhs_kind (L span ki) = setSrcSpan span (tc_hs_kind ki)
 
 -- The main worker
-tc_hs_kind :: HsKind Name -> TcM Kind
+tc_hs_kind :: HsKind Name PostTcType -> TcM Kind
 tc_hs_kind (HsTyVar tc)    = tc_kind_var_app tc []
 tc_hs_kind k@(HsAppTy _ _) = tc_kind_app k []
 
@@ -1717,7 +1717,7 @@ tc_hs_kind (HsTupleTy _ kis) =
 tc_hs_kind k = pprPanic "tc_hs_kind" (ppr k)
 
 -- Special case for kind application
-tc_kind_app :: HsKind Name -> [LHsKind Name] -> TcM Kind
+tc_kind_app :: HsKind Name PostTcType -> [LHsKind Name PostTcType] -> TcM Kind
 tc_kind_app (HsAppTy ki1 ki2) kis = tc_kind_app (unLoc ki1) (ki2:kis)
 tc_kind_app (HsTyVar tc)      kis = do { arg_kis <- mapM tc_lhs_kind kis
                                        ; tc_kind_var_app tc arg_kis }
@@ -1804,7 +1804,7 @@ promotionErr name err
 %************************************************************************
 
 \begin{code}
-pprHsSigCtxt :: UserTypeCtxt -> LHsType Name -> SDoc
+pprHsSigCtxt :: UserTypeCtxt -> LHsType Name PostTcType -> SDoc
 pprHsSigCtxt ctxt hs_ty = sep [ ptext (sLit "In") <+> pprUserTypeCtxt ctxt <> colon, 
 				 nest 2 (pp_sig ctxt) ]
   where

@@ -60,12 +60,12 @@ to break several loop.
 %*********************************************************
 
 \begin{code}
-rnHsSigType :: SDoc -> LHsType RdrName -> RnM (LHsType Name, FreeVars)
+rnHsSigType :: SDoc -> LHsType RdrName PreTcType -> RnM (LHsType Name PostTcType, FreeVars)
         -- rnHsSigType is used for source-language type signatures,
         -- which use *implicit* universal quantification.
 rnHsSigType doc_str ty = rnLHsType (TypeSigCtx doc_str) ty
 
-rnLHsInstType :: SDoc -> LHsType RdrName -> RnM (LHsType Name, FreeVars)
+rnLHsInstType :: SDoc -> LHsType RdrName PreTcType -> RnM (LHsType Name PostTcType, FreeVars)
 -- Rename the type in an instance or standalone deriving decl
 rnLHsInstType doc_str ty
   = do { (ty', fvs) <- rnLHsType (GenericCtx doc_str) ty
@@ -77,7 +77,7 @@ rnLHsInstType doc_str ty
       , isTcOcc (rdrNameOcc cls) = True
       | otherwise                = False
 
-badInstTy :: LHsType RdrName -> SDoc
+badInstTy :: LHsType RdrName PreTcType -> SDoc
 badInstTy ty = ptext (sLit "Malformed instance:") <+> ppr ty
 \end{code}
 
@@ -86,32 +86,32 @@ want a gratuitous knot.
 
 \begin{code}
 rnLHsTyKi  :: Bool --  True <=> renaming a type, False <=> a kind
-           -> HsDocContext -> LHsType RdrName -> RnM (LHsType Name, FreeVars)
+           -> HsDocContext -> LHsType RdrName PreTcType -> RnM (LHsType Name PostTcType, FreeVars)
 rnLHsTyKi isType doc (L loc ty)
   = setSrcSpan loc $
     do { (ty', fvs) <- rnHsTyKi isType doc ty
        ; return (L loc ty', fvs) }
 
-rnLHsType  :: HsDocContext -> LHsType RdrName -> RnM (LHsType Name, FreeVars)
+rnLHsType  :: HsDocContext -> LHsType RdrName PreTcType -> RnM (LHsType Name PostTcType, FreeVars)
 rnLHsType = rnLHsTyKi True
 
-rnLHsKind  :: HsDocContext -> LHsKind RdrName -> RnM (LHsKind Name, FreeVars)
+rnLHsKind  :: HsDocContext -> LHsKind RdrName PreTcType -> RnM (LHsKind Name PostTcType, FreeVars)
 rnLHsKind = rnLHsTyKi False
 
-rnLHsMaybeKind  :: HsDocContext -> Maybe (LHsKind RdrName)
-                -> RnM (Maybe (LHsKind Name), FreeVars)
+rnLHsMaybeKind  :: HsDocContext -> Maybe (LHsKind RdrName PreTcType)
+                -> RnM (Maybe (LHsKind Name PostTcType), FreeVars)
 rnLHsMaybeKind _ Nothing
   = return (Nothing, emptyFVs)
 rnLHsMaybeKind doc (Just kind)
   = do { (kind', fvs) <- rnLHsKind doc kind
        ; return (Just kind', fvs) }
 
-rnHsType  :: HsDocContext -> HsType RdrName -> RnM (HsType Name, FreeVars)
+rnHsType  :: HsDocContext -> HsType RdrName PreTcType -> RnM (HsType Name PostTcType, FreeVars)
 rnHsType = rnHsTyKi True
-rnHsKind  :: HsDocContext -> HsKind RdrName -> RnM (HsKind Name, FreeVars)
+rnHsKind  :: HsDocContext -> HsKind RdrName PreTcType -> RnM (HsKind Name PostTcType, FreeVars)
 rnHsKind = rnHsTyKi False
 
-rnHsTyKi :: Bool -> HsDocContext -> HsType RdrName -> RnM (HsType Name, FreeVars)
+rnHsTyKi :: Bool -> HsDocContext -> HsType RdrName PreTcType -> RnM (HsType Name PostTcType, FreeVars)
 
 rnHsTyKi isType doc (HsForAllTy Implicit _ lctxt@(L _ ctxt) ty)
   = ASSERT( isType ) do
@@ -299,8 +299,8 @@ rnTyVar is_type rdr_name
 
 
 --------------
-rnLHsTypes :: HsDocContext -> [LHsType RdrName]
-           -> RnM ([LHsType Name], FreeVars)
+rnLHsTypes :: HsDocContext -> [LHsType RdrName PreTcType]
+           -> RnM ([LHsType Name PostTcType], FreeVars)
 rnLHsTypes doc tys = mapFvRn (rnLHsType doc) tys
 \end{code}
 
@@ -308,9 +308,9 @@ rnLHsTypes doc tys = mapFvRn (rnLHsType doc) tys
 \begin{code}
 rnForAll :: HsDocContext -> HsExplicitFlag
          -> [RdrName]                -- Kind variables
-         -> LHsTyVarBndrs RdrName   -- Type variables
-         -> LHsContext RdrName -> LHsType RdrName
-         -> RnM (HsType Name, FreeVars)
+         -> LHsTyVarBndrs RdrName PreTcType  -- Type variables
+         -> LHsContext RdrName PreTcType -> LHsType RdrName PreTcType
+         -> RnM (HsType Name PostTcType, FreeVars)
 
 rnForAll doc exp kvs forall_tyvars ctxt ty
   | null kvs, null (hsQTvBndrs forall_tyvars), null (unLoc ctxt)
@@ -349,8 +349,8 @@ bindSigTyVarsFV tvs thing_inside
 bindHsTyVars :: HsDocContext
              -> Maybe a                 -- Just _  => an associated type decl
              -> [RdrName]               -- Kind variables from scope
-             -> LHsTyVarBndrs RdrName   -- Type variables
-             -> (LHsTyVarBndrs Name -> RnM (b, FreeVars))
+             -> LHsTyVarBndrs RdrName PreTcType   -- Type variables
+             -> (LHsTyVarBndrs Name PostTcType -> RnM (b, FreeVars))
              -> RnM (b, FreeVars)
 -- (a) Bring kind variables into scope
 --     both (i)  passed in (kv_bndrs)
@@ -381,7 +381,7 @@ bindHsTyVars doc mb_assoc kv_bndrs tv_bndrs thing_inside
        ; bindLocalNamesFV kv_names $
     do { let tv_names_w_loc = hsLTyVarLocNames tv_bndrs
 
-             rn_tv_bndr :: LHsTyVarBndr RdrName -> RnM (LHsTyVarBndr Name, FreeVars)
+             rn_tv_bndr :: LHsTyVarBndr RdrName PreTcType -> RnM (LHsTyVarBndr Name PostTcType, FreeVars)
              rn_tv_bndr (L loc (UserTyVar rdr))
                = do { nm <- newTyVarNameRn mb_assoc rdr_env loc rdr
                     ; return (L loc (UserTyVar nm), emptyFVs) }
@@ -417,8 +417,8 @@ newTyVarNameRn mb_assoc rdr_env loc rdr
 
 --------------------------------
 rnHsBndrSig :: HsDocContext
-            -> HsWithBndrs (LHsType RdrName)
-            -> (HsWithBndrs (LHsType Name) -> RnM (a, FreeVars))
+            -> HsWithBndrs (LHsType RdrName PreTcType)
+            -> (HsWithBndrs (LHsType Name PostTcType) -> RnM (a, FreeVars))
             -> RnM (a, FreeVars)
 rnHsBndrSig doc (HsWB { hswb_cts = ty@(L loc _) }) thing_inside
   = do { sig_ok <- xoptM Opt_ScopedTypeVariables
@@ -449,7 +449,7 @@ badKindBndrs doc kvs
               2 (ptext (sLit "Perhaps you intended to use PolyKinds"))
          , docOfHsDocContext doc ]
 
-badSigErr :: Bool -> HsDocContext -> LHsType RdrName -> TcM ()
+badSigErr :: Bool -> HsDocContext -> LHsType RdrName PreTcType -> TcM ()
 badSigErr is_type doc (L loc ty)
   = setSrcSpan loc $ addErr $
     vcat [ hang (ptext (sLit "Illegal") <+> what
@@ -462,7 +462,7 @@ badSigErr is_type doc (L loc ty)
     flag | is_type   = ptext (sLit "ScopedTypeVariables")
          | otherwise = ptext (sLit "KindSignatures")
 
-dataKindsErr :: Bool -> HsType RdrName -> SDoc
+dataKindsErr :: Bool -> HsType RdrName PreTcType -> SDoc
 dataKindsErr is_type thing
   = hang (ptext (sLit "Illegal") <+> what <> colon <+> quotes (ppr thing))
        2 (ptext (sLit "Perhaps you intended to use DataKinds"))
@@ -503,18 +503,18 @@ but it seems tiresome to do so.
 %*********************************************************
 
 \begin{code}
-rnConDeclFields :: HsDocContext -> [ConDeclField RdrName]
-                -> RnM ([ConDeclField Name], FreeVars)
+rnConDeclFields :: HsDocContext -> [ConDeclField RdrName PreTcType]
+                -> RnM ([ConDeclField Name PostTcType], FreeVars)
 rnConDeclFields doc fields = mapFvRn (rnField doc) fields
 
-rnField :: HsDocContext -> ConDeclField RdrName -> RnM (ConDeclField Name, FreeVars)
+rnField :: HsDocContext -> ConDeclField RdrName PreTcType -> RnM (ConDeclField Name PostTcType, FreeVars)
 rnField doc (ConDeclField name ty haddock_doc)
   = do { new_name <- lookupLocatedTopBndrRn name
        ; (new_ty, fvs) <- rnLHsType doc ty
        ; new_haddock_doc <- rnMbLHsDoc haddock_doc
        ; return (ConDeclField new_name new_ty new_haddock_doc, fvs) }
 
-rnContext :: HsDocContext -> LHsContext RdrName -> RnM (LHsContext Name, FreeVars)
+rnContext :: HsDocContext -> LHsContext RdrName PreTcType -> RnM (LHsContext Name PostTcType, FreeVars)
 rnContext doc (L loc cxt)
   = do { (cxt', fvs) <- rnLHsTypes doc cxt
        ; return (L loc cxt', fvs) }
@@ -548,9 +548,9 @@ by the presence of ->, which is a separate syntactic construct.
 \begin{code}
 ---------------
 -- Building (ty1 `op1` (ty21 `op2` ty22))
-mkHsOpTyRn :: (LHsType Name -> LHsType Name -> HsType Name)
-           -> Name -> Fixity -> LHsType Name -> LHsType Name
-           -> RnM (HsType Name)
+mkHsOpTyRn :: (LHsType Name PostTcType -> LHsType Name PostTcType -> HsType Name PostTcType)
+           -> Name -> Fixity -> LHsType Name PostTcType -> LHsType Name PostTcType
+           -> RnM (HsType Name PostTcType)
 
 mkHsOpTyRn mk1 pp_op1 fix1 ty1 (L loc2 (HsOpTy ty21 (w2, op2) ty22))
   = do  { fix2 <- lookupTyFixityRn op2
@@ -566,11 +566,11 @@ mkHsOpTyRn mk1 _ _ ty1 ty2              -- Default case, no rearrangment
   = return (mk1 ty1 ty2)
 
 ---------------
-mk_hs_op_ty :: (LHsType Name -> LHsType Name -> HsType Name)
-            -> Name -> Fixity -> LHsType Name
-            -> (LHsType Name -> LHsType Name -> HsType Name)
-            -> Name -> Fixity -> LHsType Name -> LHsType Name -> SrcSpan
-            -> RnM (HsType Name)
+mk_hs_op_ty :: (LHsType Name PostTcType -> LHsType Name PostTcType -> HsType Name PostTcType)
+            -> Name -> Fixity -> LHsType Name PostTcType
+            -> (LHsType Name PostTcType -> LHsType Name PostTcType -> HsType Name PostTcType)
+            -> Name -> Fixity -> LHsType Name PostTcType -> LHsType Name PostTcType -> SrcSpan
+            -> RnM (HsType Name PostTcType)
 mk_hs_op_ty mk1 op1 fix1 ty1
             mk2 op2 fix2 ty21 ty22 loc2
   | nofix_error     = do { precParseErr (op1,fix1) (op2,fix2)
@@ -584,11 +584,11 @@ mk_hs_op_ty mk1 op1 fix1 ty1
 
 
 ---------------------------
-mkOpAppRn :: LHsExpr Name                       -- Left operand; already rearranged
-          -> LHsExpr Name -> Fixity             -- Operator and fixity
-          -> LHsExpr Name                       -- Right operand (not an OpApp, but might
-                                                -- be a NegApp)
-          -> RnM (HsExpr Name)
+mkOpAppRn :: LHsExpr Name PostTcType               -- Left operand; already rearranged
+          -> LHsExpr Name PostTcType -> Fixity     -- Operator and fixity
+          -> LHsExpr Name PostTcType               -- Right operand (not an OpApp, but might
+                                                   -- be a NegApp)
+          -> RnM (HsExpr Name PostTcType)
 
 -- (e11 `op1` e12) `op2` e2
 mkOpAppRn e1@(L _ (OpApp e11 op1 fix1 e12)) op2 fix2 e2
@@ -635,14 +635,14 @@ mkOpAppRn e1 op fix e2                  -- Default case, no rearrangment
     return (OpApp e1 op fix e2)
 
 ----------------------------
-get_op :: LHsExpr Name -> Name
+get_op :: LHsExpr Name PostTcType -> Name
 get_op (L _ (HsVar n)) = n
 get_op other           = pprPanic "get_op" (ppr other)
 
 -- Parser left-associates everything, but
 -- derived instances may have correctly-associated things to
 -- in the right operarand.  So we just check that the right operand is OK
-right_op_ok :: Fixity -> HsExpr Name -> Bool
+right_op_ok :: Fixity -> HsExpr Name PostTcType -> Bool
 right_op_ok fix1 (OpApp _ _ fix2 _)
   = not error_please && associate_right
   where
@@ -652,20 +652,20 @@ right_op_ok _ _
 
 -- Parser initially makes negation bind more tightly than any other operator
 -- And "deriving" code should respect this (use HsPar if not)
-mkNegAppRn :: LHsExpr id -> SyntaxExpr id -> RnM (HsExpr id)
+mkNegAppRn :: LHsExpr id ptt -> SyntaxExpr id ptt -> RnM (HsExpr id ptt)
 mkNegAppRn neg_arg neg_name
   = ASSERT( not_op_app (unLoc neg_arg) )
     return (NegApp neg_arg neg_name)
 
-not_op_app :: HsExpr id -> Bool
+not_op_app :: HsExpr id ptt -> Bool
 not_op_app (OpApp _ _ _ _) = False
 not_op_app _               = True
 
 ---------------------------
-mkOpFormRn :: LHsCmdTop Name            -- Left operand; already rearranged
-          -> LHsExpr Name -> Fixity     -- Operator and fixity
-          -> LHsCmdTop Name             -- Right operand (not an infix)
-          -> RnM (HsCmd Name)
+mkOpFormRn :: LHsCmdTop Name PostTcType        -- Left operand; already rearranged
+          -> LHsExpr Name PostTcType -> Fixity -- Operator and fixity
+          -> LHsCmdTop Name PostTcType         -- Right operand (not an infix)
+          -> RnM (HsCmd Name PostTcType)
 
 -- (e11 `op1` e12) `op2` e2
 mkOpFormRn a1@(L loc (HsCmdTop (L _ (HsCmdArrForm op1 (Just fix1) [a11,a12])) _ _ _))
@@ -688,8 +688,8 @@ mkOpFormRn arg1 op fix arg2                     -- Default case, no rearrangment
 
 
 --------------------------------------
-mkConOpPatRn :: Located Name -> Fixity -> LPat Name -> LPat Name
-             -> RnM (Pat Name)
+mkConOpPatRn :: Located Name -> Fixity -> LPat Name PostTcType -> LPat Name PostTcType
+             -> RnM (Pat Name PostTcType)
 
 mkConOpPatRn op2 fix2 p1@(L loc (ConPatIn op1 (InfixCon p11 p12))) p2
   = do  { fix1 <- lookupFixityRn (unLoc op1)
@@ -708,12 +708,12 @@ mkConOpPatRn op _ p1 p2                         -- Default case, no rearrangment
   = ASSERT( not_op_pat (unLoc p2) )
     return (ConPatIn op (InfixCon p1 p2))
 
-not_op_pat :: Pat Name -> Bool
+not_op_pat :: Pat Name PostTcType -> Bool
 not_op_pat (ConPatIn _ (InfixCon _ _)) = False
 not_op_pat _                           = True
 
 --------------------------------------
-checkPrecMatch :: Name -> MatchGroup Name body -> RnM ()
+checkPrecMatch :: Name -> MatchGroup Name body PostTcType -> RnM ()
   -- Check precedence of a function binding written infix
   --   eg  a `op` b `C` c = ...
   -- See comments with rnExpr (OpApp ...) about "deriving"
@@ -735,7 +735,7 @@ checkPrecMatch op (MG { mg_alts = ms })
         -- until the type checker).  So we don't want to crash on the
         -- second eqn.
 
-checkPrec :: Name -> Pat Name -> Bool -> IOEnv (Env TcGblEnv TcLclEnv) ()
+checkPrec :: Name -> Pat Name PostTcType -> Bool -> IOEnv (Env TcGblEnv TcLclEnv) ()
 checkPrec op (ConPatIn op1 (InfixCon _ _)) right = do
     op_fix@(Fixity op_prec  op_dir) <- lookupFixityRn op
     op1_fix@(Fixity op1_prec op1_dir) <- lookupFixityRn (unLoc op1)
@@ -757,8 +757,8 @@ checkPrec _ _ _
 -- If arg is itself an operator application, then either
 --   (a) its precedence must be higher than that of op
 --   (b) its precedency & associativity must be the same as that of op
-checkSectionPrec :: FixityDirection -> HsExpr RdrName
-        -> LHsExpr Name -> LHsExpr Name -> RnM ()
+checkSectionPrec :: FixityDirection -> HsExpr RdrName PreTcType
+        -> LHsExpr Name PostTcType -> LHsExpr Name PostTcType -> RnM ()
 checkSectionPrec direction section op arg
   = case unLoc arg of
         OpApp _ op fix _ -> go_for_it (get_op op) fix
@@ -787,7 +787,7 @@ precParseErr op1@(n1,_) op2@(n2,_)
                ppr_opfix op2,
                ptext (sLit "in the same infix expression")])
 
-sectionPrecErr :: (Name, Fixity) -> (Name, Fixity) -> HsExpr RdrName -> RnM ()
+sectionPrecErr :: (Name, Fixity) -> (Name, Fixity) -> HsExpr RdrName PreTcType -> RnM ()
 sectionPrecErr op@(n1,_) arg_op@(n2,_) section
   | isUnboundName n1 || isUnboundName n2
   = return ()     -- Avoid error cascade
@@ -811,7 +811,7 @@ ppr_opfix (op, fixity) = pp_op <+> brackets (ppr fixity)
 %*********************************************************
 
 \begin{code}
-warnUnusedForAlls :: SDoc -> LHsTyVarBndrs RdrName -> [RdrName] -> TcM ()
+warnUnusedForAlls :: SDoc -> LHsTyVarBndrs RdrName PreTcType -> [RdrName] -> TcM ()
 warnUnusedForAlls in_doc bound mentioned_rdrs
   = whenWOptM Opt_WarnUnusedMatches $
     mapM_ add_warn bound_but_not_used
@@ -824,7 +824,7 @@ warnUnusedForAlls in_doc bound mentioned_rdrs
         vcat [ ptext (sLit "Unused quantified type variable") <+> quotes (ppr tv)
              , in_doc ]
 
-opTyErr :: RdrName -> HsType RdrName -> SDoc
+opTyErr :: RdrName -> HsType RdrName PreTcType -> SDoc
 opTyErr op ty@(HsOpTy ty1 _ _)
   = hang (ptext (sLit "Illegal operator") <+> quotes (ppr op) <+> ptext (sLit "in type") <+> quotes (ppr ty))
          2 extra
@@ -884,7 +884,7 @@ filterInScope rdr_env (kvs, tvs)
   where
     in_scope tv = tv `elemLocalRdrEnv` rdr_env
 
-extractHsTyRdrTyVars :: LHsType RdrName -> FreeKiTyVars
+extractHsTyRdrTyVars :: LHsType RdrName PreTcType -> FreeKiTyVars
 -- extractHsTyRdrNames finds the free (kind, type) variables of a HsType
 --                        or the free (sort, kind) variables of a HsKind
 -- It's used when making the for-alls explicit.
@@ -893,17 +893,17 @@ extractHsTyRdrTyVars ty
   = case extract_lty ty ([],[]) of
      (kvs, tvs) -> (nub kvs, nub tvs)
 
-extractHsTysRdrTyVars :: [LHsType RdrName] -> FreeKiTyVars
+extractHsTysRdrTyVars :: [LHsType RdrName PreTcType] -> FreeKiTyVars
 -- See Note [Kind and type-variable binders]
 extractHsTysRdrTyVars ty
   = case extract_ltys ty ([],[]) of
      (kvs, tvs) -> (nub kvs, nub tvs)
 
-extractRdrKindSigVars :: Maybe (LHsKind RdrName) -> [RdrName]
+extractRdrKindSigVars :: Maybe (LHsKind RdrName PreTcType) -> [RdrName]
 extractRdrKindSigVars Nothing = []
 extractRdrKindSigVars (Just k) = nub (fst (extract_lkind k ([],[])))
 
-extractDataDefnKindVars :: HsDataDefn RdrName -> [RdrName]
+extractDataDefnKindVars :: HsDataDefn RdrName PreTcType -> [RdrName]
 -- Get the scoped kind variables mentioned free in the constructor decls
 -- Eg    data T a = T1 (S (a :: k) | forall (b::k). T2 (S b)
 -- Here k should scope over the whole definition
@@ -922,22 +922,22 @@ extractDataDefnKindVars (HsDataDefn { dd_ctxt = ctxt, dd_kindSig = ksig
         extract_ltys (hsConDeclArgTys details) ([],[])
 
 
-extract_lctxt :: LHsContext RdrName -> FreeKiTyVars -> FreeKiTyVars
+extract_lctxt :: LHsContext RdrName PreTcType -> FreeKiTyVars -> FreeKiTyVars
 extract_lctxt ctxt = extract_ltys (unLoc ctxt)
 
-extract_ltys :: [LHsType RdrName] -> FreeKiTyVars -> FreeKiTyVars
+extract_ltys :: [LHsType RdrName PreTcType] -> FreeKiTyVars -> FreeKiTyVars
 extract_ltys tys acc = foldr extract_lty acc tys
 
 extract_mb :: (a -> FreeKiTyVars -> FreeKiTyVars) -> Maybe a -> FreeKiTyVars -> FreeKiTyVars
 extract_mb _ Nothing  acc = acc
 extract_mb f (Just x) acc = f x acc
 
-extract_lkind :: LHsType RdrName -> FreeKiTyVars -> FreeKiTyVars
+extract_lkind :: LHsType RdrName PreTcType -> FreeKiTyVars -> FreeKiTyVars
 extract_lkind kind (acc_kvs, acc_tvs) = case extract_lty kind ([], acc_kvs) of
                                           (_, res_kvs) -> (res_kvs, acc_tvs)
                                         -- Kinds shouldn't have sort signatures!
 
-extract_lty :: LHsType RdrName -> FreeKiTyVars -> FreeKiTyVars
+extract_lty :: LHsType RdrName PreTcType -> FreeKiTyVars -> FreeKiTyVars
 extract_lty (L _ ty) acc
   = case ty of
       HsTyVar tv                -> extract_tv tv acc
@@ -965,7 +965,7 @@ extract_lty (L _ ty) acc
                                    extract_lctxt cx   $
                                    extract_lty ty ([],[])
 
-extract_hs_tv_bndrs :: LHsTyVarBndrs RdrName -> FreeKiTyVars
+extract_hs_tv_bndrs :: LHsTyVarBndrs RdrName PreTcType -> FreeKiTyVars
                     -> FreeKiTyVars -> FreeKiTyVars
 extract_hs_tv_bndrs (HsQTvs { hsq_tvs = tvs })
                     (acc_kvs, acc_tvs)   -- Note accumulator comes first
