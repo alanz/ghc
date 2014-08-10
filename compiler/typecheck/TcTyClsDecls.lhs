@@ -120,7 +120,7 @@ tcTyAndClassDecls boot_details tyclds_s
                         -- an error we'd better stop now, to avoid a cascade
     fold_env tyclds_s   -- Type check each group in dependency order folding the global env
   where
-    fold_env :: [TyClGroup Name] -> TcM TcGblEnv
+    fold_env :: [TyClGroup Name PostTcType] -> TcM TcGblEnv
     fold_env [] = getGblEnv
     fold_env (tyclds:tyclds_s)
       = do { tcg_env <- tcTyClGroup boot_details tyclds
@@ -314,7 +314,7 @@ kcTyClGroup (TyClGroup { group_tyclds = decls })
            ; traceTc "Generalise kind" (vcat [ ppr name, ppr kc_kind, ppr kvs, ppr kc_kind' ])
            ; return (name, mkForAllTys kvs kc_kind') }
 
-    generaliseTCD :: TcTypeEnv -> LTyClDecl Name -> TcM [(Name, Kind)]
+    generaliseTCD :: TcTypeEnv -> LTyClDecl Name PostTcType -> TcM [(Name, Kind)]
     generaliseTCD kind_env (L _ decl)
       | ClassDecl { tcdLName = (L _ name), tcdATs = ats } <- decl
       = do { first <- generalise kind_env name
@@ -332,7 +332,7 @@ kcTyClGroup (TyClGroup { group_tyclds = decls })
       = do { res <- generalise kind_env (tcdName decl)
            ; return [res] }
 
-    generaliseFamDecl :: TcTypeEnv -> FamilyDecl Name -> TcM (Name, Kind)
+    generaliseFamDecl :: TcTypeEnv -> FamilyDecl Name PostTcType -> TcM (Name, Kind)
     generaliseFamDecl kind_env (FamilyDecl { fdLName = L _ name })
       = generalise kind_env name
 
@@ -847,15 +847,15 @@ tcClassATs class_name parent ats at_defs
                    , not (n `elemNameSet` at_names) ]
        ; mapM tc_at ats }
   where
-    at_def_tycon :: LTyFamDefltEqn Name -> Name
+    at_def_tycon :: LTyFamDefltEqn Name PostTcType -> Name
     at_def_tycon (L _ eqn) = unLoc (tfe_tycon eqn)
 
-    at_fam_name :: LFamilyDecl Name -> Name
+    at_fam_name :: LFamilyDecl Name PostTcType -> Name
     at_fam_name (L _ decl) = unLoc (fdLName decl)
 
     at_names = mkNameSet (map at_fam_name ats)
 
-    at_defs_map :: NameEnv [LTyFamDefltEqn Name]
+    at_defs_map :: NameEnv [LTyFamDefltEqn Name PostTcType]
     -- Maps an AT in 'ats' to a list of all its default defs in 'at_defs'
     at_defs_map = foldr (\at_def nenv -> extendNameEnv_C (++) nenv
                                           (at_def_tycon at_def) [at_def])

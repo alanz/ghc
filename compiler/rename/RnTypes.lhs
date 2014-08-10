@@ -92,10 +92,10 @@ rnLHsTyKi isType doc (L loc ty)
     do { (ty', fvs) <- rnHsTyKi isType doc ty
        ; return (L loc ty', fvs) }
 
-rnLHsType  :: HsDocContext -> LHsType RdrName PreTcType -> RnM (LHsType Name PostTcType, FreeVars)
+rnLHsType  :: HsDocContext -> LHsType RdrName PostTcType -> RnM (LHsType Name PostTcType, FreeVars)
 rnLHsType = rnLHsTyKi True
 
-rnLHsKind  :: HsDocContext -> LHsKind RdrName PreTcType -> RnM (LHsKind Name PostTcType, FreeVars)
+rnLHsKind  :: HsDocContext -> LHsKind RdrName PostTcType -> RnM (LHsKind Name PostTcType, FreeVars)
 rnLHsKind = rnLHsTyKi False
 
 rnLHsMaybeKind  :: HsDocContext -> Maybe (LHsKind RdrName PreTcType)
@@ -106,7 +106,7 @@ rnLHsMaybeKind doc (Just kind)
   = do { (kind', fvs) <- rnLHsKind doc kind
        ; return (Just kind', fvs) }
 
-rnHsType  :: HsDocContext -> HsType RdrName PreTcType -> RnM (HsType Name PostTcType, FreeVars)
+rnHsType  :: HsDocContext -> HsType RdrName PostTcType -> RnM (HsType Name PostTcType, FreeVars)
 rnHsType = rnHsTyKi True
 rnHsKind  :: HsDocContext -> HsKind RdrName PreTcType -> RnM (HsKind Name PostTcType, FreeVars)
 rnHsKind = rnHsTyKi False
@@ -299,7 +299,7 @@ rnTyVar is_type rdr_name
 
 
 --------------
-rnLHsTypes :: HsDocContext -> [LHsType RdrName PreTcType]
+rnLHsTypes :: HsDocContext -> [LHsType RdrName PostTcType]
            -> RnM ([LHsType Name PostTcType], FreeVars)
 rnLHsTypes doc tys = mapFvRn (rnLHsType doc) tys
 \end{code}
@@ -308,8 +308,8 @@ rnLHsTypes doc tys = mapFvRn (rnLHsType doc) tys
 \begin{code}
 rnForAll :: HsDocContext -> HsExplicitFlag
          -> [RdrName]                -- Kind variables
-         -> LHsTyVarBndrs RdrName PreTcType  -- Type variables
-         -> LHsContext RdrName PreTcType -> LHsType RdrName PreTcType
+         -> LHsTyVarBndrs RdrName PostTcType  -- Type variables
+         -> LHsContext RdrName PreTcType -> LHsType RdrName PostTcType
          -> RnM (HsType Name PostTcType, FreeVars)
 
 rnForAll doc exp kvs forall_tyvars ctxt ty
@@ -349,7 +349,7 @@ bindSigTyVarsFV tvs thing_inside
 bindHsTyVars :: HsDocContext
              -> Maybe a                 -- Just _  => an associated type decl
              -> [RdrName]               -- Kind variables from scope
-             -> LHsTyVarBndrs RdrName PreTcType   -- Type variables
+             -> LHsTyVarBndrs RdrName PostTcType   -- Type variables
              -> (LHsTyVarBndrs Name PostTcType -> RnM (b, FreeVars))
              -> RnM (b, FreeVars)
 -- (a) Bring kind variables into scope
@@ -381,7 +381,7 @@ bindHsTyVars doc mb_assoc kv_bndrs tv_bndrs thing_inside
        ; bindLocalNamesFV kv_names $
     do { let tv_names_w_loc = hsLTyVarLocNames tv_bndrs
 
-             rn_tv_bndr :: LHsTyVarBndr RdrName PreTcType -> RnM (LHsTyVarBndr Name PostTcType, FreeVars)
+             rn_tv_bndr :: LHsTyVarBndr RdrName PostTcType -> RnM (LHsTyVarBndr Name PostTcType, FreeVars)
              rn_tv_bndr (L loc (UserTyVar rdr))
                = do { nm <- newTyVarNameRn mb_assoc rdr_env loc rdr
                     ; return (L loc (UserTyVar nm), emptyFVs) }
@@ -417,7 +417,7 @@ newTyVarNameRn mb_assoc rdr_env loc rdr
 
 --------------------------------
 rnHsBndrSig :: HsDocContext
-            -> HsWithBndrs (LHsType RdrName PreTcType)
+            -> HsWithBndrs (LHsType RdrName PostTcType)
             -> (HsWithBndrs (LHsType Name PostTcType) -> RnM (a, FreeVars))
             -> RnM (a, FreeVars)
 rnHsBndrSig doc (HsWB { hswb_cts = ty@(L loc _) }) thing_inside
@@ -449,7 +449,7 @@ badKindBndrs doc kvs
               2 (ptext (sLit "Perhaps you intended to use PolyKinds"))
          , docOfHsDocContext doc ]
 
-badSigErr :: Bool -> HsDocContext -> LHsType RdrName PreTcType -> TcM ()
+badSigErr :: Bool -> HsDocContext -> LHsType RdrName PostTcType -> TcM ()
 badSigErr is_type doc (L loc ty)
   = setSrcSpan loc $ addErr $
     vcat [ hang (ptext (sLit "Illegal") <+> what
@@ -503,18 +503,18 @@ but it seems tiresome to do so.
 %*********************************************************
 
 \begin{code}
-rnConDeclFields :: HsDocContext -> [ConDeclField RdrName PreTcType]
+rnConDeclFields :: HsDocContext -> [ConDeclField RdrName PostTcType]
                 -> RnM ([ConDeclField Name PostTcType], FreeVars)
 rnConDeclFields doc fields = mapFvRn (rnField doc) fields
 
-rnField :: HsDocContext -> ConDeclField RdrName PreTcType -> RnM (ConDeclField Name PostTcType, FreeVars)
+rnField :: HsDocContext -> ConDeclField RdrName PostTcType -> RnM (ConDeclField Name PostTcType, FreeVars)
 rnField doc (ConDeclField name ty haddock_doc)
   = do { new_name <- lookupLocatedTopBndrRn name
        ; (new_ty, fvs) <- rnLHsType doc ty
        ; new_haddock_doc <- rnMbLHsDoc haddock_doc
        ; return (ConDeclField new_name new_ty new_haddock_doc, fvs) }
 
-rnContext :: HsDocContext -> LHsContext RdrName PreTcType -> RnM (LHsContext Name PostTcType, FreeVars)
+rnContext :: HsDocContext -> LHsContext RdrName PostTcType -> RnM (LHsContext Name PostTcType, FreeVars)
 rnContext doc (L loc cxt)
   = do { (cxt', fvs) <- rnLHsTypes doc cxt
        ; return (L loc cxt', fvs) }
@@ -884,7 +884,7 @@ filterInScope rdr_env (kvs, tvs)
   where
     in_scope tv = tv `elemLocalRdrEnv` rdr_env
 
-extractHsTyRdrTyVars :: LHsType RdrName PreTcType -> FreeKiTyVars
+extractHsTyRdrTyVars :: LHsType RdrName PostTcType -> FreeKiTyVars
 -- extractHsTyRdrNames finds the free (kind, type) variables of a HsType
 --                        or the free (sort, kind) variables of a HsKind
 -- It's used when making the for-alls explicit.
@@ -893,17 +893,17 @@ extractHsTyRdrTyVars ty
   = case extract_lty ty ([],[]) of
      (kvs, tvs) -> (nub kvs, nub tvs)
 
-extractHsTysRdrTyVars :: [LHsType RdrName PreTcType] -> FreeKiTyVars
+extractHsTysRdrTyVars :: [LHsType RdrName PostTcType] -> FreeKiTyVars
 -- See Note [Kind and type-variable binders]
 extractHsTysRdrTyVars ty
   = case extract_ltys ty ([],[]) of
      (kvs, tvs) -> (nub kvs, nub tvs)
 
-extractRdrKindSigVars :: Maybe (LHsKind RdrName PreTcType) -> [RdrName]
+extractRdrKindSigVars :: Maybe (LHsKind RdrName PostTcType) -> [RdrName]
 extractRdrKindSigVars Nothing = []
 extractRdrKindSigVars (Just k) = nub (fst (extract_lkind k ([],[])))
 
-extractDataDefnKindVars :: HsDataDefn RdrName PreTcType -> [RdrName]
+extractDataDefnKindVars :: HsDataDefn RdrName PostTcType -> [RdrName]
 -- Get the scoped kind variables mentioned free in the constructor decls
 -- Eg    data T a = T1 (S (a :: k) | forall (b::k). T2 (S b)
 -- Here k should scope over the whole definition
@@ -922,22 +922,22 @@ extractDataDefnKindVars (HsDataDefn { dd_ctxt = ctxt, dd_kindSig = ksig
         extract_ltys (hsConDeclArgTys details) ([],[])
 
 
-extract_lctxt :: LHsContext RdrName PreTcType -> FreeKiTyVars -> FreeKiTyVars
+extract_lctxt :: LHsContext RdrName PostTcType -> FreeKiTyVars -> FreeKiTyVars
 extract_lctxt ctxt = extract_ltys (unLoc ctxt)
 
-extract_ltys :: [LHsType RdrName PreTcType] -> FreeKiTyVars -> FreeKiTyVars
+extract_ltys :: [LHsType RdrName PostTcType] -> FreeKiTyVars -> FreeKiTyVars
 extract_ltys tys acc = foldr extract_lty acc tys
 
 extract_mb :: (a -> FreeKiTyVars -> FreeKiTyVars) -> Maybe a -> FreeKiTyVars -> FreeKiTyVars
 extract_mb _ Nothing  acc = acc
 extract_mb f (Just x) acc = f x acc
 
-extract_lkind :: LHsType RdrName PreTcType -> FreeKiTyVars -> FreeKiTyVars
+extract_lkind :: LHsType RdrName PostTcType -> FreeKiTyVars -> FreeKiTyVars
 extract_lkind kind (acc_kvs, acc_tvs) = case extract_lty kind ([], acc_kvs) of
                                           (_, res_kvs) -> (res_kvs, acc_tvs)
                                         -- Kinds shouldn't have sort signatures!
 
-extract_lty :: LHsType RdrName PreTcType -> FreeKiTyVars -> FreeKiTyVars
+extract_lty :: LHsType RdrName PostTcType -> FreeKiTyVars -> FreeKiTyVars
 extract_lty (L _ ty) acc
   = case ty of
       HsTyVar tv                -> extract_tv tv acc
@@ -965,7 +965,7 @@ extract_lty (L _ ty) acc
                                    extract_lctxt cx   $
                                    extract_lty ty ([],[])
 
-extract_hs_tv_bndrs :: LHsTyVarBndrs RdrName PreTcType -> FreeKiTyVars
+extract_hs_tv_bndrs :: LHsTyVarBndrs RdrName PostTcType -> FreeKiTyVars
                     -> FreeKiTyVars -> FreeKiTyVars
 extract_hs_tv_bndrs (HsQTvs { hsq_tvs = tvs })
                     (acc_kvs, acc_tvs)   -- Note accumulator comes first

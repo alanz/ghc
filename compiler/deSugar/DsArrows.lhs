@@ -1065,7 +1065,7 @@ matchSimplys _ _ _ _ _ = panic "matchSimplys"
 List of leaf expressions, with set of variables bound in each
 
 \begin{code}
-leavesMatch :: LMatch Id (Located (body Id)) PostTcType -> [(Located (body Id), IdSet)]
+leavesMatch :: LMatch Id (Located (body Id PostTcType)) PostTcType -> [(Located (body Id PostTcType), IdSet)]
 leavesMatch (L _ (Match pats _ (GRHSs grhss binds)))
   = let
 	defined_vars = mkVarSet (collectPatsBinders pats)
@@ -1083,10 +1083,10 @@ Replace the leaf commands in a match
 \begin{code}
 replaceLeavesMatch
         :: Type                                 -- new result type
-        -> [Located (body' Id)]                 -- replacement leaf expressions of that type
-        -> LMatch Id (Located (body Id)) PostTcType -- the matches of a case command
-        -> ([Located (body' Id)],               -- remaining leaf expressions
-            LMatch Id (Located (body' Id)) PostTcType) -- updated match
+        -> [Located (body' Id PostTcType)]      -- replacement leaf expressions of that type
+        -> LMatch Id (Located (body Id PostTcType)) PostTcType -- the matches of a case command
+        -> ([Located (body' Id PostTcType)],               -- remaining leaf expressions
+            LMatch Id (Located (body' Id PostTcType)) PostTcType) -- updated match
 replaceLeavesMatch _res_ty leaves (L loc (Match pat mt (GRHSs grhss binds)))
   = let
 	(leaves', grhss') = mapAccumL replaceLeavesGRHS leaves grhss
@@ -1094,10 +1094,10 @@ replaceLeavesMatch _res_ty leaves (L loc (Match pat mt (GRHSs grhss binds)))
     (leaves', L loc (Match pat mt (GRHSs grhss' binds)))
 
 replaceLeavesGRHS
-        :: [Located (body' Id)]                 -- replacement leaf expressions of that type
-        -> LGRHS Id (Located (body Id)) PostTcType -- rhss of a case command
-        -> ([Located (body' Id)],                  -- remaining leaf expressions
-            LGRHS Id (Located (body' Id)) PostTcType) -- updated GRHS
+        :: [Located (body' Id PostTcType)]                 -- replacement leaf expressions of that type
+        -> LGRHS Id (Located (body Id PostTcType)) PostTcType -- rhss of a case command
+        -> ([Located (body' Id PostTcType)],                  -- remaining leaf expressions
+            LGRHS Id (Located (body' Id PostTcType)) PostTcType) -- updated GRHS
 replaceLeavesGRHS (leaf:leaves) (L loc (GRHS stmts _))
   = (leaves, L loc (GRHS stmts leaf))
 replaceLeavesGRHS [] _ = panic "replaceLeavesGRHS []"
@@ -1184,7 +1184,7 @@ add_ev_bndr (EvBind b _) bs | isId b    = b:bs
                             | otherwise = bs
   -- A worry: what about coercion variable binders??
 
-collectLStmtsBinders :: [LStmt Id body  PostTcType] -> [Id]
+collectLStmtsBinders :: [LStmt Id body PostTcType] -> [Id]
 collectLStmtsBinders = concatMap collectLStmtBinders
 
 collectLStmtBinders :: LStmt Id body PostTcType -> [Id]

@@ -225,7 +225,7 @@ and Rec the rest.
 
 
 \begin{code}
-deSugarExpr :: HscEnv -> LHsExpr Id -> IO (Messages, Maybe CoreExpr)
+deSugarExpr :: HscEnv -> LHsExpr Id PostTcType -> IO (Messages, Maybe CoreExpr)
 
 deSugarExpr hsc_env tc_expr
   = do { let dflags       = hsc_dflags hsc_env
@@ -345,7 +345,7 @@ Reason
 
 \begin{code}
 
-dsRule :: LRuleDecl Id -> DsM (Maybe CoreRule)
+dsRule :: LRuleDecl Id PostTcType -> DsM (Maybe CoreRule)
 dsRule (L loc (HsRule name act vars lhs _tv_lhs rhs _fv_rhs))
   = putSrcSpanDs loc $
     do  { let bndrs' = [var | RuleBndr (L _ var) <- vars]
@@ -459,7 +459,7 @@ by simpleOptExpr (for the LHS) resp. the simplifiers (for the RHS).
 %************************************************************************
 
 \begin{code}
-dsVect :: LVectDecl Id -> DsM CoreVect
+dsVect :: LVectDecl Id PostTcType -> DsM CoreVect
 dsVect (L loc (HsVect (L _ v) rhs))
   = putSrcSpanDs loc $
     do { rhs' <- dsLExpr rhs
