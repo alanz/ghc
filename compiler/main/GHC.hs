@@ -761,7 +761,7 @@ instance DesugaredMod DesugaredModule where
   coreModule m = dm_core_module m
 
 type ParsedSource      = Located (HsModule RdrName PreTcType)
-type RenamedSource     = (HsGroup Name PreTcType, [LImportDecl Name], Maybe [LIE Name],
+type RenamedSource     = (HsGroup Name PostTcType, [LImportDecl Name], Maybe [LIE Name],
                           Maybe LHsDocString)
 type TypecheckedSource = LHsBinds Id PostTcType
 
