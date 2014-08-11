@@ -46,7 +46,7 @@ rnBracket e _ = failTH e "Template Haskell bracket"
 rnTopSpliceDecls :: HsSplice RdrName PreTcType -> RnM ([LHsDecl RdrName PreTcType], FreeVars)
 rnTopSpliceDecls e = failTH e "Template Haskell top splice"
 
-rnSpliceType :: HsSplice RdrName PreTcType -> PostTcKind -> RnM (HsType Name PostTcKind, FreeVars)
+rnSpliceType :: HsSplice RdrName PreTcType -> PostTcKind -> RnM (HsType Name PostTcType, FreeVars)
 rnSpliceType e _ = failTH e "Template Haskell type splice"
 
 rnSpliceExpr :: Bool -> HsSplice RdrName PreTcType -> RnM (HsExpr Name ptt, FreeVars)
@@ -87,9 +87,9 @@ type checker.  Not very satisfactory really.
 
 \begin{code}
 rnSpliceGen :: Bool                                     -- Typed splice?
-            -> (HsSplice Name -> RnM (a, FreeVars))     -- Outside brackets, run splice
-            -> (HsSplice Name -> (PendingRnSplice, a))  -- Inside brackets, make it pending
-            -> HsSplice RdrName
+            -> (HsSplice Name PostTcType -> RnM (a, FreeVars))     -- Outside brackets, run splice
+            -> (HsSplice Name PostTcType -> (PendingRnSplice PostTcType, a))  -- Inside brackets, make it pending
+            -> HsSplice RdrName PreTcType
             -> RnM (a, FreeVars)
 rnSpliceGen is_typed_splice run_splice pend_splice splice@(HsSplice _ expr)
   = addErrCtxt (spliceCtxt (HsSpliceE is_typed_splice splice)) $
@@ -119,7 +119,7 @@ rnSpliceGen is_typed_splice run_splice pend_splice splice@(HsSplice _ expr)
                  ; return (result, fvs1 `plusFV` fvs2) } }
 
 ---------------------
-rnSplice :: HsSplice RdrName -> RnM (HsSplice Name, FreeVars)
+rnSplice :: HsSplice RdrName PreTcType -> RnM (HsSplice Name PostTcType, FreeVars)
 -- Not exported...used for all
 rnSplice (HsSplice n expr)
   = do  { checkTH expr "Template Haskell splice"
@@ -130,15 +130,15 @@ rnSplice (HsSplice n expr)
 
 
 ---------------------
-rnSpliceExpr :: Bool -> HsSplice RdrName -> RnM (HsExpr Name, FreeVars)
+rnSpliceExpr :: Bool -> HsSplice RdrName PreTcType -> RnM (HsExpr Name PostTcType, FreeVars)
 rnSpliceExpr is_typed splice
   = rnSpliceGen is_typed run_expr_splice pend_expr_splice splice
   where
-    pend_expr_splice :: HsSplice Name -> (PendingRnSplice, HsExpr Name)
+    pend_expr_splice :: HsSplice Name PostTcType -> (PendingRnSplice PostTcType, HsExpr Name PostTcType)
     pend_expr_splice rn_splice
         = (PendingRnExpSplice rn_splice, HsSpliceE is_typed rn_splice)
 
-    run_expr_splice :: HsSplice Name -> RnM (HsExpr Name, FreeVars)
+    run_expr_splice :: HsSplice Name PostTcType -> RnM (HsExpr Name PostTcType, FreeVars)
     run_expr_splice rn_splice@(HsSplice _ expr')
       | is_typed   -- Run it later, in the type checker
       = do {  -- Ugh!  See Note [Splices] above
@@ -169,7 +169,7 @@ rnSpliceExpr is_typed splice
            ; return (unLoc lexpr3, fvs)  }
 
 ----------------------
-rnSpliceType :: HsSplice RdrName -> PreTcKind -> RnM (HsType Name, FreeVars)
+rnSpliceType :: HsSplice RdrName PreTcType -> PostTcKind -> RnM (HsType Name PostTcType, FreeVars)
 rnSpliceType splice k
   = rnSpliceGen False run_type_splice pend_type_splice splice
   where
@@ -196,7 +196,7 @@ rnSpliceType splice k
             ; return (unLoc hs_ty3, fvs) }
 
 ----------------------
-rnSplicePat :: HsSplice RdrName -> RnM (Pat Name, FreeVars)
+rnSplicePat :: HsSplice RdrName PreTcType -> RnM (Pat Name PostTcType, FreeVars)
 rnSplicePat splice
   = rnSpliceGen False run_pat_splice pend_pat_splice splice
   where
@@ -222,7 +222,7 @@ rnSplicePat splice
            ; return (unLoc pat', fvs) }
 
 ----------------------
-rnSpliceDecl :: SpliceDecl RdrName -> RnM (SpliceDecl Name, FreeVars)
+rnSpliceDecl :: SpliceDecl RdrName PreTcType -> RnM (SpliceDecl Name PostTcType, FreeVars)
 rnSpliceDecl (SpliceDecl (L loc splice) flg)
   = rnSpliceGen False run_decl_splice pend_decl_splice splice
   where
@@ -233,7 +233,7 @@ rnSpliceDecl (SpliceDecl (L loc splice) flg)
 \end{code}
 
 \begin{code}
-rnTopSpliceDecls :: HsSplice RdrName -> RnM ([LHsDecl RdrName], FreeVars)
+rnTopSpliceDecls :: HsSplice RdrName PreTcType -> RnM ([LHsDecl RdrName PreTcType], FreeVars)
 -- Declaration splice at the very top level of the module
 rnTopSpliceDecls (HsSplice _ expr'')
    = do  { (expr, fvs) <- setStage (Splice False) $
@@ -259,7 +259,7 @@ rnTopSpliceDecls (HsSplice _ expr'')
 %************************************************************************
 
 \begin{code}
-rnBracket :: HsExpr RdrName -> HsBracket RdrName -> RnM (HsExpr Name, FreeVars)
+rnBracket :: HsExpr RdrName PreTcType -> HsBracket RdrName PreTcType -> RnM (HsExpr Name PostTcType, FreeVars)
 rnBracket e br_body
   = addErrCtxt (quotationCtxtDoc br_body) $
     do { -- Check that Template Haskell is enabled and available
@@ -293,7 +293,7 @@ rnBracket e br_body
                         ; return (HsRnBracketOut body' pendings, fvs_e) }
        }
 
-rn_bracket :: ThStage -> HsBracket RdrName -> RnM (HsBracket Name, FreeVars)
+rn_bracket :: ThStage PostTcType -> HsBracket RdrName PreTcType -> RnM (HsBracket Name PostTcType, FreeVars)
 rn_bracket outer_stage br@(VarBr flg rdr_name)
   = do { name <- lookupOccRn rdr_name
        ; this_mod <- getModule
@@ -350,7 +350,7 @@ rn_bracket _ (DecBrL decls)
                    ppr (duUses (tcg_dus tcg_env))))
         ; return (DecBrG group', duUses (tcg_dus tcg_env)) }
   where
-    groupDecls :: [LHsDecl RdrName] -> RnM (HsGroup RdrName)
+    groupDecls :: [LHsDecl RdrName PreTcType] -> RnM (HsGroup RdrName PreTcType)
     groupDecls decls
       = do { (group, mb_splice) <- findSplice decls
            ; case mb_splice of
@@ -369,10 +369,10 @@ rn_bracket _ (TExpBr e) = do { (e', fvs) <- rnLExpr e
 \end{code}
 
 \begin{code}
-spliceCtxt :: HsExpr RdrName -> SDoc
+spliceCtxt :: HsExpr RdrName PreTcType -> SDoc
 spliceCtxt expr= hang (ptext (sLit "In the splice:")) 2 (ppr expr)
 
-showSplice :: String -> LHsExpr Name -> SDoc -> TcM ()
+showSplice :: String -> LHsExpr Name PostTcType -> SDoc -> TcM ()
 -- Note that 'before' is *renamed* but not *typechecked*
 -- Reason (a) less typechecking crap
 --        (b) data constructors after type checking have been
@@ -400,12 +400,12 @@ illegalTypedSplice = ptext (sLit "Typed splices may not appear in untyped bracke
 illegalUntypedSplice :: SDoc
 illegalUntypedSplice = ptext (sLit "Untyped splices may not appear in typed brackets")
 
-quotedNameStageErr :: HsBracket RdrName -> SDoc
+quotedNameStageErr :: HsBracket RdrName PreTcType -> SDoc
 quotedNameStageErr br
   = sep [ ptext (sLit "Stage error: the non-top-level quoted name") <+> ppr br
         , ptext (sLit "must be used at the same stage at which is is bound")]
 
-quotationCtxtDoc :: HsBracket RdrName -> SDoc
+quotationCtxtDoc :: HsBracket RdrName PreTcType -> SDoc
 quotationCtxtDoc br_body
   = hang (ptext (sLit "In the Template Haskell quotation"))
          2 (ppr br_body)
@@ -440,7 +440,7 @@ checkThLocalName name
           checkCrossStageLifting top_lvl name use_stage } } }
 
 --------------------------------------
-checkCrossStageLifting :: TopLevelFlag -> Name -> ThStage -> TcM ()
+checkCrossStageLifting :: TopLevelFlag -> Name -> ThStage PostTcType -> TcM ()
 -- We are inside brackets, and (use_lvl > bind_lvl)
 -- Now we must check whether there's a cross-stage lift to do
 -- Examples   \x -> [| x |]

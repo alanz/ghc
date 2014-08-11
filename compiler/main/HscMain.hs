@@ -1502,15 +1502,15 @@ hscKcType hsc_env0 normalise str = runInteractiveHsc hsc_env0 $ do
     ty <- hscParseType str
     ioMsgMaybe $ tcRnType hsc_env normalise ty
 
-hscParseStmt :: String -> Hsc (Maybe (GhciLStmt RdrName))
+hscParseStmt :: String -> Hsc (Maybe (GhciLStmt RdrName PreTcType))
 hscParseStmt = hscParseThing parseStmt
 
 hscParseStmtWithLocation :: String -> Int -> String
-                         -> Hsc (Maybe (GhciLStmt RdrName))
+                         -> Hsc (Maybe (GhciLStmt RdrName PreTcType))
 hscParseStmtWithLocation source linenumber stmt =
     hscParseThingWithLocation source linenumber parseStmt stmt
 
-hscParseType :: String -> Hsc (LHsType RdrName)
+hscParseType :: String -> Hsc (LHsType RdrName PreTcType)
 hscParseType = hscParseThing parseType
 #endif
 

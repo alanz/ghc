@@ -1453,18 +1453,18 @@ Template Haskell splice.  As it does so it
         b) runs any top-level quasi-quotes
 
 \begin{code}
-findSplice :: [LHsDecl RdrName ptt] -> RnM (HsGroup RdrName ptt, Maybe (SpliceDecl RdrName ptt, [LHsDecl RdrName ptt]))
+findSplice :: [LHsDecl RdrName PreTcType] -> RnM (HsGroup RdrName PreTcType, Maybe (SpliceDecl RdrName PreTcType, [LHsDecl RdrName PreTcType]))
 findSplice ds = addl emptyRdrGroup ds
 
-addl :: HsGroup RdrName ptt -> [LHsDecl RdrName ptt]
-     -> RnM (HsGroup RdrName ptt, Maybe (SpliceDecl RdrName ptt, [LHsDecl RdrName ptt]))
+addl :: HsGroup RdrName PreTcType -> [LHsDecl RdrName PreTcType]
+     -> RnM (HsGroup RdrName PreTcType, Maybe (SpliceDecl RdrName PreTcType, [LHsDecl RdrName PreTcType]))
 -- This stuff reverses the declarations (again) but it doesn't matter
 addl gp []           = return (gp, Nothing)
 addl gp (L l d : ds) = add gp l d ds
 
 
-add :: HsGroup RdrName ptt -> SrcSpan -> HsDecl RdrName ptt -> [LHsDecl RdrName ptt]
-    -> RnM (HsGroup RdrName ptt, Maybe (SpliceDecl RdrName ptt, [LHsDecl RdrName ptt]))
+add :: HsGroup RdrName PreTcType -> SrcSpan -> HsDecl RdrName PreTcType -> [LHsDecl RdrName PreTcType]
+    -> RnM (HsGroup RdrName PreTcType, Maybe (SpliceDecl RdrName PreTcType, [LHsDecl RdrName PreTcType]))
 
 add gp loc (SpliceD splice@(SpliceDecl _ flag)) ds
   = do { -- We've found a top-level splice.  If it is an *implicit* one

@@ -39,11 +39,11 @@ tcAnnotations anns@(L loc _ : _)
 
 #else
 
-tcAnnotations :: [LAnnDecl Name] -> TcM [Annotation]
+tcAnnotations :: [LAnnDecl Name PostTcType] -> TcM [Annotation]
 -- GHCI exists, typecheck the annotations
 tcAnnotations anns = mapM tcAnnotation anns
 
-tcAnnotation :: LAnnDecl Name -> TcM Annotation
+tcAnnotation :: LAnnDecl Name PostTcType -> TcM Annotation
 tcAnnotation (L loc ann@(HsAnnotation provenance expr)) = do
     -- Work out what the full target of this annotation was
     mod <- getModule

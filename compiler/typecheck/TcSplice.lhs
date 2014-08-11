@@ -117,17 +117,17 @@ import GHC.Exts         ( unsafeCoerce# )
 %************************************************************************
 
 \begin{code}
-tcTypedBracket   :: HsBracket Name ptt -> TcRhoType -> TcM (HsExpr TcId ptt)
-tcUntypedBracket :: HsBracket Name ptt -> [PendingRnSplice ptt] -> TcRhoType -> TcM (HsExpr TcId ptt)
-tcSpliceExpr     :: HsSplice Name ptt  -> TcRhoType -> TcM (HsExpr TcId ptt)
+tcTypedBracket   :: HsBracket Name PostTcType -> TcRhoType -> TcM (HsExpr TcId PostTcType)
+tcUntypedBracket :: HsBracket Name PostTcType -> [PendingRnSplice PostTcType] -> TcRhoType -> TcM (HsExpr TcId PostTcType)
+tcSpliceExpr     :: HsSplice Name PostTcType  -> TcRhoType -> TcM (HsExpr TcId PostTcType)
         -- None of these functions add constraints to the LIE
 
-runQuasiQuoteExpr :: HsQuasiQuote RdrName -> RnM (LHsExpr RdrName ptt)
-runQuasiQuotePat  :: HsQuasiQuote RdrName -> RnM (LPat RdrName ptt)
-runQuasiQuoteType :: HsQuasiQuote RdrName -> RnM (LHsType RdrName ptt)
-runQuasiQuoteDecl :: HsQuasiQuote RdrName -> RnM [LHsDecl RdrName ptt]
+runQuasiQuoteExpr :: HsQuasiQuote RdrName -> RnM (LHsExpr RdrName PreTcType)
+runQuasiQuotePat  :: HsQuasiQuote RdrName -> RnM (LPat RdrName PreTcType)
+runQuasiQuoteType :: HsQuasiQuote RdrName -> RnM (LHsType RdrName PreTcType)
+runQuasiQuoteDecl :: HsQuasiQuote RdrName -> RnM [LHsDecl RdrName PreTcType]
 
-runAnnotation     :: CoreAnnTarget -> LHsExpr Name ptt -> TcM Annotation
+runAnnotation     :: CoreAnnTarget -> LHsExpr Name PostTcType -> TcM Annotation
 
 #ifndef GHCI
 tcTypedBracket   x _   = failTH x "Template Haskell bracket"
@@ -366,7 +366,7 @@ tcUntypedBracket brack ps res_ty
        ; return (mkHsWrapCo co (HsTcBracketOut brack ps'))  }
 
 ---------------
-tcBrackTy :: HsBracket Name -> TcM TcType
+tcBrackTy :: HsBracket Name PostTcType -> TcM TcType
 tcBrackTy (VarBr _ _) = tcMetaTy nameTyConName  -- Result type is Var (not Q-monadic)
 tcBrackTy (ExpBr _)   = tcMetaTy expQTyConName  -- Result type is ExpQ (= Q Exp)
 tcBrackTy (TypBr _)   = tcMetaTy typeQTyConName -- Result type is Type (= Q Typ)
@@ -376,7 +376,7 @@ tcBrackTy (DecBrL _)  = panic "tcBrackTy: Unexpected DecBrL"
 tcBrackTy (TExpBr _)  = panic "tcUntypedBracket: Unexpected TExpBr"
 
 ---------------
-tcPendingSplice :: PendingRnSplice -> TcM PendingTcSplice
+tcPendingSplice :: PendingRnSplice PostTcType -> TcM (PendingTcSplice PostTcType)
 tcPendingSplice (PendingRnExpSplice (HsSplice n expr))
   = do { res_ty <- tcMetaTy expQTyConName
        ; tc_pending_splice n expr res_ty }
@@ -396,7 +396,7 @@ tcPendingSplice (PendingRnCrossStageSplice n)
        ; tc_pending_splice n (nlHsApp (nlHsVar liftName) (nlHsVar n)) res_ty }
 
 ---------------
-tc_pending_splice :: Name -> LHsExpr Name -> TcRhoType -> TcM PendingTcSplice
+tc_pending_splice :: Name -> LHsExpr Name PostTcType -> TcRhoType -> TcM (PendingTcSplice PostTcType)
 tc_pending_splice splice_name expr res_ty
   = do { expr' <- tcMonoExpr expr res_ty
        ; return (splice_name, expr') }
@@ -427,8 +427,8 @@ tcSpliceExpr splice@(HsSplice name expr) res_ty
         Comp                 -> tcTopSplice expr res_ty
         Brack pop_stage pend -> tcNestedSplice pop_stage pend name expr res_ty }
 
-tcNestedSplice :: ThStage -> PendingStuff -> Name
-                -> LHsExpr Name -> TcRhoType -> TcM (HsExpr Id)
+tcNestedSplice :: ThStage PostTcType -> PendingStuff PostTcType -> Name
+                -> LHsExpr Name PostTcType -> TcRhoType -> TcM (HsExpr Id PostTcType)
     -- See Note [How brackets and nested splices are handled]
     -- A splice inside brackets
 tcNestedSplice pop_stage (TcPending ps_var lie_var) splice_name expr res_ty
@@ -447,7 +447,7 @@ tcNestedSplice pop_stage (TcPending ps_var lie_var) splice_name expr res_ty
 tcNestedSplice _ _ splice_name _ _
   = pprPanic "tcNestedSplice: rename stage found" (ppr splice_name)
 
-tcTopSplice :: LHsExpr Name -> TcRhoType -> TcM (HsExpr Id)
+tcTopSplice :: LHsExpr Name PostTcType -> TcRhoType -> TcM (HsExpr Id PostTcType)
 tcTopSplice expr res_ty
   = do { -- Typecheck the expression,
          -- making sure it has type Q (T res_ty)
@@ -476,24 +476,24 @@ tcTopSplice expr res_ty
 %************************************************************************
 
 \begin{code}
-quotationCtxtDoc :: HsBracket Name -> SDoc
+quotationCtxtDoc :: HsBracket Name PostTcType -> SDoc
 quotationCtxtDoc br_body
   = hang (ptext (sLit "In the Template Haskell quotation"))
          2 (ppr br_body)
 
-spliceCtxtDoc :: HsSplice Name -> SDoc
+spliceCtxtDoc :: HsSplice Name PostTcType -> SDoc
 spliceCtxtDoc splice
   = hang (ptext (sLit "In the Template Haskell splice"))
          2 (pprTypedSplice splice)
 
-spliceResultDoc :: LHsExpr Name -> SDoc
+spliceResultDoc :: LHsExpr Name PostTcType -> SDoc
 spliceResultDoc expr
   = sep [ ptext (sLit "In the result of the splice:")
         , nest 2 (char '$' <> pprParendExpr expr)
         , ptext (sLit "To see what the splice expanded to, use -ddump-splices")]
 
 -------------------
-tcTopSpliceExpr :: Bool -> TcM (LHsExpr Id) -> TcM (LHsExpr Id)
+tcTopSpliceExpr :: Bool -> TcM (LHsExpr Id PostTcType) -> TcM (LHsExpr Id PostTcType)
 -- Note [How top-level splices are handled]
 -- Type check an expression that is the body of a top-level splice
 --   (the caller will compile and run it)
@@ -703,22 +703,22 @@ data MetaOps th_syn hs_syn
                                        -- How to convert to hs_syn
     }
 
-exprMetaOps :: MetaOps TH.Exp (LHsExpr RdrName)
+exprMetaOps :: MetaOps TH.Exp (LHsExpr RdrName PreTcType)
 exprMetaOps = MT { mt_desc = "expression", mt_show = TH.pprint, mt_cvt = convertToHsExpr }
 
-patMetaOps :: MetaOps TH.Pat (LPat RdrName)
+patMetaOps :: MetaOps TH.Pat (LPat RdrName PreTcType)
 patMetaOps = MT { mt_desc = "pattern", mt_show = TH.pprint, mt_cvt = convertToPat }
 
-typeMetaOps :: MetaOps TH.Type (LHsType RdrName)
+typeMetaOps :: MetaOps TH.Type (LHsType RdrName PreTcType)
 typeMetaOps = MT { mt_desc = "type", mt_show = TH.pprint, mt_cvt = convertToHsType }
 
-declMetaOps :: MetaOps [TH.Dec] [LHsDecl RdrName]
+declMetaOps :: MetaOps [TH.Dec] [LHsDecl RdrName PreTcType]
 declMetaOps = MT { mt_desc = "declarations", mt_show = TH.pprint, mt_cvt = convertToHsDecls }
 
 ----------------
 runMetaAW :: Outputable output
           => (AnnotationWrapper -> output)
-          -> LHsExpr Id         -- Of type AnnotationWrapper
+          -> LHsExpr Id PostTcType  -- Of type AnnotationWrapper
           -> TcM output
 runMetaAW k = runMeta False (\_ -> return . Right . k)
     -- We turn off showing the code in meta-level exceptions because doing so exposes
@@ -727,7 +727,7 @@ runMetaAW k = runMeta False (\_ -> return . Right . k)
 -----------------
 runMetaQ :: Outputable hs_syn
          => MetaOps th_syn hs_syn
-         -> LHsExpr Id
+         -> LHsExpr Id PostTcType
          -> TcM hs_syn
 runMetaQ (MT { mt_show = show_th, mt_cvt = cvt }) expr
   = runMeta True run_and_cvt expr
@@ -737,28 +737,28 @@ runMetaQ (MT { mt_show = show_th, mt_cvt = cvt }) expr
             ; traceTc "Got TH result:" (text (show_th th_result))
             ; return (cvt expr_span th_result) }
 
-runMetaE :: LHsExpr Id          -- Of type (Q Exp)
-         -> TcM (LHsExpr RdrName)
+runMetaE :: LHsExpr Id PostTcType         -- Of type (Q Exp)
+         -> TcM (LHsExpr RdrName PreTcType)
 runMetaE = runMetaQ exprMetaOps
 
-runMetaP :: LHsExpr Id          -- Of type (Q Pat)
-         -> TcM (LPat RdrName)
+runMetaP :: LHsExpr Id PostTcType         -- Of type (Q Pat)
+         -> TcM (LPat RdrName PreTcType)
 runMetaP = runMetaQ patMetaOps
 
-runMetaT :: LHsExpr Id          -- Of type (Q Type)
-         -> TcM (LHsType RdrName)
+runMetaT :: LHsExpr Id PostTcType         -- Of type (Q Type)
+         -> TcM (LHsType RdrName PreTcType)
 runMetaT = runMetaQ typeMetaOps
 
-runMetaD :: LHsExpr Id          -- Of type Q [Dec]
-         -> TcM [LHsDecl RdrName]
+runMetaD :: LHsExpr Id PostTcType          -- Of type Q [Dec]
+         -> TcM [LHsDecl RdrName PreTcType]
 runMetaD = runMetaQ declMetaOps
 
 ---------------
 runMeta :: (Outputable hs_syn)
         => Bool                 -- Whether code should be printed in the exception message
         -> (SrcSpan -> x -> TcM (Either MsgDoc hs_syn))        -- How to run x
-        -> LHsExpr Id           -- Of type x; typically x = Q TH.Exp, or something like that
-        -> TcM hs_syn           -- Of type t
+        -> LHsExpr Id PostTcType -- Of type x; typically x = Q TH.Exp, or something like that
+        -> TcM hs_syn            -- Of type t
 runMeta show_code run_and_convert expr
   = do  { traceTc "About to run" (ppr expr)
         ; recordThSpliceUse -- seems to be the best place to do this,
@@ -933,7 +933,7 @@ instance TH.Quasi (IOEnv (Env TcGblEnv TcLclEnv)) where
       th_topdecls_var <- fmap tcg_th_topdecls getGblEnv
       updTcRef th_topdecls_var (\topds -> ds ++ topds)
     where
-      checkTopDecl :: HsDecl RdrName -> TcM ()
+      checkTopDecl :: HsDecl RdrName PreTcType -> TcM ()
       checkTopDecl (ValD binds)
         = mapM_ bindName (collectHsBindBinders binds)
       checkTopDecl (SigD _)
@@ -977,7 +977,7 @@ instance TH.Quasi (IOEnv (Env TcGblEnv TcLclEnv)) where
 %************************************************************************
 
 \begin{code}
-showSplice :: String -> LHsExpr Name -> SDoc -> TcM ()
+showSplice :: String -> LHsExpr Name PostTcType -> SDoc -> TcM ()
 -- Note that 'before' is *renamed* but not *typechecked*
 -- Reason (a) less typechecking crap
 --        (b) data constructors after type checking have been
@@ -1031,7 +1031,7 @@ reifyInstances th_nm th_tys
     doc = ClassInstanceCtx
     bale_out msg = failWithTc msg
 
-    cvt :: SrcSpan -> TH.Type -> TcM (LHsType RdrName)
+    cvt :: SrcSpan -> TH.Type -> TcM (LHsType RdrName PreTcType)
     cvt loc th_ty = case convertToHsType loc th_ty of
                       Left msg -> failWithTc msg
                       Right ty -> return ty

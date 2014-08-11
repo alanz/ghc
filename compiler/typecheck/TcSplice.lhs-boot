@@ -10,37 +10,38 @@ import RdrName  ( RdrName )
 import TcRnTypes( TcM, TcId )
 import TcType   ( TcRhoType )
 import Annotations ( Annotation, CoreAnnTarget )
+import HsLit    ( PreTcType, PostTcType )
 
 #ifdef GHCI
 import Id       ( Id )
 import qualified Language.Haskell.TH as TH
 #endif
 
-tcSpliceExpr :: HsSplice Name ptt
+tcSpliceExpr :: HsSplice Name PostTcType
              -> TcRhoType
-             -> TcM (HsExpr TcId ptt)
+             -> TcM (HsExpr TcId PostTcType)
 
-tcUntypedBracket :: HsBracket Name ptt
-                 -> [PendingRnSplice ptt]
+tcUntypedBracket :: HsBracket Name PostTcType
+                 -> [PendingRnSplice PostTcType]
                  -> TcRhoType
-                 -> TcM (HsExpr TcId ptt)
-tcTypedBracket :: HsBracket Name ptt
+                 -> TcM (HsExpr TcId PostTcType)
+tcTypedBracket :: HsBracket Name PostTcType
                -> TcRhoType
-               -> TcM (HsExpr TcId ptt)
+               -> TcM (HsExpr TcId PostTcType)
 
-runQuasiQuoteDecl :: HsQuasiQuote RdrName -> TcM [LHsDecl RdrName ptt]
-runQuasiQuoteExpr :: HsQuasiQuote RdrName -> TcM (LHsExpr RdrName ptt)
-runQuasiQuoteType :: HsQuasiQuote RdrName -> TcM (LHsType RdrName ptt)
-runQuasiQuotePat  :: HsQuasiQuote RdrName -> TcM (LPat RdrName ptt)
-runAnnotation     :: CoreAnnTarget -> LHsExpr Name ptt -> TcM Annotation
+runQuasiQuoteDecl :: HsQuasiQuote RdrName -> TcM [LHsDecl RdrName PreTcType]
+runQuasiQuoteExpr :: HsQuasiQuote RdrName -> TcM (LHsExpr RdrName PreTcType)
+runQuasiQuoteType :: HsQuasiQuote RdrName -> TcM (LHsType RdrName PreTcType)
+runQuasiQuotePat  :: HsQuasiQuote RdrName -> TcM (LPat RdrName PreTcType)
+runAnnotation     :: CoreAnnTarget -> LHsExpr Name PostTcType -> TcM Annotation
 
 #ifdef GHCI
-tcTopSpliceExpr :: Bool -> TcM (LHsExpr Id) -> TcM (LHsExpr Id)
+tcTopSpliceExpr :: Bool -> TcM (LHsExpr Id PostTcType) -> TcM (LHsExpr Id PostTcType)
 
-runMetaE :: LHsExpr Id -> TcM (LHsExpr RdrName)
-runMetaP :: LHsExpr Id -> TcM (LPat RdrName)
-runMetaT :: LHsExpr Id  -> TcM (LHsType RdrName)
-runMetaD :: LHsExpr Id -> TcM [LHsDecl RdrName]
+runMetaE :: LHsExpr Id PostTcType -> TcM (LHsExpr RdrName PreTcType)
+runMetaP :: LHsExpr Id PostTcType -> TcM (LPat RdrName PreTcType)
+runMetaT :: LHsExpr Id PostTcType -> TcM (LHsType RdrName PreTcType)
+runMetaD :: LHsExpr Id PostTcType -> TcM [LHsDecl RdrName PreTcType]
 
 lookupThName_maybe :: TH.Name -> TcM (Maybe Name)
 runQuasi :: TH.Q a -> TcM a

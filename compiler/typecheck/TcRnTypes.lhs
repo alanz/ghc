@@ -311,7 +311,7 @@ data TcGblEnv
         tcg_dependent_files :: TcRef [FilePath], -- ^ dependencies from addDependentFile
 
 #ifdef GHCI
-        tcg_th_topdecls :: TcRef [LHsDecl RdrName],
+        tcg_th_topdecls :: TcRef [LHsDecl RdrName PreTcType],
         -- ^ Top-level declarations from addTopDecls
 
         tcg_th_topnames :: TcRef NameSet,

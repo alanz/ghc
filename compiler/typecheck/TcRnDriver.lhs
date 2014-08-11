@@ -1197,8 +1197,8 @@ runTcInteractive hsc_env thing_inside
 --
 -- The returned TypecheckedHsExpr is of type IO [ () ], a list of the bound
 -- values, coerced to ().
-tcRnStmt :: HscEnv -> GhciLStmt RdrName
-         -> IO (Messages, Maybe ([Id], LHsExpr Id, FixityEnv))
+tcRnStmt :: HscEnv -> GhciLStmt RdrName PreTcType
+         -> IO (Messages, Maybe ([Id], LHsExpr Id PostTcType, FixityEnv))
 tcRnStmt hsc_env rdr_stmt
   = runTcInteractive hsc_env $ do {
 
@@ -1271,7 +1271,7 @@ Here is the grand plan, implemented in tcUserStmt
 \begin{code}
 
 -- | A plan is an attempt to lift some code into the IO monad.
-type PlanResult = ([Id], LHsExpr Id)
+type PlanResult = ([Id], LHsExpr Id PostTcType)
 type Plan = TcM PlanResult
 
 -- | Try the plans in order. If one fails (by raising an exn), try the next.
@@ -1289,7 +1289,7 @@ runPlans (p:ps) = tryTcLIE_ (runPlans ps) p
 -- in GHCi] in HscTypes for more details. We do this lifting by trying
 -- different ways ('plans') of lifting the code into the IO monad and
 -- type checking each plan until one succeeds.
-tcUserStmt :: GhciLStmt RdrName -> TcM (PlanResult, FixityEnv)
+tcUserStmt :: GhciLStmt RdrName PreTcType -> TcM (PlanResult, FixityEnv)
 
 -- An expression typed at the prompt is treated very specially
 tcUserStmt (L loc (BodyStmt expr _ _ _))
@@ -1389,7 +1389,7 @@ tcUserStmt rdr_stmt@(L loc _)
 
 -- | Typecheck the statements given and then return the results of the
 -- statement in the form 'IO [()]'.
-tcGhciStmts :: [GhciLStmt Name] -> TcM PlanResult
+tcGhciStmts :: [GhciLStmt Name PostTcType] -> TcM PlanResult
 tcGhciStmts stmts
  = do { ioTyCon <- tcLookupTyCon ioTyConName ;
         ret_id  <- tcLookupId returnIOName ;            -- return @ IO
@@ -1436,7 +1436,7 @@ tcGhciStmts stmts
     }
 
 -- | Generate a typed ghciStepIO expression (ghciStep :: Ty a -> IO a)
-getGhciStepIO :: TcM (LHsExpr Name)
+getGhciStepIO :: TcM (LHsExpr Name PostTcType)
 getGhciStepIO = do
     ghciTy <- getGHCiMonad
     fresh_a <- newUnique
@@ -1444,7 +1444,7 @@ getGhciStepIO = do
         ghciM  = nlHsAppTy (nlHsTyVar ghciTy) (nlHsTyVar a_tv)
         ioM    = nlHsAppTy (nlHsTyVar ioTyConName) (nlHsTyVar a_tv)
 
-        stepTy :: LHsType Name    -- Renamed, so needs all binders in place
+        stepTy :: LHsType Name PostTcType    -- Renamed, so needs all binders in place
         stepTy = noLoc $ HsForAllTy Implicit
                             (HsQTvs { hsq_tvs = [noLoc (UserTyVar a_tv)]
                                     , hsq_kvs = [] })
@@ -1476,7 +1476,7 @@ tcRnExpr just finds the type of an expression
 
 \begin{code}
 tcRnExpr :: HscEnv
-         -> LHsExpr RdrName
+         -> LHsExpr RdrName PreTcType
          -> IO (Messages, Maybe Type)
 -- Type checks the expression and returns its most general type
 tcRnExpr hsc_env rdr_expr
@@ -1523,7 +1523,7 @@ tcRnType just finds the kind of a type
 \begin{code}
 tcRnType :: HscEnv
          -> Bool        -- Normalise the returned type
-         -> LHsType RdrName
+         -> LHsType RdrName PreTcType
          -> IO (Messages, Maybe (Type, Kind))
 tcRnType hsc_env normalise rdr_type
   = runTcInteractive hsc_env $
@@ -1566,7 +1566,7 @@ tcRnDeclsi exists to allow class, data, and other declarations in GHCi.
 
 \begin{code}
 tcRnDeclsi :: HscEnv
-           -> [LHsDecl RdrName]
+           -> [LHsDecl RdrName PreTcType]
            -> IO (Messages, Maybe TcGblEnv)
 
 tcRnDeclsi hsc_env local_decls =

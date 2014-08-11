@@ -1299,7 +1299,7 @@ checkThLocalId id
     }
 
 --------------------------------------
-checkCrossStageLifting :: Id -> ThStage -> TcM ()
+checkCrossStageLifting :: Id -> ThStage PostTcType -> TcM ()
 -- If we are inside brackets, and (use_lvl > bind_lvl)
 -- we must check whether there's a cross-stage lift to do
 -- Examples   \x -> [| x |]
