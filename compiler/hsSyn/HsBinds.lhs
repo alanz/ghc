@@ -137,7 +137,7 @@ data HsBindLR idL idR ptt
   | PatBind {   
         pat_lhs    :: LPat idL ptt,
         pat_rhs    :: GRHSs idR (LHsExpr idR ptt) ptt,
-        pat_rhs_ty :: PostTcType,       -- ^ Type of the GRHSs
+        pat_rhs_ty :: ptt,       -- ^ Type of the GRHSs
         bind_fvs   :: NameSet,          -- ^ See Note [Bind free vars]
         pat_ticks  :: (Maybe (Tickish Id), [Maybe (Tickish Id)])
                -- ^ Tick to put on the rhs, if any, and ticks to put on

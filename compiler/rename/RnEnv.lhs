@@ -1230,7 +1230,7 @@ lookupIfThenElse
                  ; return (Just (HsVar ite), unitFV ite) } }
 
 lookupSyntaxName :: Name                                -- The standard name
-                 -> RnM (SyntaxExpr Name ptt, FreeVars)     -- Possibly a non-standard name
+                 -> RnM (SyntaxExpr Name PostTcType, FreeVars)     -- Possibly a non-standard name
 lookupSyntaxName std_name
   = do { rebindable_on <- xoptM Opt_RebindableSyntax
        ; if not rebindable_on then 
@@ -1241,7 +1241,7 @@ lookupSyntaxName std_name
               ; return (HsVar usr_name, unitFV usr_name) } }
 
 lookupSyntaxNames :: [Name]                          -- Standard names
-                  -> RnM ([HsExpr Name ptt], FreeVars)   -- See comments with HsExpr.ReboundNames
+                  -> RnM ([HsExpr Name PostTcType], FreeVars)   -- See comments with HsExpr.ReboundNames
 lookupSyntaxNames std_names
   = do { rebindable_on <- xoptM Opt_RebindableSyntax
        ; if not rebindable_on then 

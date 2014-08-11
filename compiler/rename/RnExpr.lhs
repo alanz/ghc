@@ -55,7 +55,7 @@ import TysWiredIn       ( nilDataConName )
 %************************************************************************
 
 \begin{code}
-rnExprs :: [LHsExpr RdrName] -> RnM ([LHsExpr Name], FreeVars)
+rnExprs :: [LHsExpr RdrName PreTcType] -> RnM ([LHsExpr Name PreTcType], FreeVars)
 rnExprs ls = rnExprs' ls emptyUniqSet
  where
   rnExprs' [] acc = return ([], acc)
@@ -71,12 +71,12 @@ rnExprs ls = rnExprs' ls emptyUniqSet
 Variables. We look up the variable and return the resulting name.
 
 \begin{code}
-rnLExpr :: LHsExpr RdrName ptt -> RnM (LHsExpr Name ptt, FreeVars)
+rnLExpr :: LHsExpr RdrName PreTcType -> RnM (LHsExpr Name PreTcType, FreeVars)
 rnLExpr = wrapLocFstM rnExpr
 
-rnExpr :: HsExpr RdrName PreTcType -> RnM (HsExpr Name ptt, FreeVars)
+rnExpr :: HsExpr RdrName PreTcType -> RnM (HsExpr Name PreTcType, FreeVars)
 
-finishHsVar :: Name -> RnM (HsExpr Name, FreeVars)
+finishHsVar :: Name -> RnM (HsExpr Name ptt, FreeVars)
 -- Separated from rnExpr because it's also used
 -- when renaming infix expressions
 -- See Note [Adding the implicit parameter to 'assert']
@@ -331,10 +331,10 @@ rnExpr e@(HsArrForm {}) = arrowFail e
 rnExpr other = pprPanic "rnExpr: unexpected expression" (ppr other)
         -- HsWrap
 
-hsHoleExpr :: HsExpr Name
+hsHoleExpr :: HsExpr Name ptt
 hsHoleExpr = HsUnboundVar (mkRdrUnqual (mkVarOcc "_"))
 
-arrowFail :: HsExpr RdrName -> RnM (HsExpr Name, FreeVars)
+arrowFail :: HsExpr RdrName ptt -> RnM (HsExpr Name ptt, FreeVars)
 arrowFail e
   = do { addErr (vcat [ ptext (sLit "Arrow command found where an expression was expected:")
                       , nest 2 (ppr e) ])
@@ -344,7 +344,7 @@ arrowFail e
 
 ----------------------
 -- See Note [Parsing sections] in Parser.y.pp
-rnSection :: HsExpr RdrName -> RnM (HsExpr Name, FreeVars)
+rnSection :: HsExpr RdrName PreTcType -> RnM (HsExpr Name PreTcType, FreeVars)
 rnSection section@(SectionR op expr)
   = do  { (op', fvs_op)     <- rnLExpr op
         ; (expr', fvs_expr) <- rnLExpr expr
@@ -367,8 +367,8 @@ rnSection other = pprPanic "rnSection" (ppr other)
 %************************************************************************
 
 \begin{code}
-rnHsRecBinds :: HsRecFieldContext -> HsRecordBinds RdrName
-             -> RnM (HsRecordBinds Name, FreeVars)
+rnHsRecBinds :: HsRecFieldContext -> HsRecordBinds RdrName PreTcType
+             -> RnM (HsRecordBinds Name PreTcType, FreeVars)
 rnHsRecBinds ctxt rec_binds@(HsRecFields { rec_dotdot = dd })
   = do { (flds, fvs) <- rnHsRecFields1 ctxt HsVar rec_binds
        ; (flds', fvss) <- mapAndUnzipM rn_field flds
@@ -387,14 +387,14 @@ rnHsRecBinds ctxt rec_binds@(HsRecFields { rec_dotdot = dd })
 %************************************************************************
 
 \begin{code}
-rnCmdArgs :: [LHsCmdTop RdrName] -> RnM ([LHsCmdTop Name], FreeVars)
+rnCmdArgs :: [LHsCmdTop RdrName PreTcType] -> RnM ([LHsCmdTop Name PreTcType], FreeVars)
 rnCmdArgs [] = return ([], emptyFVs)
 rnCmdArgs (arg:args)
   = do { (arg',fvArg) <- rnCmdTop arg
        ; (args',fvArgs) <- rnCmdArgs args
        ; return (arg':args', fvArg `plusFV` fvArgs) }
 
-rnCmdTop :: LHsCmdTop RdrName -> RnM (LHsCmdTop Name, FreeVars)
+rnCmdTop :: LHsCmdTop RdrName PreTcType -> RnM (LHsCmdTop Name PreTcType, FreeVars)
 rnCmdTop = wrapLocFstM rnCmdTop'
  where
   rnCmdTop' (HsCmdTop cmd _ _ _)
@@ -407,10 +407,10 @@ rnCmdTop = wrapLocFstM rnCmdTop'
         ; return (HsCmdTop cmd' placeHolderType placeHolderType (cmd_names `zip` cmd_names'),
                   fvCmd `plusFV` cmd_fvs) }
 
-rnLCmd :: LHsCmd RdrName -> RnM (LHsCmd Name, FreeVars)
+rnLCmd :: LHsCmd RdrName PreTcType -> RnM (LHsCmd Name PreTcType, FreeVars)
 rnLCmd = wrapLocFstM rnCmd
 
-rnCmd :: HsCmd RdrName -> RnM (HsCmd Name, FreeVars)
+rnCmd :: HsCmd RdrName PreTcType -> RnM (HsCmd Name PreTcType, FreeVars)
 
 rnCmd (HsCmdArrApp arrow arg _ ho rtl)
   = do { (arrow',fvArrow) <- select_arrow_scope (rnLExpr arrow)
@@ -484,10 +484,10 @@ type CmdNeeds = FreeVars        -- Only inhabitants are
                                 --      appAName, choiceAName, loopAName
 
 -- find what methods the Cmd needs (loop, choice, apply)
-methodNamesLCmd :: LHsCmd Name -> CmdNeeds
+methodNamesLCmd :: LHsCmd Name ptt -> CmdNeeds
 methodNamesLCmd = methodNamesCmd . unLoc
 
-methodNamesCmd :: HsCmd Name -> CmdNeeds
+methodNamesCmd :: HsCmd Name ptt -> CmdNeeds
 
 methodNamesCmd (HsCmdArrApp _arrow _arg _ HsFirstOrderApp _rtl)
   = emptyFVs
@@ -515,7 +515,7 @@ methodNamesCmd (HsCmdCase _ matches)
    -- The type checker will complain later
 
 ---------------------------------------------------
-methodNamesMatch :: MatchGroup Name (LHsCmd Name) -> FreeVars
+methodNamesMatch :: MatchGroup Name (LHsCmd Name ptt) ptt -> FreeVars
 methodNamesMatch (MG { mg_alts = ms })
   = plusFVs (map do_one ms)
  where
@@ -523,23 +523,23 @@ methodNamesMatch (MG { mg_alts = ms })
 
 -------------------------------------------------
 -- gaw 2004
-methodNamesGRHSs :: GRHSs Name (LHsCmd Name) -> FreeVars
+methodNamesGRHSs :: GRHSs Name (LHsCmd Name ptt) ptt -> FreeVars
 methodNamesGRHSs (GRHSs grhss _) = plusFVs (map methodNamesGRHS grhss)
 
 -------------------------------------------------
 
-methodNamesGRHS :: Located (GRHS Name (LHsCmd Name)) -> CmdNeeds
+methodNamesGRHS :: Located (GRHS Name (LHsCmd Name ptt) ptt) -> CmdNeeds
 methodNamesGRHS (L _ (GRHS _ rhs)) = methodNamesLCmd rhs
 
 ---------------------------------------------------
-methodNamesStmts :: [Located (StmtLR Name Name (LHsCmd Name))] -> FreeVars
+methodNamesStmts :: [Located (StmtLR Name Name (LHsCmd Name ptt) ptt)] -> FreeVars
 methodNamesStmts stmts = plusFVs (map methodNamesLStmt stmts)
 
 ---------------------------------------------------
-methodNamesLStmt :: Located (StmtLR Name Name (LHsCmd Name)) -> FreeVars
+methodNamesLStmt :: Located (StmtLR Name Name (LHsCmd Name ptt) ptt) -> FreeVars
 methodNamesLStmt = methodNamesStmt . unLoc
 
-methodNamesStmt :: StmtLR Name Name (LHsCmd Name) -> FreeVars
+methodNamesStmt :: StmtLR Name Name (LHsCmd Name ptt) ptt -> FreeVars
 methodNamesStmt (LastStmt cmd _)                 = methodNamesLCmd cmd
 methodNamesStmt (BodyStmt cmd _ _ _)             = methodNamesLCmd cmd
 methodNamesStmt (BindStmt _ cmd _ _)             = methodNamesLCmd cmd
@@ -559,7 +559,7 @@ methodNamesStmt (TransStmt {})                   = emptyFVs
 %************************************************************************
 
 \begin{code}
-rnArithSeq :: ArithSeqInfo RdrName -> RnM (ArithSeqInfo Name, FreeVars)
+rnArithSeq :: ArithSeqInfo RdrName PreTcType -> RnM (ArithSeqInfo Name PreTcType, FreeVars)
 rnArithSeq (From expr)
  = do { (expr', fvExpr) <- rnLExpr expr
       ; return (From expr', fvExpr) }
@@ -589,11 +589,11 @@ rnArithSeq (FromThenTo expr1 expr2 expr3)
 %************************************************************************
 
 \begin{code}
-rnStmts :: Outputable (body RdrName) => HsStmtContext Name
-        -> (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-        -> [LStmt RdrName (Located (body RdrName))]
+rnStmts :: Outputable (body RdrName PreTcType) => HsStmtContext Name
+        -> (Located (body RdrName PreTcType) -> RnM (Located (body Name PreTcType), FreeVars))
+        -> [LStmt RdrName (Located (body RdrName PreTcType)) PreTcType]
         -> ([Name] -> RnM (thing, FreeVars))
-        -> RnM (([LStmt Name (Located (body Name))], thing), FreeVars)
+        -> RnM (([LStmt Name (Located (body Name PreTcType)) PreTcType], thing), FreeVars)
 -- Variables bound by the Stmts, and mentioned in thing_inside,
 -- do not appear in the result FreeVars
 
@@ -628,11 +628,11 @@ rnStmts ctxt rnBody (lstmt@(L loc _) : lstmts) thing_inside
         ; return (((stmts1 ++ stmts2), thing), fvs) }
 
 ----------------------
-rnStmt :: Outputable (body RdrName) => HsStmtContext Name
-       -> (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-       -> LStmt RdrName (Located (body RdrName))
+rnStmt :: Outputable (body RdrName PreTcType) => HsStmtContext Name
+       -> (Located (body RdrName PreTcType) -> RnM (Located (body Name PreTcType), FreeVars))
+       -> LStmt RdrName (Located (body RdrName PreTcType)) PreTcType
        -> ([Name] -> RnM (thing, FreeVars))
-       -> RnM (([LStmt Name (Located (body Name))], thing), FreeVars)
+       -> RnM (([LStmt Name (Located (body Name PreTcType)) PreTcType], thing), FreeVars)
 -- Variables bound by the Stmt, and mentioned in thing_inside,
 -- do not appear in the result FreeVars
 
@@ -741,18 +741,18 @@ rnStmt ctxt _ (L loc (TransStmt { trS_stmts = stmts, trS_by = by, trS_form = for
                                     , trS_fmap = fmap_op })], thing), all_fvs) }
 
 rnParallelStmts :: forall thing. HsStmtContext Name
-                -> SyntaxExpr Name
-                -> [ParStmtBlock RdrName RdrName]
+                -> SyntaxExpr Name PreTcType
+                -> [ParStmtBlock RdrName RdrName PreTcType]
                 -> ([Name] -> RnM (thing, FreeVars))
-                -> RnM (([ParStmtBlock Name Name], thing), FreeVars)
+                -> RnM (([ParStmtBlock Name Name PreTcType], thing), FreeVars)
 -- Note [Renaming parallel Stmts]
 rnParallelStmts ctxt return_op segs thing_inside
   = do { orig_lcl_env <- getLocalRdrEnv
        ; rn_segs orig_lcl_env [] segs }
   where
     rn_segs :: LocalRdrEnv
-            -> [Name] -> [ParStmtBlock RdrName RdrName]
-            -> RnM (([ParStmtBlock Name Name], thing), FreeVars)
+            -> [Name] -> [ParStmtBlock RdrName RdrName PreTcType]
+            -> RnM (([ParStmtBlock Name Name PreTcType], thing), FreeVars)
     rn_segs _ bndrs_so_far []
       = do { let (bndrs', dups) = removeDups cmpByOcc bndrs_so_far
            ; mapM_ dupErr dups
@@ -774,7 +774,7 @@ rnParallelStmts ctxt return_op segs thing_inside
     dupErr vs = addErr (ptext (sLit "Duplicate binding in parallel list comprehension for:")
                     <+> quotes (ppr (head vs)))
 
-lookupStmtName :: HsStmtContext Name -> Name -> RnM (HsExpr Name, FreeVars)
+lookupStmtName :: HsStmtContext Name -> Name -> RnM (HsExpr Name ptt, FreeVars)
 -- Like lookupSyntaxName, but ListComp/PArrComp are never rebindable
 -- Neither is ArrowExpr, which has its own desugarer in DsArrows
 lookupStmtName ctxt n
@@ -831,12 +831,12 @@ type Segment stmts = (Defs,
 
 
 -- wrapper that does both the left- and right-hand sides
-rnRecStmtsAndThen :: Outputable (body RdrName) =>
-                     (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-                  -> [LStmt RdrName (Located (body RdrName))]
+rnRecStmtsAndThen :: Outputable (body RdrName PreTcType) =>
+                     (Located (body RdrName PreTcType) -> RnM (Located (body Name PreTcType), FreeVars))
+                  -> [LStmt RdrName (Located (body RdrName PreTcType)) PreTcType]
                          -- assumes that the FreeVars returned includes
                          -- the FreeVars of the Segments
-                  -> ([Segment (LStmt Name (Located (body Name)))] -> RnM (a, FreeVars))
+                  -> ([Segment (LStmt Name (Located (body Name PreTcType)) PreTcType)] -> RnM (a, FreeVars))
                   -> RnM (a, FreeVars)
 rnRecStmtsAndThen rnBody s cont
   = do  { -- (A) Make the mini fixity env for all of the stmts
@@ -859,7 +859,7 @@ rnRecStmtsAndThen rnBody s cont
         ; return (res, fvs) }}
 
 -- get all the fixity decls in any Let stmt
-collectRecStmtsFixities :: [LStmtLR RdrName RdrName body] -> [LFixitySig RdrName]
+collectRecStmtsFixities :: [LStmtLR RdrName RdrName body ptt] -> [LFixitySig RdrName]
 collectRecStmtsFixities l =
     foldr (\ s -> \acc -> case s of
                             (L _ (LetStmt (HsValBinds (ValBindsIn _ sigs)))) ->
@@ -871,11 +871,11 @@ collectRecStmtsFixities l =
 -- left-hand sides
 
 rn_rec_stmt_lhs :: Outputable body => MiniFixityEnv
-                -> LStmt RdrName body
+                -> LStmt RdrName body PreTcType
                    -- rename LHS, and return its FVs
                    -- Warning: we will only need the FreeVars below in the case of a BindStmt,
                    -- so we don't bother to compute it accurately in the other cases
-                -> RnM [(LStmtLR Name RdrName body, FreeVars)]
+                -> RnM [(LStmtLR Name RdrName body PreTcType, FreeVars)]
 
 rn_rec_stmt_lhs _ (L loc (BodyStmt body a b c))
   = return [(L loc (BodyStmt body a b c), emptyFVs)]
@@ -914,8 +914,8 @@ rn_rec_stmt_lhs _ (L _ (LetStmt EmptyLocalBinds))
   = panic "rn_rec_stmt LetStmt EmptyLocalBinds"
 
 rn_rec_stmts_lhs :: Outputable body => MiniFixityEnv
-                 -> [LStmt RdrName body]
-                 -> RnM [(LStmtLR Name RdrName body, FreeVars)]
+                 -> [LStmt RdrName body PreTcType]
+                 -> RnM [(LStmtLR Name RdrName body PreTcType, FreeVars)]
 rn_rec_stmts_lhs fix_env stmts
   = do { ls <- concatMapM (rn_rec_stmt_lhs fix_env) stmts
        ; let boundNames = collectLStmtsBinders (map fst ls)
@@ -928,10 +928,10 @@ rn_rec_stmts_lhs fix_env stmts
 
 -- right-hand-sides
 
-rn_rec_stmt :: (Outputable (body RdrName)) =>
-               (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-            -> [Name] -> LStmtLR Name RdrName (Located (body RdrName))
-            -> FreeVars -> RnM [Segment (LStmt Name (Located (body Name)))]
+rn_rec_stmt :: (Outputable (body RdrName PreTcType)) =>
+               (Located (body RdrName PreTcType) -> RnM (Located (body Name PreTcType), FreeVars))
+            -> [Name] -> LStmtLR Name RdrName (Located (body RdrName PreTcType)) PreTcType
+            -> FreeVars -> RnM [Segment (LStmt Name (Located (body Name PreTcType)) PreTcType)]
         -- Rename a Stmt that is inside a RecStmt (or mdo)
         -- Assumes all binders are already in scope
         -- Turns each stmt into a singleton Stmt
@@ -979,20 +979,20 @@ rn_rec_stmt _ _ stmt@(L _ (TransStmt {})) _     -- Syntactically illegal in mdo
 rn_rec_stmt _ _ (L _ (LetStmt EmptyLocalBinds)) _
   = panic "rn_rec_stmt: LetStmt EmptyLocalBinds"
 
-rn_rec_stmts :: Outputable (body RdrName) =>
-                (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
+rn_rec_stmts :: Outputable (body RdrName PreTcType) =>
+                (Located (body RdrName PreTcType) -> RnM (Located (body Name PreTcType), FreeVars))
              -> [Name]
-             -> [(LStmtLR Name RdrName (Located (body RdrName)), FreeVars)]
-             -> RnM [Segment (LStmt Name (Located (body Name)))]
+             -> [(LStmtLR Name RdrName (Located (body RdrName PreTcType)) PreTcType, FreeVars)]
+             -> RnM [Segment (LStmt Name (Located (body Name PreTcType)) PreTcType)]
 rn_rec_stmts rnBody bndrs stmts
   = do { segs_s <- mapM (uncurry (rn_rec_stmt rnBody bndrs)) stmts
        ; return (concat segs_s) }
 
 ---------------------------------------------
-segmentRecStmts :: HsStmtContext Name 
-                -> Stmt Name body
-                -> [Segment (LStmt Name body)] -> FreeVars
-                -> ([LStmt Name body], FreeVars)
+segmentRecStmts :: HsStmtContext Name
+                -> Stmt Name body ptt
+                -> [Segment (LStmt Name body ptt)] -> FreeVars
+                -> ([LStmt Name body ptt], FreeVars)
 
 segmentRecStmts ctxt empty_rec_stmt segs fvs_later
   | MDoExpr <- ctxt
@@ -1087,7 +1087,7 @@ glom it together with the first two groups
        r <- x }
 
 \begin{code}
-glomSegments :: HsStmtContext Name -> [Segment (LStmt Name body)] -> [Segment [LStmt Name body]]
+glomSegments :: HsStmtContext Name -> [Segment (LStmt Name body ptt)] -> [Segment [LStmt Name body ptt]]
 -- See Note [Glomming segments]
 
 glomSegments _ [] = []
@@ -1116,10 +1116,10 @@ glomSegments ctxt ((defs,uses,fwds,stmt) : segs)
           not_needed (defs,_,_,_) = not (intersectsNameSet defs uses)
 
 ----------------------------------------------------
-segsToStmts :: Stmt Name body                   -- A RecStmt with the SyntaxOps filled in
-            -> [Segment [LStmt Name body]]
+segsToStmts :: Stmt Name body ptt               -- A RecStmt with the SyntaxOps filled in
+            -> [Segment [LStmt Name body ptt]]
             -> FreeVars                         -- Free vars used 'later'
-            -> ([LStmt Name body], FreeVars)
+            -> ([LStmt Name body ptt], FreeVars)
 
 segsToStmts _ [] fvs_later = ([], fvs_later)
 segsToStmts empty_rec_stmt ((defs, uses, fwds, ss) : segs) fvs_later
@@ -1144,11 +1144,11 @@ segsToStmts empty_rec_stmt ((defs, uses, fwds, ss) : segs) fvs_later
 %************************************************************************
 
 \begin{code}
-srcSpanPrimLit :: DynFlags -> SrcSpan -> HsExpr Name
+srcSpanPrimLit :: DynFlags -> SrcSpan -> HsExpr Name ptt
 srcSpanPrimLit dflags span
     = HsLit (HsStringPrim (unsafeMkByteString (showSDocOneLine dflags (ppr span))))
 
-mkAssertErrorExpr :: RnM (HsExpr Name)
+mkAssertErrorExpr :: RnM (HsExpr Name ptt)
 -- Return an expression for (assertError "Foo.hs:27")
 mkAssertErrorExpr
   = do sloc <- getSrcSpanM
@@ -1189,9 +1189,9 @@ emptyErr (TransStmtCtxt {}) = ptext (sLit "Empty statement group preceding 'grou
 emptyErr ctxt               = ptext (sLit "Empty") <+> pprStmtContext ctxt
 
 ----------------------
-checkLastStmt :: Outputable (body RdrName) => HsStmtContext Name
-              -> LStmt RdrName (Located (body RdrName))
-              -> RnM (LStmt RdrName (Located (body RdrName)))
+checkLastStmt :: Outputable (body RdrName ptt) => HsStmtContext Name
+              -> LStmt RdrName (Located (body RdrName ptt)) ptt
+              -> RnM (LStmt RdrName (Located (body RdrName ptt)) ptt)
 checkLastStmt ctxt lstmt@(L loc stmt)
   = case ctxt of
       ListComp  -> check_comp
@@ -1221,7 +1221,7 @@ checkLastStmt ctxt lstmt@(L loc stmt)
 
 -- Checking when a particular Stmt is ok
 checkStmt :: HsStmtContext Name
-          -> LStmt RdrName (Located (body RdrName))
+          -> LStmt RdrName (Located (body RdrName ptt)) ptt
           -> RnM ()
 checkStmt ctxt (L _ stmt)
   = do { dflags <- getDynFlags
@@ -1232,7 +1232,7 @@ checkStmt ctxt (L _ stmt)
    msg = sep [ ptext (sLit "Unexpected") <+> pprStmtCat stmt <+> ptext (sLit "statement")
              , ptext (sLit "in") <+> pprAStmtContext ctxt ]
 
-pprStmtCat :: Stmt a body -> SDoc
+pprStmtCat :: Stmt a body ptt -> SDoc
 pprStmtCat (TransStmt {})     = ptext (sLit "transform")
 pprStmtCat (LastStmt {})      = ptext (sLit "return expression")
 pprStmtCat (BodyStmt {})      = ptext (sLit "body")
@@ -1247,7 +1247,7 @@ emptyInvalid = NotValid empty
 
 okStmt, okDoStmt, okCompStmt, okParStmt, okPArrStmt
    :: DynFlags -> HsStmtContext Name
-   -> Stmt RdrName (Located (body RdrName)) -> Validity
+   -> Stmt RdrName (Located (body RdrName ptt)) ptt -> Validity
 -- Return Nothing if OK, (Just extra) if not ok
 -- The "extra" is an SDoc that is appended to an generic error message
 
@@ -1265,7 +1265,7 @@ okStmt dflags ctxt stmt
       TransStmtCtxt ctxt -> okStmt dflags ctxt stmt
 
 -------------
-okPatGuardStmt :: Stmt RdrName (Located (body RdrName)) -> Validity
+okPatGuardStmt :: Stmt RdrName (Located (body RdrName ptt)) ptt -> Validity
 okPatGuardStmt stmt
   = case stmt of
       BodyStmt {} -> IsValid
@@ -1320,7 +1320,7 @@ okPArrStmt dflags _ stmt
        LastStmt {}  -> emptyInvalid  -- Should not happen (dealt with by checkLastStmt)
 
 ---------
-checkTupleSection :: [HsTupArg RdrName] -> RnM ()
+checkTupleSection :: [HsTupArg RdrName ptt] -> RnM ()
 checkTupleSection args
   = do  { tuple_section <- xoptM Opt_TupleSections
         ; checkErr (all tupArgPresent args || tuple_section) msg }
@@ -1328,12 +1328,12 @@ checkTupleSection args
     msg = ptext (sLit "Illegal tuple section: use TupleSections")
 
 ---------
-sectionErr :: HsExpr RdrName -> SDoc
+sectionErr :: HsExpr RdrName ptt-> SDoc
 sectionErr expr
   = hang (ptext (sLit "A section must be enclosed in parentheses"))
        2 (ptext (sLit "thus:") <+> (parens (ppr expr)))
 
-patSynErr :: HsExpr RdrName -> RnM (HsExpr Name, FreeVars)
+patSynErr :: HsExpr RdrName ptt -> RnM (HsExpr Name ptt, FreeVars)
 patSynErr e = do { addErr (sep [ptext (sLit "Pattern syntax in expression context:"),
                                 nest 4 (ppr e)])
                  ; return (EWildPat, emptyFVs) }

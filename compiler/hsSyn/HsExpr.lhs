@@ -941,7 +941,7 @@ hsLMatchPats (L _ (Match pats _ _)) = pats
 -- | GRHSs are used both for pattern bindings and for Matches
 data GRHSs id body ptt
   = GRHSs {
-      grhssGRHSs :: [LGRHS id body ptt],   -- ^ Guarded RHSs
+      grhssGRHSs :: [LGRHS id body ptt],       -- ^ Guarded RHSs
       grhssLocalBinds :: (HsLocalBinds id ptt) -- ^ The where clause
     } deriving (Data, Typeable)
 
@@ -949,7 +949,7 @@ type LGRHS id body ptt = Located (GRHS id body ptt)
 
 -- | Guarded Right Hand Side.
 data GRHS id body ptt = GRHS [GuardLStmt id ptt] -- Guards
-                             body           -- Right hand side
+                             body                -- Right hand side
   deriving (Data, Typeable)
 \end{code}
 

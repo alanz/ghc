@@ -60,12 +60,12 @@ to break several loop.
 %*********************************************************
 
 \begin{code}
-rnHsSigType :: SDoc -> LHsType RdrName ptt -> RnM (LHsType Name ptt, FreeVars)
+rnHsSigType :: SDoc -> LHsType RdrName PreTcType -> RnM (LHsType Name PostTcType, FreeVars)
         -- rnHsSigType is used for source-language type signatures,
         -- which use *implicit* universal quantification.
 rnHsSigType doc_str ty = rnLHsType (TypeSigCtx doc_str) ty
 
-rnLHsInstType :: SDoc -> LHsType RdrName ptt -> RnM (LHsType Name ptt, FreeVars)
+rnLHsInstType :: SDoc -> LHsType RdrName PreTcType -> RnM (LHsType Name PostTcType, FreeVars)
 -- Rename the type in an instance or standalone deriving decl
 rnLHsInstType doc_str ty
   = do { (ty', fvs) <- rnLHsType (GenericCtx doc_str) ty
@@ -86,32 +86,32 @@ want a gratuitous knot.
 
 \begin{code}
 rnLHsTyKi  :: Bool --  True <=> renaming a type, False <=> a kind
-           -> HsDocContext -> LHsType RdrName ptt -> RnM (LHsType Name ptt, FreeVars)
+           -> HsDocContext -> LHsType RdrName PreTcType -> RnM (LHsType Name PostTcType, FreeVars)
 rnLHsTyKi isType doc (L loc ty)
   = setSrcSpan loc $
     do { (ty', fvs) <- rnHsTyKi isType doc ty
        ; return (L loc ty', fvs) }
 
-rnLHsType  :: HsDocContext -> LHsType RdrName ptt -> RnM (LHsType Name ptt, FreeVars)
+rnLHsType  :: HsDocContext -> LHsType RdrName PreTcType -> RnM (LHsType Name PostTcType, FreeVars)
 rnLHsType = rnLHsTyKi True
 
-rnLHsKind  :: HsDocContext -> LHsKind RdrName ptt -> RnM (LHsKind Name ptt, FreeVars)
+rnLHsKind  :: HsDocContext -> LHsKind RdrName PreTcType -> RnM (LHsKind Name PostTcType, FreeVars)
 rnLHsKind = rnLHsTyKi False
 
-rnLHsMaybeKind  :: HsDocContext -> Maybe (LHsKind RdrName ptt)
-                -> RnM (Maybe (LHsKind Name ptt), FreeVars)
+rnLHsMaybeKind  :: HsDocContext -> Maybe (LHsKind RdrName PreTcType)
+                -> RnM (Maybe (LHsKind Name PostTcType), FreeVars)
 rnLHsMaybeKind _ Nothing
   = return (Nothing, emptyFVs)
 rnLHsMaybeKind doc (Just kind)
   = do { (kind', fvs) <- rnLHsKind doc kind
        ; return (Just kind', fvs) }
 
-rnHsType  :: HsDocContext -> HsType RdrName ptt -> RnM (HsType Name ptt, FreeVars)
+rnHsType  :: HsDocContext -> HsType RdrName PreTcType -> RnM (HsType Name PostTcType, FreeVars)
 rnHsType = rnHsTyKi True
-rnHsKind  :: HsDocContext -> HsKind RdrName ptt -> RnM (HsKind Name ptt, FreeVars)
+rnHsKind  :: HsDocContext -> HsKind RdrName PreTcType -> RnM (HsKind Name PostTcType, FreeVars)
 rnHsKind = rnHsTyKi False
 
-rnHsTyKi :: Bool -> HsDocContext -> HsType RdrName ptt -> RnM (HsType Name ptt, FreeVars)
+rnHsTyKi :: Bool -> HsDocContext -> HsType RdrName PreTcType -> RnM (HsType Name PostTcType, FreeVars)
 
 rnHsTyKi isType doc (HsForAllTy Implicit _ lctxt@(L _ ctxt) ty)
   = ASSERT( isType ) do
@@ -299,8 +299,8 @@ rnTyVar is_type rdr_name
 
 
 --------------
-rnLHsTypes :: HsDocContext -> [LHsType RdrName ptt]
-           -> RnM ([LHsType Name ptt], FreeVars)
+rnLHsTypes :: HsDocContext -> [LHsType RdrName PreTcType]
+           -> RnM ([LHsType Name PostTcType], FreeVars)
 rnLHsTypes doc tys = mapFvRn (rnLHsType doc) tys
 \end{code}
 
@@ -308,9 +308,9 @@ rnLHsTypes doc tys = mapFvRn (rnLHsType doc) tys
 \begin{code}
 rnForAll :: HsDocContext -> HsExplicitFlag
          -> [RdrName]                -- Kind variables
-         -> LHsTyVarBndrs RdrName ptt  -- Type variables
-         -> LHsContext RdrName ptt -> LHsType RdrName ptt
-         -> RnM (HsType Name ptt, FreeVars)
+         -> LHsTyVarBndrs RdrName PreTcType  -- Type variables
+         -> LHsContext RdrName PreTcType -> LHsType RdrName PreTcType
+         -> RnM (HsType Name PostTcType, FreeVars)
 
 rnForAll doc exp kvs forall_tyvars ctxt ty
   | null kvs, null (hsQTvBndrs forall_tyvars), null (unLoc ctxt)
@@ -349,8 +349,8 @@ bindSigTyVarsFV tvs thing_inside
 bindHsTyVars :: HsDocContext
              -> Maybe a                 -- Just _  => an associated type decl
              -> [RdrName]               -- Kind variables from scope
-             -> LHsTyVarBndrs RdrName ptt   -- Type variables
-             -> (LHsTyVarBndrs Name ptt -> RnM (b, FreeVars))
+             -> LHsTyVarBndrs RdrName PreTcType  -- Type variables
+             -> (LHsTyVarBndrs Name PostTcType -> RnM (b, FreeVars))
              -> RnM (b, FreeVars)
 -- (a) Bring kind variables into scope
 --     both (i)  passed in (kv_bndrs)
@@ -381,7 +381,7 @@ bindHsTyVars doc mb_assoc kv_bndrs tv_bndrs thing_inside
        ; bindLocalNamesFV kv_names $
     do { let tv_names_w_loc = hsLTyVarLocNames tv_bndrs
 
-             rn_tv_bndr :: LHsTyVarBndr RdrName ptt -> RnM (LHsTyVarBndr Name ptt, FreeVars)
+             rn_tv_bndr :: LHsTyVarBndr RdrName PreTcType -> RnM (LHsTyVarBndr Name PostTcType, FreeVars)
              rn_tv_bndr (L loc (UserTyVar rdr))
                = do { nm <- newTyVarNameRn mb_assoc rdr_env loc rdr
                     ; return (L loc (UserTyVar nm), emptyFVs) }
@@ -417,8 +417,8 @@ newTyVarNameRn mb_assoc rdr_env loc rdr
 
 --------------------------------
 rnHsBndrSig :: HsDocContext
-            -> HsWithBndrs (LHsType RdrName ptt)
-            -> (HsWithBndrs (LHsType Name ptt) -> RnM (a, FreeVars))
+            -> HsWithBndrs (LHsType RdrName PreTcType)
+            -> (HsWithBndrs (LHsType Name PostTcType) -> RnM (a, FreeVars))
             -> RnM (a, FreeVars)
 rnHsBndrSig doc (HsWB { hswb_cts = ty@(L loc _) }) thing_inside
   = do { sig_ok <- xoptM Opt_ScopedTypeVariables
@@ -503,18 +503,18 @@ but it seems tiresome to do so.
 %*********************************************************
 
 \begin{code}
-rnConDeclFields :: HsDocContext -> [ConDeclField RdrName ptt]
-                -> RnM ([ConDeclField Name ptt], FreeVars)
+rnConDeclFields :: HsDocContext -> [ConDeclField RdrName PreTcType]
+                -> RnM ([ConDeclField Name PostTcType], FreeVars)
 rnConDeclFields doc fields = mapFvRn (rnField doc) fields
 
-rnField :: HsDocContext -> ConDeclField RdrName ptt -> RnM (ConDeclField Name ptt, FreeVars)
+rnField :: HsDocContext -> ConDeclField RdrName PreTcType -> RnM (ConDeclField Name PostTcType, FreeVars)
 rnField doc (ConDeclField name ty haddock_doc)
   = do { new_name <- lookupLocatedTopBndrRn name
        ; (new_ty, fvs) <- rnLHsType doc ty
        ; new_haddock_doc <- rnMbLHsDoc haddock_doc
        ; return (ConDeclField new_name new_ty new_haddock_doc, fvs) }
 
-rnContext :: HsDocContext -> LHsContext RdrName ptt -> RnM (LHsContext Name ptt, FreeVars)
+rnContext :: HsDocContext -> LHsContext RdrName PreTcType -> RnM (LHsContext Name PostTcType, FreeVars)
 rnContext doc (L loc cxt)
   = do { (cxt', fvs) <- rnLHsTypes doc cxt
        ; return (L loc cxt', fvs) }

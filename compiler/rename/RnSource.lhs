@@ -71,7 +71,7 @@ Checks the @(..)@ etc constraints in the export list.
 \begin{code}
 -- Brings the binders of the group into scope in the appropriate places;
 -- does NOT assume that anything is in scope already
-rnSrcDecls :: [Name] -> HsGroup RdrName -> RnM (TcGblEnv, HsGroup Name)
+rnSrcDecls :: [Name] -> HsGroup RdrName PreTcType -> RnM (TcGblEnv, HsGroup Name PostTcType)
 -- Rename a HsGroup; used for normal source files *and* hs-boot files
 rnSrcDecls extra_deps group@(HsGroup { hs_valds   = val_decls,
                                        hs_splcds  = splice_decls,
@@ -341,7 +341,7 @@ dupWarnDecl (L loc _) rdr_name
 %*********************************************************
 
 \begin{code}
-rnAnnDecl :: AnnDecl RdrName -> RnM (AnnDecl Name, FreeVars)
+rnAnnDecl :: AnnDecl RdrName PreTcType -> RnM (AnnDecl Name PreTcType, FreeVars)
 rnAnnDecl ann@(HsAnnotation provenance expr)
   = addErrCtxt (annCtxt ann) $
     do { (provenance', provenance_fvs) <- rnAnnProvenance provenance
@@ -362,7 +362,7 @@ rnAnnProvenance provenance = do
 %*********************************************************
 
 \begin{code}
-rnDefaultDecl :: DefaultDecl RdrName -> RnM (DefaultDecl Name, FreeVars)
+rnDefaultDecl :: DefaultDecl RdrName ptt -> RnM (DefaultDecl Name ptt, FreeVars)
 rnDefaultDecl (DefaultDecl tys)
   = do { (tys', fvs) <- rnLHsTypes doc_str tys
        ; return (DefaultDecl tys', fvs) }
@@ -377,7 +377,7 @@ rnDefaultDecl (DefaultDecl tys)
 %*********************************************************
 
 \begin{code}
-rnHsForeignDecl :: ForeignDecl RdrName -> RnM (ForeignDecl Name, FreeVars)
+rnHsForeignDecl :: ForeignDecl RdrName ptt -> RnM (ForeignDecl Name ptt, FreeVars)
 rnHsForeignDecl (ForeignImport name ty _ spec)
   = do { topEnv :: HscEnv <- getTopEnv
        ; name' <- lookupLocatedTopBndrRn name
@@ -429,8 +429,8 @@ patchCCallTarget packageKey callTarget =
 %*********************************************************
 
 \begin{code}
-rnSrcInstDecl :: InstDecl RdrName -> RnM (InstDecl Name, FreeVars)
-rnSrcInstDecl (TyFamInstD { tfid_inst = tfi }) 
+rnSrcInstDecl :: InstDecl RdrName PreTcType -> RnM (InstDecl Name PreTcType, FreeVars)
+rnSrcInstDecl (TyFamInstD { tfid_inst = tfi })
   = do { (tfi', fvs) <- rnTyFamInstDecl Nothing tfi
        ; return (TyFamInstD { tfid_inst = tfi' }, fvs) }
 
@@ -442,7 +442,7 @@ rnSrcInstDecl (ClsInstD { cid_inst = cid })
   = do { (cid', fvs) <- rnClsInstDecl cid
        ; return (ClsInstD { cid_inst = cid' }, fvs) }
 
-rnClsInstDecl :: ClsInstDecl RdrName -> RnM (ClsInstDecl Name, FreeVars)
+rnClsInstDecl :: ClsInstDecl RdrName PreTcType -> RnM (ClsInstDecl Name PreTcType, FreeVars)
 rnClsInstDecl (ClsInstDecl { cid_poly_ty = inst_ty, cid_binds = mbinds
                            , cid_sigs = uprags, cid_tyfam_insts = ats
                            , cid_overlap_mode = oflag
@@ -512,10 +512,10 @@ rnClsInstDecl (ClsInstDecl { cid_poly_ty = inst_ty, cid_binds = mbinds
 rnFamInstDecl :: HsDocContext
               -> Maybe (Name, [Name])
               -> Located RdrName
-              -> [LHsType RdrName]
+              -> [LHsType RdrName ptt]
               -> rhs
               -> (HsDocContext -> rhs -> RnM (rhs', FreeVars))
-              -> RnM (Located Name, HsWithBndrs [LHsType Name], rhs', FreeVars)
+              -> RnM (Located Name, HsWithBndrs [LHsType Name ptt], rhs', FreeVars)
 rnFamInstDecl doc mb_cls tycon pats payload rnPayload
   = do { tycon'   <- lookupFamInstName (fmap fst mb_cls) tycon
        ; let loc = case pats of
@@ -554,16 +554,16 @@ rnFamInstDecl doc mb_cls tycon pats payload rnPayload
              -- type instance => use, hence addOneFV
 
 rnTyFamInstDecl :: Maybe (Name, [Name])
-                -> TyFamInstDecl RdrName
-                -> RnM (TyFamInstDecl Name, FreeVars)
+                -> TyFamInstDecl RdrName ptt
+                -> RnM (TyFamInstDecl Name ptt, FreeVars)
 rnTyFamInstDecl mb_cls (TyFamInstDecl { tfid_eqn = L loc eqn })
   = do { (eqn', fvs) <- rnTyFamInstEqn mb_cls eqn
        ; return (TyFamInstDecl { tfid_eqn = L loc eqn'
                                , tfid_fvs = fvs }, fvs) }
 
 rnTyFamInstEqn :: Maybe (Name, [Name])
-               -> TyFamInstEqn RdrName
-               -> RnM (TyFamInstEqn Name, FreeVars)
+               -> TyFamInstEqn RdrName ptt
+               -> RnM (TyFamInstEqn Name ptt, FreeVars)
 rnTyFamInstEqn mb_cls (TyFamEqn { tfe_tycon = tycon
                                 , tfe_pats  = HsWB { hswb_cts = pats }
                                 , tfe_rhs   = rhs })
@@ -574,8 +574,8 @@ rnTyFamInstEqn mb_cls (TyFamEqn { tfe_tycon = tycon
                           , tfe_rhs   = rhs' }, fvs) }
 
 rnTyFamDefltEqn :: Name
-                -> TyFamDefltEqn RdrName
-                -> RnM (TyFamDefltEqn Name, FreeVars)
+                -> TyFamDefltEqn RdrName ptt
+                -> RnM (TyFamDefltEqn Name ptt, FreeVars)
 rnTyFamDefltEqn cls (TyFamEqn { tfe_tycon = tycon
                               , tfe_pats  = tyvars
                               , tfe_rhs   = rhs })
@@ -589,8 +589,8 @@ rnTyFamDefltEqn cls (TyFamEqn { tfe_tycon = tycon
     ctx = TyFamilyCtx tycon
 
 rnDataFamInstDecl :: Maybe (Name, [Name])
-                  -> DataFamInstDecl RdrName
-                  -> RnM (DataFamInstDecl Name, FreeVars)
+                  -> DataFamInstDecl RdrName ptt
+                  -> RnM (DataFamInstDecl Name ptt, FreeVars)
 rnDataFamInstDecl mb_cls (DataFamInstDecl { dfid_tycon = tycon
                                           , dfid_pats  = HsWB { hswb_cts = pats }
                                           , dfid_defn  = defn })
@@ -607,18 +607,18 @@ Renaming of the associated types in instances.
 \begin{code}
 -- Rename associated type family decl in class
 rnATDecls :: Name      -- Class
-          -> [LFamilyDecl RdrName] 
-          -> RnM ([LFamilyDecl Name], FreeVars)
+          -> [LFamilyDecl RdrName ptt]
+          -> RnM ([LFamilyDecl Name ptt], FreeVars)
 rnATDecls cls at_decls
   = rnList (rnFamDecl (Just cls)) at_decls
 
 rnATInstDecls :: (Maybe (Name, [Name]) ->    -- The function that renames
-                  decl RdrName ->            -- an instance. rnTyFamInstDecl
-                  RnM (decl Name, FreeVars)) -- or rnDataFamInstDecl
+                  decl RdrName ptt ->            -- an instance. rnTyFamInstDecl
+                  RnM (decl Name ptt, FreeVars)) -- or rnDataFamInstDecl
               -> Name      -- Class
-              -> LHsTyVarBndrs Name
-              -> [Located (decl RdrName)] 
-              -> RnM ([Located (decl Name)], FreeVars)
+              -> LHsTyVarBndrs Name ptt
+              -> [Located (decl RdrName ptt)]
+              -> RnM ([Located (decl Name ptt)], FreeVars)
 -- Used for data and type family defaults in a class decl
 -- and the family instance declarations in an instance
 --
@@ -637,8 +637,8 @@ type variable environment iff -fglasgow-exts
 
 \begin{code}
 extendTyVarEnvForMethodBinds :: [Name]
-                             -> RnM (LHsBinds Name, FreeVars)
-                             -> RnM (LHsBinds Name, FreeVars)
+                             -> RnM (LHsBinds Name ptt, FreeVars)
+                             -> RnM (LHsBinds Name ptt, FreeVars)
 extendTyVarEnvForMethodBinds ktv_names thing_inside
   = do  { scoped_tvs <- xoptM Opt_ScopedTypeVariables
         ; if scoped_tvs then
@@ -654,7 +654,7 @@ extendTyVarEnvForMethodBinds ktv_names thing_inside
 %*********************************************************
 
 \begin{code}
-rnSrcDerivDecl :: DerivDecl RdrName -> RnM (DerivDecl Name, FreeVars)
+rnSrcDerivDecl :: DerivDecl RdrName ptt -> RnM (DerivDecl Name ptt, FreeVars)
 rnSrcDerivDecl (DerivDecl ty overlap)
   = do { standalone_deriv_ok <- xoptM Opt_StandaloneDeriving
        ; unless standalone_deriv_ok (addErr standaloneDerivErr)
@@ -674,7 +674,7 @@ standaloneDerivErr
 %*********************************************************
 
 \begin{code}
-rnHsRuleDecl :: RuleDecl RdrName -> RnM (RuleDecl Name, FreeVars)
+rnHsRuleDecl :: RuleDecl RdrName PreTcType -> RnM (RuleDecl Name PreTcType, FreeVars)
 rnHsRuleDecl (HsRule rule_name act vars lhs _fv_lhs rhs _fv_rhs)
   = do { let rdr_names_w_loc = map get_var vars
        ; checkDupRdrNames rdr_names_w_loc
@@ -690,8 +690,8 @@ rnHsRuleDecl (HsRule rule_name act vars lhs _fv_lhs rhs _fv_rhs)
     get_var (RuleBndrSig v _) = v
     get_var (RuleBndr v) = v
 
-bindHsRuleVars :: RuleName -> [RuleBndr RdrName] -> [Name]
-               -> ([RuleBndr Name] -> RnM (a, FreeVars))
+bindHsRuleVars :: RuleName -> [RuleBndr RdrName ptt] -> [Name]
+               -> ([RuleBndr Name ptt] -> RnM (a, FreeVars))
                -> RnM (a, FreeVars)
 bindHsRuleVars rule_name vars names thing_inside
   = go vars names $ \ vars' ->
@@ -727,7 +727,7 @@ lambdas.  So it seems simmpler not to check at all, and that is why
 check_e is commented out.
 
 \begin{code}
-checkValidRule :: FastString -> [Name] -> LHsExpr Name -> NameSet -> RnM ()
+checkValidRule :: FastString -> [Name] -> LHsExpr Name ptt -> NameSet -> RnM ()
 checkValidRule rule_name ids lhs' fv_lhs'
   = do  {       -- Check for the form of the LHS
           case (validRuleLhs ids lhs') of
@@ -738,7 +738,7 @@ checkValidRule rule_name ids lhs' fv_lhs'
         ; let bad_vars = [var | var <- ids, not (var `elemNameSet` fv_lhs')]
         ; mapM_ (addErr . badRuleVar rule_name) bad_vars }
 
-validRuleLhs :: [Name] -> LHsExpr Name -> Maybe (HsExpr Name)
+validRuleLhs :: [Name] -> LHsExpr Name ptt -> Maybe (HsExpr Name ptt)
 -- Nothing => OK
 -- Just e  => Not ok, and e is the offending expression
 validRuleLhs foralls lhs
@@ -775,7 +775,7 @@ badRuleVar name var
          ptext (sLit "Forall'd variable") <+> quotes (ppr var) <+>
                 ptext (sLit "does not appear on left hand side")]
 
-badRuleLhsErr :: FastString -> LHsExpr Name -> HsExpr Name -> SDoc
+badRuleLhsErr :: FastString -> LHsExpr Name ptt -> HsExpr Name ptt -> SDoc
 badRuleLhsErr name lhs bad_e
   = sep [ptext (sLit "Rule") <+> ftext name <> colon,
          nest 4 (vcat [ptext (sLit "Illegal expression:") <+> ppr bad_e,
@@ -792,7 +792,7 @@ badRuleLhsErr name lhs bad_e
 %*********************************************************
 
 \begin{code}
-rnHsVectDecl :: VectDecl RdrName -> RnM (VectDecl Name, FreeVars)
+rnHsVectDecl :: VectDecl RdrName PreTcType -> RnM (VectDecl Name PreTcType, FreeVars)
 -- FIXME: For the moment, the right-hand side is restricted to be a variable as we cannot properly
 --        typecheck a complex right-hand side without invoking 'vectType' from the vectoriser.
 rnHsVectDecl (HsVect var rhs@(L _ (HsVar _)))
@@ -891,8 +891,8 @@ isInPackage pkgId nm = case nameModule_maybe nm of
 -- there is no module name. In that case we cannot have mutual dependencies,
 -- so it's fine to return False here.
 
-rnTyClDecls :: [Name] -> [TyClGroup RdrName]
-            -> RnM ([TyClGroup Name], FreeVars)
+rnTyClDecls :: [Name] -> [TyClGroup RdrName PreTcType]
+            -> RnM ([TyClGroup Name PreTcType], FreeVars)
 -- Rename the declarations and do depedency analysis on them
 rnTyClDecls extra_deps tycl_ds
   = do { ds_w_fvs <- mapM (wrapLocFstM rnTyClDecl) (tyClGroupConcat tycl_ds)
@@ -907,7 +907,7 @@ rnTyClDecls extra_deps tycl_ds
 
              ds_w_fvs' = mapSnd add_boot_deps ds_w_fvs
 
-             sccs :: [SCC (LTyClDecl Name)]
+             sccs :: [SCC (LTyClDecl Name PreTcType)]
              sccs = depAnalTyClDecls ds_w_fvs'
 
              all_fvs = foldr (plusFV . snd) emptyFVs ds_w_fvs'
@@ -932,8 +932,8 @@ rnTyClDecls extra_deps tycl_ds
        ; traceRn (text "rnTycl"  <+> (ppr ds_w_fvs $$ ppr sccs))
        ; return (groups, all_fvs) }
 
-rnTyClDecl :: TyClDecl RdrName 
-           -> RnM (TyClDecl Name, FreeVars)
+rnTyClDecl :: TyClDecl RdrName PreTcType
+           -> RnM (TyClDecl Name PreTcType, FreeVars)
 rnTyClDecl (ForeignType {tcdLName = name, tcdExtName = ext_name})
   = do { name' <- lookupLocatedTopBndrRn name
        ; return (ForeignType {tcdLName = name', tcdExtName = ext_name},
@@ -1036,7 +1036,7 @@ rnTyClDecl (ClassDecl {tcdCtxt = context, tcdLName = lcls,
     cls_doc  = ClassDeclCtx lcls
 
 -- "type" and "type instance" declarations
-rnTySyn :: HsDocContext -> LHsType RdrName -> RnM (LHsType Name, FreeVars)
+rnTySyn :: HsDocContext -> LHsType RdrName ptt -> RnM (LHsType Name ptt, FreeVars)
 rnTySyn doc rhs = rnLHsType doc rhs
 
 -- Renames role annotations, returning them as the values in a NameEnv
@@ -1090,7 +1090,7 @@ orphanRoleAnnotErr (L loc decl)
             quotes (ppr $ roleAnnotDeclName decl) <+>
             text "is declared.")
 
-rnDataDefn :: HsDocContext -> HsDataDefn RdrName -> RnM (HsDataDefn Name, FreeVars)
+rnDataDefn :: HsDocContext -> HsDataDefn RdrName ptt -> RnM (HsDataDefn Name ptt, FreeVars)
 rnDataDefn doc (HsDataDefn { dd_ND = new_or_data, dd_cType = cType
                            , dd_ctxt = context, dd_cons = condecls 
                            , dd_kindSig = sig, dd_derivs = derivs })
@@ -1137,8 +1137,8 @@ rnFamDecl :: Maybe Name
                     -- Just cls => this FamilyDecl is nested 
                     --             inside an *class decl* for cls
                     --             used for associated types
-          -> FamilyDecl RdrName
-          -> RnM (FamilyDecl Name, FreeVars)
+          -> FamilyDecl RdrName ptt
+          -> RnM (FamilyDecl Name ptt, FreeVars)
 rnFamDecl mb_cls (FamilyDecl { fdLName = tycon, fdTyVars = tyvars
                              , fdInfo = info, fdKindSig = kind })
   = do { ((tycon', tyvars', kind'), fv1) <-
@@ -1174,7 +1174,7 @@ are no data constructors we allow h98_style = True
 
 
 \begin{code}
-depAnalTyClDecls :: [(LTyClDecl Name, FreeVars)] -> [SCC (LTyClDecl Name)]
+depAnalTyClDecls :: [(LTyClDecl Name ptt, FreeVars)] -> [SCC (LTyClDecl Name ptt)]
 -- See Note [Dependency analysis of type and class decls]
 depAnalTyClDecls ds_w_fvs
   = stronglyConnCompFromEdgedVertices edges
@@ -1262,10 +1262,10 @@ badAssocRhs ns
                2 (ptext (sLit "All such variables must be bound on the LHS")))
 
 -----------------
-rnConDecls :: [LConDecl RdrName] -> RnM ([LConDecl Name], FreeVars)
+rnConDecls :: [LConDecl RdrName ptt] -> RnM ([LConDecl Name ptt], FreeVars)
 rnConDecls = mapFvRn (wrapLocFstM rnConDecl)
 
-rnConDecl :: ConDecl RdrName -> RnM (ConDecl Name, FreeVars)
+rnConDecl :: ConDecl RdrName ptt -> RnM (ConDecl Name ptt, FreeVars)
 rnConDecl decl@(ConDecl { con_name = name, con_qvars = tvs
                         , con_cxt = lcxt@(L loc cxt), con_details = details
                         , con_res = res_ty, con_doc = mb_doc
@@ -1304,10 +1304,10 @@ rnConDecl decl@(ConDecl { con_name = name, con_qvars = tvs
     get_rdr_tvs tys = extractHsTysRdrTyVars (cxt ++ tys)
 
 rnConResult :: HsDocContext -> Name
-            -> HsConDetails (LHsType Name) [ConDeclField Name]
-            -> ResType (LHsType RdrName)
-            -> RnM (HsConDetails (LHsType Name) [ConDeclField Name],
-                    ResType (LHsType Name), FreeVars)
+            -> HsConDetails (LHsType Name ptt) [ConDeclField Name ptt]
+            -> ResType (LHsType RdrName ptt)
+            -> RnM (HsConDetails (LHsType Name ptt) [ConDeclField Name ptt],
+                    ResType (LHsType Name ptt), FreeVars)
 rnConResult _   _   details ResTyH98 = return (details, ResTyH98, emptyFVs)
 rnConResult doc con details (ResTyGADT ty)
   = do { (ty', fvs) <- rnLHsType doc ty
@@ -1335,8 +1335,8 @@ rnConResult doc con details (ResTyGADT ty)
                         -> return (PrefixCon arg_tys, ResTyGADT res_ty, fvs) }
 
 rnConDeclDetails :: HsDocContext
-                 -> HsConDetails (LHsType RdrName) [ConDeclField RdrName]
-                 -> RnM (HsConDetails (LHsType Name) [ConDeclField Name], FreeVars)
+                 -> HsConDetails (LHsType RdrName ptt) [ConDeclField RdrName ptt]
+                 -> RnM (HsConDetails (LHsType Name ptt) [ConDeclField Name ptt], FreeVars)
 rnConDeclDetails doc (PrefixCon tys)
   = do { (new_tys, fvs) <- rnLHsTypes doc tys
        ; return (PrefixCon new_tys, fvs) }
@@ -1353,7 +1353,7 @@ rnConDeclDetails doc (RecCon fields)
         ; return (RecCon new_fields, fvs) }
 
 -------------------------------------------------
-deprecRecSyntax :: ConDecl RdrName -> SDoc
+deprecRecSyntax :: ConDecl RdrName ptt -> SDoc
 deprecRecSyntax decl
   = vcat [ ptext (sLit "Declaration of") <+> quotes (ppr (con_name decl))
                  <+> ptext (sLit "uses deprecated syntax")
@@ -1386,7 +1386,7 @@ For example:
 Get the mapping from constructors to fields for this module.
 It's convenient to do this after the data type decls have been renamed
 \begin{code}
-extendRecordFieldEnv :: [TyClGroup RdrName] -> [LInstDecl RdrName] -> TcM TcGblEnv
+extendRecordFieldEnv :: forall ptt. [TyClGroup RdrName ptt] -> [LInstDecl RdrName ptt] -> TcM TcGblEnv
 extendRecordFieldEnv tycl_decls inst_decls
   = do  { tcg_env <- getGblEnv
         ; field_env' <- foldrM get_con (tcg_field_env tcg_env) all_data_cons
@@ -1401,7 +1401,7 @@ extendRecordFieldEnv tycl_decls inst_decls
     lookup x = do { x' <- lookupLocatedTopBndrRn x
                     ; return $ unLoc x'}
 
-    all_data_cons :: [ConDecl RdrName]
+    all_data_cons :: [ConDecl RdrName ptt]
     all_data_cons = [con | HsDataDefn { dd_cons = cons } <- all_ty_defs
                          , L _ con <- cons ]
     all_ty_defs = [ defn | L _ (DataDecl { tcdDataDefn = defn }) <- tyClGroupConcat tycl_decls ]
@@ -1453,18 +1453,18 @@ Template Haskell splice.  As it does so it
         b) runs any top-level quasi-quotes
 
 \begin{code}
-findSplice :: [LHsDecl RdrName] -> RnM (HsGroup RdrName, Maybe (SpliceDecl RdrName, [LHsDecl RdrName]))
+findSplice :: [LHsDecl RdrName ptt] -> RnM (HsGroup RdrName ptt, Maybe (SpliceDecl RdrName ptt, [LHsDecl RdrName ptt]))
 findSplice ds = addl emptyRdrGroup ds
 
-addl :: HsGroup RdrName -> [LHsDecl RdrName]
-     -> RnM (HsGroup RdrName, Maybe (SpliceDecl RdrName, [LHsDecl RdrName]))
+addl :: HsGroup RdrName ptt -> [LHsDecl RdrName ptt]
+     -> RnM (HsGroup RdrName ptt, Maybe (SpliceDecl RdrName ptt, [LHsDecl RdrName ptt]))
 -- This stuff reverses the declarations (again) but it doesn't matter
 addl gp []           = return (gp, Nothing)
 addl gp (L l d : ds) = add gp l d ds
 
 
-add :: HsGroup RdrName -> SrcSpan -> HsDecl RdrName -> [LHsDecl RdrName]
-    -> RnM (HsGroup RdrName, Maybe (SpliceDecl RdrName, [LHsDecl RdrName]))
+add :: HsGroup RdrName ptt -> SrcSpan -> HsDecl RdrName ptt -> [LHsDecl RdrName ptt]
+    -> RnM (HsGroup RdrName ptt, Maybe (SpliceDecl RdrName ptt, [LHsDecl RdrName ptt]))
 
 add gp loc (SpliceD splice@(SpliceDecl _ flag)) ds
   = do { -- We've found a top-level splice.  If it is an *implicit* one
@@ -1526,21 +1526,21 @@ add gp@(HsGroup {hs_vects  = ts}) l (VectD d) ds
 add gp l (DocD d) ds
   = addl (gp { hs_docs = (L l d) : (hs_docs gp) })  ds
 
-add_tycld :: LTyClDecl a -> [TyClGroup a] -> [TyClGroup a]
+add_tycld :: LTyClDecl a ptt -> [TyClGroup a ptt] -> [TyClGroup a ptt]
 add_tycld d []       = [TyClGroup { group_tyclds = [d], group_roles = [] }]
 add_tycld d (ds@(TyClGroup { group_tyclds = tyclds }):dss)
   = ds { group_tyclds = d : tyclds } : dss
 
-add_role_annot :: LRoleAnnotDecl a -> [TyClGroup a] -> [TyClGroup a]
+add_role_annot :: LRoleAnnotDecl a -> [TyClGroup a ptt] -> [TyClGroup a ptt]
 add_role_annot d [] = [TyClGroup { group_tyclds = [], group_roles = [d] }]
 add_role_annot d (tycls@(TyClGroup { group_roles = roles }) : rest)
   = tycls { group_roles = d : roles } : rest
 
-add_bind :: LHsBind a -> HsValBinds a -> HsValBinds a
+add_bind :: LHsBind a ptt -> HsValBinds a ptt -> HsValBinds a ptt
 add_bind b (ValBindsIn bs sigs) = ValBindsIn (bs `snocBag` b) sigs
 add_bind _ (ValBindsOut {})     = panic "RdrHsSyn:add_bind"
 
-add_sig :: LSig a -> HsValBinds a -> HsValBinds a
+add_sig :: LSig a ptt -> HsValBinds a ptt -> HsValBinds a ptt
 add_sig s (ValBindsIn bs sigs) = ValBindsIn bs (s:sigs)
 add_sig _ (ValBindsOut {})     = panic "RdrHsSyn:add_sig"
 \end{code}

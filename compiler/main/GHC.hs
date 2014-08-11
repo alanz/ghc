@@ -760,10 +760,10 @@ instance TypecheckedMod DesugaredModule where
 instance DesugaredMod DesugaredModule where
   coreModule m = dm_core_module m
 
-type ParsedSource      = Located (HsModule RdrName)
-type RenamedSource     = (HsGroup Name, [LImportDecl Name], Maybe [LIE Name],
+type ParsedSource      = Located (HsModule RdrName PreTcType)
+type RenamedSource     = (HsGroup Name PreTcType, [LImportDecl Name], Maybe [LIE Name],
                           Maybe LHsDocString)
-type TypecheckedSource = LHsBinds Id
+type TypecheckedSource = LHsBinds Id PostTcType
 
 -- NOTE:
 --   - things that aren't in the output of the typechecker right now:

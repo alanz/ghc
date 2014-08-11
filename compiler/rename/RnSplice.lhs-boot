@@ -6,9 +6,8 @@ import TcRnMonad
 import RdrName
 import Name
 import NameSet
-import HsLit ( PreTcType,PostTcType )
 
-rnSpliceType :: HsSplice RdrName ptt   -> PostTcKind -> RnM (HsType Name ptt, FreeVars)
-rnSplicePat  :: HsSplice RdrName ptt   -> RnM (Pat Name ptt, FreeVars)
-rnSpliceDecl :: SpliceDecl RdrName ptt -> RnM (SpliceDecl Name ptt, FreeVars)
+rnSpliceType :: HsSplice RdrName PreTcType   -> PostTcKind -> RnM (HsType Name PostTcType, FreeVars)
+rnSplicePat  :: HsSplice RdrName PreTcType   -> RnM (Pat Name PostTcType, FreeVars)
+rnSpliceDecl :: SpliceDecl RdrName PreTcType -> RnM (SpliceDecl Name PostTcType, FreeVars)
 \end{code}

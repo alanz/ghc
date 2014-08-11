@@ -46,7 +46,7 @@ rnBracket e _ = failTH e "Template Haskell bracket"
 rnTopSpliceDecls :: HsSplice RdrName PreTcType -> RnM ([LHsDecl RdrName PreTcType], FreeVars)
 rnTopSpliceDecls e = failTH e "Template Haskell top splice"
 
-rnSpliceType :: HsSplice RdrName ptt -> PostTcKind -> RnM (HsType Name ptt, FreeVars)
+rnSpliceType :: HsSplice RdrName PreTcType -> PostTcKind -> RnM (HsType Name PostTcKind, FreeVars)
 rnSpliceType e _ = failTH e "Template Haskell type splice"
 
 rnSpliceExpr :: Bool -> HsSplice RdrName PreTcType -> RnM (HsExpr Name ptt, FreeVars)
@@ -169,7 +169,7 @@ rnSpliceExpr is_typed splice
            ; return (unLoc lexpr3, fvs)  }
 
 ----------------------
-rnSpliceType :: HsSplice RdrName -> PostTcKind -> RnM (HsType Name, FreeVars)
+rnSpliceType :: HsSplice RdrName -> PreTcKind -> RnM (HsType Name, FreeVars)
 rnSpliceType splice k
   = rnSpliceGen False run_type_splice pend_type_splice splice
   where

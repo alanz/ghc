@@ -167,21 +167,21 @@ it expects the global environment to contain bindings for the binders
 \begin{code}
 -- for top-level bindings, we need to make top-level names,
 -- so we have a different entry point than for local bindings
-rnTopBindsLHS :: (PlaceHolderType ptt) => MiniFixityEnv
-              -> HsValBinds RdrName ptt
-              -> RnM (HsValBindsLR Name RdrName ptt)
+rnTopBindsLHS :: MiniFixityEnv
+              -> HsValBinds RdrName PreTcType
+              -> RnM (HsValBindsLR Name RdrName PreTcType)
 rnTopBindsLHS fix_env binds
   = rnValBindsLHS (topRecNameMaker fix_env) binds
 
-rnTopBindsRHS :: (PlaceHolderType ptt) => NameSet -> HsValBindsLR Name RdrName ptt
-              -> RnM (HsValBinds Name ptt, DefUses)
+rnTopBindsRHS :: NameSet -> HsValBindsLR Name RdrName PreTcType
+              -> RnM (HsValBinds Name PostTcType, DefUses)
 rnTopBindsRHS bound_names binds
   = do { is_boot <- tcIsHsBoot
        ; if is_boot 
          then rnTopBindsBoot binds
          else rnValBindsRHS (TopSigCtxt bound_names False) binds }
 
-rnTopBindsBoot :: HsValBindsLR Name RdrName ptt -> RnM (HsValBinds Name ptt, DefUses)
+rnTopBindsBoot :: HsValBindsLR Name RdrName PreTcType -> RnM (HsValBinds Name PostTcType, DefUses)
 -- A hs-boot file has no bindings. 
 -- Return a single HsBindGroup with empty binds and renamed signatures
 rnTopBindsBoot (ValBindsIn mbinds sigs)
@@ -199,8 +199,8 @@ rnTopBindsBoot b = pprPanic "rnTopBindsBoot" (ppr b)
 %*********************************************************
 
 \begin{code}
-rnLocalBindsAndThen :: (PlaceHolderType ptt) => HsLocalBinds RdrName ptt
-                    -> (HsLocalBinds Name ptt -> RnM (result, FreeVars))
+rnLocalBindsAndThen :: HsLocalBinds RdrName PreTcType
+                    -> (HsLocalBinds Name PostTcType -> RnM (result, FreeVars))
                     -> RnM (result, FreeVars)
 -- This version (a) assumes that the binding vars are *not* already in scope
 --		 (b) removes the binders from the free vars of the thing inside
@@ -217,12 +217,12 @@ rnLocalBindsAndThen (HsIPBinds binds) thing_inside = do
     (thing, fvs_thing) <- thing_inside (HsIPBinds binds')
     return (thing, fvs_thing `plusFV` fv_binds)
 
-rnIPBinds :: HsIPBinds RdrName ptt -> RnM (HsIPBinds Name ptt, FreeVars)
+rnIPBinds :: HsIPBinds RdrName PreTcType -> RnM (HsIPBinds Name PostTcType, FreeVars)
 rnIPBinds (IPBinds ip_binds _no_dict_binds) = do
     (ip_binds', fvs_s) <- mapAndUnzipM (wrapLocFstM rnIPBind) ip_binds
     return (IPBinds ip_binds' emptyTcEvBinds, plusFVs fvs_s)
 
-rnIPBind :: IPBind RdrName ptt -> RnM (IPBind Name ptt, FreeVars)
+rnIPBind :: IPBind RdrName PreTcType -> RnM (IPBind Name PostTcType, FreeVars)
 rnIPBind (IPBind ~(Left n) expr) = do
     (expr',fvExpr) <- rnLExpr expr
     return (IPBind (Left n) expr', fvExpr)
@@ -236,13 +236,13 @@ rnIPBind (IPBind ~(Left n) expr) = do
 %************************************************************************
 
 \begin{code}
--- Renaming local binding gropus 
+-- Renaming local binding groups
 -- Does duplicate/shadow check
-rnLocalValBindsLHS :: (PlaceHolderType ptt) => MiniFixityEnv
-                   -> HsValBinds RdrName ptt
-                   -> RnM ([Name], HsValBindsLR Name RdrName ptt)
+rnLocalValBindsLHS :: MiniFixityEnv
+                   -> HsValBinds RdrName PreTcType
+                   -> RnM ([Name], HsValBindsLR Name RdrName PreTcType)
 rnLocalValBindsLHS fix_env binds
-  = do { binds' <- rnValBindsLHS (localRecNameMaker fix_env) binds 
+  = do { binds' <- rnValBindsLHS (localRecNameMaker fix_env) binds
 
          -- Check for duplicates and shadowing
 	 -- Must do this *after* renaming the patterns
@@ -271,9 +271,9 @@ rnLocalValBindsLHS fix_env binds
 -- renames the left-hand sides
 -- generic version used both at the top level and for local binds
 -- does some error checking, but not what gets done elsewhere at the top level
-rnValBindsLHS :: (PlaceHolderType ptt) => NameMaker
-              -> HsValBinds RdrName ptt
-              -> RnM (HsValBindsLR Name RdrName ptt)
+rnValBindsLHS :: NameMaker
+              -> HsValBinds RdrName PreTcType
+              -> RnM (HsValBindsLR Name RdrName PostTcType)
 rnValBindsLHS topP (ValBindsIn mbinds sigs)
   = do { mbinds' <- mapBagM (wrapLocM (rnBindLHS topP doc)) mbinds
        ; return $ ValBindsIn mbinds' sigs }
@@ -287,9 +287,9 @@ rnValBindsLHS _ b = pprPanic "rnValBindsLHSFromDoc" (ppr b)
 -- Assumes the LHS vars are in scope
 --
 -- Does not bind the local fixity declarations
-rnValBindsRHS :: (PlaceHolderType ptt) => HsSigCtxt
-              -> HsValBindsLR Name RdrName ptt
-              -> RnM (HsValBinds Name ptt, DefUses)
+rnValBindsRHS :: HsSigCtxt
+              -> HsValBindsLR Name RdrName PreTcType
+              -> RnM (HsValBinds Name PostTcType, DefUses)
 
 rnValBindsRHS ctxt (ValBindsIn mbinds sigs)
   = do { (sigs', sig_fvs) <- renameSigs ctxt sigs
@@ -312,9 +312,9 @@ rnValBindsRHS _ b = pprPanic "rnValBindsRHS" (ppr b)
 -- it doesn't (and can't: we don't have the thing inside the binds) happen here
 --
 -- The client is also responsible for bringing the fixities into scope
-rnLocalValBindsRHS :: (PlaceHolderType ptt) => NameSet  -- names bound by the LHSes
-                   -> HsValBindsLR Name RdrName ptt
-                   -> RnM (HsValBinds Name ptt, DefUses)
+rnLocalValBindsRHS :: NameSet  -- names bound by the LHSes
+                   -> HsValBindsLR Name RdrName PreTcType
+                   -> RnM (HsValBinds Name PostTcType, DefUses)
 rnLocalValBindsRHS bound_names binds
   = rnValBindsRHS (LocalBindCtxt bound_names) binds
 
@@ -323,8 +323,8 @@ rnLocalValBindsRHS bound_names binds
 --
 -- here there are no local fixity decls passed in;
 -- the local fixity decls come from the ValBinds sigs
-rnLocalValBindsAndThen :: (PlaceHolderType ptt) => HsValBinds RdrName ptt
-                       -> (HsValBinds Name ptt -> RnM (result, FreeVars))
+rnLocalValBindsAndThen :: HsValBinds RdrName PreTcType
+                       -> (HsValBinds Name PostTcType -> RnM (result, FreeVars))
                        -> RnM (result, FreeVars)
 rnLocalValBindsAndThen binds@(ValBindsIn _ sigs) thing_inside
  = do	{     -- (A) Create the local fixity environment 
@@ -412,13 +412,13 @@ dupFixityDecl loc rdr_name
 
 -- renaming a single bind
 
-rnBindLHS :: (PlaceHolderType ptt) => NameMaker
+rnBindLHS :: NameMaker
           -> SDoc
-          -> HsBind RdrName ptt
+          -> HsBind RdrName PreTcType
           -- returns the renamed left-hand side,
           -- and the FreeVars *of the LHS*
           -- (i.e., any free variables of the pattern)
-          -> RnM (HsBindLR Name RdrName ptt)
+          -> RnM (HsBindLR Name RdrName PostTcType)
 
 rnBindLHS name_maker _ bind@(PatBind { pat_lhs = pat })
   = do
@@ -447,18 +447,18 @@ rnBindLHS name_maker _ (PatSynBind psb@PSB{ psb_id = rdrname@(L nameLoc _) })
 
 rnBindLHS _ _ b = pprPanic "rnBindHS" (ppr b)
 
-rnLBind :: (PlaceHolderType ptt) => (Name -> [Name]) -- Signature tyvar function
-        -> LHsBindLR Name RdrName ptt
-        -> RnM (LHsBind Name ptt, [Name], Uses)
+rnLBind :: (Name -> [Name]) -- Signature tyvar function
+        -> LHsBindLR Name RdrName PreTcType
+        -> RnM (LHsBind Name PostTcType, [Name], Uses)
 rnLBind sig_fn (L loc bind)
   = setSrcSpan loc $
     do { (bind', bndrs, dus) <- rnBind sig_fn bind
        ; return (L loc bind', bndrs, dus) }
 
 -- assumes the left-hands-side vars are in scope
-rnBind :: (PlaceHolderType ptt) => (Name -> [Name])         -- Signature tyvar function
-       -> HsBindLR Name RdrName ptt
-       -> RnM (HsBind Name ptt, [Name], Uses)
+rnBind :: (Name -> [Name])         -- Signature tyvar function
+       -> HsBindLR Name RdrName PreTcType
+       -> RnM (HsBind Name PostTcType, [Name], Uses)
 rnBind _ bind@(PatBind { pat_lhs = pat
                        , pat_rhs = grhss 
                                    -- pat fvs were stored in bind_fvs
@@ -534,9 +534,9 @@ and we don't want to retain the list bound_names. This showed up in
 trac ticket #1136.
 -}
 
-rnPatSynBind :: (PlaceHolderType ptt) => (Name -> [Name])    -- Signature tyvar function
-             -> PatSynBind Name RdrName ptt
-             -> RnM (PatSynBind Name Name ptt, [Name], Uses)
+rnPatSynBind :: (Name -> [Name])    -- Signature tyvar function
+             -> PatSynBind Name RdrName PreTcType
+             -> RnM (PatSynBind Name Name PostTcType, [Name], Uses)
 rnPatSynBind _sig_fn bind@(PSB { psb_id = L _ name
                                , psb_args = details
                                , psb_def = pat
@@ -688,10 +688,10 @@ in many ways the @op@ in an instance decl is just like an occurrence, not
 a binder.
 
 \begin{code}
-rnMethodBinds :: (PlaceHolderType ptt) => Name -- Class name
+rnMethodBinds :: Name -- Class name
 	      -> (Name -> [Name])	-- Signature tyvar function
-	      -> LHsBinds RdrName ptt
-	      -> RnM (LHsBinds Name ptt, FreeVars)
+	      -> LHsBinds RdrName PreTcType
+	      -> RnM (LHsBinds Name PostTcType, FreeVars)
 
 rnMethodBinds cls sig_fn binds
   = do { checkDupRdrNames meth_names
@@ -712,12 +712,12 @@ rnMethodBinds cls sig_fn binds
        = do { (bind', fvs_bind) <- rnMethodBind cls sig_fn bind
 	    ; return (binds `unionBags` bind', fvs_bind `plusFV` fvs) }
 
-rnMethodBind :: (PlaceHolderType ptt) => Name
+rnMethodBind :: Name
 	      -> (Name -> [Name])
-	      -> LHsBindLR RdrName RdrName ptt
-	      -> RnM (Bag (LHsBindLR Name Name ptt), FreeVars)
-rnMethodBind cls sig_fn 
-             (L loc bind@(FunBind { fun_id = name, fun_infix = is_infix 
+	      -> LHsBindLR RdrName RdrName PreTcType
+	      -> RnM (Bag (LHsBindLR Name Name PostTcType), FreeVars)
+rnMethodBind cls sig_fn
+             (L loc bind@(FunBind { fun_id = name, fun_infix = is_infix
 				  , fun_matches = MG { mg_alts = matches, mg_origin = origin } }))
   = setSrcSpan loc $ do
     sel_name <- wrapLocM (lookupInstDeclBndr cls (ptext (sLit "method"))) name
@@ -761,9 +761,9 @@ At the moment we don't gather free-var info from the types in
 signatures.  We'd only need this if we wanted to report unused tyvars.
 
 \begin{code}
-renameSigs :: HsSigCtxt 
-	   -> [LSig RdrName ptt]
-	   -> RnM ([LSig Name ptt], FreeVars)
+renameSigs :: HsSigCtxt
+           -> [LSig RdrName PreTcType]
+           -> RnM ([LSig Name PostTcType], FreeVars)
 -- Renames the signatures and performs error checks
 renameSigs ctxt sigs 
   = do	{ mapM_ dupSigDeclErr (findDupSigs sigs)
@@ -787,7 +787,7 @@ renameSigs ctxt sigs
 -- is in scope.  (I'm assuming that Baz.op isn't in scope unqualified.)
 -- Doesn't seem worth much trouble to sort this.
 
-renameSig :: HsSigCtxt -> Sig RdrName ptt -> RnM (Sig Name ptt, FreeVars)
+renameSig :: HsSigCtxt -> Sig RdrName PreTcType -> RnM (Sig Name PostTcType, FreeVars)
 -- FixitySig is renamed elsewhere.
 renameSig _ (IdSig x)
   = return (IdSig x, emptyFVs)	  -- Actually this never occurs
@@ -926,29 +926,26 @@ checkDupMinimalSigs sigs
 %************************************************************************
 
 \begin{code}
-rnMatchGroup :: (PlaceHolderType ptt)
-              => Outputable (body RdrName ptt) => HsMatchContext Name
-             -> (Located (body RdrName ptt) -> RnM (Located (body Name ptt), FreeVars))
-             -> MatchGroup RdrName (Located (body RdrName ptt)) ptt
-             -> RnM (MatchGroup Name (Located (body Name ptt)) ptt, FreeVars)
-rnMatchGroup ctxt rnBody (MG { mg_alts = ms, mg_origin = origin }) 
+rnMatchGroup :: Outputable (body RdrName PreTcType) => HsMatchContext Name
+             -> (Located (body RdrName PreTcType) -> RnM (Located (body Name PostTcType), FreeVars))
+             -> MatchGroup RdrName (Located (body RdrName PreTcType)) PreTcType
+             -> RnM (MatchGroup Name (Located (body Name PostTcType)) PostTcType, FreeVars)
+rnMatchGroup ctxt rnBody (MG { mg_alts = ms, mg_origin = origin })
   = do { empty_case_ok <- xoptM Opt_EmptyCase
        ; when (null ms && not empty_case_ok) (addErr (emptyCaseErr ctxt))
        ; (new_ms, ms_fvs) <- mapFvRn (rnMatch ctxt rnBody) ms
        ; return (mkMatchGroup origin new_ms, ms_fvs) }
 
-rnMatch :: (PlaceHolderType ptt)
-        => Outputable (body RdrName ptt) => HsMatchContext Name
-        -> (Located (body RdrName ptt) -> RnM (Located (body Name ptt), FreeVars))
-        -> LMatch RdrName (Located (body RdrName ptt)) ptt
-        -> RnM (LMatch Name (Located (body Name ptt)) ptt, FreeVars)
+rnMatch :: Outputable (body RdrName PreTcType) => HsMatchContext Name
+        -> (Located (body RdrName PreTcType) -> RnM (Located (body Name PostTcType), FreeVars))
+        -> LMatch RdrName (Located (body RdrName PreTcType)) PreTcType
+        -> RnM (LMatch Name (Located (body Name PostTcType)) PostTcType, FreeVars)
 rnMatch ctxt rnBody = wrapLocFstM (rnMatch' ctxt rnBody)
 
-rnMatch' :: (PlaceHolderType ptt)
-         => Outputable (body RdrName ptt) => HsMatchContext Name 
-         -> (Located (body RdrName ptt) -> RnM (Located (body Name ptt), FreeVars))
-         -> Match RdrName (Located (body RdrName ptt)) ptt
-         -> RnM (Match Name (Located (body Name ptt)) ptt, FreeVars)
+rnMatch' :: Outputable (body RdrName PreTcType) => HsMatchContext Name
+         -> (Located (body RdrName PreTcType) -> RnM (Located (body Name PostTcType), FreeVars))
+         -> Match RdrName (Located (body RdrName PreTcType)) PreTcType
+         -> RnM (Match Name (Located (body Name PostTcType)) PostTcType, FreeVars)
 rnMatch' ctxt rnBody match@(Match pats maybe_rhs_sig grhss)
   = do 	{ 	-- Result type signatures are no longer supported
 	  case maybe_rhs_sig of	
@@ -988,25 +985,25 @@ resSigErr ctxt match ty
 %************************************************************************
 
 \begin{code}
-rnGRHSs :: (PlaceHolderType ptt) => HsMatchContext Name
-        -> (Located (body RdrName ptt) -> RnM (Located (body Name ptt), FreeVars))
-        -> GRHSs RdrName (Located (body RdrName ptt)) ptt
-        -> RnM (GRHSs Name (Located (body Name ptt)) ptt, FreeVars)
+rnGRHSs :: HsMatchContext Name
+        -> (Located (body RdrName PreTcType) -> RnM (Located (body Name PostTcType), FreeVars))
+        -> GRHSs RdrName (Located (body RdrName PreTcType)) PreTcType
+        -> RnM (GRHSs Name (Located (body Name PostTcType)) PostTcType, FreeVars)
 rnGRHSs ctxt rnBody (GRHSs grhss binds)
   = rnLocalBindsAndThen binds	$ \ binds' -> do
     (grhss', fvGRHSs) <- mapFvRn (rnGRHS ctxt rnBody) grhss
     return (GRHSs grhss' binds', fvGRHSs)
 
-rnGRHS :: HsMatchContext Name 
-       -> (Located (body RdrName ptt) -> RnM (Located (body Name ptt), FreeVars))
-       -> LGRHS RdrName (Located (body RdrName ptt)) ptt
-       -> RnM (LGRHS Name (Located (body Name ptt)) ptt, FreeVars)
+rnGRHS :: HsMatchContext Name
+       -> (Located (body RdrName PreTcType) -> RnM (Located (body Name PostTcType), FreeVars))
+       -> LGRHS RdrName (Located (body RdrName PreTcType)) PreTcType
+       -> RnM (LGRHS Name (Located (body Name PostTcType)) PostTcType, FreeVars)
 rnGRHS ctxt rnBody = wrapLocFstM (rnGRHS' ctxt rnBody)
 
-rnGRHS' :: HsMatchContext Name 
-        -> (Located (body RdrName ptt) -> RnM (Located (body Name ptt), FreeVars))
-        -> GRHS RdrName (Located (body RdrName ptt)) ptt
-        -> RnM (GRHS Name (Located (body Name ptt)) ptt, FreeVars)
+rnGRHS' :: HsMatchContext Name
+        -> (Located (body RdrName PreTcType) -> RnM (Located (body Name PostTcType), FreeVars))
+        -> GRHS RdrName (Located (body RdrName PreTcType)) PreTcType
+        -> RnM (GRHS Name (Located (body Name PostTcType)) PostTcType, FreeVars)
 rnGRHS' ctxt rnBody (GRHS guards rhs)
   = do	{ pattern_guards_allowed <- xoptM Opt_PatternGuards
         ; ((guards', rhs'), fvs) <- rnStmts (PatGuard ctxt) rnLExpr guards $ \ _ ->

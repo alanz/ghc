@@ -104,7 +104,7 @@ instance Eq HsLit where
 
 data HsOverLit id ptt	-- An overloaded literal
   = OverLit {
-	ol_val :: OverLitVal, 
+	ol_val :: OverLitVal,
 	ol_rebindable :: Bool,          -- Note [ol_rebindable]
 	ol_witness :: SyntaxExpr id ptt,-- Note [Overloaded literal witnesses]
 	ol_type :: ptt }

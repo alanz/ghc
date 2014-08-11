@@ -7,6 +7,7 @@ Handles @deriving@ clauses on @data@ declarations.
 
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module TcDeriv ( tcDeriving ) where
 
@@ -350,10 +351,10 @@ both of them.  So we gather defs/uses from deriving just like anything else.
 %************************************************************************
 
 \begin{code}
-tcDeriving  :: [LTyClDecl Name]  -- All type constructors
-            -> [LInstDecl Name]  -- All instance declarations
-            -> [LDerivDecl Name] -- All stand-alone deriving declarations
-            -> TcM (TcGblEnv, Bag (InstInfo Name), HsValBinds Name)
+tcDeriving  :: [LTyClDecl Name PostTcType]  -- All type constructors
+            -> [LInstDecl Name PostTcType]  -- All instance declarations
+            -> [LDerivDecl Name PostTcType] -- All stand-alone deriving declarations
+            -> TcM (TcGblEnv, Bag (InstInfo Name PostTcType), HsValBinds Name PostTcType)
 tcDeriving tycl_decls inst_decls deriv_decls
   = recoverM (do { g <- getGblEnv
                  ; return (g, emptyBag, emptyValBindsOut)}) $
@@ -402,7 +403,7 @@ tcDeriving tycl_decls inst_decls deriv_decls
         ; let all_dus = rn_dus `plusDU` usesOnly (mkFVs $ catMaybes maybe_fvs)
         ; return (addTcgDUs gbl_env all_dus, inst_info, rn_binds) }
   where
-    ddump_deriving :: Bag (InstInfo Name) -> HsValBinds Name
+    ddump_deriving :: Bag (InstInfo Name ptt) -> HsValBinds Name ptt
                    -> Bag TyCon                 -- ^ Empty data constructors
                    -> Bag (FamInst)             -- ^ Rep type family instances
                    -> SDoc
@@ -430,7 +431,7 @@ pprRepTy fi@(FamInst { fi_tys = lhs })
 type CommonAuxiliary = MetaTyCons
 type CommonAuxiliaries = [(TyCon, CommonAuxiliary)] -- NSF what is a more efficient map type?
 
-commonAuxiliaries :: [DerivSpec ()] -> TcM (CommonAuxiliaries, BagDerivStuff)
+commonAuxiliaries :: (PlaceHolderType ptt) => [DerivSpec ()] -> TcM (CommonAuxiliaries, BagDerivStuff ptt)
 commonAuxiliaries = foldM snoc ([], emptyBag) where
   snoc acc@(cas, stuff) (DS {ds_name = nm, ds_cls = cls, ds_tc = rep_tycon})
     | getUnique cls `elem` [genClassKey, gen1ClassKey] =
@@ -442,9 +443,9 @@ commonAuxiliaries = foldM snoc ([], emptyBag) where
                             return $ ((rep_tycon, ca) : cas, stuff `unionBags` new_stuff)
 
 renameDeriv :: Bool
-            -> [InstInfo RdrName]
-            -> Bag (LHsBind RdrName, LSig RdrName)
-            -> TcM (Bag (InstInfo Name), HsValBinds Name, DefUses)
+            -> [InstInfo RdrName PreTcType]
+            -> Bag (LHsBind RdrName PreTcType, LSig RdrName PreTcType)
+            -> TcM (Bag (InstInfo Name PreTcType), HsValBinds Name PreTcType, DefUses)
 renameDeriv is_boot inst_infos bagBinds
   | is_boot     -- If we are compiling a hs-boot file, don't generate any derived bindings
                 -- The inst-info bindings will all be empty, but it's easier to
@@ -474,7 +475,7 @@ renameDeriv is_boot inst_infos bagBinds
                   dus_aux `plusDU` usesOnly (plusFVs fvs_insts)) } }
 
   where
-    rn_inst_info :: InstInfo RdrName -> TcM (InstInfo Name, FreeVars)
+    rn_inst_info :: InstInfo RdrName PreTcType -> TcM (InstInfo Name PreTcType, FreeVars)
     rn_inst_info
       inst_info@(InstInfo { iSpec = inst
                           , iBinds = InstBindings
@@ -525,9 +526,9 @@ of genInst.
 
 \begin{code}
 makeDerivSpecs :: Bool
-               -> [LTyClDecl Name]
-               -> [LInstDecl Name]
-               -> [LDerivDecl Name]
+               -> [LTyClDecl Name PostTcType]
+               -> [LInstDecl Name PostTcType]
+               -> [LDerivDecl Name PostTcType]
                -> TcM [EarlyDerivSpec]
 makeDerivSpecs is_boot tycl_decls inst_decls deriv_decls
   = do  { eqns1 <- concatMapM (recoverM (return []) . deriveTyDecl)     tycl_decls
@@ -551,7 +552,7 @@ makeDerivSpecs is_boot tycl_decls inst_decls deriv_decls
          addErr (hang (ptext (sLit "Deriving not permitted in hs-boot file"))
                     2 (ptext (sLit "Use an instance declaration instead")))
 
-deriveAutoTypeable :: Bool -> [EarlyDerivSpec] -> [LTyClDecl Name] -> TcM [EarlyDerivSpec]
+deriveAutoTypeable :: Bool -> [EarlyDerivSpec] -> [LTyClDecl Name ptt] -> TcM [EarlyDerivSpec]
 -- Runs over *all* TyCl declarations, including classes and data families
 -- i.e. not just data type decls
 deriveAutoTypeable auto_typeable done_specs tycl_decls
@@ -573,7 +574,7 @@ deriveAutoTypeable auto_typeable done_specs tycl_decls
              else mkPolyKindedTypeableEqn cls tc }
 
 ------------------------------------------------------------------
-deriveTyDecl :: LTyClDecl Name -> TcM [EarlyDerivSpec]
+deriveTyDecl :: LTyClDecl Name PostTcType -> TcM [EarlyDerivSpec]
 deriveTyDecl (L _ decl@(DataDecl { tcdLName = L _ tc_name
                                  , tcdDataDefn = HsDataDefn { dd_derivs = preds } }))
   = tcAddDeclCtxt decl $
@@ -588,7 +589,7 @@ deriveTyDecl (L _ decl@(DataDecl { tcdLName = L _ tc_name
 deriveTyDecl _ = return []
 
 ------------------------------------------------------------------
-deriveInstDecl :: LInstDecl Name -> TcM [EarlyDerivSpec]
+deriveInstDecl :: LInstDecl Name PostTcType -> TcM [EarlyDerivSpec]
 deriveInstDecl (L _ (TyFamInstD {})) = return []
 deriveInstDecl (L _ (DataFamInstD { dfid_inst = fam_inst }))
   = deriveFamInst fam_inst
@@ -596,7 +597,7 @@ deriveInstDecl (L _ (ClsInstD { cid_inst = ClsInstDecl { cid_datafam_insts = fam
   = concatMapM (deriveFamInst . unLoc) fam_insts
 
 ------------------------------------------------------------------
-deriveFamInst :: DataFamInstDecl Name -> TcM [EarlyDerivSpec]
+deriveFamInst :: DataFamInstDecl Name PostTcType -> TcM [EarlyDerivSpec]
 deriveFamInst decl@(DataFamInstDecl { dfid_tycon = L _ tc_name, dfid_pats = pats
                                     , dfid_defn = defn@(HsDataDefn { dd_derivs = Just preds }) })
   = tcAddDataFamInstCtxt decl $
@@ -631,7 +632,7 @@ so that we correctly see the instantiation to *.
 
 \begin{code}
 ------------------------------------------------------------------
-deriveStandalone :: LDerivDecl Name -> TcM [EarlyDerivSpec]
+deriveStandalone :: LDerivDecl Name PostTcType -> TcM [EarlyDerivSpec]
 -- Standalone deriving declarations
 --  e.g.   deriving instance Show a => Show (T a)
 -- Rather like tcLocalInstDecl
@@ -716,7 +717,7 @@ deriveTyData :: Bool                         -- False <=> data/newtype
                                              -- True  <=> data/newtype *instance*
              -> [TyVar] -> TyCon -> [Type]   -- LHS of data or data instance
                                              --   Can be a data instance, hence [Type] args
-             -> LHsType Name                 -- The deriving predicate
+             -> LHsType Name PostTcType      -- The deriving predicate
              -> TcM [EarlyDerivSpec]
 -- The deriving clause of a data or newtype declaration
 -- I.e. not standalone deriving
@@ -2064,11 +2065,11 @@ the renamer.  What a great hack!
 -- Representation tycons differ from the tycon in the instance signature in
 -- case of instances for indexed families.
 --
-genInst :: Bool             -- True <=> standalone deriving
+genInst :: (PlaceHolderType ptt) => Bool  -- True <=> standalone deriving
         -> OverlapFlag
         -> CommonAuxiliaries
-        -> DerivSpec ThetaType 
-        -> TcM (InstInfo RdrName, BagDerivStuff, Maybe Name)
+        -> DerivSpec ThetaType
+        -> TcM (InstInfo RdrName ptt, BagDerivStuff ptt, Maybe Name)
 genInst standalone_deriv default_oflag comauxs
         spec@(DS { ds_tvs = tvs, ds_tc = rep_tycon, ds_tc_args = rep_tc_args
                  , ds_theta = theta, ds_newtype = is_newtype, ds_tys = tys
@@ -2105,9 +2106,9 @@ genInst standalone_deriv default_oflag comauxs
     oflag  = setOverlapModeMaybe default_oflag overlap_mode
     rhs_ty = newTyConInstRhs rep_tycon rep_tc_args
 
-genDerivStuff :: SrcSpan -> Class -> Name -> TyCon
+genDerivStuff :: (PlaceHolderType ptt) => SrcSpan -> Class -> Name -> TyCon
               -> Maybe CommonAuxiliary
-              -> TcM (LHsBinds RdrName, BagDerivStuff)
+              -> TcM (LHsBinds RdrName ptt, BagDerivStuff ptt)
 genDerivStuff loc clas dfun_name tycon comaux_maybe
   | let ck = classKey clas
   , ck `elem` [genClassKey, gen1ClassKey]   -- Special case because monadic
@@ -2184,7 +2185,7 @@ derivingHiddenErr tc
   = hang (ptext (sLit "The data constructors of") <+> quotes (ppr tc) <+> ptext (sLit "are not all in scope"))
        2 (ptext (sLit "so you cannot derive an instance for it"))
 
-standaloneCtxt :: LHsType Name -> SDoc
+standaloneCtxt :: LHsType Name ptt -> SDoc
 standaloneCtxt ty = hang (ptext (sLit "In the stand-alone deriving instance for"))
                        2 (quotes (ppr ty))
 

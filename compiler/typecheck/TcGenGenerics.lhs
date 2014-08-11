@@ -70,7 +70,7 @@ gen_Generic_binds gk tc metaTyCons mod = do
   repTyInsts <- tc_mkRepFamInsts gk tc metaTyCons mod
   return (mkBindsRep gk tc, repTyInsts)
 
-genGenericMetaTyCons :: TyCon -> Module -> TcM (MetaTyCons, BagDerivStuff ptt)
+genGenericMetaTyCons :: (PlaceHolderType ptt) => TyCon -> Module -> TcM (MetaTyCons, BagDerivStuff ptt)
 genGenericMetaTyCons tc mod =
   do  loc <- getSrcSpanM
       let
@@ -106,7 +106,7 @@ genGenericMetaTyCons tc mod =
       (,) metaDts `fmap` metaTyConsToDerivStuff tc metaDts
 
 -- both the tycon declarations and related instances
-metaTyConsToDerivStuff :: TyCon -> MetaTyCons -> TcM (BagDerivStuff ptt)
+metaTyConsToDerivStuff :: (PlaceHolderType ptt) => TyCon -> MetaTyCons -> TcM (BagDerivStuff ptt)
 metaTyConsToDerivStuff tc metaDts =
   do  loc <- getSrcSpanM
       dflags <- getDynFlags
@@ -667,7 +667,7 @@ metaTyCons2TyCons (MetaTyCons d c s) = listToBag (d : c ++ concat s)
 
 
 -- Bindings for Datatype, Constructor, and Selector instances
-mkBindsMetaD :: FixityEnv -> TyCon
+mkBindsMetaD :: forall ptt. (PlaceHolderType ptt) => FixityEnv -> TyCon
              -> ( LHsBinds RdrName ptt      -- Datatype instance
                 , [LHsBinds RdrName ptt]    -- Constructor instances
                 , [[LHsBinds RdrName ptt]]) -- Selector instances
@@ -701,8 +701,6 @@ mkBindsMetaD fix_env tycon = (dtBinds, allConBinds, allSelBinds)
         selBinds s    = mkBag [(selName_RDR, selName_matches s)]
 
         loc           = srcLocSpan (getSrcLoc tycon)
-        mkStringLHS :: (PlaceHolderType ptt)
-                    => String -> [LMatch id (Located (HsExpr id ptt)) ptt]
         mkStringLHS s = [mkSimpleHsAlt nlWildPat (nlHsLit (mkHsString s))]
         datacons      = tyConDataCons tycon
         datasels      = map dataConFieldLabels datacons
