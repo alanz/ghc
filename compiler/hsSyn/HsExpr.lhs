@@ -455,7 +455,7 @@ isQuietHsExpr (OpApp _ _ _ _) = True
 isQuietHsExpr _ = False
 
 pprBinds :: (OutputableBndr idL, OutputableBndr idR)
-         => HsLocalBindsLR idL idR ptt -> SDoc
+         => HsLocalBindsLR idL idR pttL pttR -> SDoc
 pprBinds b = pprDeeper (ppr b)
 
 -----------------------
@@ -968,8 +968,8 @@ pprFunBind :: (OutputableBndr idL, OutputableBndr idR, Outputable body)
 pprFunBind fun inf matches = pprMatches (FunRhs fun inf) matches
 
 -- Exported to HsBinds, which can't see the defn of HsMatchContext
-pprPatBind :: forall bndr id body ptt. (OutputableBndr bndr, OutputableBndr id, Outputable body)
-           => LPat bndr ptt -> GRHSs id body ptt -> SDoc
+pprPatBind :: forall bndr id body pttL pttR. (OutputableBndr bndr, OutputableBndr id, Outputable body)
+           => LPat bndr pttL -> GRHSs id body pttR -> SDoc
 pprPatBind pat (grhss)
  = sep [ppr pat, nest 2 (pprGRHSs (PatBindRhs :: HsMatchContext id) grhss)]
 
@@ -1034,10 +1034,10 @@ pp_rhs ctxt rhs = matchSeparator ctxt <+> pprDeeper (ppr rhs)
 %************************************************************************
 
 \begin{code}
-type LStmt   id      body ptt = Located (StmtLR id  id  body ptt)
-type LStmtLR idL idR body ptt = Located (StmtLR idL idR body ptt)
+type LStmt   id      body ptt       = Located (StmtLR id  id  body ptt  ptt)
+type LStmtLR idL idR body pttL pttR = Located (StmtLR idL idR body pttL pttR)
 
-type Stmt id body ptt = StmtLR id id body ptt
+type Stmt id body ptt = StmtLR id id body ptt ptt
 
 type CmdLStmt   id ptt = LStmt id (LHsCmd  id ptt) ptt
 type CmdStmt    id ptt = Stmt  id (LHsCmd  id ptt) ptt
@@ -1051,59 +1051,59 @@ type GhciStmt   id ptt = Stmt  id (LHsExpr id ptt) ptt
 
 -- The SyntaxExprs in here are used *only* for do-notation and monad
 -- comprehensions, which have rebindable syntax. Otherwise they are unused.
-data StmtLR idL idR body ptt -- body should always be (LHs**** idR)
+data StmtLR idL idR body pttL pttR -- body should always be (LHs**** idR)
   = LastStmt  -- Always the last Stmt in ListComp, MonadComp, PArrComp,
               -- and (after the renamer) DoExpr, MDoExpr
               -- Not used for GhciStmtCtxt, PatGuard, which scope over other stuff
                body
-               (SyntaxExpr idR ptt) -- The return operator, used only for MonadComp
-                                  -- For ListComp, PArrComp, we use the baked-in 'return'
-                                  -- For DoExpr, MDoExpr, we don't appply a 'return' at all
-                                  -- See Note [Monad Comprehensions]
-  | BindStmt (LPat idL ptt)
+               (SyntaxExpr idR pttR) -- The return operator, used only for MonadComp
+                                     -- For ListComp, PArrComp, we use the baked-in 'return'
+                                     -- For DoExpr, MDoExpr, we don't appply a 'return' at all
+                                     -- See Note [Monad Comprehensions]
+  | BindStmt (LPat idL pttL)
              body
-             (SyntaxExpr idR ptt) -- The (>>=) operator; see Note [The type of bind]
-             (SyntaxExpr idR ptt) -- The fail operator
+             (SyntaxExpr idR pttR) -- The (>>=) operator; see Note [The type of bind]
+             (SyntaxExpr idR pttR) -- The fail operator
              -- The fail operator is noSyntaxExpr
              -- if the pattern match can't fail
 
-  | BodyStmt body                 -- See Note [BodyStmt]
-             (SyntaxExpr idR ptt) -- The (>>) operator
-             (SyntaxExpr idR ptt) -- The `guard` operator; used only in MonadComp
+  | BodyStmt body                  -- See Note [BodyStmt]
+             (SyntaxExpr idR pttR) -- The (>>) operator
+             (SyntaxExpr idR pttR) -- The `guard` operator; used only in MonadComp
                               -- See notes [Monad Comprehensions]
-             ptt              -- Element type of the RHS (used for arrows)
+             pttR             -- Element type of the RHS (used for arrows)
 
-  | LetStmt  (HsLocalBindsLR idL idR ptt)
+  | LetStmt  (HsLocalBindsLR idL idR pttL pttR)
 
   -- ParStmts only occur in a list/monad comprehension
-  | ParStmt  [ParStmtBlock idL idR ptt]
-             (SyntaxExpr idR ptt)       -- Polymorphic `mzip` for monad comprehensions
-             (SyntaxExpr idR ptt)       -- The `>>=` operator
+  | ParStmt  [ParStmtBlock idL idR pttL pttR]
+             (SyntaxExpr idR pttR)      -- Polymorphic `mzip` for monad comprehensions
+             (SyntaxExpr idR pttR)      -- The `>>=` operator
                                         -- See notes [Monad Comprehensions]
             -- After renaming, the ids are the binders
             -- bound by the stmts and used after themp
 
   | TransStmt {
       trS_form  :: TransForm,
-      trS_stmts :: [ExprLStmt idL ptt], -- Stmts to the *left* of the 'group'
-                                      -- which generates the tuples to be grouped
+      trS_stmts :: [ExprLStmt idL pttL], -- Stmts to the *left* of the 'group'
+                                         -- which generates the tuples to be grouped
 
       trS_bndrs :: [(idR, idR)],      -- See Note [TransStmt binder map]
 
-      trS_using :: LHsExpr idR ptt,
-      trS_by :: Maybe (LHsExpr idR ptt), -- "by e" (optional)
+      trS_using :: LHsExpr idR pttR,
+      trS_by :: Maybe (LHsExpr idR pttR), -- "by e" (optional)
         -- Invariant: if trS_form = GroupBy, then grp_by = Just e
 
-      trS_ret :: SyntaxExpr idR ptt,  -- The monomorphic 'return' function for
-                                      -- the inner monad comprehensions
-      trS_bind :: SyntaxExpr idR ptt, -- The '(>>=)' operator
-      trS_fmap :: SyntaxExpr idR ptt  -- The polymorphic 'fmap' function for desugaring
-                                      -- Only for 'group' forms
-    }                                 -- See Note [Monad Comprehensions]
+      trS_ret :: SyntaxExpr idR pttR,  -- The monomorphic 'return' function for
+                                       -- the inner monad comprehensions
+      trS_bind :: SyntaxExpr idR pttR, -- The '(>>=)' operator
+      trS_fmap :: SyntaxExpr idR pttR  -- The polymorphic 'fmap' function for desugaring
+                                       -- Only for 'group' forms
+    }                                  -- See Note [Monad Comprehensions]
 
   -- Recursive statement (see Note [How RecStmt works] below)
   | RecStmt
-     { recS_stmts :: [LStmtLR idL idR body ptt]
+     { recS_stmts :: [LStmtLR idL idR body pttL pttR]
 
         -- The next two fields are only valid after renaming
      , recS_later_ids :: [idR] -- The ids are a subset of the variables bound by the
@@ -1117,13 +1117,13 @@ data StmtLR idL idR body ptt -- body should always be (LHs**** idR)
         -- See Note [How RecStmt works] for why they are separate
 
         -- Rebindable syntax
-     , recS_bind_fn :: SyntaxExpr idR ptt -- The bind function
-     , recS_ret_fn  :: SyntaxExpr idR ptt -- The return function
-     , recS_mfix_fn :: SyntaxExpr idR ptt -- The mfix function
+     , recS_bind_fn :: SyntaxExpr idR pttR -- The bind function
+     , recS_ret_fn  :: SyntaxExpr idR pttR -- The return function
+     , recS_mfix_fn :: SyntaxExpr idR pttR -- The mfix function
 
         -- These fields are only valid after typechecking
-     , recS_later_rets :: [PostTcExpr ptt] -- (only used in the arrow version)
-     , recS_rec_rets :: [PostTcExpr ptt] -- These expressions correspond 1-to-1
+     , recS_later_rets :: [PostTcExpr pttR] -- (only used in the arrow version)
+     , recS_rec_rets :: [PostTcExpr pttR] -- These expressions correspond 1-to-1
                                      -- with recS_later_ids and recS_rec_ids,
                                      -- and are the expressions that should be
                                      -- returned by the recursion.
@@ -1132,7 +1132,7 @@ data StmtLR idL idR body ptt -- body should always be (LHs**** idR)
                                      -- the returned thing has to be *monomorphic*,
                                      -- so they may be type applications
 
-      , recS_ret_ty :: ptt           -- The type of of do { stmts; return (a,b,c) }
+      , recS_ret_ty :: pttR          -- The type of of do { stmts; return (a,b,c) }
                                      -- With rebindable syntax the type might not
                                      -- be quite as simple as (m (tya, tyb, tyc)).
       }
@@ -1143,11 +1143,11 @@ data TransForm   -- The 'f' below is the 'using' function, 'e' is the by functio
   | GroupForm    -- then group using f   or    then group by e using f (depending on trS_by)
   deriving (Data, Typeable)
 
-data ParStmtBlock idL idR ptt
+data ParStmtBlock idL idR pttL pttR
   = ParStmtBlock
-        [ExprLStmt idL ptt]
-        [idR]                -- The variables to be returned
-        (SyntaxExpr idR ptt) -- The return operator
+        [ExprLStmt idL pttL]
+        [idR]                 -- The variables to be returned
+        (SyntaxExpr idR pttR) -- The return operator
   deriving( Data, Typeable )
 \end{code}
 
@@ -1289,15 +1289,15 @@ In any other context than 'MonadComp', the fields for most of these
 
 \begin{code}
 instance (OutputableBndr idL, OutputableBndr idR)
-    => Outputable (ParStmtBlock idL idR ptt) where
+    => Outputable (ParStmtBlock idL idR pttL pttR) where
   ppr (ParStmtBlock stmts _ _) = interpp'SP stmts
 
 instance (OutputableBndr idL, OutputableBndr idR, Outputable body)
-         => Outputable (StmtLR idL idR body ptt) where
+         => Outputable (StmtLR idL idR body pttL pttR) where
     ppr stmt = pprStmt stmt
 
 pprStmt :: (OutputableBndr idL, OutputableBndr idR, Outputable body)
-        => (StmtLR idL idR body ptt) -> SDoc
+        => (StmtLR idL idR body pttL pttR) -> SDoc
 pprStmt (LastStmt expr _)         = ifPprDebug (ptext (sLit "[last]")) <+> ppr expr
 pprStmt (BindStmt pat expr _ _)   = hsep [ppr pat, larrow, ppr expr]
 pprStmt (LetStmt binds)           = hsep [ptext (sLit "let"), pprBinds binds]
@@ -1342,7 +1342,7 @@ pprDo MonadComp     stmts = brackets    $ pprComp stmts
 pprDo _             _     = panic "pprDo" -- PatGuard, ParStmtCxt
 
 ppr_do_stmts :: (OutputableBndr idL, OutputableBndr idR, Outputable body)
-             => [LStmtLR idL idR body ptt] -> SDoc
+             => [LStmtLR idL idR body pttL pttR] -> SDoc
 -- Print a bunch of do stmts, with explicit braces and semicolons,
 -- so that we are not vulnerable to layout bugs
 ppr_do_stmts stmts
@@ -1641,7 +1641,7 @@ pprMatchInCtxt ctxt match  = hang (ptext (sLit "In") <+> pprMatchContext ctxt <>
                              4 (pprMatch ctxt match)
 
 pprStmtInCtxt :: (OutputableBndr idL, OutputableBndr idR, Outputable body)
-               => HsStmtContext idL -> StmtLR idL idR body ptt -> SDoc
+               => HsStmtContext idL -> StmtLR idL idR body pttL pttR -> SDoc
 pprStmtInCtxt ctxt (LastStmt e _)
   | isListCompExpr ctxt      -- For [ e | .. ], do not mutter about "stmts"
   = hang (ptext (sLit "In the expression:")) 2 (ppr e)

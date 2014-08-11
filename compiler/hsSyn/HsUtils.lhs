@@ -196,12 +196,12 @@ mkHsComp       :: (PlaceHolderType ptt) => HsStmtContext Name -> [ExprLStmt id p
 mkNPat      :: HsOverLit id ptt -> Maybe (SyntaxExpr id ptt ) -> Pat id ptt
 mkNPlusKPat :: Located id -> HsOverLit id ptt -> Pat id ptt
 
-mkLastStmt :: Located (bodyR idR ptt) -> StmtLR idL idR (Located (bodyR idR ptt)) ptt
-mkBodyStmt :: (PlaceHolderType ptt) => Located (bodyR idR ptt) -> StmtLR idL idR (Located (bodyR idR ptt)) ptt
-mkBindStmt :: LPat idL ptt -> Located (bodyR idR ptt) -> StmtLR idL idR (Located (bodyR idR ptt)) ptt
+mkLastStmt :: Located (bodyR idR pttR) -> StmtLR idL idR (Located (bodyR idR pttR)) pttL pttR
+mkBodyStmt :: (PlaceHolderType pttR) => Located (bodyR idR pttR) -> StmtLR idL idR (Located (bodyR idR pttR)) pttL pttR
+mkBindStmt :: LPat idL pttL -> Located (bodyR idR pttR) -> StmtLR idL idR (Located (bodyR idR pttR)) pttL pttR
 
-emptyRecStmt :: (PlaceHolderType ptt) => StmtLR idL idR bodyR ptt
-mkRecStmt    :: (PlaceHolderType ptt) => [LStmtLR idL idR bodyR ptt] -> StmtLR idL idR bodyR ptt
+emptyRecStmt :: (PlaceHolderType pttR) => StmtLR idL idR bodyR pttL pttR
+mkRecStmt    :: (PlaceHolderType pttR) => [LStmtLR idL idR bodyR pttL pttR] -> StmtLR idL idR bodyR pttL pttR
 
 
 mkHsIntegral   i       = OverLit (HsIntegral   i)  noRebindableInfo noSyntaxExpr
@@ -222,16 +222,16 @@ mkHsIf c a b = HsIf (Just noSyntaxExpr) c a b
 mkNPat lit neg     = NPat lit neg noSyntaxExpr
 mkNPlusKPat id lit = NPlusKPat id lit noSyntaxExpr noSyntaxExpr
 
-mkTransformStmt    :: [ExprLStmt idL ptt ] -> LHsExpr idR ptt
-                   -> StmtLR idL idR (LHsExpr idL ptt) ptt
-mkTransformByStmt  :: [ExprLStmt idL ptt] -> LHsExpr idR ptt -> LHsExpr idR ptt
-                   -> StmtLR idL idR (LHsExpr idL ptt) ptt
-mkGroupUsingStmt   :: [ExprLStmt idL ptt]                    -> LHsExpr idR ptt
-                   -> StmtLR idL idR (LHsExpr idL ptt) ptt
-mkGroupByUsingStmt :: [ExprLStmt idL ptt] -> LHsExpr idR ptt -> LHsExpr idR ptt
-                   -> StmtLR idL idR (LHsExpr idL ptt) ptt
+mkTransformStmt    :: [ExprLStmt idL pttL ] -> LHsExpr idR pttR
+                   -> StmtLR idL idR (LHsExpr idL ptt) pttL pttR
+mkTransformByStmt  :: [ExprLStmt idL pttL] -> LHsExpr idR pttR -> LHsExpr idR pttR
+                   -> StmtLR idL idR (LHsExpr idL pttL) pttL pttR
+mkGroupUsingStmt   :: [ExprLStmt idL pttL]                     -> LHsExpr idR pttR
+                   -> StmtLR idL idR (LHsExpr idL pttL) pttL pttR
+mkGroupByUsingStmt :: [ExprLStmt idL pttL] -> LHsExpr idR pttR -> LHsExpr idR pttR
+                   -> StmtLR idL idR (LHsExpr idL pttL) pttL pttR
 
-emptyTransStmt :: StmtLR idL idR (LHsExpr idR ptt) ptt
+emptyTransStmt :: StmtLR idL idR (LHsExpr idR pttR) pttL pttR
 emptyTransStmt = TransStmt { trS_form = panic "emptyTransStmt: form"
                            , trS_stmts = [], trS_bndrs = [] 
                            , trS_by = Nothing, trS_using = noLoc noSyntaxExpr
@@ -556,21 +556,21 @@ So these functions should not be applied to (HsSyn RdrName)
 
 \begin{code}
 ----------------- Bindings --------------------------
-collectLocalBinders :: HsLocalBindsLR idL idR ptt -> [idL]
+collectLocalBinders :: HsLocalBindsLR idL idR pttL pttR -> [idL]
 collectLocalBinders (HsValBinds val_binds) = collectHsValBinders val_binds
 collectLocalBinders (HsIPBinds _)   = []
 collectLocalBinders EmptyLocalBinds = []
 
-collectHsValBinders :: HsValBindsLR idL idR ptt -> [idL]
+collectHsValBinders :: HsValBindsLR idL idR pttL pttR -> [idL]
 collectHsValBinders (ValBindsIn  binds _) = collectHsBindsBinders binds
 collectHsValBinders (ValBindsOut binds _) = foldr collect_one [] binds
   where
    collect_one (_,binds) acc = collect_binds binds acc
 
-collectHsBindBinders :: HsBindLR idL idR ptt -> [idL]
+collectHsBindBinders :: HsBindLR idL idR pttL pttR -> [idL]
 collectHsBindBinders b = collect_bind b []
 
-collect_bind :: HsBindLR idL idR ptt -> [idL] -> [idL]
+collect_bind :: HsBindLR idL idR pttL pttR -> [idL] -> [idL]
 collect_bind (PatBind { pat_lhs = p })    acc = collect_lpat p acc
 collect_bind (FunBind { fun_id = L _ f }) acc = f : acc
 collect_bind (VarBind { var_id = f })     acc = f : acc
@@ -582,16 +582,16 @@ collect_bind (AbsBinds { abs_exports = dbinds, abs_binds = _binds }) acc
 	-- binding (hence see AbsBinds) is in zonking in TcHsSyn
 collect_bind (PatSynBind (PSB { psb_id = L _ ps })) acc = ps : acc
 
-collectHsBindsBinders :: LHsBindsLR idL idR ptt -> [idL]
+collectHsBindsBinders :: LHsBindsLR idL idR pttL pttR -> [idL]
 collectHsBindsBinders binds = collect_binds binds []
 
-collectHsBindListBinders :: [LHsBindLR idL idR ptt] -> [idL]
+collectHsBindListBinders :: [LHsBindLR idL idR pttL pttR] -> [idL]
 collectHsBindListBinders = foldr (collect_bind . unLoc) []
 
-collect_binds :: LHsBindsLR idL idR ptt -> [idL] -> [idL]
+collect_binds :: LHsBindsLR idL idR pttL pttR -> [idL] -> [idL]
 collect_binds binds acc = foldrBag (collect_bind . unLoc) acc binds
 
-collectMethodBinders :: LHsBindsLR RdrName idR ptt -> [Located RdrName]
+collectMethodBinders :: LHsBindsLR RdrName idR pttL pttR -> [Located RdrName]
 -- Used exclusively for the bindings of an instance decl which are all FunBinds
 collectMethodBinders binds = foldrBag (get . unLoc) [] binds
   where
@@ -600,16 +600,16 @@ collectMethodBinders binds = foldrBag (get . unLoc) [] binds
        -- Someone else complains about non-FunBinds
 
 ----------------- Statements --------------------------
-collectLStmtsBinders :: [LStmtLR idL idR body ptt] -> [idL]
+collectLStmtsBinders :: [LStmtLR idL idR body pttL pttR] -> [idL]
 collectLStmtsBinders = concatMap collectLStmtBinders
 
-collectStmtsBinders :: [StmtLR idL idR body ptt] -> [idL]
+collectStmtsBinders :: [StmtLR idL idR body pttL pttR] -> [idL]
 collectStmtsBinders = concatMap collectStmtBinders
 
-collectLStmtBinders :: LStmtLR idL idR body ptt -> [idL]
+collectLStmtBinders :: LStmtLR idL idR body pttL pttR -> [idL]
 collectLStmtBinders = collectStmtBinders . unLoc
 
-collectStmtBinders :: StmtLR idL idR body ptt -> [idL]
+collectStmtBinders :: StmtLR idL idR body pttL pttR -> [idL]
   -- Id Binders for a Stmt... [but what about pattern-sig type vars]?
 collectStmtBinders (BindStmt pat _ _ _) = collectPatBinders pat
 collectStmtBinders (LetStmt binds)      = collectLocalBinders binds
@@ -794,10 +794,10 @@ The main purpose is to find names introduced by record wildcards so that we can 
 warning the user when they don't use those names (#4404)
 
 \begin{code}
-lStmtsImplicits :: [LStmtLR Name idR (Located (body idR ptt)) ptt] -> NameSet
+lStmtsImplicits :: [LStmtLR Name idR (Located (body idR pttR)) PostTcType pttR] -> NameSet
 lStmtsImplicits = hs_lstmts
   where
-    hs_lstmts :: [LStmtLR Name idR (Located (body idR ptt)) ptt] -> NameSet
+    hs_lstmts :: [LStmtLR Name idR (Located (body idR pttR)) PostTcType pttR] -> NameSet
     hs_lstmts = foldr (\stmt rest -> unionNameSets (hs_stmt (unLoc stmt)) rest) emptyNameSet
     
     hs_stmt (BindStmt pat _ _ _) = lPatImplicits pat
@@ -812,13 +812,13 @@ lStmtsImplicits = hs_lstmts
     hs_local_binds (HsIPBinds _)         = emptyNameSet
     hs_local_binds EmptyLocalBinds       = emptyNameSet
 
-hsValBindsImplicits :: HsValBindsLR Name idR ptt -> NameSet
+hsValBindsImplicits :: HsValBindsLR Name idR PostTcType pttR -> NameSet
 hsValBindsImplicits (ValBindsOut binds _)
   = foldr (unionNameSets . lhsBindsImplicits . snd) emptyNameSet binds
 hsValBindsImplicits (ValBindsIn binds _) 
   = lhsBindsImplicits binds
 
-lhsBindsImplicits :: LHsBindsLR Name idR ptt -> NameSet
+lhsBindsImplicits :: LHsBindsLR Name idR PostTcType pttR -> NameSet
 lhsBindsImplicits = foldBag unionNameSets (lhs_bind . unLoc) emptyNameSet
   where
     lhs_bind (PatBind { pat_lhs = lpat }) = lPatImplicits lpat

@@ -59,8 +59,8 @@ pprExpr :: (OutputableBndr i) =>
 pprUntypedSplice :: (OutputableBndr i) => 
                     HsSplice i p -> SDoc
 
-pprPatBind :: forall bndr id body ptt. (OutputableBndr bndr, OutputableBndr id, Outputable body)
-           => LPat bndr ptt -> GRHSs id body ptt -> SDoc
+pprPatBind :: forall bndr id body pttL pttR. (OutputableBndr bndr, OutputableBndr id, Outputable body)
+           => LPat bndr pttL -> GRHSs id body pttR -> SDoc
 
 pprFunBind :: (OutputableBndr idL, OutputableBndr idR, Outputable body) 
            => idL -> Bool -> MatchGroup idR body ptt -> SDoc

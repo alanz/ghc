@@ -79,7 +79,7 @@ dsListComp lquals res_ty = do
 -- This function lets you desugar a inner list comprehension and a list of the binders
 -- of that comprehension that we need in the outer comprehension into such an expression
 -- and the type of the elements that it outputs (tuples of binders)
-dsInnerListComp :: (ParStmtBlock Id Id PostTcType) -> DsM (CoreExpr, Type)
+dsInnerListComp :: (ParStmtBlock Id Id PostTcType PostTcType) -> DsM (CoreExpr, Type)
 dsInnerListComp (ParStmtBlock stmts bndrs _)
   = do { expr <- dsListComp (stmts ++ [noLoc $ mkLastStmt (mkBigLHsVarTup bndrs)])
                             (mkListTy bndrs_tuple_type)
@@ -602,7 +602,7 @@ dePArrComp (RecStmt   {} : _) _ _ = panic "DsListComp.dePArrComp: RecStmt"
 --    where
 --      {x_1, ..., x_n} = DV (qs)
 --
-dePArrParComp :: [ParStmtBlock Id Id PostTcType] -> [ExprStmt Id PostTcType] -> DsM CoreExpr
+dePArrParComp :: [ParStmtBlock Id Id PostTcType PostTcType] -> [ExprStmt Id PostTcType] -> DsM CoreExpr
 dePArrParComp qss quals = do
     (pQss, ceQss) <- deParStmt qss
     dePArrComp quals pQss ceQss

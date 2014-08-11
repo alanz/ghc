@@ -8,9 +8,9 @@ import TcRnTypes ( TcM )
 import PatSyn    ( PatSyn )
 import HsLit     ( PostTcType )
 
-tcPatSynDecl :: PatSynBind Name Name PostTcType
+tcPatSynDecl :: PatSynBind Name Name PostTcType PostTcType
              -> TcM (PatSyn, LHsBinds Id PostTcType)
 
-tcPatSynWrapper :: PatSynBind Name Name PostTcType
+tcPatSynWrapper :: PatSynBind Name Name PostTcType PostTcType
                 -> TcM (LHsBinds Id PostTcType)
 \end{code}

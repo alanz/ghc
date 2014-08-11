@@ -169,11 +169,11 @@ it expects the global environment to contain bindings for the binders
 -- so we have a different entry point than for local bindings
 rnTopBindsLHS :: MiniFixityEnv
               -> HsValBinds RdrName PreTcType
-              -> RnM (HsValBindsLR Name RdrName PreTcType)
+              -> RnM (HsValBindsLR Name RdrName PostTcType PreTcType)
 rnTopBindsLHS fix_env binds
   = rnValBindsLHS (topRecNameMaker fix_env) binds
 
-rnTopBindsRHS :: NameSet -> HsValBindsLR Name RdrName PreTcType
+rnTopBindsRHS :: NameSet -> HsValBindsLR Name RdrName PostTcType PreTcType
               -> RnM (HsValBinds Name PostTcType, DefUses)
 rnTopBindsRHS bound_names binds
   = do { is_boot <- tcIsHsBoot
@@ -181,7 +181,7 @@ rnTopBindsRHS bound_names binds
          then rnTopBindsBoot binds
          else rnValBindsRHS (TopSigCtxt bound_names False) binds }
 
-rnTopBindsBoot :: HsValBindsLR Name RdrName PreTcType -> RnM (HsValBinds Name PostTcType, DefUses)
+rnTopBindsBoot :: HsValBindsLR Name RdrName PostTcType PreTcType -> RnM (HsValBinds Name PostTcType, DefUses)
 -- A hs-boot file has no bindings. 
 -- Return a single HsBindGroup with empty binds and renamed signatures
 rnTopBindsBoot (ValBindsIn mbinds sigs)
@@ -240,7 +240,7 @@ rnIPBind (IPBind ~(Left n) expr) = do
 -- Does duplicate/shadow check
 rnLocalValBindsLHS :: MiniFixityEnv
                    -> HsValBinds RdrName PreTcType
-                   -> RnM ([Name], HsValBindsLR Name RdrName PreTcType)
+                   -> RnM ([Name], HsValBindsLR Name RdrName PostTcType PreTcType)
 rnLocalValBindsLHS fix_env binds
   = do { binds' <- rnValBindsLHS (localRecNameMaker fix_env) binds
 
@@ -273,7 +273,7 @@ rnLocalValBindsLHS fix_env binds
 -- does some error checking, but not what gets done elsewhere at the top level
 rnValBindsLHS :: NameMaker
               -> HsValBinds RdrName PreTcType
-              -> RnM (HsValBindsLR Name RdrName PostTcType)
+              -> RnM (HsValBindsLR Name RdrName PostTcType PreTcType)
 rnValBindsLHS topP (ValBindsIn mbinds sigs)
   = do { mbinds' <- mapBagM (wrapLocM (rnBindLHS topP doc)) mbinds
        ; return $ ValBindsIn mbinds' sigs }
@@ -288,7 +288,7 @@ rnValBindsLHS _ b = pprPanic "rnValBindsLHSFromDoc" (ppr b)
 --
 -- Does not bind the local fixity declarations
 rnValBindsRHS :: HsSigCtxt
-              -> HsValBindsLR Name RdrName PreTcType
+              -> HsValBindsLR Name RdrName PostTcType PreTcType
               -> RnM (HsValBinds Name PostTcType, DefUses)
 
 rnValBindsRHS ctxt (ValBindsIn mbinds sigs)
@@ -313,7 +313,7 @@ rnValBindsRHS _ b = pprPanic "rnValBindsRHS" (ppr b)
 --
 -- The client is also responsible for bringing the fixities into scope
 rnLocalValBindsRHS :: NameSet  -- names bound by the LHSes
-                   -> HsValBindsLR Name RdrName PreTcType
+                   -> HsValBindsLR Name RdrName PostTcType PreTcType
                    -> RnM (HsValBinds Name PostTcType, DefUses)
 rnLocalValBindsRHS bound_names binds
   = rnValBindsRHS (LocalBindCtxt bound_names) binds
@@ -418,7 +418,7 @@ rnBindLHS :: NameMaker
           -- returns the renamed left-hand side,
           -- and the FreeVars *of the LHS*
           -- (i.e., any free variables of the pattern)
-          -> RnM (HsBindLR Name RdrName PostTcType)
+          -> RnM (HsBindLR Name RdrName PostTcType PreTcType)
 
 rnBindLHS name_maker _ bind@(PatBind { pat_lhs = pat })
   = do
@@ -448,7 +448,7 @@ rnBindLHS name_maker _ (PatSynBind psb@PSB{ psb_id = rdrname@(L nameLoc _) })
 rnBindLHS _ _ b = pprPanic "rnBindHS" (ppr b)
 
 rnLBind :: (Name -> [Name]) -- Signature tyvar function
-        -> LHsBindLR Name RdrName PreTcType
+        -> LHsBindLR Name RdrName PostTcType PreTcType
         -> RnM (LHsBind Name PostTcType, [Name], Uses)
 rnLBind sig_fn (L loc bind)
   = setSrcSpan loc $
@@ -457,7 +457,7 @@ rnLBind sig_fn (L loc bind)
 
 -- assumes the left-hands-side vars are in scope
 rnBind :: (Name -> [Name])         -- Signature tyvar function
-       -> HsBindLR Name RdrName PreTcType
+       -> HsBindLR Name RdrName PostTcType PreTcType
        -> RnM (HsBind Name PostTcType, [Name], Uses)
 rnBind _ bind@(PatBind { pat_lhs = pat
                        , pat_rhs = grhss 
@@ -474,7 +474,7 @@ rnBind _ bind@(PatBind { pat_lhs = pat
 		-- As well as dependency analysis, we need these for the
 		-- MonoLocalBinds test in TcBinds.decideGeneralisationPlan
               bndrs = collectPatBinders pat
-              bind' = bind { pat_rhs  = grhss', bind_fvs = fvs' }
+              bind' = bind { pat_rhs  = grhss', bind_fvs = fvs', pat_rhs_ty = placeHolderType }
               is_wild_pat = case pat of
                               L _ (WildPat {})                 -> True
                               L _ (BangPat (L _ (WildPat {}))) -> True -- #9127
@@ -535,8 +535,8 @@ trac ticket #1136.
 -}
 
 rnPatSynBind :: (Name -> [Name])    -- Signature tyvar function
-             -> PatSynBind Name RdrName PreTcType
-             -> RnM (PatSynBind Name Name PostTcType, [Name], Uses)
+             -> PatSynBind Name RdrName PostTcType PreTcType
+             -> RnM (PatSynBind Name Name PostTcType PostTcType, [Name], Uses)
 rnPatSynBind _sig_fn bind@(PSB { psb_id = L _ name
                                , psb_args = details
                                , psb_def = pat
@@ -714,8 +714,8 @@ rnMethodBinds cls sig_fn binds
 
 rnMethodBind :: Name
 	      -> (Name -> [Name])
-	      -> LHsBindLR RdrName RdrName PreTcType
-	      -> RnM (Bag (LHsBindLR Name Name PostTcType), FreeVars)
+	      -> LHsBindLR RdrName RdrName PreTcType PreTcType
+	      -> RnM (Bag (LHsBindLR Name Name PostTcType PostTcType), FreeVars)
 rnMethodBind cls sig_fn
              (L loc bind@(FunBind { fun_id = name, fun_infix = is_infix
 				  , fun_matches = MG { mg_alts = matches, mg_origin = origin } }))
@@ -1050,17 +1050,17 @@ defaultSigErr sig = vcat [ hang (ptext (sLit "Unexpected default signature:"))
                               2 (ppr sig)
                          , ptext (sLit "Use DefaultSignatures to enable default signatures") ]
 
-methodBindErr :: HsBindLR RdrName RdrName ptt -> SDoc
+methodBindErr :: HsBindLR RdrName RdrName pttL pttR -> SDoc
 methodBindErr mbind
  =  hang (ptext (sLit "Pattern bindings (except simple variables) not allowed in instance declarations"))
        2 (ppr mbind)
 
-bindsInHsBootFile :: LHsBindsLR Name RdrName ptt -> SDoc
+bindsInHsBootFile :: LHsBindsLR Name RdrName pttL pttR -> SDoc
 bindsInHsBootFile mbinds
   = hang (ptext (sLit "Bindings in hs-boot files are not allowed"))
        2 (ppr mbinds)
 
-nonStdGuardErr :: Outputable body => [LStmtLR Name Name body ptt] -> SDoc
+nonStdGuardErr :: Outputable body => [LStmtLR Name Name body pttL pttR] -> SDoc
 nonStdGuardErr guards
   = hang (ptext (sLit "accepting non-standard pattern guards (use PatternGuards to suppress this message)"))
        4 (interpp'SP guards)

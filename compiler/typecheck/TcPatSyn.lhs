@@ -40,7 +40,7 @@ import TypeRep
 \end{code}
 
 \begin{code}
-tcPatSynDecl :: PatSynBind Name Name PostTcType
+tcPatSynDecl :: PatSynBind Name Name PostTcType PostTcType
              -> TcM (PatSyn, LHsBinds Id PostTcType)
 tcPatSynDecl PSB{ psb_id = lname@(L _ name), psb_args = details,
                   psb_def = lpat, psb_dir = dir }
@@ -192,7 +192,7 @@ isBidirectional Unidirectional = False
 isBidirectional ImplicitBidirectional = True
 isBidirectional ExplicitBidirectional{} = True
 
-tcPatSynWrapper :: PatSynBind Name Name PostTcType
+tcPatSynWrapper :: PatSynBind Name Name PostTcType PostTcType
                 -> TcM (LHsBinds Id PostTcType)
 -- See Note [Matchers and wrappers for pattern synonyms] in PatSyn
 tcPatSynWrapper PSB{ psb_id = L loc name, psb_def = lpat, psb_dir = dir, psb_args = details }

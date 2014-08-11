@@ -701,8 +701,8 @@ addTick :: Maybe (Bool -> BoxLabel) -> LHsExpr Id PostTcType -> TM (LHsExpr Id P
 addTick isGuard e | Just fn <- isGuard = addBinTickLHsExpr fn e
                   | otherwise          = addTickLHsExprRHS e
 
-addTickStmtAndBinders :: Maybe (Bool -> BoxLabel) -> ParStmtBlock Id Id PostTcType
-                      -> TM (ParStmtBlock Id Id PostTcType)
+addTickStmtAndBinders :: Maybe (Bool -> BoxLabel) -> ParStmtBlock Id Id PostTcType PostTcType
+                      -> TM (ParStmtBlock Id Id PostTcType PostTcType)
 addTickStmtAndBinders isGuard (ParStmtBlock stmts ids returnExpr) =
     liftM3 ParStmtBlock
         (addTickLStmts isGuard stmts)
@@ -718,7 +718,7 @@ addTickHsLocalBinds (HsIPBinds binds)  =
                 (addTickHsIPBinds binds)
 addTickHsLocalBinds (EmptyLocalBinds)  = return EmptyLocalBinds
 
-addTickHsValBinds :: HsValBindsLR Id a PostTcType -> TM (HsValBindsLR Id b PostTcType)
+addTickHsValBinds :: HsValBindsLR Id a PostTcType PostTcType -> TM (HsValBindsLR Id b PostTcType PostTcType)
 addTickHsValBinds (ValBindsOut binds sigs) =
         liftM2 ValBindsOut
                 (mapM (\ (rec,binds') ->

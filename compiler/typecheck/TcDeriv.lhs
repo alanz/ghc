@@ -445,7 +445,7 @@ commonAuxiliaries = foldM snoc ([], emptyBag) where
 renameDeriv :: Bool
             -> [InstInfo RdrName PreTcType]
             -> Bag (LHsBind RdrName PreTcType, LSig RdrName PreTcType)
-            -> TcM (Bag (InstInfo Name PreTcType), HsValBinds Name PreTcType, DefUses)
+            -> TcM (Bag (InstInfo Name PostTcType), HsValBinds Name PostTcType, DefUses)
 renameDeriv is_boot inst_infos bagBinds
   | is_boot     -- If we are compiling a hs-boot file, don't generate any derived bindings
                 -- The inst-info bindings will all be empty, but it's easier to
@@ -475,7 +475,7 @@ renameDeriv is_boot inst_infos bagBinds
                   dus_aux `plusDU` usesOnly (plusFVs fvs_insts)) } }
 
   where
-    rn_inst_info :: InstInfo RdrName PreTcType -> TcM (InstInfo Name PreTcType, FreeVars)
+    rn_inst_info :: InstInfo RdrName PreTcType -> TcM (InstInfo Name PostTcType, FreeVars)
     rn_inst_info
       inst_info@(InstInfo { iSpec = inst
                           , iBinds = InstBindings

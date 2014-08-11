@@ -56,43 +56,43 @@ Global bindings (where clauses)
 -- one for the left and one for the right.
 -- Other than during renaming, these will be the same.
 
-type HsLocalBinds id ptt = HsLocalBindsLR id id ptt
+type HsLocalBinds id ptt = HsLocalBindsLR id id ptt ptt
 
 -- | Bindings in a 'let' expression
 -- or a 'where' clause
-data HsLocalBindsLR idL idR ptt
-  = HsValBinds (HsValBindsLR idL idR ptt)
-  | HsIPBinds  (HsIPBinds idR ptt)
+data HsLocalBindsLR idL idR pttL pttR
+  = HsValBinds (HsValBindsLR idL idR pttL pttR)
+  | HsIPBinds  (HsIPBinds idR pttR)
   | EmptyLocalBinds
   deriving (Data, Typeable)
 
-type HsValBinds id = HsValBindsLR id id
+type HsValBinds id ptt = HsValBindsLR id id ptt ptt
 
 -- | Value bindings (not implicit parameters)
-data HsValBindsLR idL idR ptt
+data HsValBindsLR idL idR pttL pttR
   = -- | Before renaming RHS; idR is always RdrName
     -- Not dependency analysed
     -- Recursive by default
     ValBindsIn
-        (LHsBindsLR idL idR ptt) [LSig idR ptt]
+        (LHsBindsLR idL idR pttL pttR) [LSig idR pttR]
 
     -- | After renaming RHS; idR can be Name or Id
     --  Dependency analysed,
     -- later bindings in the list may depend on earlier
     -- ones.
-  | ValBindsOut            
-        [(RecFlag, LHsBinds idL ptt)]
-        [LSig Name ptt] -- ++AZ++ should this be forced to PostTcType?
+  | ValBindsOut
+        [(RecFlag, LHsBinds idL pttL)]
+        [LSig Name pttR] -- ++AZ++ should this be forced to PostTcType?
   deriving (Data, Typeable)
 
-type LHsBind  id ptt = LHsBindLR  id id ptt
-type LHsBinds id ptt = LHsBindsLR id id ptt
-type HsBind   id ptt = HsBindLR   id id ptt
+type LHsBind  id ptt = LHsBindLR  id id ptt ptt
+type LHsBinds id ptt = LHsBindsLR id id ptt ptt
+type HsBind   id ptt = HsBindLR   id id ptt ptt
 
-type LHsBindsLR idL idR ptt = Bag (LHsBindLR idL idR ptt)
-type LHsBindLR  idL idR ptt = Located (HsBindLR idL idR ptt)
+type LHsBindsLR idL idR pttL pttR = Bag    (LHsBindLR idL idR pttL pttR)
+type LHsBindLR  idL idR pttL pttR = Located (HsBindLR idL idR pttL pttR)
 
-data HsBindLR idL idR ptt
+data HsBindLR idL idR pttL pttR
   = -- | FunBind is used for both functions   @f x = e@
     -- and variables                          @f = \x -> e@
     --
@@ -110,7 +110,7 @@ data HsBindLR idL idR ptt
 
         fun_infix :: Bool,      -- ^ True => infix declaration
 
-        fun_matches :: MatchGroup idR (LHsExpr idR ptt) ptt, -- ^ The payload
+        fun_matches :: MatchGroup idR (LHsExpr idR pttR) pttR, -- ^ The payload
 
         fun_co_fn :: HsWrapper, -- ^ Coercion from the type of the MatchGroup to the type of
                                 -- the Id.  Example:
@@ -134,10 +134,10 @@ data HsBindLR idL idR ptt
 
   -- | The pattern is never a simple variable;
   -- That case is done by FunBind
-  | PatBind {   
-        pat_lhs    :: LPat idL ptt,
-        pat_rhs    :: GRHSs idR (LHsExpr idR ptt) ptt,
-        pat_rhs_ty :: ptt,       -- ^ Type of the GRHSs
+  | PatBind {
+        pat_lhs    :: LPat idL pttL,
+        pat_rhs    :: GRHSs idR (LHsExpr idR pttR) pttR,
+        pat_rhs_ty :: pttR,             -- ^ Type of the GRHSs
         bind_fvs   :: NameSet,          -- ^ See Note [Bind free vars]
         pat_ticks  :: (Maybe (Tickish Id), [Maybe (Tickish Id)])
                -- ^ Tick to put on the rhs, if any, and ticks to put on
@@ -146,9 +146,9 @@ data HsBindLR idL idR ptt
 
   -- | Dictionary binding and suchlike.
   -- All VarBinds are introduced by the type checker
-  | VarBind {   
-        var_id     :: idL,           
-        var_rhs    :: LHsExpr idR ptt,  -- ^ Located only for consistency
+  | VarBind {
+        var_id     :: idL,
+        var_rhs    :: LHsExpr idR pttR,  -- ^ Located only for consistency
         var_inline :: Bool           -- ^ True <=> inline this binding regardless
                                      -- (used for implication constraints only)
     }
@@ -162,11 +162,11 @@ data HsBindLR idL idR ptt
        -- to have the right type
         abs_exports :: [ABExport idL],
 
-        abs_ev_binds :: TcEvBinds,     -- ^ Evidence bindings
-        abs_binds    :: LHsBinds idL ptt -- ^ Typechecked user bindings
+        abs_ev_binds :: TcEvBinds,        -- ^ Evidence bindings
+        abs_binds    :: LHsBinds idL pttL -- ^ Typechecked user bindings
     }
 
-  | PatSynBind (PatSynBind idL idR ptt)
+  | PatSynBind (PatSynBind idL idR pttL pttR)
 
   deriving (Data, Typeable)
         -- Consider (AbsBinds tvs ds [(ftvs, poly_f, mono_f) binds]
@@ -189,12 +189,12 @@ data ABExport id
         , abe_prags :: TcSpecPrags  -- ^ SPECIALISE pragmas
   } deriving (Data, Typeable)
 
-data PatSynBind idL idR ptt
+data PatSynBind idL idR pttL pttR
   = PSB { psb_id   :: Located idL,                   -- ^ Name of the pattern synonym
           psb_fvs  :: NameSet,                       -- ^ See Note [Bind free vars]
           psb_args :: HsPatSynDetails (Located idR), -- ^ Formal parameter names
-          psb_def  :: LPat idR ptt,                  -- ^ Right-hand side
-          psb_dir  :: HsPatSynDir idR ptt            -- ^ Directionality
+          psb_def  :: LPat idR pttR,                 -- ^ Right-hand side
+          psb_dir  :: HsPatSynDir idR pttR           -- ^ Directionality
   } deriving (Data, Typeable)
 
 -- | Used for the NameSet in FunBind and PatBind prior to the renamer
@@ -301,12 +301,12 @@ Specifically,
     it's just an error thunk
 
 \begin{code}
-instance (OutputableBndr idL, OutputableBndr idR) => Outputable (HsLocalBindsLR idL idR ptt) where
+instance (OutputableBndr idL, OutputableBndr idR) => Outputable (HsLocalBindsLR idL idR pttL pttR) where
   ppr (HsValBinds bs) = ppr bs
   ppr (HsIPBinds bs)  = ppr bs
   ppr EmptyLocalBinds = empty
 
-instance (OutputableBndr idL, OutputableBndr idR) => Outputable (HsValBindsLR idL idR ptt) where
+instance (OutputableBndr idL, OutputableBndr idR) => Outputable (HsValBindsLR idL idR pttL pttR) where
   ppr (ValBindsIn binds sigs)
    = pprDeclList (pprLHsBindsForUser binds sigs)
 
@@ -321,13 +321,13 @@ instance (OutputableBndr idL, OutputableBndr idR) => Outputable (HsValBindsLR id
      pp_rec Recursive    = ptext (sLit "rec")
      pp_rec NonRecursive = ptext (sLit "nonrec")
 
-pprLHsBinds :: (OutputableBndr idL, OutputableBndr idR) => LHsBindsLR idL idR ptt -> SDoc
+pprLHsBinds :: (OutputableBndr idL, OutputableBndr idR) => LHsBindsLR idL idR pttL pttR -> SDoc
 pprLHsBinds binds
   | isEmptyLHsBinds binds = empty
   | otherwise = pprDeclList (map ppr (bagToList binds))
 
 pprLHsBindsForUser :: (OutputableBndr idL, OutputableBndr idR, OutputableBndr id2)
-                   => LHsBindsLR idL idR ptt -> [LSig id2 ptt] -> [SDoc]
+                   => LHsBindsLR idL idR pttL pttR -> [LSig id2 ptt2] -> [SDoc]
 --  pprLHsBindsForUser is different to pprLHsBinds because
 --  a) No braces: 'let' and 'where' include a list of HsBindGroups
 --     and we don't want several groups of bindings each
@@ -356,26 +356,26 @@ pprDeclList :: [SDoc] -> SDoc   -- Braces with a space
 pprDeclList ds = pprDeeperList vcat ds
 
 ------------
-emptyLocalBinds :: HsLocalBindsLR a b p
+emptyLocalBinds :: HsLocalBindsLR a b p q
 emptyLocalBinds = EmptyLocalBinds
 
-isEmptyLocalBinds :: HsLocalBindsLR a b p -> Bool
+isEmptyLocalBinds :: HsLocalBindsLR a b p q -> Bool
 isEmptyLocalBinds (HsValBinds ds) = isEmptyValBinds ds
 isEmptyLocalBinds (HsIPBinds ds)  = isEmptyIPBinds ds
 isEmptyLocalBinds EmptyLocalBinds = True
 
-isEmptyValBinds :: HsValBindsLR a b p -> Bool
+isEmptyValBinds :: HsValBindsLR a b p q -> Bool
 isEmptyValBinds (ValBindsIn ds sigs)  = isEmptyLHsBinds ds && null sigs
 isEmptyValBinds (ValBindsOut ds sigs) = null ds && null sigs
 
-emptyValBindsIn, emptyValBindsOut :: HsValBindsLR a b p
+emptyValBindsIn, emptyValBindsOut :: HsValBindsLR a b p q
 emptyValBindsIn  = ValBindsIn emptyBag []
 emptyValBindsOut = ValBindsOut []      []
 
-emptyLHsBinds :: LHsBindsLR idL idR ptt
+emptyLHsBinds :: LHsBindsLR idL idR pttL pttR
 emptyLHsBinds = emptyBag
 
-isEmptyLHsBinds :: LHsBindsLR idL idR ptt -> Bool
+isEmptyLHsBinds :: LHsBindsLR idL idR pttL pttR -> Bool
 isEmptyLHsBinds = isEmptyBag
 
 ------------
@@ -420,10 +420,10 @@ So the desugarer tries to do a better job:
                                       in (fm,gm)
 
 \begin{code}
-instance (OutputableBndr idL, OutputableBndr idR) => Outputable (HsBindLR idL idR ptt) where
+instance (OutputableBndr idL, OutputableBndr idR) => Outputable (HsBindLR idL idR pttL pttR) where
     ppr mbind = ppr_monobind mbind
 
-ppr_monobind :: (OutputableBndr idL, OutputableBndr idR) => HsBindLR idL idR ptt -> SDoc
+ppr_monobind :: (OutputableBndr idL, OutputableBndr idR) => HsBindLR idL idR pttL pttR -> SDoc
 
 ppr_monobind (PatBind { pat_lhs = pat, pat_rhs = grhss })
   = pprPatBind pat grhss
@@ -457,7 +457,7 @@ instance (OutputableBndr id) => Outputable (ABExport id) where
            , nest 2 (pprTcSpecPrags prags)
            , nest 2 (ppr wrap)]
 
-instance (OutputableBndr idL, OutputableBndr idR) => Outputable (PatSynBind idL idR ptt) where
+instance (OutputableBndr idL, OutputableBndr idR) => Outputable (PatSynBind idL idR pttL pttR) where
   ppr (PSB{ psb_id = L _ psyn, psb_args = details, psb_def = pat, psb_dir = dir })
       = ppr_lhs <+> ppr_rhs
     where

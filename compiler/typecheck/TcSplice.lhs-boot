@@ -10,7 +10,6 @@ import RdrName  ( RdrName )
 import TcRnTypes( TcM, TcId )
 import TcType   ( TcRhoType )
 import Annotations ( Annotation, CoreAnnTarget )
-import HsLit    ( PreTcType, PostTcType )
 
 #ifdef GHCI
 import Id       ( Id )
