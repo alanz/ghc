@@ -379,7 +379,7 @@ hscParse' mod_summary = do
 -- can become a Nothing and decide whether this should instead throw an
 -- exception/signal an error.
 type RenamedStuff =
-        (Maybe (HsGroup Name, [LImportDecl Name], Maybe [LIE Name],
+        (Maybe (HsGroup Name PostTcType, [LImportDecl Name], Maybe [LIE Name],
                 Maybe LHsDocString))
 
 -- | Rename and typecheck a module, additionally returning the renamed syntax

@@ -310,7 +310,7 @@ tcRnImports hsc_env import_decls
 %************************************************************************
 
 \begin{code}
-tcRnSrcDecls :: ModDetails -> [LHsDecl RdrName ptt] -> TcM TcGblEnv
+tcRnSrcDecls :: ModDetails -> [LHsDecl RdrName PreTcType] -> TcM TcGblEnv
         -- Returns the variables free in the decls
         -- Reason: solely to report unused imports and bindings
 tcRnSrcDecls boot_iface decls
@@ -372,7 +372,7 @@ tcRnSrcDecls boot_iface decls
    } }
 
 tc_rn_src_decls :: ModDetails
-                -> [LHsDecl RdrName ptt]
+                -> [LHsDecl RdrName PreTcType]
                 -> TcM (TcGblEnv, TcLclEnv)
 -- Loops around dealing with each top level inter-splice group
 -- in turn, until it's dealt with the entire module
@@ -465,7 +465,7 @@ tc_rn_src_decls boot_details ds
 %************************************************************************
 
 \begin{code}
-tcRnHsBootDecls :: [LHsDecl RdrName PostTcType] -> TcM TcGblEnv
+tcRnHsBootDecls :: [LHsDecl RdrName PreTcType] -> TcM TcGblEnv
 tcRnHsBootDecls decls
    = do { (first_group, group_tail) <- findSplice decls
 
@@ -824,7 +824,7 @@ monad; it augments it and returns the new TcGblEnv.
 
 \begin{code}
 ------------------------------------------------
-rnTopSrcDecls :: [Name] -> HsGroup RdrName ptt -> TcM (TcGblEnv, HsGroup Name ptt)
+rnTopSrcDecls :: [Name] -> HsGroup RdrName PreTcType -> TcM (TcGblEnv, HsGroup Name PostTcType)
 -- Fails if there are any errors
 rnTopSrcDecls extra_deps group
  = do { -- Rename the source decls
@@ -855,7 +855,7 @@ rnTopSrcDecls extra_deps group
 
 
 \begin{code}
-tcTopSrcDecls :: ModDetails -> HsGroup Name ptt -> TcM (TcGblEnv, TcLclEnv)
+tcTopSrcDecls :: ModDetails -> HsGroup Name PostTcType -> TcM (TcGblEnv, TcLclEnv)
 tcTopSrcDecls boot_details
         (HsGroup { hs_tyclds = tycl_decls,
                    hs_instds = inst_decls,
@@ -965,13 +965,13 @@ tcTopSrcDecls boot_details
 
 ---------------------------
 tcTyClsInstDecls :: ModDetails
-                 -> [TyClGroup Name ptt]
-                 -> [LInstDecl Name ptt]
-                 -> [LDerivDecl Name ptt]
+                 -> [TyClGroup Name PostTcType]
+                 -> [LInstDecl Name PostTcType]
+                 -> [LDerivDecl Name PostTcType]
                  -> TcM (TcGblEnv,             -- The full inst env
-                         [InstInfo Name ptt],  -- Source-code instance decls to process;
+                         [InstInfo Name PostTcType],  -- Source-code instance decls to process;
                                                -- contains all dfuns for this module
-                          HsValBinds Name ptt) -- Supporting bindings for derived instances
+                          HsValBinds Name PostTcType) -- Supporting bindings for derived instances
 
 tcTyClsInstDecls boot_details tycl_decls inst_decls deriv_decls
  = tcExtendKindEnv2 [ (con, APromotionErr FamDataConPE) 
@@ -982,13 +982,13 @@ tcTyClsInstDecls boot_details tycl_decls inst_decls deriv_decls
         tcInstDecls1 (tyClGroupConcat tycl_decls) inst_decls deriv_decls }
   where
     -- get_cons extracts the *constructor* bindings of the declaration
-    get_cons :: LInstDecl Name ptt -> [Name]
+    get_cons :: LInstDecl Name PostTcType -> [Name]
     get_cons (L _ (TyFamInstD {}))                     = []
     get_cons (L _ (DataFamInstD { dfid_inst = fid }))  = get_fi_cons fid
     get_cons (L _ (ClsInstD { cid_inst = ClsInstDecl { cid_datafam_insts = fids } }))
       = concatMap (get_fi_cons . unLoc) fids
 
-    get_fi_cons :: DataFamInstDecl Name ptt -> [Name]
+    get_fi_cons :: DataFamInstDecl Name PostTcType -> [Name]
     get_fi_cons (DataFamInstDecl { dfid_defn = HsDataDefn { dd_cons = cons } }) 
       = map (unLoc . con_name . unLoc) cons
 \end{code}

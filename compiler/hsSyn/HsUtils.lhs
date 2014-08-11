@@ -200,7 +200,7 @@ mkLastStmt :: Located (bodyR idR pttR) -> StmtLR idL idR (Located (bodyR idR ptt
 mkBodyStmt :: (PlaceHolderType pttR) => Located (bodyR idR pttR) -> StmtLR idL idR (Located (bodyR idR pttR)) pttL pttR
 mkBindStmt :: LPat idL pttL -> Located (bodyR idR pttR) -> StmtLR idL idR (Located (bodyR idR pttR)) pttL pttR
 
-emptyRecStmt :: (PlaceHolderType pttR) => StmtLR idL idR bodyR pttL pttR
+emptyRecStmt :: (PlaceHolderType pttR) =>   StmtLR idL idR bodyR pttL pttR
 mkRecStmt    :: (PlaceHolderType pttR) => [LStmtLR idL idR bodyR pttL pttR] -> StmtLR idL idR bodyR pttL pttR
 
 

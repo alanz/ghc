@@ -1420,7 +1420,7 @@ lookupName name =
 parser :: String         -- ^ Haskell module source text (full Unicode is supported)
        -> DynFlags       -- ^ the flags
        -> FilePath       -- ^ the filename (for source locations)
-       -> Either ErrorMessages (WarningMessages, Located (HsModule RdrName))
+       -> Either ErrorMessages (WarningMessages, Located (HsModule RdrName PreTcType))
 
 parser str dflags filename = 
    let

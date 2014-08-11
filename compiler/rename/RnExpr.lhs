@@ -209,7 +209,7 @@ rnExpr (HsLam matches)
 
 rnExpr (HsLamCase arg matches)
   = do { (matches', fvs_ms) <- rnMatchGroup CaseAlt rnLExpr matches
-       ; return (HsLamCase arg matches', fvs_ms) }
+       ; return (HsLamCase placeHolderType matches', fvs_ms) }
 
 rnExpr (HsCase expr matches)
   = do { (new_expr, e_fvs) <- rnLExpr expr
@@ -275,7 +275,7 @@ rnExpr (HsIf _ p b1 b2)
 
 rnExpr (HsMultiIf ty alts)
   = do { (alts', fvs) <- mapFvRn (rnGRHS IfAlt rnLExpr) alts
-       ; return (HsMultiIf ty alts', fvs) }
+       ; return (HsMultiIf placeHolderType alts', fvs) }
 
 rnExpr (HsType a)
   = do { (t, fvT) <- rnLHsType HsTypeCtx a
@@ -334,7 +334,7 @@ rnExpr other = pprPanic "rnExpr: unexpected expression" (ppr other)
 hsHoleExpr :: HsExpr Name ptt
 hsHoleExpr = HsUnboundVar (mkRdrUnqual (mkVarOcc "_"))
 
-arrowFail :: HsExpr RdrName ptt -> RnM (HsExpr Name ptt, FreeVars)
+arrowFail :: HsExpr RdrName PreTcType -> RnM (HsExpr Name PostTcType, FreeVars)
 arrowFail e
   = do { addErr (vcat [ ptext (sLit "Arrow command found where an expression was expected:")
                       , nest 2 (ppr e) ])
@@ -593,7 +593,7 @@ rnStmts :: Outputable (body RdrName PreTcType) => HsStmtContext Name
         -> (Located (body RdrName PreTcType) -> RnM (Located (body Name PostTcType), FreeVars))
         -> [LStmt RdrName (Located (body RdrName PreTcType)) PreTcType]
         -> ([Name] -> RnM (thing, FreeVars))
-        -> RnM (([LStmt Name (Located (body Name PostTcType)) PreTcType], thing), FreeVars)
+        -> RnM (([LStmt Name (Located (body Name PostTcType)) PostTcType], thing), FreeVars)
 -- Variables bound by the Stmts, and mentioned in thing_inside,
 -- do not appear in the result FreeVars
 
@@ -632,7 +632,7 @@ rnStmt :: Outputable (body RdrName PreTcType) => HsStmtContext Name
        -> (Located (body RdrName PreTcType) -> RnM (Located (body Name PostTcType), FreeVars))
        -> LStmt RdrName (Located (body RdrName PreTcType)) PreTcType
        -> ([Name] -> RnM (thing, FreeVars))
-       -> RnM (([LStmt Name (Located (body Name PostTcType)) PreTcType], thing), FreeVars)
+       -> RnM (([LStmt Name (Located (body Name PostTcType)) PostTcType], thing), FreeVars)
 -- Variables bound by the Stmt, and mentioned in thing_inside,
 -- do not appear in the result FreeVars
 
@@ -751,8 +751,8 @@ rnParallelStmts ctxt return_op segs thing_inside
        ; rn_segs orig_lcl_env [] segs }
   where
     rn_segs :: LocalRdrEnv
-            -> [Name] -> [ParStmtBlock RdrName RdrName PreTcType]
-            -> RnM (([ParStmtBlock Name Name PostTcType], thing), FreeVars)
+            -> [Name] -> [ParStmtBlock RdrName RdrName PreTcType PreTcType]
+            -> RnM (([ParStmtBlock Name Name PostTcType PostTcType], thing), FreeVars)
     rn_segs _ bndrs_so_far []
       = do { let (bndrs', dups) = removeDups cmpByOcc bndrs_so_far
            ; mapM_ dupErr dups
@@ -774,7 +774,7 @@ rnParallelStmts ctxt return_op segs thing_inside
     dupErr vs = addErr (ptext (sLit "Duplicate binding in parallel list comprehension for:")
                     <+> quotes (ppr (head vs)))
 
-lookupStmtName :: HsStmtContext Name -> Name -> RnM (HsExpr Name ptt, FreeVars)
+lookupStmtName :: HsStmtContext Name -> Name -> RnM (HsExpr Name PostTcType, FreeVars)
 -- Like lookupSyntaxName, but ListComp/PArrComp are never rebindable
 -- Neither is ArrowExpr, which has its own desugarer in DsArrows
 lookupStmtName ctxt n
@@ -836,7 +836,7 @@ rnRecStmtsAndThen :: Outputable (body RdrName PreTcType) =>
                   -> [LStmt RdrName (Located (body RdrName PreTcType)) PreTcType]
                          -- assumes that the FreeVars returned includes
                          -- the FreeVars of the Segments
-                  -> ([Segment (LStmt Name (Located (body Name PostTcType)) PreTcType)] -> RnM (a, FreeVars))
+                  -> ([Segment (LStmt Name (Located (body Name PostTcType)) PostTcType)] -> RnM (a, FreeVars))
                   -> RnM (a, FreeVars)
 rnRecStmtsAndThen rnBody s cont
   = do  { -- (A) Make the mini fixity env for all of the stmts
@@ -1333,7 +1333,7 @@ sectionErr expr
   = hang (ptext (sLit "A section must be enclosed in parentheses"))
        2 (ptext (sLit "thus:") <+> (parens (ppr expr)))
 
-patSynErr :: HsExpr RdrName ptt -> RnM (HsExpr Name ptt, FreeVars)
+patSynErr :: HsExpr RdrName PreTcType -> RnM (HsExpr Name PostTcType, FreeVars)
 patSynErr e = do { addErr (sep [ptext (sLit "Pattern syntax in expression context:"),
                                 nest 4 (ppr e)])
                  ; return (EWildPat, emptyFVs) }
