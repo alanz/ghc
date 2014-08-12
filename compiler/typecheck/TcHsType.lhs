@@ -927,7 +927,7 @@ kcScopedKindVars kv_ns thing_inside
 -- and in kind-checking. See also Note [Complete user-supplied kind signatures] in
 -- HsDecls.
 kcHsTyVarBndrs :: Bool    -- ^ True <=> the decl being checked has a CUSK
-               -> LHsTyVarBndrs Name Possibly
+               -> LHsTyVarBndrs Name PostTcType
 	       -> TcM (Kind, r)   -- ^ the result kind, possibly with other info
 	       -> TcM (Kind, r)   -- ^ The full kind of the thing being declared,
                                   -- with the other info

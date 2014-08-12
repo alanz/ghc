@@ -189,12 +189,12 @@ data HsTyVarBndr name ptt
   deriving (Data, Typeable)
 
 -- | Does this 'HsTyVarBndr' come with an explicit kind annotation?
-isHsKindedTyVar :: HsTyVarBndr name -> Bool
+isHsKindedTyVar :: HsTyVarBndr name ptt -> Bool
 isHsKindedTyVar (UserTyVar {})   = False
 isHsKindedTyVar (KindedTyVar {}) = True
 
 -- | Do all type variables in this 'LHsTyVarBndr' come with kind annotations?
-hsTvbAllKinded :: LHsTyVarBndrs name -> Bool
+hsTvbAllKinded :: LHsTyVarBndrs name ptt -> Bool
 hsTvbAllKinded = all (isHsKindedTyVar . unLoc) . hsQTvBndrs
 
 data HsType name ptt

@@ -609,7 +609,7 @@ countTyClDecls decls
 
 -- | Does this declaration have a complete, user-supplied kind signature?
 -- See Note [Complete user-supplied kind signatures]
-hsDeclHasCusk :: TyClDecl name -> Bool
+hsDeclHasCusk :: TyClDecl name ptt -> Bool
 hsDeclHasCusk (ForeignType {}) = True
 hsDeclHasCusk (FamDecl { tcdFam = fam_decl }) = famDeclHasCusk fam_decl
 hsDeclHasCusk (SynDecl { tcdTyVars = tyvars, tcdRhs = rhs })
@@ -623,7 +623,7 @@ hsDeclHasCusk (DataDecl { tcdTyVars = tyvars })  = hsTvbAllKinded tyvars
 hsDeclHasCusk (ClassDecl { tcdTyVars = tyvars }) = hsTvbAllKinded tyvars
 
 -- | Does this family declaration have a complete, user-supplied kind signature?
-famDeclHasCusk :: FamilyDecl name -> Bool
+famDeclHasCusk :: FamilyDecl name ptt -> Bool
 famDeclHasCusk (FamilyDecl { fdInfo = ClosedTypeFamily _
                            , fdTyVars = tyvars
                            , fdKindSig = m_sig })
