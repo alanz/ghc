@@ -207,7 +207,7 @@ rnExpr (HsLam matches)
   = do { (matches', fvMatch) <- rnMatchGroup LambdaExpr rnLExpr matches
        ; return (HsLam matches', fvMatch) }
 
-rnExpr (HsLamCase arg matches)
+rnExpr (HsLamCase _arg matches)
   = do { (matches', fvs_ms) <- rnMatchGroup CaseAlt rnLExpr matches
        ; return (HsLamCase placeHolderType matches', fvs_ms) }
 
@@ -273,7 +273,7 @@ rnExpr (HsIf _ p b1 b2)
        ; (mb_ite, fvITE) <- lookupIfThenElse
        ; return (HsIf mb_ite p' b1' b2', plusFVs [fvITE, fvP, fvB1, fvB2]) }
 
-rnExpr (HsMultiIf ty alts)
+rnExpr (HsMultiIf _ty alts)
   = do { (alts', fvs) <- mapFvRn (rnGRHS IfAlt rnLExpr) alts
        ; return (HsMultiIf placeHolderType alts', fvs) }
 

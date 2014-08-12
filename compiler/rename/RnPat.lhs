@@ -401,7 +401,7 @@ rnPatAndThen mk (AsPat rdr pat)
        ; pat' <- rnLPatAndThen mk pat
        ; return (AsPat (L (nameSrcSpan new_name) new_name) pat') }
 
-rnPatAndThen mk p@(ViewPat expr pat ty)
+rnPatAndThen mk p@(ViewPat expr pat _ty)
   = do { liftCps $ do { vp_flag <- xoptM Opt_ViewPatterns
                       ; checkErr vp_flag (badViewPat p) }
          -- Because of the way we're arranging the recursive calls,

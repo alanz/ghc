@@ -1032,8 +1032,8 @@ overloadedLit (IntegerL  _) = True
 overloadedLit (RationalL _) = True
 overloadedLit _             = False
 
-void :: Type.Type
-void = placeHolderType
+-- void :: Type.Type
+-- void = placeHolderType
 
 cvtFractionalLit :: Rational -> FractionalLit
 cvtFractionalLit r = FL { fl_text = show (fromRational r :: Double), fl_value = r }

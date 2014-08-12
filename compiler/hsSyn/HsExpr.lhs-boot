@@ -24,11 +24,11 @@ instance Typeable HsExpr
 instance Typeable MatchGroup
 instance Typeable GRHSs
 #else
-instance Typeable1 HsSplice
-instance Typeable1 HsExpr
-instance Typeable1 HsCmd
-instance Typeable2 MatchGroup
-instance Typeable2 GRHSs
+instance Typeable2 HsSplice
+instance Typeable2 HsExpr
+instance Typeable2 HsCmd
+instance Typeable3 MatchGroup
+instance Typeable3 GRHSs
 #endif
 
 instance (Data i, Data p) => Data (HsSplice i p)
