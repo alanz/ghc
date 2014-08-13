@@ -291,7 +291,7 @@ data SpliceDecl id ptt
                                 -- Implicit <=> f x y,  i.e. a naked top level expression
     deriving (Data, Typeable)
 
-instance OutputableBndr name => Outputable (SpliceDecl name patt) where
+instance OutputableBndr name => Outputable (SpliceDecl name ptt) where
    ppr (SpliceDecl (L _ e) _) = pprUntypedSplice e
 \end{code}
 
