@@ -724,7 +724,7 @@ iDFunId info = instanceDFunId (iSpec info)
 data InstBindings a ptt
   = InstBindings
       { ib_binds :: (LHsBinds a ptt)  -- Bindings for the instance methods
-      , ib_pragmas :: [LSig a ptt]    -- User pragmas recorded for generating 
+      , ib_pragmas :: [LSig a ptt]    -- User pragmas recorded for generating
                                   -- specialised instances
       , ib_extensions :: [ExtensionFlag] -- any extra extensions that should
                                          -- be enabled when type-checking this

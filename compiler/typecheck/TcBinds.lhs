@@ -302,7 +302,7 @@ tcTyVar, doesn't look inside the TcTyThing.
 tcValBinds :: TopLevelFlag 
            -> [(RecFlag, LHsBinds Name PostTcType)] -> [LSig Name PostTcType]
            -> TcM thing
-           -> TcM ([(RecFlag, LHsBinds TcId PostTcType)], thing) 
+           -> TcM ([(RecFlag, LHsBinds TcId PostTcType)], thing)
 
 tcValBinds top_lvl binds sigs thing_inside
   = do  {  -- Typecheck the signature

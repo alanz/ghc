@@ -115,7 +115,7 @@ tcMatchesCase ctxt scrut_ty matches res_ty
   | otherwise
   = tcMatches ctxt [scrut_ty] res_ty matches
 
-tcMatchLambda :: MatchGroup Name (LHsExpr Name PostTcType) PostTcType -> TcRhoType 
+tcMatchLambda :: MatchGroup Name (LHsExpr Name PostTcType) PostTcType -> TcRhoType
               -> TcM (HsWrapper, MatchGroup TcId (LHsExpr TcId  PostTcType) PostTcType)
 tcMatchLambda match res_ty 
   = matchFunTys herald n_pats res_ty  $ \ pat_tys rhs_ty ->
