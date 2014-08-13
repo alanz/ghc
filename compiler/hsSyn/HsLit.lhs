@@ -13,6 +13,12 @@
 -- for details
 
 {-# LANGUAGE CPP, DeriveDataTypeable #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module HsLit where
 
@@ -20,9 +26,12 @@ module HsLit where
 
 import {-# SOURCE #-} HsExpr( SyntaxExpr, pprExpr )
 import BasicTypes ( FractionalLit(..) )
-import Type	( Type, Kind )
+import Type       ( Type, Kind )
 import Outputable
 import FastString
+import Name
+import RdrName
+import Var
 
 import Data.ByteString (ByteString)
 import Data.Data
@@ -36,14 +45,46 @@ import Data.Data
 %************************************************************************
 
 \begin{code}
-type PostTcKind = Kind
-type PostTcType = Type		-- Used for slots in the abstract syntax
-				-- where we want to keep slot for a type
-				-- to be added by the type checker...but
-				-- before typechecking it's just bogus
+data PreTcType = PTT   -- Used for slots in the abstract syntax
+           deriving (Typeable,Data) -- where we want to keep slot for a type
+                       -- to be added by the type checker
 
-placeHolderType :: PostTcType	-- Used before typechecking
-placeHolderType  = panic "Evaluated the place holder for a PostTcType"
+class PlaceHolderType a where
+  placeHolderType :: a
+
+instance PlaceHolderType Type where
+  -- This function should never be called, exists to make the type checker happy
+  placeHolderType = panic "Evaluated the place holder for a Type before type checking"
+
+instance PlaceHolderType PreTcType where
+  placeHolderType = PTT
+
+
+
+type family TypeAnnot name
+type instance TypeAnnot RdrName = PreTcType   -- ParsedSource
+type instance TypeAnnot Name    = PreTcType   -- RenamedSurce
+type instance TypeAnnot Var     = Type        -- used during type checking
+type instance TypeAnnot Id      = Type        -- TypecheckedSource
+
+-- deriving instance (Typeable id) => (Typeable (TypeAnnot id))
+
+-- instance Data (TypeAnnot RdrName) where
+-- deriving instance (Data a) => Data (TypeAnnot a)
+
+{-
+data family TypeAnnot name
+data instance TypeAnnot RdrName = TR PreTcType -- deriving (Data,Typeable)  -- ParsedSource
+-- data instance TypeAnnot Name    = TB PreTcType deriving (Data,Typeable)  -- RenamedSurce
+-- data instance TypeAnnot Var     = TV Type deriving (Data)       -- used during type checking
+-- data instance TypeAnnot Id      = TI Type deriving (Data,Typeable)       -- TypecheckedSource
+
+-- instance Data (TypeAnnot RdrName) where
+deriving instance (Data a) => Data (TypeAnnot a)
+-- deriving instance Data (TypeAnnot RdrName)
+-}
+
+type PostTcKind = Kind
 
 placeHolderKind :: PostTcKind	-- Used before typechecking
 placeHolderKind  = panic "Evaluated the place holder for a PostTcKind"
@@ -94,11 +135,12 @@ instance Eq HsLit where
 
 data HsOverLit id 	-- An overloaded literal
   = OverLit {
-	ol_val :: OverLitVal, 
+	ol_val :: OverLitVal,
 	ol_rebindable :: Bool,		-- Note [ol_rebindable]
 	ol_witness :: SyntaxExpr id,	-- Note [Overloaded literal witnesses]
-	ol_type :: PostTcType }
-  deriving (Data, Typeable)
+	ol_type ::(TypeAnnot id) }
+  deriving (Typeable)
+deriving instance (Data id, Data (TypeAnnot id)) => Data (HsOverLit id)
 
 data OverLitVal
   = HsIntegral   !Integer   	-- Integer-looking literals;
@@ -106,7 +148,7 @@ data OverLitVal
   | HsIsString   !FastString 	-- String-looking literals
   deriving (Data, Typeable)
 
-overLitType :: HsOverLit a -> Type
+overLitType :: HsOverLit a -> TypeAnnot a
 overLitType = ol_type
 \end{code}
 

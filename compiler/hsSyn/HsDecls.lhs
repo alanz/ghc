@@ -6,6 +6,9 @@
 \begin{code}
 {-# LANGUAGE DeriveDataTypeable, DeriveFunctor, DeriveFoldable,
              DeriveTraversable #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Abstract syntax of global declarations.
 --
@@ -81,6 +84,7 @@ import Name
 import BasicTypes
 import Coercion
 import ForeignCall
+import HsLit ( TypeAnnot )
 
 -- others:
 import InstEnv
@@ -123,7 +127,8 @@ data HsDecl id
   | DocD        (DocDecl)
   | QuasiQuoteD (HsQuasiQuote id)
   | RoleAnnotD  (RoleAnnotDecl id)
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data id, Data (TypeAnnot id)) => Data (HsDecl id)
 
 
 -- NB: all top-level fixity decls are contained EITHER
@@ -169,7 +174,8 @@ data HsGroup id
         hs_vects  :: [LVectDecl id],
 
         hs_docs   :: [LDocDecl]
-  } deriving (Data, Typeable)
+  } deriving (Typeable)
+deriving instance (Data id, Data (TypeAnnot id)) => Data (HsGroup id)
 
 emptyGroup, emptyRdrGroup, emptyRnGroup :: HsGroup a
 emptyRdrGroup = emptyGroup { hs_valds = emptyValBindsIn }
@@ -479,7 +485,8 @@ data TyClDecl name
                 tcdFVs     :: NameSet
     }
     
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data id, Data (TypeAnnot id)) => Data (TyClDecl id)
 
  -- This is used in TcTyClsDecls to represent
  -- strongly connected components of decls
@@ -489,7 +496,8 @@ data TyClDecl name
 data TyClGroup name
   = TyClGroup { group_tyclds :: [LTyClDecl name]
               , group_roles  :: [LRoleAnnotDecl name] }
-    deriving (Data, Typeable)
+    deriving (Typeable)
+deriving instance (Data id, Data (TypeAnnot id)) => Data (TyClGroup id)
 
 tyClGroupConcat :: [TyClGroup name] -> [LTyClDecl name]
 tyClGroupConcat = concatMap group_tyclds
@@ -1014,7 +1022,8 @@ data ClsInstDecl name
       , cid_datafam_insts :: [LDataFamInstDecl name] -- Data family instances
       , cid_overlap_mode :: Maybe OverlapMode
       }
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data id, Data (TypeAnnot id)) => Data (ClsInstDecl id)
 
 
 ----------------- Instances of all kinds -------------
@@ -1027,7 +1036,8 @@ data InstDecl name  -- Both class and family instances
       { dfid_inst :: DataFamInstDecl name }
   | TyFamInstD              -- type family instance
       { tfid_inst :: TyFamInstDecl name }
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data id, Data (TypeAnnot id)) => Data (InstDecl id)
 \end{code}
 
 Note [Family instance declaration binders]

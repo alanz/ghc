@@ -676,7 +676,7 @@ makes all list literals be generated via the simple route.
 
 
 \begin{code}
-dsExplicitList :: PostTcType -> Maybe (SyntaxExpr Id) -> [LHsExpr Id] -> DsM CoreExpr
+dsExplicitList :: TypeAnnot Id -> Maybe (SyntaxExpr Id) -> [LHsExpr Id] -> DsM CoreExpr
 -- See Note [Desugaring explicit lists]
 dsExplicitList elt_ty Nothing xs
   = do { dflags <- getDynFlags
