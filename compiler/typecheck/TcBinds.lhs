@@ -1494,7 +1494,8 @@ Note [Binding scoped type variables]
 \begin{code}
 -- This one is called on LHS, when pat and grhss are both Name 
 -- and on RHS, when pat is TcId and grhss is still Name
-patMonoBindsCtxt :: (OutputableBndr id, Outputable body) => LPat id ptt -> GRHSs Name body ptt -> SDoc
+patMonoBindsCtxt :: (OutputableBndr id, Outputable body)
+                 => LPat id ptt -> GRHSs Name body ptt -> SDoc
 patMonoBindsCtxt pat grhss
   = hang (ptext (sLit "In a pattern binding:")) 2 (pprPatBind pat grhss)
 \end{code}
