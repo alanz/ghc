@@ -980,7 +980,8 @@ scalarTyConMustBeNullary = ptext (sLit "VECTORISE SCALAR type constructor must b
 -- If typechecking the binds fails, then return with each
 -- signature-less binder given type (forall a.a), to minimise 
 -- subsequent error messages
-recoveryCode :: [Name] -> TcSigFun -> TcM (LHsBinds TcId PostTcType, [Id], TopLevelFlag)
+recoveryCode :: [Name] -> TcSigFun
+             -> TcM (LHsBinds TcId PostTcType, [Id], TopLevelFlag)
 recoveryCode binder_names sig_fn
   = do  { traceTc "tcBindsWithSigs: error recovery" (ppr binder_names)
         ; poly_ids <- mapM mk_dummy binder_names
@@ -1114,8 +1115,10 @@ tcMonoBinds _ sig_fn no_gen binds
 -- it; hence the TcMonoBind data type in which the LHS is done but the RHS isn't
 
 data TcMonoBind         -- Half completed; LHS done, RHS not done
-  = TcFunBind  MonoBindInfo  SrcSpan Bool (MatchGroup Name (LHsExpr Name PostTcType) PostTcType)
-  | TcPatBind [MonoBindInfo] (LPat TcId PostTcType) (GRHSs Name (LHsExpr Name PostTcType) PostTcType) TcSigmaType
+  = TcFunBind  MonoBindInfo  SrcSpan Bool (MatchGroup Name
+              (LHsExpr Name PostTcType) PostTcType)
+  | TcPatBind [MonoBindInfo] (LPat TcId PostTcType)
+              (GRHSs Name (LHsExpr Name PostTcType) PostTcType) TcSigmaType
 
 type MonoBindInfo = (Name, Maybe TcSigInfo, TcId)
         -- Type signature (if any), and
@@ -1308,7 +1311,7 @@ instTcTySigFromId loc id
     -- those type variables to refer to the class decl, rather to
     -- the instance decl
 
-instTcTySig :: LHsType Name PostTcType -> TcType    -- HsType and corresponding TcType
+instTcTySig :: LHsType Name PostTcType -> TcType -- HsType and corresponding TcType
             -> Name -> TcM TcSigInfo
 instTcTySig hs_ty@(L loc _) sigma_ty name
   = do { (inst_tvs, theta, tau) <- tcInstType tcInstSigTyVars sigma_ty
