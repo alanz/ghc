@@ -82,53 +82,53 @@ placeHolderKind  = panic "Evaluated the place holder for a PostTcKind"
 
 \begin{code}
 data HsLit
-  = HsChar	    Char		-- Character
-  | HsCharPrim	    Char		-- Unboxed character
-  | HsString	    FastString		-- String
-  | HsStringPrim    ByteString		-- Packed bytes
-  | HsInt	    Integer		-- Genuinely an Int; arises from TcGenDeriv, 
-					--	and from TRANSLATION
+  = HsChar          Char                -- Character
+  | HsCharPrim      Char                -- Unboxed character
+  | HsString        FastString          -- String
+  | HsStringPrim    ByteString          -- Packed bytes
+  | HsInt           Integer             -- Genuinely an Int; arises from TcGenDeriv,
+                                        --      and from TRANSLATION
   | HsIntPrim       Integer             -- literal Int#
   | HsWordPrim      Integer             -- literal Word#
   | HsInt64Prim     Integer             -- literal Int64#
   | HsWord64Prim    Integer             -- literal Word64#
-  | HsInteger	    Integer  Type	-- Genuinely an integer; arises only from TRANSLATION
-					-- 	(overloaded literals are done with HsOverLit)
-  | HsRat	    FractionalLit Type	-- Genuinely a rational; arises only from TRANSLATION
-					-- 	(overloaded literals are done with HsOverLit)
-  | HsFloatPrim	    FractionalLit	-- Unboxed Float
-  | HsDoublePrim    FractionalLit	-- Unboxed Double
+  | HsInteger       Integer  Type       -- Genuinely an integer; arises only from TRANSLATION
+                                        --      (overloaded literals are done with HsOverLit)
+  | HsRat           FractionalLit Type  -- Genuinely a rational; arises only from TRANSLATION
+                                        --      (overloaded literals are done with HsOverLit)
+  | HsFloatPrim     FractionalLit       -- Unboxed Float
+  | HsDoublePrim    FractionalLit       -- Unboxed Double
   deriving (Data, Typeable)
 
 instance Eq HsLit where
-  (HsChar x1)	    == (HsChar x2)	 = x1==x2
-  (HsCharPrim x1)   == (HsCharPrim x2)	 = x1==x2
-  (HsString x1)     == (HsString x2)	 = x1==x2
+  (HsChar x1)       == (HsChar x2)       = x1==x2
+  (HsCharPrim x1)   == (HsCharPrim x2)   = x1==x2
+  (HsString x1)     == (HsString x2)     = x1==x2
   (HsStringPrim x1) == (HsStringPrim x2) = x1==x2
-  (HsInt x1)	    == (HsInt x2)	 = x1==x2
+  (HsInt x1)        == (HsInt x2)        = x1==x2
   (HsIntPrim x1)    == (HsIntPrim x2)    = x1==x2
   (HsWordPrim x1)   == (HsWordPrim x2)   = x1==x2
   (HsInt64Prim x1)  == (HsInt64Prim x2)  = x1==x2
   (HsWord64Prim x1) == (HsWord64Prim x2) = x1==x2
   (HsInteger x1 _)  == (HsInteger x2 _)  = x1==x2
-  (HsRat x1 _)	    == (HsRat x2 _)      = x1==x2
+  (HsRat x1 _)      == (HsRat x2 _)      = x1==x2
   (HsFloatPrim x1)  == (HsFloatPrim x2)  = x1==x2
   (HsDoublePrim x1) == (HsDoublePrim x2) = x1==x2
   _                 == _                 = False
 
-data HsOverLit id 	-- An overloaded literal
+data HsOverLit id       -- An overloaded literal
   = OverLit {
-	ol_val :: OverLitVal,
-	ol_rebindable :: Bool,		-- Note [ol_rebindable]
-	ol_witness :: SyntaxExpr id,	-- Note [Overloaded literal witnesses]
-	ol_type ::(TypeAnnot id) }
+        ol_val :: OverLitVal,
+        ol_rebindable :: Bool,          -- Note [ol_rebindable]
+        ol_witness :: SyntaxExpr id,    -- Note [Overloaded literal witnesses]
+        ol_type ::(TypeAnnot id) }
   deriving (Typeable)
 deriving instance (Data id, Data (TypeAnnot id)) => Data (HsOverLit id)
 
 data OverLitVal
-  = HsIntegral   !Integer   	-- Integer-looking literals;
-  | HsFractional !FractionalLit	-- Frac-looking literals
-  | HsIsString   !FastString 	-- String-looking literals
+  = HsIntegral   !Integer       -- Integer-looking literals;
+  | HsFractional !FractionalLit -- Frac-looking literals
+  | HsIsString   !FastString    -- String-looking literals
   deriving (Data, Typeable)
 
 overLitType :: HsOverLit a -> TypeAnnot a

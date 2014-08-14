@@ -85,7 +85,7 @@ import HsDecls
 import HsBinds
 import HsExpr
 import HsPat
-import HsTypes	
+import HsTypes
 import HsLit
 
 import TcEvidence
