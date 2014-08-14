@@ -154,48 +154,48 @@ union of those in the previous set plus those of the newest binding after
 the defined variables of the previous set have been removed.
 
 @rnMethodBinds@ deals only with the declarations in class and
-instance declarations.	It expects only to see @FunMonoBind@s, and
+instance declarations.  It expects only to see @FunMonoBind@s, and
 it expects the global environment to contain bindings for the binders
 (which are all class operations).
 
 %************************************************************************
-%*									*
+%*                                                                      *
 \subsubsection{ Top-level bindings}
-%*									*
+%*                                                                      *
 %************************************************************************
 
 \begin{code}
 -- for top-level bindings, we need to make top-level names,
 -- so we have a different entry point than for local bindings
 rnTopBindsLHS :: MiniFixityEnv
-              -> HsValBinds RdrName 
+              -> HsValBinds RdrName
               -> RnM (HsValBindsLR Name RdrName)
 rnTopBindsLHS fix_env binds
   = rnValBindsLHS (topRecNameMaker fix_env) binds
 
-rnTopBindsRHS :: NameSet -> HsValBindsLR Name RdrName 
+rnTopBindsRHS :: NameSet -> HsValBindsLR Name RdrName
               -> RnM (HsValBinds Name, DefUses)
 rnTopBindsRHS bound_names binds
   = do { is_boot <- tcIsHsBoot
-       ; if is_boot 
+       ; if is_boot
          then rnTopBindsBoot binds
          else rnValBindsRHS (TopSigCtxt bound_names False) binds }
 
 rnTopBindsBoot :: HsValBindsLR Name RdrName -> RnM (HsValBinds Name, DefUses)
--- A hs-boot file has no bindings. 
+-- A hs-boot file has no bindings.
 -- Return a single HsBindGroup with empty binds and renamed signatures
 rnTopBindsBoot (ValBindsIn mbinds sigs)
-  = do	{ checkErr (isEmptyLHsBinds mbinds) (bindsInHsBootFile mbinds)
-	; (sigs', fvs) <- renameSigs HsBootCtxt sigs
-	; return (ValBindsOut [] sigs', usesOnly fvs) }
+  = do  { checkErr (isEmptyLHsBinds mbinds) (bindsInHsBootFile mbinds)
+        ; (sigs', fvs) <- renameSigs HsBootCtxt sigs
+        ; return (ValBindsOut [] sigs', usesOnly fvs) }
 rnTopBindsBoot b = pprPanic "rnTopBindsBoot" (ppr b)
 \end{code}
 
 
 %*********************************************************
-%*							*
-		HsLocalBinds
-%*							*
+%*                                                      *
+                HsLocalBinds
+%*                                                      *
 %*********************************************************
 
 \begin{code}
@@ -203,13 +203,13 @@ rnLocalBindsAndThen :: HsLocalBinds RdrName
                     -> (HsLocalBinds Name -> RnM (result, FreeVars))
                     -> RnM (result, FreeVars)
 -- This version (a) assumes that the binding vars are *not* already in scope
---		 (b) removes the binders from the free vars of the thing inside
+--               (b) removes the binders from the free vars of the thing inside
 -- The parser doesn't produce ThenBinds
 rnLocalBindsAndThen EmptyLocalBinds thing_inside
   = thing_inside EmptyLocalBinds
 
 rnLocalBindsAndThen (HsValBinds val_binds) thing_inside
-  = rnLocalValBindsAndThen val_binds $ \ val_binds' -> 
+  = rnLocalValBindsAndThen val_binds $ \ val_binds' ->
       thing_inside (HsValBinds val_binds')
 
 rnLocalBindsAndThen (HsIPBinds binds) thing_inside = do

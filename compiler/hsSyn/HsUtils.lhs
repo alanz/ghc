@@ -284,16 +284,16 @@ mkHsSpliceTy e = HsSpliceTy (mkHsSplice e) placeHolderKind
 
 unqualSplice :: RdrName
 unqualSplice = mkRdrUnqual (mkVarOccFS (fsLit "splice"))
-		-- A name (uniquified later) to
-		-- identify the splice
+                -- A name (uniquified later) to
+                -- identify the splice
 
 mkHsQuasiQuote :: RdrName -> SrcSpan -> FastString -> HsQuasiQuote RdrName
 mkHsQuasiQuote quoter span quote = HsQuasiQuote quoter span quote
 
 unqualQuasiQuote :: RdrName
 unqualQuasiQuote = mkRdrUnqual (mkVarOccFS (fsLit "quasiquote"))
-		-- A name (uniquified later) to
-		-- identify the quasi-quote
+                -- A name (uniquified later) to
+                -- identify the quasi-quote
 
 mkHsString :: String -> HsLit
 mkHsString s = HsString (mkFastString s)
