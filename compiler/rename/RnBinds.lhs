@@ -113,9 +113,9 @@ a set of variables free in @Exp@ is written @fvExp@
 \end{itemize}
 
 %************************************************************************
-%*									*
+%*                                                                      *
 %* analysing polymorphic bindings (HsBindGroup, HsBind)
-%*									*
+%*                                                                      *
 %************************************************************************
 
 \subsubsection[dep-HsBinds]{Polymorphic bindings}

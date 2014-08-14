@@ -155,22 +155,23 @@ mkHsApp e1 e2 = addCLoc e1 e2 (HsApp e1 e2)
 mkHsLam :: (PlaceHolderType (TypeAnnot id))
         => [LPat id] -> LHsExpr id -> LHsExpr id
 mkHsLam pats body = mkHsPar (L (getLoc body) (HsLam matches))
-	where
+        where
           matches = mkMatchGroup Generated [mkSimpleMatch pats body]
 
 mkHsLams :: [TyVar] -> [EvVar] -> LHsExpr Id -> LHsExpr Id
-mkHsLams tyvars dicts expr = mkLHsWrap (mkWpTyLams tyvars <.> mkWpLams dicts) expr
+mkHsLams tyvars dicts expr = mkLHsWrap (mkWpTyLams tyvars
+                                       <.> mkWpLams dicts) expr
 
 mkHsConApp :: DataCon -> [Type] -> [HsExpr Id] -> LHsExpr Id
--- Used for constructing dictionary terms etc, so no locations 
-mkHsConApp data_con tys args 
+-- Used for constructing dictionary terms etc, so no locations
+mkHsConApp data_con tys args
   = foldl mk_app (nlHsTyApp (dataConWrapId data_con) tys) args
   where
     mk_app f a = noLoc (HsApp f (noLoc a))
 
 mkSimpleHsAlt :: LPat id -> (Located (body id)) -> LMatch id (Located (body id))
 -- A simple lambda with a single pattern, no binds, no guards; pre-typechecking
-mkSimpleHsAlt pat expr 
+mkSimpleHsAlt pat expr
   = mkSimpleMatch [pat] expr
 
 nlHsTyApp :: name -> [Type] -> LHsExpr name

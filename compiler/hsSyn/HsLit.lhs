@@ -194,25 +194,25 @@ instance Ord OverLitVal where
 
 \begin{code}
 instance Outputable HsLit where
-	-- Use "show" because it puts in appropriate escapes
-    ppr (HsChar c)	 = pprHsChar c
-    ppr (HsCharPrim c)	 = pprHsChar c <> char '#'
-    ppr (HsString s)	 = pprHsString s
+        -- Use "show" because it puts in appropriate escapes
+    ppr (HsChar c)       = pprHsChar c
+    ppr (HsCharPrim c)   = pprHsChar c <> char '#'
+    ppr (HsString s)     = pprHsString s
     ppr (HsStringPrim s) = pprHsBytes s <> char '#'
-    ppr (HsInt i)	 = integer i
-    ppr (HsInteger i _)	 = integer i
-    ppr (HsRat f _)	 = ppr f
-    ppr (HsFloatPrim f)	 = ppr f <> char '#'
+    ppr (HsInt i)        = integer i
+    ppr (HsInteger i _)  = integer i
+    ppr (HsRat f _)      = ppr f
+    ppr (HsFloatPrim f)  = ppr f <> char '#'
     ppr (HsDoublePrim d) = ppr d <> text "##"
-    ppr (HsIntPrim i)	 = integer i  <> char '#'
-    ppr (HsWordPrim w)	 = integer w  <> text "##"
+    ppr (HsIntPrim i)    = integer i  <> char '#'
+    ppr (HsWordPrim w)   = integer w  <> text "##"
     ppr (HsInt64Prim i)  = integer i  <> text "L#"
     ppr (HsWord64Prim w) = integer w  <> text "L##"
 
 -- in debug mode, print the expression that it's resolved to, too
 instance OutputableBndr id => Outputable (HsOverLit id) where
   ppr (OverLit {ol_val=val, ol_witness=witness})
-	= ppr val <+> (ifPprDebug (parens (pprExpr witness)))
+        = ppr val <+> (ifPprDebug (parens (pprExpr witness)))
 
 instance Outputable OverLitVal where
   ppr (HsIntegral i)   = integer i
