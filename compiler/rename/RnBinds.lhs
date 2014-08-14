@@ -328,7 +328,8 @@ rnLocalValBindsAndThen :: HsValBinds RdrName
                        -> RnM (result, FreeVars)
 rnLocalValBindsAndThen binds@(ValBindsIn _ sigs) thing_inside
  = do   {     -- (A) Create the local fixity environment
-          new_fixities <- makeMiniFixityEnv [L loc sig | L loc (FixSig sig) <- sigs]
+          new_fixities <- makeMiniFixityEnv [L loc sig
+                                                  | L loc (FixSig sig) <- sigs]
 
               -- (B) Rename the LHSes
         ; (bound_names, new_lhs) <- rnLocalValBindsLHS new_fixities binds
@@ -346,9 +347,11 @@ rnLocalValBindsAndThen binds@(ValBindsIn _ sigs) thing_inside
                 --      let x = x in 3
                 -- should report 'x' unused
         ; let real_uses = findUses dus result_fvs
-              -- Insert fake uses for variables introduced implicitly by wildcards (#4404)
+              -- Insert fake uses for variables introduced implicitly by
+              -- wildcards (#4404)
               implicit_uses = hsValBindsImplicits binds'
-        ; warnUnusedLocalBinds bound_names (real_uses `unionNameSets` implicit_uses)
+        ; warnUnusedLocalBinds bound_names
+                                      (real_uses `unionNameSets` implicit_uses)
 
         ; let
             -- The variables "used" in the val binds are:
@@ -501,7 +504,8 @@ rnBind sig_fn bind@(FunBind { fun_id = name
 
         ; (matches', rhs_fvs) <- bindSigTyVarsFV (sig_fn plain_name) $
                                 -- bindSigTyVars tests for Opt_ScopedTyVars
-                                 rnMatchGroup (FunRhs plain_name is_infix) rnLExpr matches
+                                 rnMatchGroup (FunRhs plain_name is_infix)
+                                              rnLExpr matches
         ; when is_infix $ checkPrecMatch plain_name matches'
 
         ; mod <- getModule

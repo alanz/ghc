@@ -373,7 +373,7 @@ nlHsCase :: (PlaceHolderType (TypeAnnot id))
          => LHsExpr id -> [LMatch id (LHsExpr id)] -> LHsExpr id
 nlList   :: (PlaceHolderType (TypeAnnot id)) => [LHsExpr id] -> LHsExpr id
 
-nlHsLam	match          = noLoc (HsLam (mkMatchGroup Generated [match]))
+nlHsLam match          = noLoc (HsLam (mkMatchGroup Generated [match]))
 nlHsPar e              = noLoc (HsPar e)
 nlHsIf cond true false = noLoc (mkHsIf cond true false)
 nlHsCase expr matches  = noLoc (HsCase expr (mkMatchGroup Generated matches))
