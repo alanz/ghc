@@ -173,7 +173,7 @@ data HsExpr id
                 (LHsExpr id)    --  else part
 
   -- | Multi-way if
-  | HsMultiIf   (TypeAnnot id) [LGRHS id (LHsExpr id)] 
+  | HsMultiIf   (TypeAnnot id) [LGRHS id (LHsExpr id)]
 
   -- | let(rec)
   | HsLet       (HsLocalBinds id) 
