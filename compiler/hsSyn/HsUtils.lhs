@@ -383,9 +383,9 @@ nlHsAppTy :: LHsType name -> LHsType name -> LHsType name
 nlHsTyVar :: name                         -> LHsType name
 nlHsFunTy :: LHsType name -> LHsType name -> LHsType name
 
-nlHsAppTy f t		= noLoc (HsAppTy f t)
-nlHsTyVar x		= noLoc (HsTyVar x)
-nlHsFunTy a b		= noLoc (HsFunTy a b)
+nlHsAppTy f t           = noLoc (HsAppTy f t)
+nlHsTyVar x             = noLoc (HsTyVar x)
+nlHsFunTy a b           = noLoc (HsFunTy a b)
 
 nlHsTyConApp :: name -> [LHsType name] -> LHsType name
 nlHsTyConApp tycon tys  = foldl nlHsAppTy (nlHsTyVar tycon) tys
