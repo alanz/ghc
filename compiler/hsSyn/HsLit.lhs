@@ -45,7 +45,7 @@ import Data.Data
 %************************************************************************
 
 \begin{code}
-data PreTcType = PTT   -- Used for slots in the abstract syntax
+data PreTcType = PlaceHolderType   -- Used for slots in the abstract syntax
            deriving (Typeable,Data) -- where we want to keep slot for a type
                        -- to be added by the type checker
 
@@ -58,7 +58,7 @@ instance PlaceHolderType Type where
             = panic "Evaluated the place holder for a Type before type checking"
 
 instance PlaceHolderType PreTcType where
-  placeHolderType = PTT
+  placeHolderType = PlaceHolderType
 
 type family TypeAnnot name
 type instance TypeAnnot RdrName = PreTcType   -- ParsedSource
