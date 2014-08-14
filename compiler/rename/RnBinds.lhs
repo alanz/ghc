@@ -66,7 +66,7 @@ in where-clauses which are all apparently mutually recursive, but which may
 not really depend upon each other. For example, in the top level program
 \begin{verbatim}
 f x = y where a = x
-	      y = x
+              y = x
 \end{verbatim}
 the definitions of @a@ and @y@ do not depend on each other at all.
 Unfortunately, the typechecker cannot always check such definitions.
