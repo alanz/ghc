@@ -594,11 +594,14 @@ make_con (ConPatOut{ pat_con = L _ (RealDataCon id) }) (lp:lq:ps, constraints)
      | isInfixCon id    = (nlInfixConPat (getName id) lp lq : ps, constraints)
    where q  = unLoc lq
 
--- ++AZ++ Note: tys switches from (TypeAnnot Id) to (TypeAnnot Name) here
-make_con (ConPatOut{ pat_con = L _ (RealDataCon id), pat_args = PrefixCon pats, pat_arg_tys = tys }) (ps, constraints)
-      | isTupleTyCon tc  = (noLoc (TuplePat pats_con (tupleTyConBoxity tc) tys) : rest_pats, constraints)
-      | isPArrFakeCon id = (noLoc (PArrPat pats_con placeHolderType)            : rest_pats, constraints)
-      | otherwise        = (nlConPat name pats_con      : rest_pats, constraints)
+make_con (ConPatOut{ pat_con = L _ (RealDataCon id), pat_args = PrefixCon pats})
+         (ps, constraints)
+      | isTupleTyCon tc  = (noLoc (TuplePat pats_con (tupleTyConBoxity tc) [])
+                                : rest_pats, constraints)
+      | isPArrFakeCon id = (noLoc (PArrPat pats_con placeHolderType)
+                                : rest_pats, constraints)
+      | otherwise        = (nlConPat name pats_con
+                                : rest_pats, constraints)
     where
         name                  = getName id
         (pats_con, rest_pats) = splitAtList pats ps
