@@ -497,7 +497,8 @@ l
 %************************************************************************
 
 \begin{code}
-mkFunBind :: Located RdrName -> [LMatch RdrName (LHsExpr RdrName)] -> HsBind RdrName
+mkFunBind :: Located RdrName -> [LMatch RdrName (LHsExpr RdrName)]
+          -> HsBind RdrName
 -- Not infix, with place holders for coercion and free vars
 mkFunBind fn ms = FunBind { fun_id = fn, fun_infix = False
                           , fun_matches = mkMatchGroup Generated ms
@@ -505,12 +506,14 @@ mkFunBind fn ms = FunBind { fun_id = fn, fun_infix = False
                           , bind_fvs = placeHolderNames
                           , fun_tick = Nothing }
 
-mkTopFunBind :: Origin -> Located Name -> [LMatch Name (LHsExpr Name)] -> HsBind Name
+mkTopFunBind :: Origin -> Located Name -> [LMatch Name (LHsExpr Name)]
+             -> HsBind Name
 -- In Name-land, with empty bind_fvs
 mkTopFunBind origin fn ms = FunBind { fun_id = fn, fun_infix = False
                                     , fun_matches = mkMatchGroup origin ms
                                     , fun_co_fn = idHsWrapper
-                                    , bind_fvs = emptyNameSet   -- NB: closed binding
+                                    , bind_fvs = emptyNameSet -- NB: closed
+                                                              --     binding
                                     , fun_tick = Nothing }
 
 mkHsVarBind :: SrcSpan -> RdrName -> LHsExpr RdrName -> LHsBind RdrName
@@ -520,7 +523,8 @@ mkVarBind :: id -> LHsExpr id -> LHsBind id
 mkVarBind var rhs = L (getLoc rhs) $
                     VarBind { var_id = var, var_rhs = rhs, var_inline = False }
 
-mkPatSynBind :: Located RdrName -> HsPatSynDetails (Located RdrName) -> LPat RdrName -> HsPatSynDir RdrName -> HsBind RdrName
+mkPatSynBind :: Located RdrName -> HsPatSynDetails (Located RdrName)
+             -> LPat RdrName -> HsPatSynDir RdrName -> HsBind RdrName
 mkPatSynBind name details lpat dir = PatSynBind psb
   where
     psb = PSB{ psb_id = name
