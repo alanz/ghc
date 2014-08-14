@@ -5,6 +5,7 @@ Functions over HsSyn specialised to RdrName.
 
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module RdrHsSyn (
         mkHsOpApp,
@@ -817,7 +818,8 @@ checkFunBind msg lhs_loc fun is_infix pats opt_sig (L rhs_span grhss)
         -- The span of the match covers the entire equation.
         -- That isn't quite right, but it'll do for now.
 
-makeFunBind :: Located id -> Bool -> [LMatch id (LHsExpr id)] -> HsBind id
+makeFunBind :: (PlaceHolderType (TypeAnnot id))
+            => Located id -> Bool -> [LMatch id (LHsExpr id)] -> HsBind id
 -- Like HsUtils.mkFunBind, but we need to be able to set the fixity too
 makeFunBind fn is_infix ms
   = FunBind { fun_id = fn, fun_infix = is_infix, fun_matches = mkMatchGroup FromSource ms,

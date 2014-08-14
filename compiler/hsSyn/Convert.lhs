@@ -1032,7 +1032,7 @@ overloadedLit (IntegerL  _) = True
 overloadedLit (RationalL _) = True
 overloadedLit _             = False
 
-void :: Type.Type
+void :: (PlaceHolderType a) => a
 void = placeHolderType
 
 cvtFractionalLit :: Rational -> FractionalLit

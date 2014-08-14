@@ -10,6 +10,9 @@ therefore, is almost nothing but re-exporting.
 
 \begin{code}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module HsSyn (
         module HsBinds,
@@ -75,7 +78,8 @@ data HsModule name
         -- ^ reason\/explanation for warning/deprecation of this module
       hsmodHaddockModHeader :: Maybe LHsDocString
         -- ^ Haddock module info and description, unparsed
-   } deriving (Data, Typeable)
+   } deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (HsModule name)
 \end{code}
 
 

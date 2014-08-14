@@ -519,7 +519,8 @@ data HsIPBinds id
         [LIPBind id]
         TcEvBinds       -- Only in typechecker output; binds
                         -- uses of the implicit parameters
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data id, Data (TypeAnnot id)) => Data (HsIPBinds id)
 
 isEmptyIPBinds :: HsIPBinds id -> Bool
 isEmptyIPBinds (IPBinds is ds) = null is && isEmptyTcEvBinds ds
@@ -533,7 +534,8 @@ that way until after type-checking when they are replaced with
 evidene for the implicit parameter. -}
 data IPBind id
   = IPBind (Either HsIPName id) (LHsExpr id)
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (IPBind name)
 
 instance (OutputableBndr id) => Outputable (HsIPBinds id) where
   ppr (IPBinds bs ds) = pprDeeperList vcat (map ppr bs)
@@ -562,7 +564,7 @@ serves for both.
 type LSig name = Located (Sig name)
 
 -- | Signatures and pragmas
-data Sig name   
+data Sig name
   =   -- | An ordinary type signature
       -- @f :: Num a => a -> a@
     TypeSig [Located name] (LHsType name)
@@ -624,7 +626,8 @@ data Sig name
         -- > {-# MINIMAL a | (b, c | (d | e)) #-}
   | MinimalSig (BooleanFormula (Located name))
 
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (Sig name)
 
 
 type LFixitySig name = Located (FixitySig name)
@@ -814,5 +817,6 @@ data HsPatSynDir id
   = Unidirectional
   | ImplicitBidirectional
   | ExplicitBidirectional (MatchGroup id (LHsExpr id))
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (HsPatSynDir name)
 \end{code}

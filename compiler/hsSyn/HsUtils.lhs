@@ -1,4 +1,3 @@
-> {-# LANGUAGE ScopedTypeVariables #-}
 
 %
 % (c) The University of Glasgow, 1992-2006
@@ -22,11 +21,13 @@ which deal with the instantiated versions are located elsewhere:
 -- detab the module (please do the detabbing in a separate patch). See
 --     http://ghc.haskell.org/trac/ghc/wiki/Commentary/CodingStyle#TabsvsSpaces
 -- for details
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module HsUtils(
   -- Terms
   mkHsPar, mkHsApp, mkHsConApp, mkSimpleHsAlt,
-  mkSimpleMatch, unguardedGRHSs, unguardedRHS, 
+  mkSimpleMatch, unguardedGRHSs, unguardedRHS,
   mkMatchGroup, mkMatch, mkHsLam, mkHsIf,
   mkHsWrap, mkLHsWrap, mkHsWrapCo, mkLHsWrapCo,
   coToHsWrapper, mkHsDictLet, mkHsLams,
@@ -138,8 +139,10 @@ unguardedGRHSs rhs = GRHSs (unguardedRHS rhs) emptyLocalBinds
 unguardedRHS :: Located (body id) -> [LGRHS id (Located (body id))]
 unguardedRHS rhs@(L loc _) = [L loc (GRHS [] rhs)]
 
-mkMatchGroup :: Origin -> [LMatch id (Located (body id))] -> MatchGroup id (Located (body id))
-mkMatchGroup origin matches = MG { mg_alts = matches, mg_arg_tys = [], mg_res_ty = placeHolderType, mg_origin = origin }
+mkMatchGroup :: (PlaceHolderType (TypeAnnot id)) => Origin -> [LMatch id (Located (body id))]
+             -> MatchGroup id (Located (body id))
+mkMatchGroup origin matches = MG { mg_alts = matches, mg_arg_tys = []
+                                 , mg_res_ty = placeHolderType, mg_origin = origin }
 
 mkHsAppTy :: LHsType name -> LHsType name -> LHsType name
 mkHsAppTy t1 t2 = addCLoc t1 t2 (HsAppTy t1 t2)
@@ -147,7 +150,7 @@ mkHsAppTy t1 t2 = addCLoc t1 t2 (HsAppTy t1 t2)
 mkHsApp :: LHsExpr name -> LHsExpr name -> LHsExpr name
 mkHsApp e1 e2 = addCLoc e1 e2 (HsApp e1 e2)
 
-mkHsLam :: [LPat id] -> LHsExpr id -> LHsExpr id
+mkHsLam :: (PlaceHolderType (TypeAnnot id)) => [LPat id] -> LHsExpr id -> LHsExpr id
 mkHsLam pats body = mkHsPar (L (getLoc body) (HsLam matches))
 	where
           matches = mkMatchGroup Generated [mkSimpleMatch pats body]
@@ -189,18 +192,22 @@ mkParPat lp@(L loc p) | hsPatNeedsParens p = L loc (ParPat lp)
 mkHsIntegral   :: Integer -> TypeAnnot id -> HsOverLit id
 mkHsFractional :: FractionalLit -> TypeAnnot id -> HsOverLit id
 mkHsIsString   :: FastString -> TypeAnnot id -> HsOverLit id
-mkHsDo         :: HsStmtContext Name -> [ExprLStmt id] -> HsExpr id
-mkHsComp       :: HsStmtContext Name -> [ExprLStmt id] -> LHsExpr id -> HsExpr id
+mkHsDo         :: (PlaceHolderType (TypeAnnot id)) => HsStmtContext Name -> [ExprLStmt id]
+               -> HsExpr id
+mkHsComp       :: (PlaceHolderType (TypeAnnot id))
+               => HsStmtContext Name -> [ExprLStmt id] -> LHsExpr id -> HsExpr id
 
 mkNPat      :: HsOverLit id -> Maybe (SyntaxExpr id) -> Pat id
 mkNPlusKPat :: Located id -> HsOverLit id -> Pat id
 
 mkLastStmt :: Located (bodyR idR) -> StmtLR idL idR (Located (bodyR idR))
-mkBodyStmt :: Located (bodyR idR) -> StmtLR idL idR (Located (bodyR idR))
+mkBodyStmt :: (PlaceHolderType (TypeAnnot idR)) => Located (bodyR idR)
+           -> StmtLR idL idR (Located (bodyR idR))
 mkBindStmt :: LPat idL -> Located (bodyR idR) -> StmtLR idL idR (Located (bodyR idR))
 
-emptyRecStmt :: StmtLR idL idR bodyR
-mkRecStmt    :: [LStmtLR idL idR bodyR] -> StmtLR idL idR bodyR
+emptyRecStmt :: (PlaceHolderType (TypeAnnot idR)) => StmtLR idL idR bodyR
+mkRecStmt    :: (PlaceHolderType (TypeAnnot idR))
+             => [LStmtLR idL idR bodyR] -> StmtLR idL idR bodyR
 
 
 mkHsIntegral   i       = OverLit (HsIntegral   i)  noRebindableInfo noSyntaxExpr
@@ -208,7 +215,7 @@ mkHsFractional f       = OverLit (HsFractional f)  noRebindableInfo noSyntaxExpr
 mkHsIsString   s       = OverLit (HsIsString   s)  noRebindableInfo noSyntaxExpr
 
 noRebindableInfo :: Bool
-noRebindableInfo = error "noRebindableInfo" 	-- Just another placeholder; 
+noRebindableInfo = error "noRebindableInfo"   -- Just another placeholder;
 
 mkHsDo ctxt stmts = HsDo ctxt stmts placeHolderType
 mkHsComp ctxt stmts expr = mkHsDo ctxt (stmts ++ [last_stmt])
@@ -338,24 +345,27 @@ nlConPat con pats = noLoc (ConPatIn (noLoc con) (PrefixCon pats))
 nlNullaryConPat :: id -> LPat id
 nlNullaryConPat con = noLoc (ConPatIn (noLoc con) (PrefixCon []))
 
-nlWildConPat :: DataCon -> LPat RdrName
+nlWildConPat :: (PlaceHolderType (TypeAnnot RdrName)) => DataCon -> LPat RdrName
 nlWildConPat con = noLoc (ConPatIn (noLoc (getRdrName con))
-				   (PrefixCon (nOfThem (dataConSourceArity con) nlWildPat)))
+                         (PrefixCon (nOfThem (dataConSourceArity con) nlWildPat)))
 
-nlWildPat :: LPat id
-nlWildPat  = noLoc (WildPat placeHolderType)	-- Pre-typechecking
+nlWildPat :: (PlaceHolderType (TypeAnnot id)) => LPat id
+nlWildPat  = noLoc (WildPat placeHolderType)  -- Pre-typechecking
 
-nlHsDo :: HsStmtContext Name -> [LStmt id (LHsExpr id)] -> LHsExpr id
+nlHsDo :: (PlaceHolderType (TypeAnnot id))
+       => HsStmtContext Name -> [LStmt id (LHsExpr id)] -> LHsExpr id
 nlHsDo ctxt stmts = noLoc (mkHsDo ctxt stmts)
 
 nlHsOpApp :: LHsExpr id -> id -> LHsExpr id -> LHsExpr id
 nlHsOpApp e1 op e2 = noLoc (mkHsOpApp e1 op e2)
 
-nlHsLam  :: LMatch id (LHsExpr id) -> LHsExpr id
+nlHsLam  :: (PlaceHolderType (TypeAnnot id))
+         => LMatch id (LHsExpr id) -> LHsExpr id
 nlHsPar  :: LHsExpr id -> LHsExpr id
 nlHsIf   :: LHsExpr id -> LHsExpr id -> LHsExpr id -> LHsExpr id
-nlHsCase :: LHsExpr id -> [LMatch id (LHsExpr id)] -> LHsExpr id
-nlList   :: [LHsExpr id] -> LHsExpr id
+nlHsCase :: (PlaceHolderType (TypeAnnot id))
+         => LHsExpr id -> [LMatch id (LHsExpr id)] -> LHsExpr id
+nlList   :: (PlaceHolderType (TypeAnnot id)) => [LHsExpr id] -> LHsExpr id
 
 nlHsLam	match          = noLoc (HsLam (mkMatchGroup Generated [match]))
 nlHsPar e              = noLoc (HsPar e)
@@ -390,7 +400,7 @@ mkLHsVarTuple ids  = mkLHsTupleExpr (map nlHsVar ids)
 nlTuplePat :: [LPat id] -> Boxity -> LPat id
 nlTuplePat pats box = noLoc (TuplePat pats box [])
 
-missingTupArg :: HsTupArg a
+missingTupArg :: (PlaceHolderType (TypeAnnot a)) => HsTupArg a
 missingTupArg = Missing placeHolderType
 \end{code}
 

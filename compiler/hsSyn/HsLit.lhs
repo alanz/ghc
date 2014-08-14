@@ -59,11 +59,10 @@ instance PlaceHolderType Type where
 instance PlaceHolderType PreTcType where
   placeHolderType = PTT
 
-
-
 type family TypeAnnot name
 type instance TypeAnnot RdrName = PreTcType   -- ParsedSource
-type instance TypeAnnot Name    = PreTcType   -- RenamedSurce
+-- type instance TypeAnnot Name    = PreTcType   -- RenamedSurce
+type instance TypeAnnot Name    = Type        -- RenamedSurce
 type instance TypeAnnot Var     = Type        -- used during type checking
 type instance TypeAnnot Id      = Type        -- TypecheckedSource
 

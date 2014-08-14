@@ -7,6 +7,11 @@ HsTypes: Abstract syntax: user-defined types
 
 \begin{code}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module HsTypes (
         HsType(..), LHsType, HsKind, LHsKind,
@@ -131,17 +136,18 @@ type LHsKind name = Located (HsKind name)
 
 type LHsTyVarBndr name = Located (HsTyVarBndr name)
 
-data LHsTyVarBndrs name 
+data LHsTyVarBndrs name
   = HsQTvs { hsq_kvs :: [Name]                  -- Kind variables
            , hsq_tvs :: [LHsTyVarBndr name]     -- Type variables
              -- See Note [HsForAllTy tyvar binders]
     }
-  deriving( Data, Typeable )
+  deriving( Typeable )
+deriving instance (Data name, Data (TypeAnnot name)) => Data (LHsTyVarBndrs name)
 
 mkHsQTvs :: [LHsTyVarBndr RdrName] -> LHsTyVarBndrs RdrName
 -- Just at RdrName because in the Name variant we should know just
 -- what the kind-variable binders are; and we don't
--- We put an empty list (rather than a panic) for the kind vars so 
+-- We put an empty list (rather than a panic) for the kind vars so
 -- that the pretty printer works ok on them.
 mkHsQTvs tvs = HsQTvs { hsq_kvs = [], hsq_tvs = tvs }
 
@@ -186,7 +192,8 @@ data HsTyVarBndr name
   | KindedTyVar
          name
          (LHsKind name)  -- The user-supplied kind signature
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (HsTyVarBndr name)
 
 -- | Does this 'HsTyVarBndr' come with an explicit kind annotation?
 isHsKindedTyVar :: HsTyVarBndr name -> Bool
@@ -260,7 +267,8 @@ data HsType name
   | HsTyLit HsTyLit      -- A promoted numeric literal.
 
   | HsWrapTy HsTyWrapper (HsType name)  -- only in typechecker output
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (HsType name)
 
 
 data HsTyLit
@@ -380,7 +388,8 @@ data ConDeclField name  -- Record fields have Haddoc docs on them
   = ConDeclField { cd_fld_name :: Located name,
                    cd_fld_type :: LBangType name, 
                    cd_fld_doc  :: Maybe LHsDocString }
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (ConDeclField name)
 
 -----------------------
 -- Combine adjacent for-alls. 

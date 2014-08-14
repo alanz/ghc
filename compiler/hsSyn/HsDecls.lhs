@@ -290,12 +290,13 @@ instance OutputableBndr name => Outputable (HsGroup name) where
           vcat_mb gap (Just d  : ds) = gap $$ d $$ vcat_mb blankLine ds
 
 type LSpliceDecl name = Located (SpliceDecl name)
-data SpliceDecl id 
+data SpliceDecl id
   = SpliceDecl                  -- Top level splice
         (Located (HsSplice id))
         HsExplicitFlag          -- Explicit <=> $(f x y)
                                 -- Implicit <=> f x y,  i.e. a naked top level expression
-    deriving (Data, Typeable)
+    deriving (Typeable)
+deriving instance (Data id, Data (TypeAnnot id)) => Data (SpliceDecl id)
 
 instance OutputableBndr name => Outputable (SpliceDecl name) where
    ppr (SpliceDecl (L _ e) _) = pprUntypedSplice e
@@ -511,7 +512,8 @@ data FamilyDecl name = FamilyDecl
   , fdLName   :: Located name               -- type constructor
   , fdTyVars  :: LHsTyVarBndrs name         -- type variables
   , fdKindSig :: Maybe (LHsKind name) }     -- result kind
-  deriving( Data, Typeable )
+  deriving( Typeable )
+deriving instance (Data id, Data (TypeAnnot id)) => Data (FamilyDecl id)
 
 data FamilyInfo name
   = DataFamily
@@ -519,7 +521,8 @@ data FamilyInfo name
      -- this list might be empty, if we're in an hs-boot file and the user
      -- said "type family Foo x where .."
   | ClosedTypeFamily [LTyFamInstEqn name]
-  deriving( Data, Typeable )
+  deriving( Typeable )
+deriving instance (Data name, Data (TypeAnnot name)) => Data (FamilyInfo name)
 
 \end{code}
 
@@ -797,7 +800,8 @@ data HsDataDefn name   -- The payload of a data type defn
                      -- Typically the foralls and ty args are empty, but they
                      -- are non-empty for the newtype-deriving case
     }
-    deriving( Data, Typeable )
+    deriving( Typeable )
+deriving instance (Data id, Data (TypeAnnot id)) => Data (HsDataDefn id)
 
 data NewOrData
   = NewType                     -- ^ @newtype Blah ...@
@@ -850,12 +854,13 @@ data ConDecl name
     , con_doc       :: Maybe LHsDocString
         -- ^ A possible Haddock comment.
 
-    , con_old_rec :: Bool   
+    , con_old_rec :: Bool
         -- ^ TEMPORARY field; True <=> user has employed now-deprecated syntax for
         --                             GADT-style record decl   C { blah } :: T a b
         -- Remove this when we no longer parse this stuff, and hence do not
         -- need to report decprecated use
-    } deriving (Data, Typeable)
+    } deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (ConDecl name)
 
 type HsConDeclDetails name = HsConDetails (LBangType name) [ConDeclField name]
 
@@ -987,14 +992,17 @@ data TyFamEqn name pats
        { tfe_tycon :: Located name
        , tfe_pats  :: pats
        , tfe_rhs   :: LHsType name }
-  deriving( Typeable, Data )
+  deriving( Typeable )
+deriving instance (Data name, Data pats, Data (TypeAnnot name))
+  => Data (TyFamEqn name pats)
 
 type LTyFamInstDecl name = Located (TyFamInstDecl name)
 data TyFamInstDecl name
   = TyFamInstDecl
        { tfid_eqn  :: LTyFamInstEqn name
        , tfid_fvs  :: NameSet }
-  deriving( Typeable, Data )
+  deriving( Typeable )
+deriving instance (Data name, Data (TypeAnnot name)) => Data (TyFamInstDecl name)
 
 ----------------- Data family instances -------------
 
@@ -1005,7 +1013,8 @@ data DataFamInstDecl name
        , dfid_pats  :: HsTyPats name      -- LHS
        , dfid_defn  :: HsDataDefn  name   -- RHS
        , dfid_fvs   :: NameSet }          -- Rree vars for dependency analysis
-  deriving( Typeable, Data )
+  deriving( Typeable )
+deriving instance (Data name, Data (TypeAnnot name)) => Data (DataFamInstDecl name)
 
 
 ----------------- Class instances -------------
@@ -1158,7 +1167,8 @@ type LDerivDecl name = Located (DerivDecl name)
 data DerivDecl name = DerivDecl { deriv_type :: LHsType name
                                 , deriv_overlap_mode :: Maybe OverlapMode
                                 }
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (DerivDecl name)
 
 instance (OutputableBndr name) => Outputable (DerivDecl name) where
     ppr (DerivDecl ty o)
@@ -1180,7 +1190,8 @@ type LDefaultDecl name = Located (DefaultDecl name)
 
 data DefaultDecl name
   = DefaultDecl [LHsType name]
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (DefaultDecl name)
 
 instance (OutputableBndr name)
               => Outputable (DefaultDecl name) where
@@ -1214,7 +1225,8 @@ data ForeignDecl name
                   (LHsType name) -- sig_ty
                   Coercion       -- sig_ty ~ rep_ty
                   ForeignExport
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (ForeignDecl name)
 {-
     In both ForeignImport and ForeignExport:
         sig_ty is the type given in the Haskell code
@@ -1324,12 +1336,14 @@ data RuleDecl name
         NameSet                 -- Free-vars from the LHS
         (Located (HsExpr name)) -- RHS
         NameSet                 -- Free-vars from the RHS
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (RuleDecl name)
 
 data RuleBndr name
   = RuleBndr (Located name)
   | RuleBndrSig (Located name) (HsWithBndrs (LHsType name))
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (RuleBndr name)
 
 collectRuleBndrSigTys :: [RuleBndr name] -> [HsWithBndrs (LHsType name)]
 collectRuleBndrSigTys bndrs = [ty | RuleBndrSig _ ty <- bndrs]
@@ -1389,7 +1403,8 @@ data VectDecl name
       (LHsType name)
   | HsVectInstOut               -- post type-checking (always SCALAR) !!!FIXME: should be superfluous now
       ClsInst
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (VectDecl name)
 
 lvectDeclName :: NamedThing name => LVectDecl name -> Name
 lvectDeclName (L _ (HsVect         (L _ name) _))   = getName name
@@ -1497,10 +1512,11 @@ instance OutputableBndr name => Outputable (WarnDecl name) where
 type LAnnDecl name = Located (AnnDecl name)
 
 data AnnDecl name = HsAnnotation (AnnProvenance name) (Located (HsExpr name))
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data (TypeAnnot name)) => Data (AnnDecl name)
 
 instance (OutputableBndr name) => Outputable (AnnDecl name) where
-    ppr (HsAnnotation provenance expr) 
+    ppr (HsAnnotation provenance expr)
       = hsep [text "{-#", pprAnnProvenance provenance, pprExpr (unLoc expr), text "#-}"]
 
 
