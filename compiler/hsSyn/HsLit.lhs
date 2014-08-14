@@ -211,11 +211,11 @@ instance Outputable HsLit where
 
 -- in debug mode, print the expression that it's resolved to, too
 instance OutputableBndr id => Outputable (HsOverLit id) where
-  ppr (OverLit {ol_val=val, ol_witness=witness}) 
+  ppr (OverLit {ol_val=val, ol_witness=witness})
 	= ppr val <+> (ifPprDebug (parens (pprExpr witness)))
 
 instance Outputable OverLitVal where
-  ppr (HsIntegral i)   = integer i 
+  ppr (HsIntegral i)   = integer i
   ppr (HsFractional f) = ppr f
   ppr (HsIsString s)   = pprHsString s
 \end{code}
