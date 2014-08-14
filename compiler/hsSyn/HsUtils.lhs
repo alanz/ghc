@@ -412,9 +412,9 @@ missingTupArg = Missing placeHolderType
 
 
 %************************************************************************
-%*									*
+%*                                                                      *
         Converting a Type to an HsType RdrName
-%*									*
+%*                                                                      *
 %************************************************************************
 
 This is needed to implement GeneralizedNewtypeDeriving.
@@ -462,7 +462,7 @@ mkLHsWrap co_fn (L loc e) = L loc (mkHsWrap co_fn e)
 
 mkHsWrap :: HsWrapper -> HsExpr id -> HsExpr id
 mkHsWrap co_fn e | isIdHsWrapper co_fn = e
-		 | otherwise	       = HsWrap co_fn e
+                 | otherwise           = HsWrap co_fn e
 
 mkHsWrapCo :: TcCoercion -> HsExpr id -> HsExpr id
 mkHsWrapCo co e = mkHsWrap (coToHsWrapper co) e
@@ -480,7 +480,7 @@ coToHsWrapper co | isTcReflCo co = idHsWrapper
 
 mkHsWrapPat :: HsWrapper -> Pat id -> Type -> Pat id
 mkHsWrapPat co_fn p ty | isIdHsWrapper co_fn = p
-		       | otherwise	     = CoPat co_fn p ty
+                       | otherwise           = CoPat co_fn p ty
 
 mkHsWrapPatCo :: TcCoercion -> Pat id -> Type -> Pat id
 mkHsWrapPatCo co pat ty | isTcReflCo co = pat
@@ -491,9 +491,9 @@ mkHsDictLet ev_binds expr = mkLHsWrap (mkWpLet ev_binds) expr
 \end{code}
 l
 %************************************************************************
-%*									*
-		Bindings; with a location at the top
-%*									*
+%*                                                                      *
+                Bindings; with a location at the top
+%*                                                                      *
 %************************************************************************
 
 \begin{code}
@@ -510,7 +510,7 @@ mkTopFunBind :: Origin -> Located Name -> [LMatch Name (LHsExpr Name)] -> HsBind
 mkTopFunBind origin fn ms = FunBind { fun_id = fn, fun_infix = False
                                     , fun_matches = mkMatchGroup origin ms
                                     , fun_co_fn = idHsWrapper
-                                    , bind_fvs = emptyNameSet	-- NB: closed binding
+                                    , bind_fvs = emptyNameSet   -- NB: closed binding
                                     , fun_tick = Nothing }
 
 mkHsVarBind :: SrcSpan -> RdrName -> LHsExpr RdrName -> LHsBind RdrName
@@ -518,7 +518,7 @@ mkHsVarBind loc var rhs = mk_easy_FunBind loc var [] rhs
 
 mkVarBind :: id -> LHsExpr id -> LHsBind id
 mkVarBind var rhs = L (getLoc rhs) $
-		    VarBind { var_id = var, var_rhs = rhs, var_inline = False }
+                    VarBind { var_id = var, var_rhs = rhs, var_inline = False }
 
 mkPatSynBind :: Located RdrName -> HsPatSynDetails (Located RdrName) -> LPat RdrName -> HsPatSynDir RdrName -> HsBind RdrName
 mkPatSynBind name details lpat dir = PatSynBind psb
@@ -531,7 +531,7 @@ mkPatSynBind name details lpat dir = PatSynBind psb
 
 ------------
 mk_easy_FunBind :: SrcSpan -> RdrName -> [LPat RdrName]
-		-> LHsExpr RdrName -> LHsBind RdrName
+                -> LHsExpr RdrName -> LHsBind RdrName
 mk_easy_FunBind loc fun pats expr
   = L loc $ mkFunBind (L loc fun) [mkMatch pats expr emptyLocalBinds]
 
@@ -539,17 +539,17 @@ mk_easy_FunBind loc fun pats expr
 mkMatch :: [LPat id] -> LHsExpr id -> HsLocalBinds id -> LMatch id (LHsExpr id)
 mkMatch pats expr binds
   = noLoc (Match (map paren pats) Nothing 
-		 (GRHSs (unguardedRHS expr) binds))
+                 (GRHSs (unguardedRHS expr) binds))
   where
     paren lp@(L l p) | hsPatNeedsParens p = L l (ParPat lp) 
-		     | otherwise          = lp
+                     | otherwise          = lp
 \end{code}
 
 
 %************************************************************************
-%*									*
-	Collecting binders
-%*									*
+%*                                                                      *
+        Collecting binders
+%*                                                                      *
 %************************************************************************
 
 Get all the binders in some HsBindGroups, IN THE ORDER OF APPEARANCE. eg.
@@ -591,10 +591,10 @@ collect_bind (FunBind { fun_id = L _ f }) acc = f : acc
 collect_bind (VarBind { var_id = f })     acc = f : acc
 collect_bind (AbsBinds { abs_exports = dbinds, abs_binds = _binds }) acc
   = map abe_poly dbinds ++ acc 
-	-- ++ foldr collect_bind acc binds
-	-- I don't think we want the binders from the nested binds
-	-- The only time we collect binders from a typechecked 
-	-- binding (hence see AbsBinds) is in zonking in TcHsSyn
+        -- ++ foldr collect_bind acc binds
+        -- I don't think we want the binders from the nested binds
+        -- The only time we collect binders from a typechecked 
+        -- binding (hence see AbsBinds) is in zonking in TcHsSyn
 collect_bind (PatSynBind (PSB { psb_id = L _ ps })) acc = ps : acc
 
 collectHsBindsBinders :: LHsBindsLR idL idR -> [idL]
@@ -611,7 +611,7 @@ collectMethodBinders :: LHsBindsLR RdrName idR -> [Located RdrName]
 collectMethodBinders binds = foldrBag (get . unLoc) [] binds
   where
     get (FunBind { fun_id = f }) fs = f : fs
-    get _                        fs = fs	
+    get _                        fs = fs        
        -- Someone else complains about non-FunBinds
 
 ----------------- Statements --------------------------
@@ -648,27 +648,27 @@ collect_lpat :: LPat name -> [name] -> [name]
 collect_lpat (L _ pat) bndrs
   = go pat
   where
-    go (VarPat var) 	   	  = var : bndrs
-    go (WildPat _)	      	  = bndrs
-    go (LazyPat pat)     	  = collect_lpat pat bndrs
-    go (BangPat pat)     	  = collect_lpat pat bndrs
-    go (AsPat (L _ a) pat)     	  = a : collect_lpat pat bndrs
+    go (VarPat var)               = var : bndrs
+    go (WildPat _)                = bndrs
+    go (LazyPat pat)              = collect_lpat pat bndrs
+    go (BangPat pat)              = collect_lpat pat bndrs
+    go (AsPat (L _ a) pat)        = a : collect_lpat pat bndrs
     go (ViewPat _ pat _)          = collect_lpat pat bndrs
-    go (ParPat  pat)     	  = collect_lpat pat bndrs
-				  
+    go (ParPat  pat)              = collect_lpat pat bndrs
+                                  
     go (ListPat pats _ _)         = foldr collect_lpat bndrs pats
-    go (PArrPat pats _)    	  = foldr collect_lpat bndrs pats
-    go (TuplePat pats _ _)  	  = foldr collect_lpat bndrs pats
-				  
+    go (PArrPat pats _)           = foldr collect_lpat bndrs pats
+    go (TuplePat pats _ _)        = foldr collect_lpat bndrs pats
+                                  
     go (ConPatIn _ ps)            = foldr collect_lpat bndrs (hsConPatArgs ps)
     go (ConPatOut {pat_args=ps})  = foldr collect_lpat bndrs (hsConPatArgs ps)
-	-- See Note [Dictionary binders in ConPatOut]
-    go (LitPat _)	      	  = bndrs
-    go (NPat _ _ _)		  = bndrs
+        -- See Note [Dictionary binders in ConPatOut]
+    go (LitPat _)                 = bndrs
+    go (NPat _ _ _)               = bndrs
     go (NPlusKPat (L _ n) _ _ _)  = n : bndrs
- 				  
-    go (SigPatIn pat _)	 	  = collect_lpat pat bndrs
-    go (SigPatOut pat _)	  = collect_lpat pat bndrs
+                                  
+    go (SigPatIn pat _)           = collect_lpat pat bndrs
+    go (SigPatOut pat _)          = collect_lpat pat bndrs
     go (SplicePat _)              = bndrs
     go (QuasiQuotePat _)          = bndrs
     go (CoPat _ pat _)            = go pat
@@ -797,9 +797,9 @@ constructor is an *occurrence* not a binding site
 
 
 %************************************************************************
-%*									*
-	Collecting binders the user did not write
-%*									*
+%*                                                                      *
+        Collecting binders the user did not write
+%*                                                                      *
 %************************************************************************
 
 The job of this family of functions is to run through binding sites and find the set of all Names

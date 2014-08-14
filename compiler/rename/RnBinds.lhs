@@ -723,14 +723,16 @@ rnMethodBind :: Name
               -> RnM (Bag (LHsBindLR Name Name), FreeVars)
 rnMethodBind cls sig_fn
              (L loc bind@(FunBind { fun_id = name, fun_infix = is_infix
-                                  , fun_matches = MG { mg_alts = matches, mg_origin = origin } }))
+                                  , fun_matches = MG { mg_alts = matches
+                                                     , mg_origin = origin } }))
   = setSrcSpan loc $ do
     sel_name <- wrapLocM (lookupInstDeclBndr cls (ptext (sLit "method"))) name
     let plain_name = unLoc sel_name
         -- We use the selector name as the binder
 
     (new_matches, fvs) <- bindSigTyVarsFV (sig_fn plain_name) $
-                          mapFvRn (rnMatch (FunRhs plain_name is_infix) rnLExpr) matches
+                          mapFvRn (rnMatch (FunRhs plain_name is_infix) rnLExpr)
+                                           matches
     let new_group = mkMatchGroup origin new_matches
 
     when is_infix $ checkPrecMatch plain_name new_group
