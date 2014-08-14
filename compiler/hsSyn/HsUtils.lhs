@@ -111,9 +111,9 @@ import Data.List
 
 
 %************************************************************************
-%*									*
-	Some useful helpers for constructing syntax
-%*									*
+%*                                                                      *
+        Some useful helpers for constructing syntax
+%*                                                                      *
 %************************************************************************
 
 These functions attempt to construct a not-completely-useless SrcSpan
@@ -125,13 +125,13 @@ mkHsPar :: LHsExpr id -> LHsExpr id
 mkHsPar e = L (getLoc e) (HsPar e)
 
 mkSimpleMatch :: [LPat id] -> Located (body id) -> LMatch id (Located (body id))
-mkSimpleMatch pats rhs 
+mkSimpleMatch pats rhs
   = L loc $
     Match pats Nothing (unguardedGRHSs rhs)
   where
     loc = case pats of
-		[]      -> getLoc rhs
-		(pat:_) -> combineSrcSpans (getLoc pat) (getLoc rhs)
+                []      -> getLoc rhs
+                (pat:_) -> combineSrcSpans (getLoc pat) (getLoc rhs)
 
 unguardedGRHSs :: Located (body id) -> GRHSs id (Located (body id))
 unguardedGRHSs rhs = GRHSs (unguardedRHS rhs) emptyLocalBinds

@@ -82,22 +82,24 @@ placeHolderKind  = panic "Evaluated the place holder for a PostTcKind"
 
 \begin{code}
 data HsLit
-  = HsChar          Char                -- Character
-  | HsCharPrim      Char                -- Unboxed character
-  | HsString        FastString          -- String
-  | HsStringPrim    ByteString          -- Packed bytes
-  | HsInt           Integer             -- Genuinely an Int; arises from TcGenDeriv,
-                                        --      and from TRANSLATION
-  | HsIntPrim       Integer             -- literal Int#
-  | HsWordPrim      Integer             -- literal Word#
-  | HsInt64Prim     Integer             -- literal Int64#
-  | HsWord64Prim    Integer             -- literal Word64#
-  | HsInteger       Integer  Type       -- Genuinely an integer; arises only from TRANSLATION
-                                        --      (overloaded literals are done with HsOverLit)
-  | HsRat           FractionalLit Type  -- Genuinely a rational; arises only from TRANSLATION
-                                        --      (overloaded literals are done with HsOverLit)
-  | HsFloatPrim     FractionalLit       -- Unboxed Float
-  | HsDoublePrim    FractionalLit       -- Unboxed Double
+  = HsChar          Char               -- Character
+  | HsCharPrim      Char               -- Unboxed character
+  | HsString        FastString         -- String
+  | HsStringPrim    ByteString         -- Packed bytes
+  | HsInt           Integer            -- Genuinely an Int; arises from
+                                       --     TcGenDeriv, and from TRANSLATION
+  | HsIntPrim       Integer            -- literal Int#
+  | HsWordPrim      Integer            -- literal Word#
+  | HsInt64Prim     Integer            -- literal Int64#
+  | HsWord64Prim    Integer            -- literal Word64#
+  | HsInteger       Integer  Type      -- Genuinely an integer; arises only from
+                                       --   TRANSLATION (overloaded literals are
+                                       --   done with HsOverLit)
+  | HsRat           FractionalLit Type -- Genuinely a rational; arises only from
+                                       --   TRANSLATION (overloaded literals are
+                                       --   done with HsOverLit)
+  | HsFloatPrim     FractionalLit      -- Unboxed Float
+  | HsDoublePrim    FractionalLit      -- Unboxed Double
   deriving (Data, Typeable)
 
 instance Eq HsLit where
@@ -137,7 +139,7 @@ overLitType = ol_type
 
 Note [ol_rebindable]
 ~~~~~~~~~~~~~~~~~~~~
-The ol_rebindable field is True if this literal is actually 
+The ol_rebindable field is True if this literal is actually
 using rebindable syntax.  Specifically:
 
   False iff ol_witness is the standard one
@@ -153,10 +155,10 @@ Note [Overloaded literal witnesses]
 *Before* type checking, the SyntaxExpr in an HsOverLit is the
 name of the coercion function, 'fromInteger' or 'fromRational'.
 *After* type checking, it is a witness for the literal, such as
-	(fromInteger 3) or lit_78
+        (fromInteger 3) or lit_78
 This witness should replace the literal.
 
-This dual role is unusual, because we're replacing 'fromInteger' with 
+This dual role is unusual, because we're replacing 'fromInteger' with
 a call to fromInteger.  Reason: it allows commoning up of the fromInteger
 calls, which wouldn't be possible if the desguarar made the application.
 

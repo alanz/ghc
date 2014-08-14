@@ -86,9 +86,9 @@ within one @MonoBinds@, so that unique-Int plumbing is done explicitly
 
 
 %************************************************************************
-%*									*
-%* naming conventions							*
-%*									*
+%*                                                                      *
+%* naming conventions                                                   *
+%*                                                                      *
 %************************************************************************
 
 \subsection[name-conventions]{Name conventions}
