@@ -142,7 +142,8 @@ data LHsTyVarBndrs name
              -- See Note [HsForAllTy tyvar binders]
     }
   deriving( Typeable )
-deriving instance (Data name, Data (TypeAnnot name)) => Data (LHsTyVarBndrs name)
+deriving instance (Data name, Data (TypeAnnot name))
+   => Data (LHsTyVarBndrs name)
 
 mkHsQTvs :: [LHsTyVarBndr RdrName] -> LHsTyVarBndrs RdrName
 -- Just at RdrName because in the Name variant we should know just
@@ -161,7 +162,7 @@ data HsWithBndrs thing
   = HsWB { hswb_cts :: thing         -- Main payload (type or list of types)
          , hswb_kvs :: [Name]        -- Kind vars
          , hswb_tvs :: [Name]        -- Type vars
-    }                  
+    }
   deriving (Data, Typeable)
 
 mkHsWithBndrs :: thing -> HsWithBndrs thing

@@ -46,14 +46,14 @@ import NameEnv
 import NameSet
 import RdrName          ( RdrName, rdrNameOcc )
 import SrcLoc
-import ListSetOps	( findDupsEq )
-import BasicTypes	( RecFlag(..) )
-import Digraph		( SCC(..) )
+import ListSetOps       ( findDupsEq )
+import BasicTypes       ( RecFlag(..) )
+import Digraph          ( SCC(..) )
 import Bag
 import Outputable
 import FastString
-import Data.List	( partition, sort )
-import Maybes		( orElse )
+import Data.List        ( partition, sort )
+import Maybes           ( orElse )
 import Control.Monad
 import Data.Traversable ( traverse )
 \end{code}

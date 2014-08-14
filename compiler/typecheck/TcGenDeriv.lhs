@@ -1749,7 +1749,8 @@ foldDataConArgs ft con
 
 -- Make a HsLam using a fresh variable from a State monad
 mkSimpleLam :: (PlaceHolderType (TypeAnnot id))
-            =>  (LHsExpr id -> State [id] (LHsExpr id)) -> State [id] (LHsExpr id)
+            => (LHsExpr id -> State [id] (LHsExpr id))
+            -> State [id] (LHsExpr id)
 -- (mkSimpleLam fn) returns (\x. fn(x))
 mkSimpleLam lam = do
     (n:names) <- get
@@ -1758,7 +1759,8 @@ mkSimpleLam lam = do
     return (mkHsLam [nlVarPat n] body)
 
 mkSimpleLam2 :: (PlaceHolderType (TypeAnnot id))
-             => (LHsExpr id -> LHsExpr id -> State [id] (LHsExpr id)) -> State [id] (LHsExpr id)
+             => (LHsExpr id -> LHsExpr id -> State [id] (LHsExpr id))
+             -> State [id] (LHsExpr id)
 mkSimpleLam2 lam = do
     (n1:n2:names) <- get
     put names

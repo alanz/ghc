@@ -72,8 +72,8 @@ data Pat id
   | BangPat     (LPat id)               -- Bang pattern
 
         ------------ Lists, tuples, arrays ---------------
-  | ListPat     [LPat id]                             -- Syntactic list
-                (TypeAnnot id)                        -- The type of the elements
+  | ListPat     [LPat id]                            -- Syntactic list
+                (TypeAnnot id)                       -- The type of the elements
                 (Maybe (TypeAnnot id, SyntaxExpr id)) -- For rebindable syntax
                    -- For OverloadedLists a Just (ty,fn) gives
                    -- overall type of the pattern, and the toList
@@ -81,8 +81,8 @@ data Pat id
 
   | TuplePat    [LPat id]      -- Tuple sub-patterns
                 Boxity         -- UnitPat is TuplePat []
-                [TypeAnnot id] -- [] before typechecker, filled in afterwards with
-                               -- the types of the tuple components
+                [TypeAnnot id] -- [] before typechecker, filled in afterwards
+                               -- with the types of the tuple components
         -- You might think that the TypeAnnot id was redundant, because we can
         -- get the pattern type by getting the types of the sub-patterns.
         -- But it's essential

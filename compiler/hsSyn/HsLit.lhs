@@ -39,9 +39,9 @@ import Data.Data
 
 
 %************************************************************************
-%*									*
+%*                                                                      *
 \subsection{Annotating the syntax}
-%*									*
+%*                                                                      *
 %************************************************************************
 
 \begin{code}
@@ -54,7 +54,8 @@ class PlaceHolderType a where
 
 instance PlaceHolderType Type where
   -- This function should never be called, exists to make the type checker happy
-  placeHolderType = panic "Evaluated the place holder for a Type before type checking"
+  placeHolderType
+            = panic "Evaluated the place holder for a Type before type checking"
 
 instance PlaceHolderType PreTcType where
   placeHolderType = PTT
@@ -66,33 +67,16 @@ type instance TypeAnnot Name    = Type        -- RenamedSurce
 type instance TypeAnnot Var     = Type        -- used during type checking
 type instance TypeAnnot Id      = Type        -- TypecheckedSource
 
--- deriving instance (Typeable id) => (Typeable (TypeAnnot id))
-
--- instance Data (TypeAnnot RdrName) where
--- deriving instance (Data a) => Data (TypeAnnot a)
-
-{-
-data family TypeAnnot name
-data instance TypeAnnot RdrName = TR PreTcType -- deriving (Data,Typeable)  -- ParsedSource
--- data instance TypeAnnot Name    = TB PreTcType deriving (Data,Typeable)  -- RenamedSurce
--- data instance TypeAnnot Var     = TV Type deriving (Data)       -- used during type checking
--- data instance TypeAnnot Id      = TI Type deriving (Data,Typeable)       -- TypecheckedSource
-
--- instance Data (TypeAnnot RdrName) where
-deriving instance (Data a) => Data (TypeAnnot a)
--- deriving instance Data (TypeAnnot RdrName)
--}
-
 type PostTcKind = Kind
 
-placeHolderKind :: PostTcKind	-- Used before typechecking
+placeHolderKind :: PostTcKind   -- Used before typechecking
 placeHolderKind  = panic "Evaluated the place holder for a PostTcKind"
 \end{code}
 
 %************************************************************************
-%*									*
+%*                                                                      *
 \subsection[HsLit]{Literals}
-%*									*
+%*                                                                      *
 %************************************************************************
 
 

@@ -339,8 +339,8 @@ deriving instance (Data id, Data (TypeAnnot id)) => Data (HsExpr id)
 --  (,a,) is represented by  ExplicitTuple [Mising ty1, Present a, Missing ty3]
 --  Which in turn stands for (\x:ty1 \y:ty2. (x,a,y))
 data HsTupArg id
-  = Present (LHsExpr id)        -- ^ The argument
-  | Missing (TypeAnnot id)      -- ^ The argument is missing, but this is its type
+  = Present (LHsExpr id)   -- ^ The argument
+  | Missing (TypeAnnot id) -- ^ The argument is missing, but this is its type
   deriving (Typeable)
 deriving instance (Data id, Data (TypeAnnot id)) => Data (HsTupArg id)
 
@@ -780,8 +780,8 @@ type LHsCmdTop id = Located (HsCmdTop id)
 
 data HsCmdTop id
   = HsCmdTop (LHsCmd id)
-             (TypeAnnot id)      -- Nested tuple of inputs on the command's stack
-             (TypeAnnot id)      -- return type of the command
+             (TypeAnnot id)     -- Nested tuple of inputs on the command's stack
+             (TypeAnnot id)     -- return type of the command
              (CmdSyntaxTable id) -- See Note [CmdSyntaxTable]
   deriving (Typeable)
 deriving instance (Data id, Data (TypeAnnot id)) => Data (HsCmdTop id)
@@ -1145,9 +1145,10 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
                                      -- the returned thing has to be *monomorphic*,
                                      -- so they may be type applications
 
-      , recS_ret_ty :: (TypeAnnot idR) -- The type of of do { stmts; return (a,b,c) }
-                                     -- With rebindable syntax the type might not
-                                     -- be quite as simple as (m (tya, tyb, tyc)).
+      , recS_ret_ty :: (TypeAnnot idR) -- The type of
+                                       -- do { stmts; return (a,b,c) }
+                                   -- With rebindable syntax the type might not
+                                   -- be quite as simple as (m (tya, tyb, tyc)).
       }
   deriving (Typeable)
 deriving instance (Data idL, Data (TypeAnnot idL),

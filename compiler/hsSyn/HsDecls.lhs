@@ -1002,7 +1002,8 @@ data TyFamInstDecl name
        { tfid_eqn  :: LTyFamInstEqn name
        , tfid_fvs  :: NameSet }
   deriving( Typeable )
-deriving instance (Data name, Data (TypeAnnot name)) => Data (TyFamInstDecl name)
+deriving instance (Data name, Data (TypeAnnot name))
+  => Data (TyFamInstDecl name)
 
 ----------------- Data family instances -------------
 
@@ -1014,7 +1015,8 @@ data DataFamInstDecl name
        , dfid_defn  :: HsDataDefn  name   -- RHS
        , dfid_fvs   :: NameSet }          -- Rree vars for dependency analysis
   deriving( Typeable )
-deriving instance (Data name, Data (TypeAnnot name)) => Data (DataFamInstDecl name)
+deriving instance (Data name, Data (TypeAnnot name))
+  => Data (DataFamInstDecl name)
 
 
 ----------------- Class instances -------------

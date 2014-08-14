@@ -7,11 +7,11 @@ Here we collect a variety of helper functions that construct or
 analyse HsSyn.  All these functions deal with generic HsSyn; functions
 which deal with the instantiated versions are located elsewhere:
 
-   Parameterised by	Module
+   Parameterised by     Module
    ----------------     -------------
-   RdrName		parser/RdrHsSyn
-   Name			rename/RnHsSyn
-   Id			typecheck/TcHsSyn	
+   RdrName              parser/RdrHsSyn
+   Name                 rename/RnHsSyn
+   Id                   typecheck/TcHsSyn
 
 \begin{code}
 {-# LANGUAGE CPP #-}
@@ -139,10 +139,12 @@ unguardedGRHSs rhs = GRHSs (unguardedRHS rhs) emptyLocalBinds
 unguardedRHS :: Located (body id) -> [LGRHS id (Located (body id))]
 unguardedRHS rhs@(L loc _) = [L loc (GRHS [] rhs)]
 
-mkMatchGroup :: (PlaceHolderType (TypeAnnot id)) => Origin -> [LMatch id (Located (body id))]
+mkMatchGroup :: (PlaceHolderType (TypeAnnot id))
+              => Origin -> [LMatch id (Located (body id))]
              -> MatchGroup id (Located (body id))
 mkMatchGroup origin matches = MG { mg_alts = matches, mg_arg_tys = []
-                                 , mg_res_ty = placeHolderType, mg_origin = origin }
+                                 , mg_res_ty = placeHolderType
+                                 , mg_origin = origin }
 
 mkHsAppTy :: LHsType name -> LHsType name -> LHsType name
 mkHsAppTy t1 t2 = addCLoc t1 t2 (HsAppTy t1 t2)
@@ -150,7 +152,8 @@ mkHsAppTy t1 t2 = addCLoc t1 t2 (HsAppTy t1 t2)
 mkHsApp :: LHsExpr name -> LHsExpr name -> LHsExpr name
 mkHsApp e1 e2 = addCLoc e1 e2 (HsApp e1 e2)
 
-mkHsLam :: (PlaceHolderType (TypeAnnot id)) => [LPat id] -> LHsExpr id -> LHsExpr id
+mkHsLam :: (PlaceHolderType (TypeAnnot id))
+        => [LPat id] -> LHsExpr id -> LHsExpr id
 mkHsLam pats body = mkHsPar (L (getLoc body) (HsLam matches))
 	where
           matches = mkMatchGroup Generated [mkSimpleMatch pats body]
@@ -192,10 +195,11 @@ mkParPat lp@(L loc p) | hsPatNeedsParens p = L loc (ParPat lp)
 mkHsIntegral   :: Integer -> TypeAnnot id -> HsOverLit id
 mkHsFractional :: FractionalLit -> TypeAnnot id -> HsOverLit id
 mkHsIsString   :: FastString -> TypeAnnot id -> HsOverLit id
-mkHsDo         :: (PlaceHolderType (TypeAnnot id)) => HsStmtContext Name -> [ExprLStmt id]
-               -> HsExpr id
+mkHsDo         :: (PlaceHolderType (TypeAnnot id))
+                => HsStmtContext Name -> [ExprLStmt id] -> HsExpr id
 mkHsComp       :: (PlaceHolderType (TypeAnnot id))
-               => HsStmtContext Name -> [ExprLStmt id] -> LHsExpr id -> HsExpr id
+               => HsStmtContext Name -> [ExprLStmt id] -> LHsExpr id
+               -> HsExpr id
 
 mkNPat      :: HsOverLit id -> Maybe (SyntaxExpr id) -> Pat id
 mkNPlusKPat :: Located id -> HsOverLit id -> Pat id
@@ -347,7 +351,8 @@ nlNullaryConPat con = noLoc (ConPatIn (noLoc con) (PrefixCon []))
 
 nlWildConPat :: (PlaceHolderType (TypeAnnot RdrName)) => DataCon -> LPat RdrName
 nlWildConPat con = noLoc (ConPatIn (noLoc (getRdrName con))
-                         (PrefixCon (nOfThem (dataConSourceArity con) nlWildPat)))
+                         (PrefixCon (nOfThem (dataConSourceArity con)
+                                             nlWildPat)))
 
 nlWildPat :: (PlaceHolderType (TypeAnnot id)) => LPat id
 nlWildPat  = noLoc (WildPat placeHolderType)  -- Pre-typechecking
