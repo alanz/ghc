@@ -230,38 +230,38 @@ rnIPBind (IPBind ~(Left n) expr) = do
 
 
 %************************************************************************
-%*									*
-		ValBinds
-%*									*
+%*                                                                      *
+                ValBinds
+%*                                                                      *
 %************************************************************************
 
 \begin{code}
--- Renaming local binding gropus 
+-- Renaming local binding groups
 -- Does duplicate/shadow check
 rnLocalValBindsLHS :: MiniFixityEnv
                    -> HsValBinds RdrName
                    -> RnM ([Name], HsValBindsLR Name RdrName)
-rnLocalValBindsLHS fix_env binds 
-  = do { binds' <- rnValBindsLHS (localRecNameMaker fix_env) binds 
+rnLocalValBindsLHS fix_env binds
+  = do { binds' <- rnValBindsLHS (localRecNameMaker fix_env) binds
 
          -- Check for duplicates and shadowing
-	 -- Must do this *after* renaming the patterns
-	 -- See Note [Collect binders only after renaming] in HsUtils
+         -- Must do this *after* renaming the patterns
+         -- See Note [Collect binders only after renaming] in HsUtils
 
          -- We need to check for dups here because we
-     	 -- don't don't bind all of the variables from the ValBinds at once
-     	 -- with bindLocatedLocals any more.
-         -- 
-     	 -- Note that we don't want to do this at the top level, since
-     	 -- sorting out duplicates and shadowing there happens elsewhere.
-     	 -- The behavior is even different. For example,
-     	 --   import A(f)
-     	 --   f = ...
-     	 -- should not produce a shadowing warning (but it will produce
-     	 -- an ambiguity warning if you use f), but
-     	 --   import A(f)
-     	 --   g = let f = ... in f
-     	 -- should.
+         -- don't don't bind all of the variables from the ValBinds at once
+         -- with bindLocatedLocals any more.
+         --
+         -- Note that we don't want to do this at the top level, since
+         -- sorting out duplicates and shadowing there happens elsewhere.
+         -- The behavior is even different. For example,
+         --   import A(f)
+         --   f = ...
+         -- should not produce a shadowing warning (but it will produce
+         -- an ambiguity warning if you use f), but
+         --   import A(f)
+         --   g = let f = ... in f
+         -- should.
        ; let bound_names = collectHsValBinders binds'
        ; envs <- getRdrEnvs
        ; checkDupAndShadowedNames envs bound_names
@@ -271,7 +271,7 @@ rnLocalValBindsLHS fix_env binds
 -- renames the left-hand sides
 -- generic version used both at the top level and for local binds
 -- does some error checking, but not what gets done elsewhere at the top level
-rnValBindsLHS :: NameMaker 
+rnValBindsLHS :: NameMaker
               -> HsValBinds RdrName
               -> RnM (HsValBindsLR Name RdrName)
 rnValBindsLHS topP (ValBindsIn mbinds sigs)

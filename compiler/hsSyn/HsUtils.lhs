@@ -306,9 +306,9 @@ userHsTyVarBndrs loc bndrs = [ L loc (UserTyVar v) | v <- bndrs ]
 
 
 %************************************************************************
-%*									*
-	Constructing syntax with no location info
-%*									*
+%*                                                                      *
+        Constructing syntax with no location info
+%*                                                                      *
 %************************************************************************
 
 \begin{code}
@@ -332,11 +332,11 @@ nlHsIntLit n = noLoc (HsLit (HsInt n))
 
 nlHsApps :: id -> [LHsExpr id] -> LHsExpr id
 nlHsApps f xs = foldl nlHsApp (nlHsVar f) xs
-	     
+
 nlHsVarApps :: id -> [id] -> LHsExpr id
 nlHsVarApps f xs = noLoc (foldl mk (HsVar f) (map HsVar xs))
-		 where
-		   mk f a = HsApp (noLoc f) (noLoc a)
+                 where
+                   mk f a = HsApp (noLoc f) (noLoc a)
 
 nlConVarPat :: id -> [id] -> LPat id
 nlConVarPat con vars = nlConPat con (map nlVarPat vars)
