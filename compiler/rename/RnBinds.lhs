@@ -976,10 +976,12 @@ emptyCaseErr ctxt = hang (ptext (sLit "Empty list of alternatives in") <+> pp_ct
                 _ -> ptext (sLit "(unexpected)") <+> pprMatchContextNoun ctxt
 
 
-resSigErr :: Outputable body => HsMatchContext Name -> Match RdrName body -> HsType RdrName -> SDoc 
+resSigErr :: Outputable body
+          => HsMatchContext Name -> Match RdrName body -> HsType RdrName -> SDoc
 resSigErr ctxt match ty
    = vcat [ ptext (sLit "Illegal result type signature") <+> quotes (ppr ty)
-          , nest 2 $ ptext (sLit "Result signatures are no longer supported in pattern matches")
+          , nest 2 $ ptext (sLit
+                 "Result signatures are no longer supported in pattern matches")
           , pprMatchInCtxt ctxt match ]
 \end{code}
 
