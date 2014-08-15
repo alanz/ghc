@@ -46,9 +46,17 @@ import Data.Data
 %************************************************************************
 
 \begin{code}
-data PreTcType = PlaceHolderType   -- Used for slots in the abstract syntax
-           deriving (Typeable,Data) -- where we want to keep slot for a type
-                       -- to be added by the type checker
+type family PostTc it ty :: *
+type instance PostTc Id      ty = ty
+type instance PostTc Name    ty = ()
+type instance PostTc RdrName ty = ()
+
+type family PostRn id ty :: *
+type instance PostRn Id      ty = ty
+type instance PostRn Name    ty = ty
+type instance PostRn RdrName ty = ()
+
+
 
 class PlaceHolderType a where
   placeHolderType :: a
@@ -58,27 +66,11 @@ instance PlaceHolderType Type where
   placeHolderType
             = panic "Evaluated the place holder for a Type before type checking"
 
-instance PlaceHolderType PreTcType where
-  placeHolderType = PlaceHolderType
-
-type family TypeAnnot name
-type instance TypeAnnot RdrName = PreTcType   -- ParsedSource
-type instance TypeAnnot Name    = PreTcType   -- RenamedSurce
-type instance TypeAnnot Var     = Type        -- used during type checking
-type instance TypeAnnot Id      = Type        -- TypecheckedSource
-
--- Deal with place holder types for kinds (TBD)
-
-type PostTcKind = Kind
-
-placeHolderKind :: PostTcKind   -- Used before typechecking
-placeHolderKind  = panic "Evaluated the place holder for a PostTcKind"
+instance PlaceHolderType () where
+  placeHolderType = ()
 
 
--- Deal with place holder types for NameSets
 
-data PreRnNameSet = PlaceHolderNameSet
-  deriving (Data,Typeable)
 
 -- | Used for the NameSet in FunBind and PatBind prior to the renamer
 class PlaceHolderNames a where
@@ -89,15 +81,36 @@ instance PlaceHolderNames NameSet where
   placeHolderNames
             = panic "Evaluated the place holder for a NameSet before renaming"
 
+instance PlaceHolderNames () where
+  placeHolderNames = ()
 
-instance PlaceHolderNames PreRnNameSet where
-  placeHolderNames = PlaceHolderNameSet
+{-
+TypeAnnot x becomes PostTc x Type
+NameAnnot x becomes PostRn x NameSet
+
+type family TypeAnnot name
+type instance TypeAnnot RdrName = PreTcType   -- ParsedSource
+type instance TypeAnnot Name    = PreTcType   -- RenamedSurce
+type instance TypeAnnot Id      = Type        -- TypecheckedSource
 
 type family NameAnnot name
 type instance NameAnnot RdrName = PreRnNameSet   -- ParsedSource
 type instance NameAnnot Name    = NameSet        -- RenamedSurce
 type instance NameAnnot Var     = NameSet        -- used during type checking
 type instance NameAnnot Id      = NameSet        -- TypecheckedSource
+-}
+
+
+
+-- Deal with place holder types for kinds (TBD)
+
+type PostTcKind = Kind
+
+placeHolderKind :: PostTcKind   -- Used before typechecking
+placeHolderKind  = panic "Evaluated the place holder for a PostTcKind"
+
+
+
 
 
 \end{code}
@@ -152,9 +165,9 @@ data HsOverLit id       -- An overloaded literal
         ol_val :: OverLitVal,
         ol_rebindable :: Bool,          -- Note [ol_rebindable]
         ol_witness :: SyntaxExpr id,    -- Note [Overloaded literal witnesses]
-        ol_type ::(TypeAnnot id) }
+        ol_type ::(PostTc id Type) }
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet))
   => Data (HsOverLit id)
 
 data OverLitVal
@@ -163,7 +176,7 @@ data OverLitVal
   | HsIsString   !FastString    -- String-looking literals
   deriving (Data, Typeable)
 
-overLitType :: HsOverLit a -> TypeAnnot a
+overLitType :: HsOverLit a -> PostTc a Type
 overLitType = ol_type
 \end{code}
 

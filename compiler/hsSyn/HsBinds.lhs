@@ -68,8 +68,8 @@ data HsLocalBindsLR idL idR
   | HsIPBinds  (HsIPBinds idR)
   | EmptyLocalBinds
   deriving (Typeable)
-deriving instance (Data idL, Data (TypeAnnot idL), Data (NameAnnot idL),
-                   Data idR, Data (TypeAnnot idR), Data (NameAnnot idR))
+deriving instance (Data idL, Data (PostTc idL Type), Data (NameAnnot idL),
+                   Data idR, Data (PostTc idR Type), Data (NameAnnot idR))
   => Data (HsLocalBindsLR idL idR)
 
 type HsValBinds id = HsValBindsLR id id
@@ -90,8 +90,8 @@ data HsValBindsLR idL idR
         [(RecFlag, LHsBinds idL)]       
         [LSig Name]
   deriving (Typeable)
-deriving instance (Data idL, Data (TypeAnnot idL), Data (NameAnnot idL),
-                   Data idR, Data (TypeAnnot idR), Data (NameAnnot idR))
+deriving instance (Data idL, Data (PostTc idL Type), Data (NameAnnot idL),
+                   Data idR, Data (PostTc idR Type), Data (NameAnnot idR))
   => Data (HsValBindsLR idL idR)
 
 type LHsBind  id = LHsBindLR  id id
@@ -146,7 +146,7 @@ data HsBindLR idL idR
   | PatBind {
         pat_lhs    :: LPat idL,
         pat_rhs    :: GRHSs idR (LHsExpr idR),
-        pat_rhs_ty :: TypeAnnot idR,    -- ^ Type of the GRHSs
+        pat_rhs_ty :: PostTc idR Type,    -- ^ Type of the GRHSs
         bind_fvs   :: (NameAnnot idL),  -- ^ See Note [Bind free vars]
         pat_ticks  :: (Maybe (Tickish Id), [Maybe (Tickish Id)])
                -- ^ Tick to put on the rhs, if any, and ticks to put on
@@ -178,10 +178,8 @@ data HsBindLR idL idR
   | PatSynBind (PatSynBind idL idR)
 
   deriving (Typeable)
-deriving instance (Data idL, Data (TypeAnnot idL), Data (NameAnnot idL),
-                   Data idR, Data (TypeAnnot idR), Data (NameAnnot idR))
--- deriving instance (Data idL, -- Data (TypeAnnot idL),
---                    Data idR --, Data (TypeAnnot idR)
+deriving instance (Data idL, Data (PostTc idL Type), Data (NameAnnot idL),
+                   Data idR, Data (PostTc idR Type), Data (NameAnnot idR))
   => Data (HsBindLR idL idR)
 
         -- Consider (AbsBinds tvs ds [(ftvs, poly_f, mono_f) binds]
@@ -211,8 +209,8 @@ data PatSynBind idL idR
           psb_def  :: LPat idR,                      -- ^ Right-hand side
           psb_dir  :: HsPatSynDir idR                -- ^ Directionality
   } deriving (Typeable)
-deriving instance (Data idL, Data (TypeAnnot idL), Data (NameAnnot idL),
-                   Data idR, Data (TypeAnnot idR), Data (NameAnnot idR)
+deriving instance (Data idL, Data (PostTc idL Type), Data (NameAnnot idL),
+                   Data idR, Data (PostTc idR Type), Data (NameAnnot idR)
                   )
   => Data (PatSynBind idL idR)
 
@@ -517,7 +515,7 @@ data HsIPBinds id
         TcEvBinds       -- Only in typechecker output; binds
                         -- uses of the implicit parameters
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (HsIPBinds id)
 
 isEmptyIPBinds :: HsIPBinds id -> Bool

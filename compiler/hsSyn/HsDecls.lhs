@@ -127,7 +127,7 @@ data HsDecl id
   | QuasiQuoteD (HsQuasiQuote id)
   | RoleAnnotD  (RoleAnnotDecl id)
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (HsDecl id)
 
 
@@ -175,7 +175,7 @@ data HsGroup id
 
         hs_docs   :: [LDocDecl]
   } deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (HsGroup id)
 
 emptyGroup, emptyRdrGroup, emptyRnGroup :: HsGroup a
@@ -297,7 +297,7 @@ data SpliceDecl id
         HsExplicitFlag          -- Explicit <=> $(f x y)
                                 -- Implicit <=> f x y,  i.e. a naked top level expression
     deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (SpliceDecl id)
 
 instance OutputableBndr name => Outputable (SpliceDecl name) where
@@ -489,7 +489,7 @@ data TyClDecl name
     }
 
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (TyClDecl id)
 
  -- This is used in TcTyClsDecls to represent
@@ -501,7 +501,7 @@ data TyClGroup name
   = TyClGroup { group_tyclds :: [LTyClDecl name]
               , group_roles  :: [LRoleAnnotDecl name] }
     deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (TyClGroup id)
 
 tyClGroupConcat :: [TyClGroup name] -> [LTyClDecl name]
@@ -517,7 +517,7 @@ data FamilyDecl name = FamilyDecl
   , fdTyVars  :: LHsTyVarBndrs name         -- type variables
   , fdKindSig :: Maybe (LHsKind name) }     -- result kind
   deriving( Typeable )
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (FamilyDecl id)
 
 data FamilyInfo name
@@ -807,7 +807,7 @@ data HsDataDefn name   -- The payload of a data type defn
                      -- are non-empty for the newtype-deriving case
     }
     deriving( Typeable )
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id)) => Data (HsDataDefn id)
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id)) => Data (HsDataDefn id)
 
 data NewOrData
   = NewType                     -- ^ @newtype Blah ...@
@@ -1041,7 +1041,7 @@ data ClsInstDecl name
       , cid_overlap_mode :: Maybe OverlapMode
       }
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (ClsInstDecl id)
 
 
@@ -1056,7 +1056,7 @@ data InstDecl name  -- Both class and family instances
   | TyFamInstD              -- type family instance
       { tfid_inst :: TyFamInstDecl name }
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (InstDecl id)
 \end{code}
 

@@ -130,7 +130,7 @@ data HsExpr id
 
   | HsLam     (MatchGroup id (LHsExpr id)) -- ^ Lambda abstraction. Currently always a single match
 
-  | HsLamCase (TypeAnnot id) (MatchGroup id (LHsExpr id)) -- ^ Lambda-case
+  | HsLamCase (PostTc id Type) (MatchGroup id (LHsExpr id)) -- ^ Lambda-case
 
   | HsApp     (LHsExpr id) (LHsExpr id) -- ^ Application
 
@@ -173,7 +173,7 @@ data HsExpr id
                 (LHsExpr id)    --  else part
 
   -- | Multi-way if
-  | HsMultiIf   (TypeAnnot id) [LGRHS id (LHsExpr id)]
+  | HsMultiIf   (PostTc id Type) [LGRHS id (LHsExpr id)]
 
   -- | let(rec)
   | HsLet       (HsLocalBinds id) 
@@ -183,17 +183,17 @@ data HsExpr id
                                      -- because in this context we never use
                                      -- the PatGuard or ParStmt variant
                 [ExprLStmt id]       -- "do":one or more stmts
-                (TypeAnnot id)       -- Type of the whole expression
+                (PostTc id Type)       -- Type of the whole expression
 
   -- | Syntactic list: [a,b,c,...]
   | ExplicitList
-                (TypeAnnot id)          -- Gives type of components of list
+                (PostTc id Type)          -- Gives type of components of list
                 (Maybe (SyntaxExpr id)) -- For OverloadedLists, the fromListN witness
                 [LHsExpr id]
 
   -- | Syntactic parallel array: [:e1, ..., en:]
   | ExplicitPArr
-                (TypeAnnot id)     -- type of elements of the parallel array
+                (PostTc id Type)     -- type of elements of the parallel array
                 [LHsExpr id]
 
   -- | Record construction
@@ -210,8 +210,8 @@ data HsExpr id
                 [DataCon]          -- Filled in by the type checker to the
                                    -- _non-empty_ list of DataCons that have
                                    -- all the upd'd fields
-                [TypeAnnot id]     -- Argument types of *input* record type
-                [TypeAnnot id]     --              and  *output* record type
+                [PostTc id Type]     -- Argument types of *input* record type
+                [PostTc id Type]     --              and  *output* record type
   -- For a type family, the arg types are of the *instance* tycon,
   -- not the family tycon
 
@@ -280,7 +280,7 @@ data HsExpr id
   | HsArrApp            -- Arrow tail, or arrow application (f -< arg)
         (LHsExpr id)    -- arrow expression, f
         (LHsExpr id)    -- input expression, arg
-        (TypeAnnot id)  -- type of the arrow expressions f,
+        (PostTc id Type)  -- type of the arrow expressions f,
                         -- of the form a t t', where arg :: t
         HsArrAppType    -- higher-order (-<<) or first-order (-<)
         Bool            -- True => right-to-left (f -< arg)
@@ -333,7 +333,7 @@ data HsExpr id
                 (HsExpr id)
   |  HsUnboundVar RdrName
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (HsExpr id)
 
 -- | HsTupArg is used for tuple sections
@@ -341,9 +341,9 @@ deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
 --  Which in turn stands for (\x:ty1 \y:ty2. (x,a,y))
 data HsTupArg id
   = Present (LHsExpr id)   -- ^ The argument
-  | Missing (TypeAnnot id) -- ^ The argument is missing, but this is its type
+  | Missing (PostTc id Type) -- ^ The argument is missing, but this is its type
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (HsTupArg id)
 
 tupArgPresent :: HsTupArg id -> Bool
@@ -726,7 +726,7 @@ data HsCmd id
   = HsCmdArrApp         -- Arrow tail, or arrow application (f -< arg)
         (LHsExpr id)    -- arrow expression, f
         (LHsExpr id)    -- input expression, arg
-        (TypeAnnot id)  -- type of the arrow expressions f,
+        (PostTc id Type)  -- type of the arrow expressions f,
                         -- of the form a t t', where arg :: t
         HsArrAppType    -- higher-order (-<<) or first-order (-<)
         Bool            -- True => right-to-left (f -< arg)
@@ -759,14 +759,14 @@ data HsCmd id
                 (LHsCmd  id)
 
   | HsCmdDo     [CmdLStmt id]
-                (TypeAnnot id)                  -- Type of the whole expression
+                (PostTc id Type)                  -- Type of the whole expression
 
   | HsCmdCast   TcCoercion     -- A simpler version of HsWrap in HsExpr
                 (HsCmd id)     -- If   cmd :: arg1 --> res
                                --       co :: arg1 ~ arg2
                                -- Then (HsCmdCast co cmd) :: arg2 --> res
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (HsCmd id)
 
 data HsArrAppType = HsHigherOrderApp | HsFirstOrderApp
@@ -783,11 +783,11 @@ type LHsCmdTop id = Located (HsCmdTop id)
 
 data HsCmdTop id
   = HsCmdTop (LHsCmd id)
-             (TypeAnnot id)     -- Nested tuple of inputs on the command's stack
-             (TypeAnnot id)     -- return type of the command
+             (PostTc id Type)     -- Nested tuple of inputs on the command's stack
+             (PostTc id Type)     -- return type of the command
              (CmdSyntaxTable id) -- See Note [CmdSyntaxTable]
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (HsCmdTop id)
 \end{code}
 
@@ -916,14 +916,14 @@ patterns in each equation.
 \begin{code}
 data MatchGroup id body
   = MG { mg_alts    :: [LMatch id body]  -- The alternatives
-       , mg_arg_tys :: [TypeAnnot id]    -- Types of the arguments, t1..tn
-       , mg_res_ty  :: (TypeAnnot id)    -- Type of the result, tr
+       , mg_arg_tys :: [PostTc id Type]    -- Types of the arguments, t1..tn
+       , mg_res_ty  :: (PostTc id Type)    -- Type of the result, tr
        , mg_origin  :: Origin }
      -- The type is the type of the entire group
      --      t1 -> ... -> tn -> tr
      -- where there are n patterns
   deriving (Typeable)
-deriving instance (Data id, Data body, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data body, Data (PostTc id Type), Data (NameAnnot id))
    => Data (MatchGroup id body)
 
 type LMatch id body = Located (Match id body)
@@ -935,7 +935,7 @@ data Match id body
                                 -- Nothing after typechecking
         (GRHSs id body)
   deriving (Typeable)
-deriving instance (Data id, Data body, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data body, Data (PostTc id Type), Data (NameAnnot id))
    => Data (Match id body)
 
 isEmptyMatchGroup :: MatchGroup id body -> Bool
@@ -957,7 +957,7 @@ data GRHSs id body
       grhssGRHSs :: [LGRHS id body],       -- ^ Guarded RHSs
       grhssLocalBinds :: (HsLocalBinds id) -- ^ The where clause
     } deriving (Typeable)
-deriving instance (Data id, Data body, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data body, Data (PostTc id Type), Data (NameAnnot id))
    => Data (GRHSs id body)
 
 type LGRHS id body = Located (GRHS id body)
@@ -966,7 +966,7 @@ type LGRHS id body = Located (GRHS id body)
 data GRHS id body = GRHS [GuardLStmt id] -- Guards
                          body            -- Right hand side
   deriving (Typeable)
-deriving instance (Data id, Data body, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data body, Data (PostTc id Type), Data (NameAnnot id))
    => Data (GRHS id body)
 \end{code}
 
@@ -1400,7 +1400,7 @@ data HsSplice id  = HsSplice            --  $z  or $(f 4)
                         id              -- The id is just a unique name to
                         (LHsExpr id)    -- identify this splice point
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (HsSplice id)
 
 instance OutputableBndr id => Outputable (HsSplice id) where
@@ -1435,7 +1435,7 @@ data HsBracket id = ExpBr (LHsExpr id)   -- [|  expr  |]
                                          -- (The Bool flag is used only in pprHsBracket)
                   | TExpBr (LHsExpr id)  -- [||  expr  ||]
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id)) => Data (HsBracket id)
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id)) => Data (HsBracket id)
 
 isTypedBracket :: HsBracket id -> Bool
 isTypedBracket (TExpBr {}) = True
@@ -1487,7 +1487,7 @@ data ArithSeqInfo id
                     (LHsExpr id)
                     (LHsExpr id)
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
   => Data (ArithSeqInfo id)
 \end{code}
 
