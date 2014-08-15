@@ -79,12 +79,11 @@ import HsPat
 import HsTypes
 import HsDoc
 import TyCon
-import NameSet
 import Name
 import BasicTypes
 import Coercion
 import ForeignCall
-import HsLit ( TypeAnnot )
+import HsLit ( TypeAnnot,NameAnnot )
 
 -- others:
 import InstEnv
@@ -128,7 +127,8 @@ data HsDecl id
   | QuasiQuoteD (HsQuasiQuote id)
   | RoleAnnotD  (RoleAnnotDecl id)
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id)) => Data (HsDecl id)
+deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+  => Data (HsDecl id)
 
 
 -- NB: all top-level fixity decls are contained EITHER
@@ -175,7 +175,8 @@ data HsGroup id
 
         hs_docs   :: [LDocDecl]
   } deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id)) => Data (HsGroup id)
+deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+  => Data (HsGroup id)
 
 emptyGroup, emptyRdrGroup, emptyRnGroup :: HsGroup a
 emptyRdrGroup = emptyGroup { hs_valds = emptyValBindsIn }
@@ -296,7 +297,8 @@ data SpliceDecl id
         HsExplicitFlag          -- Explicit <=> $(f x y)
                                 -- Implicit <=> f x y,  i.e. a naked top level expression
     deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id)) => Data (SpliceDecl id)
+deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+  => Data (SpliceDecl id)
 
 instance OutputableBndr name => Outputable (SpliceDecl name) where
    ppr (SpliceDecl (L _ e) _) = pprUntypedSplice e
@@ -460,7 +462,7 @@ data TyClDecl name
             , tcdTyVars :: LHsTyVarBndrs name      -- ^ Type variables; for an associated type
                                                   --   these include outer binders
             , tcdRhs    :: LHsType name            -- ^ RHS of type declaration
-            , tcdFVs    :: NameSet }
+            , tcdFVs    :: (NameAnnot name) }
 
   | -- | @data@ declaration
     DataDecl { tcdLName    :: Located name        -- ^ Type constructor
@@ -472,7 +474,7 @@ data TyClDecl name
                                                   -- Here the type decl for 'f' includes 'a' 
                                                   -- in its tcdTyVars
              , tcdDataDefn :: HsDataDefn name
-             , tcdFVs      :: NameSet }
+             , tcdFVs      :: (NameAnnot name) }
 
   | ClassDecl { tcdCtxt    :: LHsContext name,          -- ^ Context...
                 tcdLName   :: Located name,             -- ^ Name of the class
@@ -483,11 +485,12 @@ data TyClDecl name
                 tcdATs     :: [LFamilyDecl name],       -- ^ Associated types; ie
                 tcdATDefs  :: [LTyFamDefltEqn name],    -- ^ Associated type defaults
                 tcdDocs    :: [LDocDecl],               -- ^ Haddock docs
-                tcdFVs     :: NameSet
+                tcdFVs     :: (NameAnnot name)
     }
-    
+
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id)) => Data (TyClDecl id)
+deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+  => Data (TyClDecl id)
 
  -- This is used in TcTyClsDecls to represent
  -- strongly connected components of decls
@@ -498,7 +501,8 @@ data TyClGroup name
   = TyClGroup { group_tyclds :: [LTyClDecl name]
               , group_roles  :: [LRoleAnnotDecl name] }
     deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id)) => Data (TyClGroup id)
+deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+  => Data (TyClGroup id)
 
 tyClGroupConcat :: [TyClGroup name] -> [LTyClDecl name]
 tyClGroupConcat = concatMap group_tyclds
@@ -513,7 +517,8 @@ data FamilyDecl name = FamilyDecl
   , fdTyVars  :: LHsTyVarBndrs name         -- type variables
   , fdKindSig :: Maybe (LHsKind name) }     -- result kind
   deriving( Typeable )
-deriving instance (Data id, Data (TypeAnnot id)) => Data (FamilyDecl id)
+deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+  => Data (FamilyDecl id)
 
 data FamilyInfo name
   = DataFamily
@@ -522,7 +527,8 @@ data FamilyInfo name
      -- said "type family Foo x where .."
   | ClosedTypeFamily [LTyFamInstEqn name]
   deriving( Typeable )
-deriving instance (Data name, Data (TypeAnnot name)) => Data (FamilyInfo name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (FamilyInfo name)
 
 \end{code}
 
@@ -801,7 +807,7 @@ data HsDataDefn name   -- The payload of a data type defn
                      -- are non-empty for the newtype-deriving case
     }
     deriving( Typeable )
-deriving instance (Data id, Data (TypeAnnot id)) => Data (HsDataDefn id)
+deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id)) => Data (HsDataDefn id)
 
 data NewOrData
   = NewType                     -- ^ @newtype Blah ...@
@@ -860,7 +866,8 @@ data ConDecl name
         -- Remove this when we no longer parse this stuff, and hence do not
         -- need to report decprecated use
     } deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (ConDecl name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (ConDecl name)
 
 type HsConDeclDetails name = HsConDetails (LBangType name) [ConDeclField name]
 
@@ -993,16 +1000,16 @@ data TyFamEqn name pats
        , tfe_pats  :: pats
        , tfe_rhs   :: LHsType name }
   deriving( Typeable )
-deriving instance (Data name, Data pats, Data (TypeAnnot name))
+deriving instance (Data name, Data pats, Data (TypeAnnot name), Data (NameAnnot name))
   => Data (TyFamEqn name pats)
 
 type LTyFamInstDecl name = Located (TyFamInstDecl name)
 data TyFamInstDecl name
   = TyFamInstDecl
        { tfid_eqn  :: LTyFamInstEqn name
-       , tfid_fvs  :: NameSet }
+       , tfid_fvs  :: (NameAnnot name) }
   deriving( Typeable )
-deriving instance (Data name, Data (TypeAnnot name))
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
   => Data (TyFamInstDecl name)
 
 ----------------- Data family instances -------------
@@ -1013,9 +1020,9 @@ data DataFamInstDecl name
        { dfid_tycon :: Located name
        , dfid_pats  :: HsTyPats name      -- LHS
        , dfid_defn  :: HsDataDefn  name   -- RHS
-       , dfid_fvs   :: NameSet }          -- Rree vars for dependency analysis
+       , dfid_fvs   :: (NameAnnot name) } -- Rree vars for dependency analysis
   deriving( Typeable )
-deriving instance (Data name, Data (TypeAnnot name))
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
   => Data (DataFamInstDecl name)
 
 
@@ -1034,7 +1041,8 @@ data ClsInstDecl name
       , cid_overlap_mode :: Maybe OverlapMode
       }
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id)) => Data (ClsInstDecl id)
+deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+  => Data (ClsInstDecl id)
 
 
 ----------------- Instances of all kinds -------------
@@ -1048,7 +1056,8 @@ data InstDecl name  -- Both class and family instances
   | TyFamInstD              -- type family instance
       { tfid_inst :: TyFamInstDecl name }
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id)) => Data (InstDecl id)
+deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+  => Data (InstDecl id)
 \end{code}
 
 Note [Family instance declaration binders]
@@ -1170,7 +1179,8 @@ data DerivDecl name = DerivDecl { deriv_type :: LHsType name
                                 , deriv_overlap_mode :: Maybe OverlapMode
                                 }
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (DerivDecl name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (DerivDecl name)
 
 instance (OutputableBndr name) => Outputable (DerivDecl name) where
     ppr (DerivDecl ty o)
@@ -1193,7 +1203,8 @@ type LDefaultDecl name = Located (DefaultDecl name)
 data DefaultDecl name
   = DefaultDecl [LHsType name]
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (DefaultDecl name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (DefaultDecl name)
 
 instance (OutputableBndr name)
               => Outputable (DefaultDecl name) where
@@ -1228,7 +1239,8 @@ data ForeignDecl name
                   Coercion       -- sig_ty ~ rep_ty
                   ForeignExport
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (ForeignDecl name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (ForeignDecl name)
 {-
     In both ForeignImport and ForeignExport:
         sig_ty is the type given in the Haskell code
@@ -1335,17 +1347,19 @@ data RuleDecl name
         Activation
         [RuleBndr name]         -- Forall'd vars; after typechecking this includes tyvars
         (Located (HsExpr name)) -- LHS
-        NameSet                 -- Free-vars from the LHS
+        (NameAnnot name)        -- Free-vars from the LHS
         (Located (HsExpr name)) -- RHS
-        NameSet                 -- Free-vars from the RHS
+        (NameAnnot name)        -- Free-vars from the RHS
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (RuleDecl name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (RuleDecl name)
 
 data RuleBndr name
   = RuleBndr (Located name)
   | RuleBndrSig (Located name) (HsWithBndrs (LHsType name))
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (RuleBndr name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (RuleBndr name)
 
 collectRuleBndrSigTys :: [RuleBndr name] -> [HsWithBndrs (LHsType name)]
 collectRuleBndrSigTys bndrs = [ty | RuleBndrSig _ ty <- bndrs]
@@ -1406,7 +1420,7 @@ data VectDecl name
   | HsVectInstOut               -- post type-checking (always SCALAR) !!!FIXME: should be superfluous now
       ClsInst
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (VectDecl name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name)) => Data (VectDecl name)
 
 lvectDeclName :: NamedThing name => LVectDecl name -> Name
 lvectDeclName (L _ (HsVect         (L _ name) _))   = getName name
@@ -1515,7 +1529,8 @@ type LAnnDecl name = Located (AnnDecl name)
 
 data AnnDecl name = HsAnnotation (AnnProvenance name) (Located (HsExpr name))
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (AnnDecl name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (AnnDecl name)
 
 instance (OutputableBndr name) => Outputable (AnnDecl name) where
     ppr (HsAnnotation provenance expr)

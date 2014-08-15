@@ -142,7 +142,7 @@ data LHsTyVarBndrs name
              -- See Note [HsForAllTy tyvar binders]
     }
   deriving( Typeable )
-deriving instance (Data name, Data (TypeAnnot name))
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
    => Data (LHsTyVarBndrs name)
 
 mkHsQTvs :: [LHsTyVarBndr RdrName] -> LHsTyVarBndrs RdrName
@@ -194,7 +194,8 @@ data HsTyVarBndr name
          name
          (LHsKind name)  -- The user-supplied kind signature
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (HsTyVarBndr name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (HsTyVarBndr name)
 
 -- | Does this 'HsTyVarBndr' come with an explicit kind annotation?
 isHsKindedTyVar :: HsTyVarBndr name -> Bool
@@ -269,7 +270,8 @@ data HsType name
 
   | HsWrapTy HsTyWrapper (HsType name)  -- only in typechecker output
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (HsType name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (HsType name)
 
 
 data HsTyLit
@@ -390,7 +392,8 @@ data ConDeclField name  -- Record fields have Haddoc docs on them
                    cd_fld_type :: LBangType name, 
                    cd_fld_doc  :: Maybe LHsDocString }
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (ConDeclField name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (ConDeclField name)
 
 -----------------------
 -- Combine adjacent for-alls. 

@@ -30,6 +30,7 @@ import Type       ( Type, Kind )
 import Outputable
 import FastString
 import Name
+import NameSet
 import RdrName
 import Var
 
@@ -66,10 +67,39 @@ type instance TypeAnnot Name    = PreTcType   -- RenamedSurce
 type instance TypeAnnot Var     = Type        -- used during type checking
 type instance TypeAnnot Id      = Type        -- TypecheckedSource
 
+-- Deal with place holder types for kinds (TBD)
+
 type PostTcKind = Kind
 
 placeHolderKind :: PostTcKind   -- Used before typechecking
 placeHolderKind  = panic "Evaluated the place holder for a PostTcKind"
+
+
+-- Deal with place holder types for NameSets
+
+data PreRnNameSet = PlaceHolderNameSet
+  deriving (Data,Typeable)
+
+-- | Used for the NameSet in FunBind and PatBind prior to the renamer
+class PlaceHolderNames a where
+  placeHolderNames :: a
+
+instance PlaceHolderNames NameSet where
+  -- This function should never be called, exists to make the type checker happy
+  placeHolderNames
+            = panic "Evaluated the place holder for a NameSet before renaming"
+
+
+instance PlaceHolderNames PreRnNameSet where
+  placeHolderNames = PlaceHolderNameSet
+
+type family NameAnnot name
+type instance NameAnnot RdrName = PreRnNameSet   -- ParsedSource
+type instance NameAnnot Name    = NameSet        -- RenamedSurce
+type instance NameAnnot Var     = NameSet        -- used during type checking
+type instance NameAnnot Id      = NameSet        -- TypecheckedSource
+
+
 \end{code}
 
 %************************************************************************
@@ -124,7 +154,8 @@ data HsOverLit id       -- An overloaded literal
         ol_witness :: SyntaxExpr id,    -- Note [Overloaded literal witnesses]
         ol_type ::(TypeAnnot id) }
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id)) => Data (HsOverLit id)
+deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+  => Data (HsOverLit id)
 
 data OverLitVal
   = HsIntegral   !Integer       -- Integer-looking literals;

@@ -167,7 +167,8 @@ data Pat id
         -- During desugaring a (CoPat co pat) turns into a cast with 'co' on
         -- the scrutinee, followed by a match on 'pat'
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id)) => Data (Pat id)
+deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+  => Data (Pat id)
 \end{code}
 
 HsConDetails is use for patterns/expressions *and* for data type declarations

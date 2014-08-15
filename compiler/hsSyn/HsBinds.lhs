@@ -68,8 +68,8 @@ data HsLocalBindsLR idL idR
   | HsIPBinds  (HsIPBinds idR)
   | EmptyLocalBinds
   deriving (Typeable)
-deriving instance (Data idL, Data (TypeAnnot idL),
-                   Data idR, Data (TypeAnnot idR))
+deriving instance (Data idL, Data (TypeAnnot idL), Data (NameAnnot idL),
+                   Data idR, Data (TypeAnnot idR), Data (NameAnnot idR))
   => Data (HsLocalBindsLR idL idR)
 
 type HsValBinds id = HsValBindsLR id id
@@ -90,8 +90,8 @@ data HsValBindsLR idL idR
         [(RecFlag, LHsBinds idL)]       
         [LSig Name]
   deriving (Typeable)
-deriving instance (Data idL, Data (TypeAnnot idL),
-                   Data idR, Data (TypeAnnot idR))
+deriving instance (Data idL, Data (TypeAnnot idL), Data (NameAnnot idL),
+                   Data idR, Data (TypeAnnot idR), Data (NameAnnot idR))
   => Data (HsValBindsLR idL idR)
 
 type LHsBind  id = LHsBindLR  id id
@@ -133,7 +133,7 @@ data HsBindLR idL idR
                                 -- type         Int -> forall a'. a' -> a'
                                 -- Notice that the coercion captures the free a'.
 
-        bind_fvs :: NameSet,    -- ^ After the renamer, this contains the locally-bound
+        bind_fvs :: (NameAnnot idL), -- ^ After the renamer, this contains the locally-bound
                                 -- free variables of this defn.
                                 -- See Note [Bind free vars]
 
@@ -147,7 +147,7 @@ data HsBindLR idL idR
         pat_lhs    :: LPat idL,
         pat_rhs    :: GRHSs idR (LHsExpr idR),
         pat_rhs_ty :: TypeAnnot idR,    -- ^ Type of the GRHSs
-        bind_fvs   :: NameSet,          -- ^ See Note [Bind free vars]
+        bind_fvs   :: (NameAnnot idL),  -- ^ See Note [Bind free vars]
         pat_ticks  :: (Maybe (Tickish Id), [Maybe (Tickish Id)])
                -- ^ Tick to put on the rhs, if any, and ticks to put on
                -- the bound variables.
@@ -178,8 +178,8 @@ data HsBindLR idL idR
   | PatSynBind (PatSynBind idL idR)
 
   deriving (Typeable)
-deriving instance (Data idL, Data (TypeAnnot idL),
-                   Data idR, Data (TypeAnnot idR))
+deriving instance (Data idL, Data (TypeAnnot idL), Data (NameAnnot idL),
+                   Data idR, Data (TypeAnnot idR), Data (NameAnnot idR))
 -- deriving instance (Data idL, -- Data (TypeAnnot idL),
 --                    Data idR --, Data (TypeAnnot idR)
   => Data (HsBindLR idL idR)
@@ -206,19 +206,16 @@ data ABExport id
 
 data PatSynBind idL idR
   = PSB { psb_id   :: Located idL,                   -- ^ Name of the pattern synonym
-          psb_fvs  :: NameSet,                       -- ^ See Note [Bind free vars]
+          psb_fvs  :: (NameAnnot idR),               -- ^ See Note [Bind free vars]
           psb_args :: HsPatSynDetails (Located idR), -- ^ Formal parameter names
           psb_def  :: LPat idR,                      -- ^ Right-hand side
           psb_dir  :: HsPatSynDir idR                -- ^ Directionality
   } deriving (Typeable)
-deriving instance (Data idL, Data (TypeAnnot idL),
-                   Data idR, Data (TypeAnnot idR)
+deriving instance (Data idL, Data (TypeAnnot idL), Data (NameAnnot idL),
+                   Data idR, Data (TypeAnnot idR), Data (NameAnnot idR)
                   )
   => Data (PatSynBind idL idR)
 
--- | Used for the NameSet in FunBind and PatBind prior to the renamer
-placeHolderNames :: NameSet
-placeHolderNames = panic "placeHolderNames"
 \end{code}
 
 Note [AbsBinds]
@@ -520,7 +517,8 @@ data HsIPBinds id
         TcEvBinds       -- Only in typechecker output; binds
                         -- uses of the implicit parameters
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id)) => Data (HsIPBinds id)
+deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+  => Data (HsIPBinds id)
 
 isEmptyIPBinds :: HsIPBinds id -> Bool
 isEmptyIPBinds (IPBinds is ds) = null is && isEmptyTcEvBinds ds
@@ -535,7 +533,8 @@ evidene for the implicit parameter. -}
 data IPBind id
   = IPBind (Either HsIPName id) (LHsExpr id)
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (IPBind name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (IPBind name)
 
 instance (OutputableBndr id) => Outputable (HsIPBinds id) where
   ppr (IPBinds bs ds) = pprDeeperList vcat (map ppr bs)
@@ -627,7 +626,8 @@ data Sig name
   | MinimalSig (BooleanFormula (Located name))
 
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (Sig name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (Sig name)
 
 
 type LFixitySig name = Located (FixitySig name)
@@ -818,5 +818,6 @@ data HsPatSynDir id
   | ImplicitBidirectional
   | ExplicitBidirectional (MatchGroup id (LHsExpr id))
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (HsPatSynDir name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (HsPatSynDir name)
 \end{code}

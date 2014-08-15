@@ -79,7 +79,8 @@ data HsModule name
       hsmodHaddockModHeader :: Maybe LHsDocString
         -- ^ Haddock module info and description, unparsed
    } deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name)) => Data (HsModule name)
+deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+  => Data (HsModule name)
 \end{code}
 
 
