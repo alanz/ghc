@@ -1000,13 +1000,13 @@ checkCmd _ (HsLet lb e) =
 checkCmd _ (HsDo DoExpr stmts ty) = 
     mapM checkCmdLStmt stmts >>= (\ss -> return $ HsCmdDo ss ty)
 
-checkCmd _ (OpApp eLeft op fixity eRight) = do
+checkCmd _ (OpApp eLeft op _fixity eRight) = do
     -- OpApp becomes a HsCmdArrForm with a (Just fixity) in it
     c1 <- checkCommand eLeft
     c2 <- checkCommand eRight
     let arg1 = L (getLoc c1) $ HsCmdTop c1 placeHolderType placeHolderType []
         arg2 = L (getLoc c2) $ HsCmdTop c2 placeHolderType placeHolderType []
-    return $ HsCmdArrForm op (Just fixity) [arg1, arg2]
+    return $ HsCmdArrForm op Nothing [arg1, arg2]
 
 checkCmd l e = cmdFail l e
 

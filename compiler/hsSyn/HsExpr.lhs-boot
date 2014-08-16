@@ -15,7 +15,8 @@ import {-# SOURCE #-} HsLit ( PostTc,PostRn )
 import Type       ( Type )
 import NameSet
 
-import Data.Data
+import BasicTypes       ( Fixity )
+import Data.Data hiding ( Fixity )
 
 #if __GLASGOW_HASKELL__ > 706
 type role HsExpr nominal
@@ -43,15 +44,20 @@ instance Typeable2 MatchGroup
 instance Typeable2 GRHSs
 #endif
 
-instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet))
+instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
+                   Data (PostRn id Fixity))
   => Data (HsSplice id)
-instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet))
+instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
+                   Data (PostRn id Fixity))
   => Data (HsExpr id)
-instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet))
+instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
+                   Data (PostRn id Fixity))
   => Data (HsCmd id)
-instance (Data id, Data body, Data (PostTc id Type), Data (PostRn id NameSet))
+instance (Data id, Data body, Data (PostTc id Type), Data (PostRn id NameSet),
+                              Data (PostRn id Fixity))
   => Data (MatchGroup id body)
-instance (Data id, Data body, Data (PostTc id Type), Data (PostRn id NameSet))
+instance (Data id, Data body, Data (PostTc id Type), Data (PostRn id NameSet)
+                            , Data (PostRn id Fixity))
    => Data (GRHSs id body)
 
 instance OutputableBndr id => Outputable (HsExpr id)

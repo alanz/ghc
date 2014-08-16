@@ -60,7 +60,7 @@ import Outputable
 import FastString
 import NameSet
 
-import Data.Data
+import Data.Data hiding ( Fixity )
 \end{code}
 
 
@@ -144,7 +144,8 @@ data LHsTyVarBndrs name
     }
   deriving( Typeable )
 deriving instance (Data name, Data (PostTc name Type),
-                              Data (PostRn name NameSet))
+                              Data (PostRn name NameSet),
+                              Data (PostRn name Fixity))
    => Data (LHsTyVarBndrs name)
 
 mkHsQTvs :: [LHsTyVarBndr RdrName] -> LHsTyVarBndrs RdrName
@@ -197,7 +198,8 @@ data HsTyVarBndr name
          (LHsKind name)  -- The user-supplied kind signature
   deriving (Typeable)
 deriving instance (Data name, Data (PostTc name Type),
-                              Data (PostRn name NameSet))
+                              Data (PostRn name NameSet),
+                              Data (PostRn name Fixity))
   => Data (HsTyVarBndr name)
 
 -- | Does this 'HsTyVarBndr' come with an explicit kind annotation?
@@ -251,7 +253,7 @@ data HsType name
   | HsQuasiQuoteTy      (HsQuasiQuote name)
 
   | HsSpliceTy          (HsSplice name) 
-                        PostTcKind
+                        (PostTc name Kind)
 
   | HsDocTy             (LHsType name) LHsDocString -- A documented type
 
@@ -261,12 +263,12 @@ data HsType name
   | HsCoreTy Type       -- An escape hatch for tunnelling a *closed* 
                         -- Core Type through HsSyn.  
 
-  | HsExplicitListTy     -- A promoted explicit list
-        PostTcKind       -- See Note [Promoted lists and tuples]
+  | HsExplicitListTy       -- A promoted explicit list
+        (PostTc name Kind) -- See Note [Promoted lists and tuples]
         [LHsType name]   
                          
-  | HsExplicitTupleTy    -- A promoted explicit tuple
-        [PostTcKind]     -- See Note [Promoted lists and tuples]
+  | HsExplicitTupleTy      -- A promoted explicit tuple
+        [PostTc name Kind] -- See Note [Promoted lists and tuples]
         [LHsType name]   
 
   | HsTyLit HsTyLit      -- A promoted numeric literal.
@@ -274,7 +276,8 @@ data HsType name
   | HsWrapTy HsTyWrapper (HsType name)  -- only in typechecker output
   deriving (Typeable)
 deriving instance (Data name, Data (PostTc name Type),
-                              Data (PostRn name NameSet))
+                              Data (PostRn name NameSet),
+                              Data (PostRn name Fixity))
   => Data (HsType name)
 
 
@@ -397,7 +400,8 @@ data ConDeclField name  -- Record fields have Haddoc docs on them
                    cd_fld_doc  :: Maybe LHsDocString }
   deriving (Typeable)
 deriving instance (Data name, Data (PostTc name Type),
-                              Data (PostRn name NameSet))
+                              Data (PostRn name NameSet),
+                              Data (PostRn name Fixity))
   => Data (ConDeclField name)
 
 -----------------------

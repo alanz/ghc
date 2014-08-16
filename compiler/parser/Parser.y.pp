@@ -1203,10 +1203,10 @@ atype :: { LHsType RdrName }
                                                       -- see Note [Promotion] for the followings
         | SIMPLEQUOTE qcon                            { LL $ HsTyVar $ unLoc $2 }
         | SIMPLEQUOTE  '(' ctype ',' comma_types1 ')' { LL $ HsExplicitTupleTy [] ($3 : $5) }
-        | SIMPLEQUOTE  '[' comma_types0 ']'           { LL $ HsExplicitListTy placeHolderKind $3 }
+        | SIMPLEQUOTE  '[' comma_types0 ']'           { LL $ HsExplicitListTy () $3 }
         | SIMPLEQUOTE var                             { LL $ HsTyVar $ unLoc $2 }
 
-        | '[' ctype ',' comma_types1 ']'              { LL $ HsExplicitListTy placeHolderKind ($2 : $4) }
+        | '[' ctype ',' comma_types1 ']'              { LL $ HsExplicitListTy () ($2 : $4) }
         | INTEGER            {% mkTyLit $ LL $ HsNumTy $ getINTEGER $1 }
         | STRING             {% mkTyLit $ LL $ HsStrTy $ getSTRING  $1 }
 

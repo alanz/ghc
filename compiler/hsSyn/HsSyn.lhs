@@ -82,7 +82,8 @@ data HsModule name
         -- ^ Haddock module info and description, unparsed
    } deriving (Typeable)
 deriving instance (Data name, Data (PostTc name Type),
-                              Data (PostRn name NameSet))
+                              Data (PostRn name NameSet),
+                              Data (PostRn name Fixity))
   => Data (HsModule name)
 \end{code}
 

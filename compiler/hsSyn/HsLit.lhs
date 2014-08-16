@@ -26,7 +26,7 @@ module HsLit where
 
 import {-# SOURCE #-} HsExpr( SyntaxExpr, pprExpr )
 import BasicTypes ( FractionalLit(..) )
-import Type       ( Type, Kind )
+import Type       ( Type )
 import Outputable
 import FastString
 import Name
@@ -35,7 +35,8 @@ import RdrName
 import Var
 
 import Data.ByteString (ByteString)
-import Data.Data
+import Data.Data hiding ( Fixity )
+import BasicTypes       ( Fixity )
 \end{code}
 
 
@@ -81,17 +82,6 @@ instance PlaceHolderNames NameSet where
 
 instance PlaceHolderNames () where
   placeHolderNames = ()
-
-
-
--- Deal with place holder types for kinds (TBD)
-
-type PostTcKind = Kind
-
-placeHolderKind :: PostTcKind   -- Used before typechecking
-placeHolderKind  = panic "Evaluated the place holder for a PostTcKind"
-
-
 
 \end{code}
 
@@ -148,7 +138,8 @@ data HsOverLit id       -- An overloaded literal
         ol_witness :: SyntaxExpr id,    -- Note [Overloaded literal witnesses]
         ol_type ::(PostTc id Type) }
   deriving (Typeable)
-deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet))
+deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
+                            Data (PostRn id Fixity))
    => Data (HsOverLit id)
 
 data OverLitVal

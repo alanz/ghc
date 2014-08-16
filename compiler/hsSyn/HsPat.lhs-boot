@@ -12,7 +12,8 @@ import {-# SOURCE #-} HsLit ( PostTc,PostRn )
 import Type       ( Type )
 import NameSet
 
-import Data.Data
+import Data.Data hiding (Fixity)
+import BasicTypes       (Fixity)
 import Outputable
 
 #if __GLASGOW_HASKELL__ > 706
@@ -28,6 +29,7 @@ instance Typeable1 Pat
 #endif
 
 instance (Data id, Data (PostTc id Type),
-                   Data (PostRn id NameSet)) => Data (Pat id)
+                   Data (PostRn id NameSet),
+                   Data (PostRn id Fixity)) => Data (Pat id)
 instance (OutputableBndr name) => Outputable (Pat name)
 \end{code}

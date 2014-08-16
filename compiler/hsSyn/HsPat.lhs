@@ -48,7 +48,7 @@ import SrcLoc
 import FastString
 import NameSet
 -- libraries:
-import Data.Data hiding (TyCon)
+import Data.Data hiding (TyCon,Fixity)
 import Data.Maybe
 \end{code}
 
@@ -168,7 +168,8 @@ data Pat id
         -- During desugaring a (CoPat co pat) turns into a cast with 'co' on
         -- the scrutinee, followed by a match on 'pat'
   deriving (Typeable)
-deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet))
+deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
+                            Data (PostRn id Fixity))
   => Data (Pat id)
 \end{code}
 

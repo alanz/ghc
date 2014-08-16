@@ -280,7 +280,7 @@ mkHsSpliceTE :: LHsExpr RdrName -> HsExpr RdrName
 mkHsSpliceTE e = HsSpliceE True (mkHsSplice e)
 
 mkHsSpliceTy :: LHsExpr RdrName -> HsType RdrName
-mkHsSpliceTy e = HsSpliceTy (mkHsSplice e) placeHolderKind
+mkHsSpliceTy e = HsSpliceTy (mkHsSplice e) ()
 
 unqualSplice :: RdrName
 unqualSplice = mkRdrUnqual (mkVarOccFS (fsLit "splice"))
