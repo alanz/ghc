@@ -785,8 +785,8 @@ type LHsCmdTop id = Located (HsCmdTop id)
 
 data HsCmdTop id
   = HsCmdTop (LHsCmd id)
-             (PostTc id Type)    -- Nested tuple of inputs on the command's stack
-             (PostTc id Type)    -- return type of the command
+             (PostTc id Type)   -- Nested tuple of inputs on the command's stack
+             (PostTc id Type)   -- return type of the command
              (CmdSyntaxTable id) -- See Note [CmdSyntaxTable]
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet))

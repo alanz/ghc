@@ -1027,7 +1027,8 @@ data DataFamInstDecl name
        { dfid_tycon :: Located name
        , dfid_pats  :: HsTyPats name      -- LHS
        , dfid_defn  :: HsDataDefn  name   -- RHS
-       , dfid_fvs   :: (PostRn name NameSet) } -- Rree vars for dependency analysis
+       , dfid_fvs   :: (PostRn name NameSet) } -- Rree vars for
+                                               -- dependency analysis
   deriving( Typeable )
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet))
