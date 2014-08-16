@@ -139,7 +139,7 @@ unguardedGRHSs rhs = GRHSs (unguardedRHS rhs) emptyLocalBinds
 unguardedRHS :: Located (body id) -> [LGRHS id (Located (body id))]
 unguardedRHS rhs@(L loc _) = [L loc (GRHS [] rhs)]
 
-mkMatchGroup :: (PlaceHolderType (TypeAnnot id))
+mkMatchGroup :: (PlaceHolderType (PostTc id Type))
               => Origin -> [LMatch id (Located (body id))]
              -> MatchGroup id (Located (body id))
 mkMatchGroup origin matches = MG { mg_alts = matches, mg_arg_tys = []
@@ -152,7 +152,7 @@ mkHsAppTy t1 t2 = addCLoc t1 t2 (HsAppTy t1 t2)
 mkHsApp :: LHsExpr name -> LHsExpr name -> LHsExpr name
 mkHsApp e1 e2 = addCLoc e1 e2 (HsApp e1 e2)
 
-mkHsLam :: (PlaceHolderType (TypeAnnot id))
+mkHsLam :: (PlaceHolderType (PostTc id Type))
         => [LPat id] -> LHsExpr id -> LHsExpr id
 mkHsLam pats body = mkHsPar (L (getLoc body) (HsLam matches))
         where
@@ -193,12 +193,12 @@ mkParPat lp@(L loc p) | hsPatNeedsParens p = L loc (ParPat lp)
 -- These are the bits of syntax that contain rebindable names
 -- See RnEnv.lookupSyntaxName
 
-mkHsIntegral   :: Integer -> TypeAnnot id -> HsOverLit id
-mkHsFractional :: FractionalLit -> TypeAnnot id -> HsOverLit id
-mkHsIsString   :: FastString -> TypeAnnot id -> HsOverLit id
-mkHsDo         :: (PlaceHolderType (TypeAnnot id))
+mkHsIntegral   :: Integer -> PostTc id Type -> HsOverLit id
+mkHsFractional :: FractionalLit -> PostTc id Type -> HsOverLit id
+mkHsIsString   :: FastString -> PostTc id Type -> HsOverLit id
+mkHsDo         :: (PlaceHolderType (PostTc id Type))
                 => HsStmtContext Name -> [ExprLStmt id] -> HsExpr id
-mkHsComp       :: (PlaceHolderType (TypeAnnot id))
+mkHsComp       :: (PlaceHolderType (PostTc id Type))
                => HsStmtContext Name -> [ExprLStmt id] -> LHsExpr id
                -> HsExpr id
 
@@ -206,12 +206,12 @@ mkNPat      :: HsOverLit id -> Maybe (SyntaxExpr id) -> Pat id
 mkNPlusKPat :: Located id -> HsOverLit id -> Pat id
 
 mkLastStmt :: Located (bodyR idR) -> StmtLR idL idR (Located (bodyR idR))
-mkBodyStmt :: (PlaceHolderType (TypeAnnot idR)) => Located (bodyR idR)
+mkBodyStmt :: (PlaceHolderType (PostTc idR Type)) => Located (bodyR idR)
            -> StmtLR idL idR (Located (bodyR idR))
 mkBindStmt :: LPat idL -> Located (bodyR idR) -> StmtLR idL idR (Located (bodyR idR))
 
-emptyRecStmt :: (PlaceHolderType (TypeAnnot idR)) => StmtLR idL idR bodyR
-mkRecStmt    :: (PlaceHolderType (TypeAnnot idR))
+emptyRecStmt :: (PlaceHolderType (PostTc idR Type)) => StmtLR idL idR bodyR
+mkRecStmt    :: (PlaceHolderType (PostTc idR Type))
              => [LStmtLR idL idR bodyR] -> StmtLR idL idR bodyR
 
 
@@ -350,28 +350,29 @@ nlConPat con pats = noLoc (ConPatIn (noLoc con) (PrefixCon pats))
 nlNullaryConPat :: id -> LPat id
 nlNullaryConPat con = noLoc (ConPatIn (noLoc con) (PrefixCon []))
 
-nlWildConPat :: (PlaceHolderType (TypeAnnot RdrName)) => DataCon -> LPat RdrName
+nlWildConPat :: (PlaceHolderType (PostTc RdrName Type))
+             => DataCon -> LPat RdrName
 nlWildConPat con = noLoc (ConPatIn (noLoc (getRdrName con))
                          (PrefixCon (nOfThem (dataConSourceArity con)
                                              nlWildPat)))
 
-nlWildPat :: (PlaceHolderType (TypeAnnot id)) => LPat id
+nlWildPat :: (PlaceHolderType (PostTc id Type)) => LPat id
 nlWildPat  = noLoc (WildPat placeHolderType)  -- Pre-typechecking
 
-nlHsDo :: (PlaceHolderType (TypeAnnot id))
+nlHsDo :: (PlaceHolderType (PostTc id Type))
        => HsStmtContext Name -> [LStmt id (LHsExpr id)] -> LHsExpr id
 nlHsDo ctxt stmts = noLoc (mkHsDo ctxt stmts)
 
 nlHsOpApp :: LHsExpr id -> id -> LHsExpr id -> LHsExpr id
 nlHsOpApp e1 op e2 = noLoc (mkHsOpApp e1 op e2)
 
-nlHsLam  :: (PlaceHolderType (TypeAnnot id))
+nlHsLam  :: (PlaceHolderType (PostTc id Type))
          => LMatch id (LHsExpr id) -> LHsExpr id
 nlHsPar  :: LHsExpr id -> LHsExpr id
 nlHsIf   :: LHsExpr id -> LHsExpr id -> LHsExpr id -> LHsExpr id
-nlHsCase :: (PlaceHolderType (TypeAnnot id))
+nlHsCase :: (PlaceHolderType (PostTc id Type))
          => LHsExpr id -> [LMatch id (LHsExpr id)] -> LHsExpr id
-nlList   :: (PlaceHolderType (TypeAnnot id)) => [LHsExpr id] -> LHsExpr id
+nlList   :: (PlaceHolderType (PostTc id Type)) => [LHsExpr id] -> LHsExpr id
 
 nlHsLam match          = noLoc (HsLam (mkMatchGroup Generated [match]))
 nlHsPar e              = noLoc (HsPar e)
@@ -406,7 +407,7 @@ mkLHsVarTuple ids  = mkLHsTupleExpr (map nlHsVar ids)
 nlTuplePat :: [LPat id] -> Boxity -> LPat id
 nlTuplePat pats box = noLoc (TuplePat pats box [])
 
-missingTupArg :: (PlaceHolderType (TypeAnnot a)) => HsTupArg a
+missingTupArg :: (PlaceHolderType (PostTc a Type)) => HsTupArg a
 missingTupArg = Missing placeHolderType
 \end{code}
 

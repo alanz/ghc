@@ -4,7 +4,7 @@
 
 module HsLit where
 
-type family TypeAnnot name
-type family NameAnnot name
+type family PostTc it ty :: *
+type family PostRn id ty :: *
 
 \end{code}

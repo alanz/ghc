@@ -1748,7 +1748,7 @@ foldDataConArgs ft con
         -- the Just will match and a::*
 
 -- Make a HsLam using a fresh variable from a State monad
-mkSimpleLam :: (PlaceHolderType (TypeAnnot id))
+mkSimpleLam :: (PlaceHolderType (PostTc id Type))
             => (LHsExpr id -> State [id] (LHsExpr id))
             -> State [id] (LHsExpr id)
 -- (mkSimpleLam fn) returns (\x. fn(x))
@@ -1758,7 +1758,7 @@ mkSimpleLam lam = do
     body <- lam (nlHsVar n)
     return (mkHsLam [nlVarPat n] body)
 
-mkSimpleLam2 :: (PlaceHolderType (TypeAnnot id))
+mkSimpleLam2 :: (PlaceHolderType (PostTc id Type))
              => (LHsExpr id -> LHsExpr id -> State [id] (LHsExpr id))
              -> State [id] (LHsExpr id)
 mkSimpleLam2 lam = do

@@ -46,6 +46,7 @@ import Outputable
 import Type
 import SrcLoc
 import FastString
+import NameSet
 -- libraries:
 import Data.Data hiding (TyCon)
 import Data.Maybe
@@ -60,7 +61,7 @@ type LPat id = Located (Pat id)
 
 data Pat id
   =     ------------ Simple patterns ---------------
-    WildPat     (TypeAnnot id)          -- Wild card
+    WildPat     (PostTc id Type)        -- Wild card
         -- The sole reason for a type on a WildPat is to
         -- support hsPatType :: Pat Id -> Type
 
@@ -73,17 +74,17 @@ data Pat id
 
         ------------ Lists, tuples, arrays ---------------
   | ListPat     [LPat id]                            -- Syntactic list
-                (TypeAnnot id)                       -- The type of the elements
-                (Maybe (TypeAnnot id, SyntaxExpr id)) -- For rebindable syntax
+                (PostTc id Type)                     -- The type of the elements
+                (Maybe (PostTc id Type, SyntaxExpr id)) -- For rebindable syntax
                    -- For OverloadedLists a Just (ty,fn) gives
                    -- overall type of the pattern, and the toList
                    -- function to convert the scrutinee to a list value
 
-  | TuplePat    [LPat id]      -- Tuple sub-patterns
-                Boxity         -- UnitPat is TuplePat []
-                [TypeAnnot id] -- [] before typechecker, filled in afterwards
-                               -- with the types of the tuple components
-        -- You might think that the TypeAnnot id was redundant, because we can
+  | TuplePat    [LPat id]        -- Tuple sub-patterns
+                Boxity           -- UnitPat is TuplePat []
+                [PostTc id Type] -- [] before typechecker, filled in afterwards
+                                 -- with the types of the tuple components
+        -- You might think that the PostTc id Type was redundant, because we can
         -- get the pattern type by getting the types of the sub-patterns.
         -- But it's essential
         --      data T a where
@@ -100,7 +101,7 @@ data Pat id
         --           will be wrapped in CoPats, no?)
 
   | PArrPat     [LPat id]               -- Syntactic parallel array
-                (TypeAnnot id)          -- The type of the elements
+                (PostTc id Type)        -- The type of the elements
 
         ------------ Constructor patterns ---------------
   | ConPatIn    (Located id)
@@ -125,7 +126,7 @@ data Pat id
         ------------ View patterns ---------------
   | ViewPat       (LHsExpr id)
                   (LPat id)
-                  (TypeAnnot id)    -- The overall type of the pattern
+                  (PostTc id Type)  -- The overall type of the pattern
                                     -- (= the argument type of the view function)
                                     -- for hsPatType.
 
@@ -167,7 +168,7 @@ data Pat id
         -- During desugaring a (CoPat co pat) turns into a cast with 'co' on
         -- the scrutinee, followed by a match on 'pat'
   deriving (Typeable)
-deriving instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet))
   => Data (Pat id)
 \end{code}
 

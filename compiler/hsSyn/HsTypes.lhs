@@ -58,6 +58,7 @@ import SrcLoc
 import StaticFlags
 import Outputable
 import FastString
+import NameSet
 
 import Data.Data
 \end{code}
@@ -142,7 +143,8 @@ data LHsTyVarBndrs name
              -- See Note [HsForAllTy tyvar binders]
     }
   deriving( Typeable )
-deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+deriving instance (Data name, Data (PostTc name Type),
+                              Data (PostRn name NameSet))
    => Data (LHsTyVarBndrs name)
 
 mkHsQTvs :: [LHsTyVarBndr RdrName] -> LHsTyVarBndrs RdrName
@@ -194,7 +196,8 @@ data HsTyVarBndr name
          name
          (LHsKind name)  -- The user-supplied kind signature
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+deriving instance (Data name, Data (PostTc name Type),
+                              Data (PostRn name NameSet))
   => Data (HsTyVarBndr name)
 
 -- | Does this 'HsTyVarBndr' come with an explicit kind annotation?
@@ -270,7 +273,8 @@ data HsType name
 
   | HsWrapTy HsTyWrapper (HsType name)  -- only in typechecker output
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+deriving instance (Data name, Data (PostTc name Type),
+                              Data (PostRn name NameSet))
   => Data (HsType name)
 
 
@@ -392,7 +396,8 @@ data ConDeclField name  -- Record fields have Haddoc docs on them
                    cd_fld_type :: LBangType name, 
                    cd_fld_doc  :: Maybe LHsDocString }
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+deriving instance (Data name, Data (PostTc name Type),
+                              Data (PostRn name NameSet))
   => Data (ConDeclField name)
 
 -----------------------

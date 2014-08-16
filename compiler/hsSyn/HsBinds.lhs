@@ -68,8 +68,8 @@ data HsLocalBindsLR idL idR
   | HsIPBinds  (HsIPBinds idR)
   | EmptyLocalBinds
   deriving (Typeable)
-deriving instance (Data idL, Data (PostTc idL Type), Data (NameAnnot idL),
-                   Data idR, Data (PostTc idR Type), Data (NameAnnot idR))
+deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
+                   Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet))
   => Data (HsLocalBindsLR idL idR)
 
 type HsValBinds id = HsValBindsLR id id
@@ -90,8 +90,8 @@ data HsValBindsLR idL idR
         [(RecFlag, LHsBinds idL)]       
         [LSig Name]
   deriving (Typeable)
-deriving instance (Data idL, Data (PostTc idL Type), Data (NameAnnot idL),
-                   Data idR, Data (PostTc idR Type), Data (NameAnnot idR))
+deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
+                   Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet))
   => Data (HsValBindsLR idL idR)
 
 type LHsBind  id = LHsBindLR  id id
@@ -133,7 +133,8 @@ data HsBindLR idL idR
                                 -- type         Int -> forall a'. a' -> a'
                                 -- Notice that the coercion captures the free a'.
 
-        bind_fvs :: (NameAnnot idL), -- ^ After the renamer, this contains the locally-bound
+        bind_fvs :: (PostRn idL NameSet), -- ^ After the renamer, this contains
+                                --  the locally-bound
                                 -- free variables of this defn.
                                 -- See Note [Bind free vars]
 
@@ -146,8 +147,8 @@ data HsBindLR idL idR
   | PatBind {
         pat_lhs    :: LPat idL,
         pat_rhs    :: GRHSs idR (LHsExpr idR),
-        pat_rhs_ty :: PostTc idR Type,    -- ^ Type of the GRHSs
-        bind_fvs   :: (NameAnnot idL),  -- ^ See Note [Bind free vars]
+        pat_rhs_ty :: PostTc idR Type,      -- ^ Type of the GRHSs
+        bind_fvs   :: (PostRn idL NameSet), -- ^ See Note [Bind free vars]
         pat_ticks  :: (Maybe (Tickish Id), [Maybe (Tickish Id)])
                -- ^ Tick to put on the rhs, if any, and ticks to put on
                -- the bound variables.
@@ -178,8 +179,8 @@ data HsBindLR idL idR
   | PatSynBind (PatSynBind idL idR)
 
   deriving (Typeable)
-deriving instance (Data idL, Data (PostTc idL Type), Data (NameAnnot idL),
-                   Data idR, Data (PostTc idR Type), Data (NameAnnot idR))
+deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
+                   Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet))
   => Data (HsBindLR idL idR)
 
         -- Consider (AbsBinds tvs ds [(ftvs, poly_f, mono_f) binds]
@@ -203,14 +204,14 @@ data ABExport id
   } deriving (Data, Typeable)
 
 data PatSynBind idL idR
-  = PSB { psb_id   :: Located idL,                   -- ^ Name of the pattern synonym
-          psb_fvs  :: (NameAnnot idR),               -- ^ See Note [Bind free vars]
+  = PSB { psb_id   :: Located idL,             -- ^ Name of the pattern synonym
+          psb_fvs  :: (PostRn idR NameSet),    -- ^ See Note [Bind free vars]
           psb_args :: HsPatSynDetails (Located idR), -- ^ Formal parameter names
           psb_def  :: LPat idR,                      -- ^ Right-hand side
           psb_dir  :: HsPatSynDir idR                -- ^ Directionality
   } deriving (Typeable)
-deriving instance (Data idL, Data (PostTc idL Type), Data (NameAnnot idL),
-                   Data idR, Data (PostTc idR Type), Data (NameAnnot idR)
+deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
+                   Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet)
                   )
   => Data (PatSynBind idL idR)
 
@@ -515,7 +516,7 @@ data HsIPBinds id
         TcEvBinds       -- Only in typechecker output; binds
                         -- uses of the implicit parameters
   deriving (Typeable)
-deriving instance (Data id, Data (PostTc id Type), Data (NameAnnot id))
+deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet))
   => Data (HsIPBinds id)
 
 isEmptyIPBinds :: HsIPBinds id -> Bool
@@ -531,7 +532,8 @@ evidene for the implicit parameter. -}
 data IPBind id
   = IPBind (Either HsIPName id) (LHsExpr id)
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+deriving instance (Data name, Data (PostTc name Type),
+                              Data (PostRn name NameSet))
   => Data (IPBind name)
 
 instance (OutputableBndr id) => Outputable (HsIPBinds id) where
@@ -624,7 +626,8 @@ data Sig name
   | MinimalSig (BooleanFormula (Located name))
 
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+deriving instance (Data name, Data (PostTc name Type),
+                              Data (PostRn name NameSet))
   => Data (Sig name)
 
 
@@ -816,6 +819,7 @@ data HsPatSynDir id
   | ImplicitBidirectional
   | ExplicitBidirectional (MatchGroup id (LHsExpr id))
   deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+deriving instance (Data name, Data (PostTc name Type),
+                              Data (PostRn name NameSet))
   => Data (HsPatSynDir name)
 \end{code}

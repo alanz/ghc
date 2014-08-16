@@ -8,7 +8,9 @@
 
 module HsPat where
 import SrcLoc( Located )
-import {-# SOURCE #-} HsLit ( TypeAnnot,NameAnnot )
+import {-# SOURCE #-} HsLit ( PostTc,PostRn )
+import Type       ( Type )
+import NameSet
 
 import Data.Data
 import Outputable
@@ -25,6 +27,7 @@ instance Typeable Pat
 instance Typeable1 Pat
 #endif
 
-instance (Data id, Data (TypeAnnot id), Data (NameAnnot id)) => Data (Pat id)
+instance (Data id, Data (PostTc id Type),
+                   Data (PostRn id NameSet)) => Data (Pat id)
 instance (OutputableBndr name) => Outputable (Pat name)
 \end{code}

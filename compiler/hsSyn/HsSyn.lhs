@@ -47,6 +47,8 @@ import Outputable
 import SrcLoc
 import Module           ( ModuleName )
 import FastString
+import Type
+import NameSet
 
 -- libraries:
 import Data.Data hiding ( Fixity )
@@ -79,7 +81,8 @@ data HsModule name
       hsmodHaddockModHeader :: Maybe LHsDocString
         -- ^ Haddock module info and description, unparsed
    } deriving (Typeable)
-deriving instance (Data name, Data (TypeAnnot name), Data (NameAnnot name))
+deriving instance (Data name, Data (PostTc name Type),
+                              Data (PostRn name NameSet))
   => Data (HsModule name)
 \end{code}
 
