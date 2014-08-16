@@ -596,7 +596,9 @@ cvtl e = wrapL (cvt e)
     cvt (ListE xs)
       | Just s <- allCharLs xs       = do { l' <- cvtLit (StringL s); return (HsLit l') }
              -- Note [Converting strings]
-      | otherwise                    = do { xs' <- mapM cvtl xs; return $ ExplicitList () Nothing xs' }
+      | otherwise                    = do { xs' <- mapM cvtl xs
+                                          ; return $ ExplicitList () Nothing xs'
+                                          }
 
     -- Infix expressions
     cvt (InfixE (Just x) s (Just y)) = do { x' <- cvtl x; s' <- cvtl s; y' <- cvtl y
@@ -852,11 +854,13 @@ cvtp (BangP p)         = do { p' <- cvtPat p; return $ BangPat p' }
 cvtp (TH.AsP s p)      = do { s' <- vNameL s; p' <- cvtPat p; return $ AsPat s' p' }
 cvtp TH.WildP          = return $ WildPat ()
 cvtp (RecP c fs)       = do { c' <- cNameL c; fs' <- mapM cvtPatFld fs
-                            ; return $ ConPatIn c' $ Hs.RecCon (HsRecFields fs' Nothing) }
+                            ; return $ ConPatIn c'
+                                     $ Hs.RecCon (HsRecFields fs' Nothing) }
 cvtp (ListP ps)        = do { ps' <- cvtPats ps; return $ ListPat ps' () Nothing }
 cvtp (SigP p t)        = do { p' <- cvtPat p; t' <- cvtType t
                             ; return $ SigPatIn p' (mkHsWithBndrs t') }
-cvtp (ViewP e p)       = do { e' <- cvtl e; p' <- cvtPat p; return $ ViewPat e' p' () }
+cvtp (ViewP e p)       = do { e' <- cvtl e; p' <- cvtPat p
+                            ; return $ ViewPat e' p' () }
 
 cvtPatFld :: (TH.Name, TH.Pat) -> CvtM (HsRecField RdrName (LPat RdrName))
 cvtPatFld (s,p)

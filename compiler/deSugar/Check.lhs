@@ -598,7 +598,8 @@ make_con (ConPatOut{ pat_con = L _ (RealDataCon id), pat_args = PrefixCon pats})
          (ps, constraints)
       | isTupleTyCon tc  = (noLoc (TuplePat pats_con (tupleTyConBoxity tc) [])
                                 : rest_pats, constraints)
-      | isPArrFakeCon id = (noLoc (PArrPat pats_con placeHolderType) -- ++AZ++ type is valid here
+      | isPArrFakeCon id = (noLoc (PArrPat pats_con placeHolderType)
+                                           -- ++AZ++ type is valid here
                                 : rest_pats, constraints)
       | otherwise        = (nlConPat name pats_con
                                 : rest_pats, constraints)

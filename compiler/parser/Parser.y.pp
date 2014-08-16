@@ -1203,10 +1203,10 @@ atype :: { LHsType RdrName }
                                                       -- see Note [Promotion] for the followings
         | SIMPLEQUOTE qcon                            { LL $ HsTyVar $ unLoc $2 }
         | SIMPLEQUOTE  '(' ctype ',' comma_types1 ')' { LL $ HsExplicitTupleTy [] ($3 : $5) }
-        | SIMPLEQUOTE  '[' comma_types0 ']'           { LL $ HsExplicitListTy () $3 }
-        | SIMPLEQUOTE var                             { LL $ HsTyVar $ unLoc $2 }
+        | SIMPLEQUOTE  '[' comma_types0 ']'     { LL $ HsExplicitListTy () $3 }
+        | SIMPLEQUOTE var                       { LL $ HsTyVar $ unLoc $2 }
 
-        | '[' ctype ',' comma_types1 ']'              { LL $ HsExplicitListTy () ($2 : $4) }
+        | '[' ctype ',' comma_types1 ']'  { LL $ HsExplicitListTy () ($2 : $4) }
         | INTEGER            {% mkTyLit $ LL $ HsNumTy $ getINTEGER $1 }
         | STRING             {% mkTyLit $ LL $ HsStrTy $ getSTRING  $1 }
 
@@ -1437,7 +1437,7 @@ decl_no_th :: { Located (OrdList (LHsDecl RdrName)) }
                                         pat <- checkPattern empty e;
                                         return $ LL $ unitOL $ LL $ ValD $
                                                PatBind pat (unLoc $3)
-                                                       () {- placeHolderType -} () (Nothing,[]) } }
+                                                       () () (Nothing,[]) } }
                                 -- Turn it all into an expression so that
                                 -- checkPattern can check that bangs are enabled
 
@@ -1513,12 +1513,12 @@ quasiquote :: { Located (HsQuasiQuote RdrName) }
                             in sL (getLoc $1) (mkHsQuasiQuote quoterId (RealSrcSpan quoteSpan) quote) }
 
 exp   :: { LHsExpr RdrName }
-        : infixexp '::' sigtype         { LL $ ExprWithTySig $1 $3 }
-        | infixexp '-<' exp             { LL $ HsArrApp $1 $3 () HsFirstOrderApp True }
-        | infixexp '>-' exp             { LL $ HsArrApp $3 $1 () HsFirstOrderApp False }
-        | infixexp '-<<' exp            { LL $ HsArrApp $1 $3 () HsHigherOrderApp True }
-        | infixexp '>>-' exp            { LL $ HsArrApp $3 $1 () HsHigherOrderApp False}
-        | infixexp                      { $1 }
+        : infixexp '::' sigtype { LL $ ExprWithTySig $1 $3 }
+        | infixexp '-<' exp     { LL $ HsArrApp $1 $3 () HsFirstOrderApp True }
+        | infixexp '>-' exp     { LL $ HsArrApp $3 $1 () HsFirstOrderApp False }
+        | infixexp '-<<' exp    { LL $ HsArrApp $1 $3 () HsHigherOrderApp True }
+        | infixexp '>>-' exp    { LL $ HsArrApp $3 $1 () HsHigherOrderApp False}
+        | infixexp              { $1 }
 
 infixexp :: { LHsExpr RdrName }
         : exp10                         { $1 }
@@ -1536,7 +1536,8 @@ exp10 :: { LHsExpr RdrName }
                                         {% checkDoAndIfThenElse $2 $3 $5 $6 $8 >>
                                            return (LL $ mkHsIf $2 $5 $8) }
         | 'if' ifgdpats                 {% hintMultiWayIf (getLoc $1) >>
-                                           return (LL $ HsMultiIf () (reverse $ unLoc $2)) }
+                                           return (LL $ HsMultiIf
+                                                      () (reverse $ unLoc $2)) }
         | 'case' exp 'of' altslist              { LL $ HsCase $2 (mkMatchGroup FromSource (unLoc $4)) }
         | '-' fexp                              { LL $ NegApp $2 noSyntaxExpr }
 
@@ -1603,9 +1604,9 @@ aexp2   :: { LHsExpr RdrName }
         | literal                       { L1 (HsLit   $! unLoc $1) }
 -- This will enable overloaded strings permanently.  Normally the renamer turns HsString
 -- into HsOverLit when -foverloaded-strings is on.
---      | STRING                        { sL (getLoc $1) (HsOverLit $! mkHsIsString (getSTRING $1) ()) }
-        | INTEGER                       { sL (getLoc $1) (HsOverLit $! mkHsIntegral (getINTEGER $1) ()) }
-        | RATIONAL                      { sL (getLoc $1) (HsOverLit $! mkHsFractional (getRATIONAL $1) ()) }
+--      | STRING     { sL (getLoc $1) (HsOverLit $! mkHsIsString (getSTRING $1) ()) }
+        | INTEGER    { sL (getLoc $1) (HsOverLit $! mkHsIntegral (getINTEGER $1) ()) }
+        | RATIONAL   { sL (getLoc $1) (HsOverLit $! mkHsFractional (getRATIONAL $1) ()) }
 
         -- N.B.: sections get parsed by these next two productions.
         -- This allows you to write, e.g., '(+ 3, 4 -)', which isn't
@@ -1713,8 +1714,8 @@ tup_tail :: { [HsTupArg RdrName] }
 -- avoiding another shift/reduce-conflict.
 
 list :: { LHsExpr RdrName }
-        : texp                  { L1 $ ExplicitList () Nothing [$1] }
-        | lexps                 { L1 $ ExplicitList () Nothing (reverse (unLoc $1)) }
+        : texp             { L1 $ ExplicitList () Nothing [$1] }
+        | lexps            { L1 $ ExplicitList () Nothing (reverse (unLoc $1)) }
         | texp '..'             { LL $ ArithSeq noPostTcExpr Nothing (From $1) }
         | texp ',' exp '..'     { LL $ ArithSeq noPostTcExpr Nothing (FromThen $1 $3) }
         | texp '..' exp         { LL $ ArithSeq noPostTcExpr Nothing (FromTo $1 $3) }

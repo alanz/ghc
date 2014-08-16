@@ -723,7 +723,8 @@ checkAPat msg loc e0 = do
    ELazyPat e         -> checkLPat msg e >>= (return . LazyPat)
    EAsPat n e         -> checkLPat msg e >>= (return . AsPat n)
    -- view pattern is well-formed if the pattern is
-   EViewPat expr patE -> checkLPat msg patE >>= (return . (\p -> ViewPat expr p ()))
+   EViewPat expr patE -> checkLPat msg patE >>=
+                            (return . (\p -> ViewPat expr p ()))
    ExprWithTySig e t  -> do e <- checkLPat msg e
                             -- Pattern signatures are parsed as sigtypes,
                             -- but they aren't explicit forall points.  Hence

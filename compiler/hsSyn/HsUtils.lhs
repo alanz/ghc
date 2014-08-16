@@ -143,7 +143,8 @@ mkMatchGroup :: (PlaceHolderType (PostTc id Type))
              => Origin -> [LMatch id (Located (body id))]
              -> MatchGroup id (Located (body id))
 mkMatchGroup origin matches = MG { mg_alts = matches, mg_arg_tys = []
-                                 , mg_res_ty = placeHolderType -- ++AZ++ used for both RdrName/Name 
+                                 , mg_res_ty = placeHolderType
+                                      -- ++AZ++ used for both RdrName/Name
                                  , mg_origin = origin }
 
 mkHsAppTy :: LHsType name -> LHsType name -> LHsType name

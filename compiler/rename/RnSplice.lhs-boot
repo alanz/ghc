@@ -8,7 +8,9 @@ import Name
 import NameSet
 import Kind
 
-rnSpliceType :: HsSplice RdrName   -> PostTc Name Kind -> RnM (HsType Name, FreeVars)
+
+rnSpliceType :: HsSplice RdrName   -> PostTc Name Kind
+             -> RnM (HsType Name, FreeVars)
 rnSplicePat  :: HsSplice RdrName   -> RnM (Pat Name, FreeVars)
 rnSpliceDecl :: SpliceDecl RdrName -> RnM (SpliceDecl Name, FreeVars)
 \end{code}
