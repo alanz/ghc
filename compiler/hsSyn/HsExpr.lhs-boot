@@ -28,6 +28,7 @@ data HsSplice (i :: *)
 data MatchGroup (a :: *) (body :: *)
 data GRHSs (a :: *) (body :: *)
 
+{-
 #if __GLASGOW_HASKELL__ > 706
 instance Typeable HsSplice
 instance Typeable HsExpr
@@ -40,15 +41,20 @@ instance Typeable1 HsCmd
 instance Typeable2 MatchGroup
 instance Typeable2 GRHSs
 #endif
+-}
 
+{-
 instance (Data id, Data (TypeAnnot id), Data (NameAnnot id))
   => Data (HsSplice id)
+-}
 instance (Data id, Data (TypeAnnot id), Data (NameAnnot id)) => Data (HsExpr id)
+{-
 instance (Data id, Data (TypeAnnot id), Data (NameAnnot id)) => Data (HsCmd id)
 instance (Data id, Data body, Data (TypeAnnot id), Data (NameAnnot id))
   => Data (MatchGroup id body)
 instance (Data id, Data body, Data (TypeAnnot id), Data (NameAnnot id))
    => Data (GRHSs id body)
+-}
 
 instance OutputableBndr id => Outputable (HsExpr id)
 instance OutputableBndr id => Outputable (HsCmd id)

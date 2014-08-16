@@ -24,17 +24,19 @@ module HsLit where
 
 #include "HsVersions.h"
 
-import {-# SOURCE #-} HsExpr( SyntaxExpr, pprExpr )
-import BasicTypes ( FractionalLit(..) )
-import Type       ( Type, Kind )
-import Outputable
+import {-# SOURCE #-} HsExpr( {- SyntaxExpr, pprExpr -} )
+-- import BasicTypes ( FractionalLit(..) )
+-- import Type       ( Type )
+-- import Outputable
+{-
 import FastString
 import Name
 import NameSet
 import RdrName
 import Var
-
-import Data.ByteString (ByteString)
+import GHC.Generics
+-}
+-- import Data.ByteString (ByteString)
 import Data.Data
 \end{code}
 
@@ -46,18 +48,18 @@ import Data.Data
 %************************************************************************
 
 \begin{code}
-type family PostTc it ty :: *
-type instance PostTc Id      ty = ty
-type instance PostTc Name    ty = ()
-type instance PostTc RdrName ty = ()
+type family PostTc it ty 
+-- type instance PostTc Id      ty = ty
+-- type instance PostTc Name    ty = ()
+-- type instance PostTc RdrName ty = ()
 
+{-
 type family PostRn id ty :: *
 type instance PostRn Id      ty = ty
 type instance PostRn Name    ty = ty
 type instance PostRn RdrName ty = ()
-
-
-
+-}
+{-
 class PlaceHolderType a where
   placeHolderType :: a
 
@@ -66,12 +68,11 @@ instance PlaceHolderType Type where
   placeHolderType
             = panic "Evaluated the place holder for a Type before type checking"
 
-instance PlaceHolderType () where
-  placeHolderType = ()
+instance PlaceHolderType Int where
+  placeHolderType = (-1)
+-}
 
-
-
-
+{-
 -- | Used for the NameSet in FunBind and PatBind prior to the renamer
 class PlaceHolderNames a where
   placeHolderNames :: a
@@ -83,6 +84,7 @@ instance PlaceHolderNames NameSet where
 
 instance PlaceHolderNames () where
   placeHolderNames = ()
+-}
 
 {-
 TypeAnnot x becomes PostTc x Type
@@ -103,12 +105,12 @@ type instance NameAnnot Id      = NameSet        -- TypecheckedSource
 
 
 -- Deal with place holder types for kinds (TBD)
-
+{-
 type PostTcKind = Kind
 
 placeHolderKind :: PostTcKind   -- Used before typechecking
 placeHolderKind  = panic "Evaluated the place holder for a PostTcKind"
-
+-}
 
 
 
@@ -123,6 +125,7 @@ placeHolderKind  = panic "Evaluated the place holder for a PostTcKind"
 
 
 \begin{code}
+{-
 data HsLit
   = HsChar          Char               -- Character
   | HsCharPrim      Char               -- Unboxed character
@@ -143,7 +146,9 @@ data HsLit
   | HsFloatPrim     FractionalLit      -- Unboxed Float
   | HsDoublePrim    FractionalLit      -- Unboxed Double
   deriving (Data, Typeable)
+-}
 
+{-
 instance Eq HsLit where
   (HsChar x1)       == (HsChar x2)       = x1==x2
   (HsCharPrim x1)   == (HsCharPrim x2)   = x1==x2
@@ -159,25 +164,31 @@ instance Eq HsLit where
   (HsFloatPrim x1)  == (HsFloatPrim x2)  = x1==x2
   (HsDoublePrim x1) == (HsDoublePrim x2) = x1==x2
   _                 == _                 = False
+-}
+
+data Type = A | B deriving (Typeable,Data)
 
 data HsOverLit id       -- An overloaded literal
   = OverLit {
-        ol_val :: OverLitVal,
-        ol_rebindable :: Bool,          -- Note [ol_rebindable]
-        ol_witness :: SyntaxExpr id,    -- Note [Overloaded literal witnesses]
+        -- ol_val :: OverLitVal,
+        -- ol_rebindable :: Bool,          -- Note [ol_rebindable]
+        -- ol_witness :: SyntaxExpr id,    -- Note [Overloaded literal witnesses]
         ol_type ::(PostTc id Type) }
-  deriving (Typeable)
-deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet))
-  => Data (HsOverLit id)
+  deriving (Typeable,Data)
+-- deriving instance (Data id, Data (PostTc id Type))
+--    => Data (HsOverLit id)
 
+{-
 data OverLitVal
   = HsIntegral   !Integer       -- Integer-looking literals;
   | HsFractional !FractionalLit -- Frac-looking literals
   | HsIsString   !FastString    -- String-looking literals
-  deriving (Data, Typeable)
+ -- deriving (Data, Typeable)
+  deriving (Generic)
 
 overLitType :: HsOverLit a -> PostTc a Type
 overLitType = ol_type
+-}
 \end{code}
 
 Note [ol_rebindable]
@@ -211,6 +222,7 @@ found to have.
 \begin{code}
 -- Comparison operations are needed when grouping literals
 -- for compiling pattern-matching (module MatchLit)
+{-
 instance Eq (HsOverLit id) where
   (OverLit {ol_val = val1}) == (OverLit {ol_val=val2}) = val1 == val2
 
@@ -261,4 +273,5 @@ instance Outputable OverLitVal where
   ppr (HsIntegral i)   = integer i
   ppr (HsFractional f) = ppr f
   ppr (HsIsString s)   = pprHsString s
+-}
 \end{code}
