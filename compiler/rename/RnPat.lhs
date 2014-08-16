@@ -345,7 +345,7 @@ rnLPatAndThen :: NameMaker -> LPat RdrName -> CpsRn (LPat Name)
 rnLPatAndThen nm lpat = wrapSrcSpanCps (rnPatAndThen nm) lpat
 
 rnPatAndThen :: NameMaker -> Pat RdrName -> CpsRn (Pat Name)
-rnPatAndThen _  (WildPat _)   = return (WildPat placeHolderType)
+rnPatAndThen _  (WildPat _)   = return (WildPat ())
 rnPatAndThen mk (ParPat pat)  = do { pat' <- rnLPatAndThen mk pat; return (ParPat pat') }
 rnPatAndThen mk (LazyPat pat) = do { pat' <- rnLPatAndThen mk pat; return (LazyPat pat') }
 rnPatAndThen mk (BangPat pat) = do { pat' <- rnLPatAndThen mk pat; return (BangPat pat') }
@@ -373,7 +373,7 @@ rnPatAndThen mk (LitPat lit)
   | HsString s <- lit
   = do { ovlStr <- liftCps (xoptM Opt_OverloadedStrings)
        ; if ovlStr 
-         then rnPatAndThen mk (mkNPat (mkHsIsString s placeHolderType) Nothing)
+         then rnPatAndThen mk (mkNPat (mkHsIsString s ()) Nothing)
          else normal_lit }
   | otherwise = normal_lit
   where
@@ -410,14 +410,14 @@ rnPatAndThen mk p@(ViewPat expr pat _ty)
        ; pat' <- rnLPatAndThen mk pat
        -- Note: at this point the PreTcType in ty can only be a placeHolder
        -- ; return (ViewPat expr' pat' ty) }
-       ; return (ViewPat expr' pat' placeHolderType) }
+       ; return (ViewPat expr' pat' ()) }
 
 rnPatAndThen mk (ConPatIn con stuff)
    -- rnConPatAndThen takes care of reconstructing the pattern
    -- The pattern for the empty list needs to be replaced by an empty explicit list pattern when overloaded lists is turned on.
   = case unLoc con == nameRdrName (dataConName nilDataCon) of
       True    -> do { ol_flag <- liftCps $ xoptM Opt_OverloadedLists
-                    ; if ol_flag then rnPatAndThen mk (ListPat [] placeHolderType Nothing)
+                    ; if ol_flag then rnPatAndThen mk (ListPat [] () Nothing)
                                  else rnConPatAndThen mk con stuff} 
       False   -> rnConPatAndThen mk con stuff
 
@@ -426,12 +426,12 @@ rnPatAndThen mk (ListPat pats _ _)
        ; pats' <- rnLPatsAndThen mk pats
        ; case opt_OverloadedLists of
           True -> do   { (to_list_name,_) <- liftCps $ lookupSyntaxName toListName
-                       ; return (ListPat pats' placeHolderType (Just (placeHolderType, to_list_name)))}
-          False -> return (ListPat pats' placeHolderType Nothing) }
+                       ; return (ListPat pats' () (Just ((), to_list_name)))}
+          False -> return (ListPat pats' () Nothing) }
 
 rnPatAndThen mk (PArrPat pats _)
   = do { pats' <- rnLPatsAndThen mk pats
-       ; return (PArrPat pats' placeHolderType) }
+       ; return (PArrPat pats' ()) }
 
 rnPatAndThen mk (TuplePat pats boxed _)
   = do { liftCps $ checkTupSize (length pats)
@@ -697,7 +697,7 @@ rnOverLit origLit
                                 _       -> panic "rnOverLit"
         ; return (lit { ol_witness = from_thing_name
                       , ol_rebindable = rebindable
-                      , ol_type = placeHolderType }, fvs) }
+                      , ol_type = () }, fvs) }
 \end{code}
 
 %************************************************************************

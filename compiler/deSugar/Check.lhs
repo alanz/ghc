@@ -584,7 +584,7 @@ return_list :: DataCon -> Pat Name -> Bool
 return_list id q = id == consDataCon && (is_nil q || is_list q)
 
 make_list :: LPat Name -> Pat Name -> Pat Name
-make_list p q | is_nil q    = ListPat [p] placeHolderType Nothing
+make_list p q | is_nil q    = ListPat [p] () Nothing
 make_list p (ListPat ps ty Nothing) = ListPat (p:ps) ty Nothing
 make_list _ _               = panic "Check.make_list: Invalid argument"
 
@@ -598,7 +598,7 @@ make_con (ConPatOut{ pat_con = L _ (RealDataCon id), pat_args = PrefixCon pats})
          (ps, constraints)
       | isTupleTyCon tc  = (noLoc (TuplePat pats_con (tupleTyConBoxity tc) [])
                                 : rest_pats, constraints)
-      | isPArrFakeCon id = (noLoc (PArrPat pats_con placeHolderType)
+      | isPArrFakeCon id = (noLoc (PArrPat pats_con placeHolderType) -- ++AZ++ type is valid here
                                 : rest_pats, constraints)
       | otherwise        = (nlConPat name pats_con
                                 : rest_pats, constraints)

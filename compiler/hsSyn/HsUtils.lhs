@@ -140,10 +140,10 @@ unguardedRHS :: Located (body id) -> [LGRHS id (Located (body id))]
 unguardedRHS rhs@(L loc _) = [L loc (GRHS [] rhs)]
 
 mkMatchGroup :: (PlaceHolderType (PostTc id Type))
-              => Origin -> [LMatch id (Located (body id))]
+             => Origin -> [LMatch id (Located (body id))]
              -> MatchGroup id (Located (body id))
 mkMatchGroup origin matches = MG { mg_alts = matches, mg_arg_tys = []
-                                 , mg_res_ty = placeHolderType
+                                 , mg_res_ty = placeHolderType -- ++AZ++ used for both RdrName/Name 
                                  , mg_origin = origin }
 
 mkHsAppTy :: LHsType name -> LHsType name -> LHsType name
@@ -357,7 +357,7 @@ nlWildConPat con = noLoc (ConPatIn (noLoc (getRdrName con))
                                              nlWildPat)))
 
 nlWildPat :: (PlaceHolderType (PostTc id Type)) => LPat id
-nlWildPat  = noLoc (WildPat placeHolderType)  -- Pre-typechecking
+nlWildPat  = noLoc (WildPat placeHolderType )  -- Pre-typechecking
 
 nlHsDo :: (PlaceHolderType (PostTc id Type))
        => HsStmtContext Name -> [LStmt id (LHsExpr id)] -> LHsExpr id
@@ -504,7 +504,7 @@ mkFunBind :: Located RdrName -> [LMatch RdrName (LHsExpr RdrName)]
 mkFunBind fn ms = FunBind { fun_id = fn, fun_infix = False
                           , fun_matches = mkMatchGroup Generated ms
                           , fun_co_fn = idHsWrapper
-                          , bind_fvs = placeHolderNames
+                          , bind_fvs = ()
                           , fun_tick = Nothing }
 
 mkTopFunBind :: Origin -> Located Name -> [LMatch Name (LHsExpr Name)]
@@ -532,7 +532,7 @@ mkPatSynBind name details lpat dir = PatSynBind psb
              , psb_args = details
              , psb_def = lpat
              , psb_dir = dir
-             , psb_fvs = placeHolderNames }
+             , psb_fvs = () }
 
 ------------
 mk_easy_FunBind :: SrcSpan -> RdrName -> [LPat RdrName]

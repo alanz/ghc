@@ -58,7 +58,20 @@ type instance PostRn Id      ty = ty
 type instance PostRn Name    ty = ty
 type instance PostRn RdrName ty = ()
 
+{-
+we have
 
+  PostTc id Kind
+  PostTc id Type
+
+  PostRn id Fixity
+  PostRn id NameSet
+
+TcId and Var are synonyms for Id
+-}
+
+-- Note: It seems placeHolderType is still required, it is called at least once
+--       in an `Id` context.
 class PlaceHolderType a where
   placeHolderType :: a
 
@@ -71,6 +84,8 @@ instance PlaceHolderType () where
   placeHolderType = ()
 
 
+-- Note: It seems placeHolderNames is still required, it is called at least once
+--       in an `Id` context.
 -- | Used for the NameSet in FunBind and PatBind prior to the renamer
 class PlaceHolderNames a where
   placeHolderNames :: a

@@ -140,7 +140,7 @@ cvtDec (TH.ValD pat body ds)
         ; ds' <- cvtLocalDecs (ptext (sLit "a where clause")) ds
         ; returnL $ Hs.ValD $
           PatBind { pat_lhs = pat', pat_rhs = GRHSs body' ds'
-                  , pat_rhs_ty = void, bind_fvs = placeHolderNames
+                  , pat_rhs_ty = (), bind_fvs = ()
                   , pat_ticks = (Nothing,[]) } }
 
 cvtDec (TH.FunD nm cls)
@@ -169,7 +169,7 @@ cvtDec (TySynD tc tvs rhs)
   = do  { (_, tc', tvs') <- cvt_tycl_hdr [] tc tvs
         ; rhs' <- cvtType rhs
         ; returnL $ TyClD (SynDecl { tcdLName = tc'
-                                  , tcdTyVars = tvs', tcdFVs = placeHolderNames
+                                  , tcdTyVars = tvs', tcdFVs = ()
                                   , tcdRhs = rhs' }) }
 
 cvtDec (DataD ctxt tc tvs constrs derivs)
@@ -181,7 +181,7 @@ cvtDec (DataD ctxt tc tvs constrs derivs)
                                 , dd_kindSig = Nothing
                                 , dd_cons = cons', dd_derivs = derivs' }
         ; returnL $ TyClD (DataDecl { tcdLName = tc', tcdTyVars = tvs'
-                                    , tcdDataDefn = defn, tcdFVs = placeHolderNames }) }
+                                    , tcdDataDefn = defn, tcdFVs = () }) }
 
 cvtDec (NewtypeD ctxt tc tvs constr derivs)
   = do  { (ctxt', tc', tvs') <- cvt_tycl_hdr ctxt tc tvs
@@ -192,7 +192,7 @@ cvtDec (NewtypeD ctxt tc tvs constr derivs)
                                 , dd_kindSig = Nothing
                                 , dd_cons = [con'], dd_derivs = derivs' }
         ; returnL $ TyClD (DataDecl { tcdLName = tc', tcdTyVars = tvs'
-                                    , tcdDataDefn = defn, tcdFVs = placeHolderNames }) }
+                                    , tcdDataDefn = defn, tcdFVs = () }) }
 
 cvtDec (ClassD ctxt cl tvs fds decs)
   = do  { (cxt', tc', tvs') <- cvt_tycl_hdr ctxt cl tvs
@@ -206,7 +206,7 @@ cvtDec (ClassD ctxt cl tvs fds decs)
           ClassDecl { tcdCtxt = cxt', tcdLName = tc', tcdTyVars = tvs'
                     , tcdFDs = fds', tcdSigs = sigs', tcdMeths = binds'
                     , tcdATs = fams', tcdATDefs = at_defs, tcdDocs = []
-                    , tcdFVs = placeHolderNames }
+                    , tcdFVs = () }
                               -- no docs in TH ^^
         }
   where
@@ -248,7 +248,7 @@ cvtDec (DataInstD ctxt tc tys constrs derivs)
 
        ; returnL $ InstD $ DataFamInstD
            { dfid_inst = DataFamInstDecl { dfid_tycon = tc', dfid_pats = typats'
-                                         , dfid_defn = defn, dfid_fvs = placeHolderNames } }}
+                                         , dfid_defn = defn, dfid_fvs = () } }}
 
 cvtDec (NewtypeInstD ctxt tc tys constr derivs)
   = do { (ctxt', tc', typats') <- cvt_tyinst_hdr ctxt tc tys
@@ -260,14 +260,14 @@ cvtDec (NewtypeInstD ctxt tc tys constr derivs)
                                , dd_cons = [con'], dd_derivs = derivs' }
        ; returnL $ InstD $ DataFamInstD
            { dfid_inst = DataFamInstDecl { dfid_tycon = tc', dfid_pats = typats'
-                                         , dfid_defn = defn, dfid_fvs = placeHolderNames } }}
+                                         , dfid_defn = defn, dfid_fvs = () } }}
 
 cvtDec (TySynInstD tc eqn)
   = do  { tc' <- tconNameL tc
         ; eqn' <- cvtTySynEqn tc' eqn
         ; returnL $ InstD $ TyFamInstD
             { tfid_inst = TyFamInstDecl { tfid_eqn = eqn'
-                                        , tfid_fvs = placeHolderNames } } }
+                                        , tfid_fvs = () } } }
 
 cvtDec (ClosedTypeFamilyD tc tyvars mkind eqns)
   | not $ null eqns
@@ -488,8 +488,8 @@ cvtPragmaD (RuleP nm bndrs lhs rhs phases)
        ; lhs'   <- cvtl lhs
        ; rhs'   <- cvtl rhs
        ; returnL $ Hs.RuleD $ HsRule nm' act bndrs'
-                                     lhs' placeHolderNames
-                                     rhs' placeHolderNames
+                                     lhs' ()
+                                     rhs' ()
        }
 
 cvtPragmaD (AnnP target exp)
@@ -572,7 +572,7 @@ cvtl e = wrapL (cvt e)
     cvt (LamE ps e)    = do { ps' <- cvtPats ps; e' <- cvtl e
                             ; return $ HsLam (mkMatchGroup FromSource [mkSimpleMatch ps' e']) }
     cvt (LamCaseE ms)  = do { ms' <- mapM cvtMatch ms
-                            ; return $ HsLamCase placeHolderType
+                            ; return $ HsLamCase ()
                                                  (mkMatchGroup FromSource ms')
                             }
     cvt (TupE [e])     = do { e' <- cvtl e; return $ HsPar e' }
@@ -585,7 +585,7 @@ cvtl e = wrapL (cvt e)
     cvt (MultiIfE alts)
       | null alts      = failWith (ptext (sLit "Multi-way if-expression with no alternatives"))
       | otherwise      = do { alts' <- mapM cvtpair alts
-                            ; return $ HsMultiIf placeHolderType alts' }
+                            ; return $ HsMultiIf () alts' }
     cvt (LetE ds e)    = do { ds' <- cvtLocalDecs (ptext (sLit "a let expression")) ds
                             ; e' <- cvtl e; return $ HsLet ds' e' }
     cvt (CaseE e ms)   = do { e' <- cvtl e; ms' <- mapM cvtMatch ms
@@ -596,7 +596,7 @@ cvtl e = wrapL (cvt e)
     cvt (ListE xs)
       | Just s <- allCharLs xs       = do { l' <- cvtLit (StringL s); return (HsLit l') }
              -- Note [Converting strings]
-      | otherwise                    = do { xs' <- mapM cvtl xs; return $ ExplicitList void Nothing xs' }
+      | otherwise                    = do { xs' <- mapM cvtl xs; return $ ExplicitList () Nothing xs' }
 
     -- Infix expressions
     cvt (InfixE (Just x) s (Just y)) = do { x' <- cvtl x; s' <- cvtl s; y' <- cvtl y
@@ -734,7 +734,7 @@ cvtHsDo do_or_lc stmts
                     L loc (BodyStmt body _ _ _) -> return (L loc (mkLastStmt body))
                     _ -> failWith (bad_last last')
 
-        ; return $ HsDo do_or_lc (stmts'' ++ [last'']) void }
+        ; return $ HsDo do_or_lc (stmts'' ++ [last'']) () }
   where
     bad_last stmt = vcat [ ptext (sLit "Illegal last statement of") <+> pprAStmtContext do_or_lc <> colon
                          , nest 2 $ Outputable.ppr stmt
@@ -772,13 +772,13 @@ cvtpair (PatG gs,rhs)    = do { gs' <- cvtStmts gs; rhs' <- cvtl rhs
 
 cvtOverLit :: Lit -> CvtM (HsOverLit RdrName)
 cvtOverLit (IntegerL i)
-  = do { force i; return $ mkHsIntegral i placeHolderType}
+  = do { force i; return $ mkHsIntegral i ()}
 cvtOverLit (RationalL r)
-  = do { force r; return $ mkHsFractional (cvtFractionalLit r) placeHolderType}
+  = do { force r; return $ mkHsFractional (cvtFractionalLit r) ()}
 cvtOverLit (StringL s)
   = do { let { s' = mkFastString s }
        ; force s'
-       ; return $ mkHsIsString s' placeHolderType
+       ; return $ mkHsIsString s' ()
        }
 cvtOverLit _ = panic "Convert.cvtOverLit: Unexpected overloaded literal"
 -- An Integer is like an (overloaded) '3' in a Haskell source program
@@ -850,13 +850,13 @@ cvtp (ParensP p)       = do { p' <- cvtPat p; return $ ParPat p' }
 cvtp (TildeP p)        = do { p' <- cvtPat p; return $ LazyPat p' }
 cvtp (BangP p)         = do { p' <- cvtPat p; return $ BangPat p' }
 cvtp (TH.AsP s p)      = do { s' <- vNameL s; p' <- cvtPat p; return $ AsPat s' p' }
-cvtp TH.WildP          = return $ WildPat void
+cvtp TH.WildP          = return $ WildPat ()
 cvtp (RecP c fs)       = do { c' <- cNameL c; fs' <- mapM cvtPatFld fs
                             ; return $ ConPatIn c' $ Hs.RecCon (HsRecFields fs' Nothing) }
-cvtp (ListP ps)        = do { ps' <- cvtPats ps; return $ ListPat ps' void Nothing }
+cvtp (ListP ps)        = do { ps' <- cvtPats ps; return $ ListPat ps' () Nothing }
 cvtp (SigP p t)        = do { p' <- cvtPat p; t' <- cvtType t
                             ; return $ SigPatIn p' (mkHsWithBndrs t') }
-cvtp (ViewP e p)       = do { e' <- cvtl e; p' <- cvtPat p; return $ ViewPat e' p' void }
+cvtp (ViewP e p)       = do { e' <- cvtl e; p' <- cvtPat p; return $ ViewPat e' p' () }
 
 cvtPatFld :: (TH.Name, TH.Pat) -> CvtM (HsRecField RdrName (LPat RdrName))
 cvtPatFld (s,p)
@@ -1031,9 +1031,6 @@ overloadedLit :: Lit -> Bool
 overloadedLit (IntegerL  _) = True
 overloadedLit (RationalL _) = True
 overloadedLit _             = False
-
-void :: (PlaceHolderType a) => a
-void = placeHolderType
 
 cvtFractionalLit :: Rational -> FractionalLit
 cvtFractionalLit r = FL { fl_text = show (fromRational r :: Double), fl_value = r }

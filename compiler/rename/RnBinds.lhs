@@ -436,7 +436,6 @@ rnBindLHS name_maker _ bind@(FunBind { fun_id = name@(L nameLoc _) })
   = do { newname <- applyNameMaker name_maker name
        ; return (bind { fun_id = L nameLoc newname
                       , bind_fvs = placeHolderNames }) }
-                                  -- ++AZ++ are we throwing away the prior fvs?
 
 rnBindLHS name_maker _ (PatSynBind psb@PSB{ psb_id = rdrname@(L nameLoc _) })
   = do { unless (isTopRecNameMaker name_maker) $
@@ -480,7 +479,7 @@ rnBind _ bind@(PatBind { pat_lhs = pat
                 -- MonoLocalBinds test in TcBinds.decideGeneralisationPlan
               bndrs = collectPatBinders pat
               bind' = bind { pat_rhs  = grhss',
-                             pat_rhs_ty = placeHolderType, bind_fvs = fvs' }
+                             pat_rhs_ty = (), bind_fvs = fvs' }
               is_wild_pat = case pat of
                               L _ (WildPat {})                 -> True
                               L _ (BangPat (L _ (WildPat {}))) -> True -- #9127
