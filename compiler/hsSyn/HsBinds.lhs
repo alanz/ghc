@@ -137,7 +137,7 @@ data HsBindLR idL idR
                                 -- type         Int -> forall a'. a' -> a'
                                 -- Notice that the coercion captures the free a'.
 
-        bind_fvs :: (PostRn idL NameSet), -- ^ After the renamer, this contains
+        bind_fvs :: PostRn idL NameSet, -- ^ After the renamer, this contains
                                 --  the locally-bound
                                 -- free variables of this defn.
                                 -- See Note [Bind free vars]
@@ -152,7 +152,7 @@ data HsBindLR idL idR
         pat_lhs    :: LPat idL,
         pat_rhs    :: GRHSs idR (LHsExpr idR),
         pat_rhs_ty :: PostTc idR Type,      -- ^ Type of the GRHSs
-        bind_fvs   :: (PostRn idL NameSet), -- ^ See Note [Bind free vars]
+        bind_fvs   :: PostRn idL NameSet, -- ^ See Note [Bind free vars]
         pat_ticks  :: (Maybe (Tickish Id), [Maybe (Tickish Id)])
                -- ^ Tick to put on the rhs, if any, and ticks to put on
                -- the bound variables.

@@ -467,7 +467,7 @@ data TyClDecl name
             , tcdTyVars :: LHsTyVarBndrs name      -- ^ Type variables; for an associated type
                                                   --   these include outer binders
             , tcdRhs    :: LHsType name            -- ^ RHS of type declaration
-            , tcdFVs    :: (PostRn name NameSet) }
+            , tcdFVs    :: PostRn name NameSet }
 
   | -- | @data@ declaration
     DataDecl { tcdLName    :: Located name        -- ^ Type constructor
@@ -479,7 +479,7 @@ data TyClDecl name
                                                   -- Here the type decl for 'f' includes 'a' 
                                                   -- in its tcdTyVars
              , tcdDataDefn :: HsDataDefn name
-             , tcdFVs      :: (PostRn name NameSet) }
+             , tcdFVs      :: PostRn name NameSet }
 
   | ClassDecl { tcdCtxt    :: LHsContext name,          -- ^ Context...
                 tcdLName   :: Located name,             -- ^ Name of the class
@@ -490,7 +490,7 @@ data TyClDecl name
                 tcdATs     :: [LFamilyDecl name],       -- ^ Associated types; ie
                 tcdATDefs  :: [LTyFamDefltEqn name],    -- ^ Associated type defaults
                 tcdDocs    :: [LDocDecl],               -- ^ Haddock docs
-                tcdFVs     :: (PostRn name NameSet)
+                tcdFVs     :: PostRn name NameSet
     }
 
   deriving (Typeable)
@@ -1023,7 +1023,7 @@ type LTyFamInstDecl name = Located (TyFamInstDecl name)
 data TyFamInstDecl name
   = TyFamInstDecl
        { tfid_eqn  :: LTyFamInstEqn name
-       , tfid_fvs  :: (PostRn name NameSet) }
+       , tfid_fvs  :: PostRn name NameSet }
   deriving( Typeable )
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
@@ -1038,7 +1038,7 @@ data DataFamInstDecl name
        { dfid_tycon :: Located name
        , dfid_pats  :: HsTyPats name      -- LHS
        , dfid_defn  :: HsDataDefn  name   -- RHS
-       , dfid_fvs   :: (PostRn name NameSet) } -- Rree vars for
+       , dfid_fvs   :: PostRn name NameSet } -- Rree vars for
                                                -- dependency analysis
   deriving( Typeable )
 deriving instance (Data name, Data (PostTc name Type),
