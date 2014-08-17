@@ -1,7 +1,7 @@
 \begin{code}
 {-# LANGUAGE CPP, KindSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
 #if __GLASGOW_HASKELL__ > 706
 {-# LANGUAGE RoleAnnotations #-}
 #endif

@@ -12,7 +12,7 @@ therefore, is almost nothing but re-exporting.
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
 
 module HsSyn (
         module HsBinds,

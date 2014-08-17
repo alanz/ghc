@@ -6,7 +6,7 @@
 {-# LANGUAGE CPP, DeriveDataTypeable, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
 
 -- | Abstract Haskell syntax for expressions.
 module HsExpr where
@@ -923,7 +923,7 @@ patterns in each equation.
 data MatchGroup id body
   = MG { mg_alts    :: [LMatch id body]  -- The alternatives
        , mg_arg_tys :: [PostTc id Type]  -- Types of the arguments, t1..tn
-       , mg_res_ty  :: (PostTc id Type)  -- Type of the result, tr
+       , mg_res_ty  :: PostTc id Type    -- Type of the result, tr
        , mg_origin  :: Origin }
      -- The type is the type of the entire group
      --      t1 -> ... -> tn -> tr
@@ -1163,8 +1163,8 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
                                      -- the returned thing has to be *monomorphic*,
                                      -- so they may be type applications
 
-      , recS_ret_ty :: (PostTc idR Type) -- The type of
-                                         -- do { stmts; return (a,b,c) }
+      , recS_ret_ty :: PostTc idR Type -- The type of
+                                       -- do { stmts; return (a,b,c) }
                                    -- With rebindable syntax the type might not
                                    -- be quite as simple as (m (tya, tyb, tyc)).
       }

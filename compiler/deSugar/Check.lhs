@@ -584,7 +584,7 @@ return_list :: DataCon -> Pat Name -> Bool
 return_list id q = id == consDataCon && (is_nil q || is_list q)
 
 make_list :: LPat Name -> Pat Name -> Pat Name
-make_list p q | is_nil q    = ListPat [p] () Nothing
+make_list p q | is_nil q    = ListPat [p] placeHolderType Nothing
 make_list p (ListPat ps ty Nothing) = ListPat (p:ps) ty Nothing
 make_list _ _               = panic "Check.make_list: Invalid argument"
 

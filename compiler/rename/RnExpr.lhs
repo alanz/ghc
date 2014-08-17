@@ -101,7 +101,7 @@ rnExpr (HsVar v)
            Just name
               | name == nilDataConName -- Treat [] as an ExplicitList, so that
                                        -- OverloadedLists works correctly
-              -> rnExpr (ExplicitList () Nothing [])
+              -> rnExpr (ExplicitList placeHolderType Nothing [])
 
               | otherwise
               -> finishHsVar name }}
@@ -112,7 +112,7 @@ rnExpr (HsIPVar v)
 rnExpr (HsLit lit@(HsString s))
   = do { opt_OverloadedStrings <- xoptM Opt_OverloadedStrings
        ; if opt_OverloadedStrings then
-            rnExpr (HsOverLit (mkHsIsString s ()))
+            rnExpr (HsOverLit (mkHsIsString s placeHolderType))
          else do {
             ; rnLit lit
             ; return (HsLit lit, emptyFVs) } }
@@ -210,7 +210,7 @@ rnExpr (HsLam matches)
 rnExpr (HsLamCase _arg matches)
   = do { (matches', fvs_ms) <- rnMatchGroup CaseAlt rnLExpr matches
        -- ; return (HsLamCase arg matches', fvs_ms) }
-       ; return (HsLamCase () matches', fvs_ms) }
+       ; return (HsLamCase placeHolderType matches', fvs_ms) }
 
 rnExpr (HsCase expr matches)
   = do { (new_expr, e_fvs) <- rnLExpr expr
@@ -224,7 +224,7 @@ rnExpr (HsLet binds expr)
 
 rnExpr (HsDo do_or_lc stmts _)
   = do  { ((stmts', _), fvs) <- rnStmts do_or_lc rnLExpr stmts (\ _ -> return ((), emptyFVs))
-        ; return ( HsDo do_or_lc stmts' (), fvs ) }
+        ; return ( HsDo do_or_lc stmts' placeHolderType, fvs ) }
 
 rnExpr (ExplicitList _ _  exps)
   = do  { opt_OverloadedLists <- xoptM Opt_OverloadedLists
@@ -232,14 +232,14 @@ rnExpr (ExplicitList _ _  exps)
         ; if opt_OverloadedLists
            then do {
             ; (from_list_n_name, fvs') <- lookupSyntaxName fromListNName
-            ; return (ExplicitList () (Just from_list_n_name) exps',
+            ; return (ExplicitList placeHolderType (Just from_list_n_name) exps',
                       fvs `plusFV` fvs') }
            else
-            return  (ExplicitList () Nothing exps', fvs) }
+            return  (ExplicitList placeHolderType Nothing exps', fvs) }
 
 rnExpr (ExplicitPArr _ exps)
   = do { (exps', fvs) <- rnExprs exps
-       ; return  (ExplicitPArr () exps', fvs) }
+       ; return  (ExplicitPArr placeHolderType exps', fvs) }
 
 rnExpr (ExplicitTuple tup_args boxity)
   = do { checkTupleSection tup_args
@@ -248,7 +248,7 @@ rnExpr (ExplicitTuple tup_args boxity)
        ; return (ExplicitTuple tup_args' boxity, plusFVs fvs) }
   where
     rnTupArg (Present e) = do { (e',fvs) <- rnLExpr e; return (Present e', fvs) }
-    rnTupArg (Missing _) = return (Missing (), emptyFVs)
+    rnTupArg (Missing _) = return (Missing placeHolderType, emptyFVs)
 
 rnExpr (RecordCon con_id _ rbinds)
   = do  { conname <- lookupLocatedOccRn con_id
@@ -278,7 +278,7 @@ rnExpr (HsIf _ p b1 b2)
 rnExpr (HsMultiIf _ty alts)
   = do { (alts', fvs) <- mapFvRn (rnGRHS IfAlt rnLExpr) alts
        -- ; return (HsMultiIf ty alts', fvs) }
-       ; return (HsMultiIf () alts', fvs) }
+       ; return (HsMultiIf placeHolderType alts', fvs) }
 
 rnExpr (HsType a)
   = do { (t, fvT) <- rnLHsType HsTypeCtx a
@@ -407,7 +407,8 @@ rnCmdTop = wrapLocFstM rnCmdTop'
         -- Generate the rebindable syntax for the monad
         ; (cmd_names', cmd_fvs) <- lookupSyntaxNames cmd_names
 
-        ; return (HsCmdTop cmd' () () (cmd_names `zip` cmd_names'),
+        ; return (HsCmdTop cmd' placeHolderType placeHolderType
+                  (cmd_names `zip` cmd_names'),
                   fvCmd `plusFV` cmd_fvs) }
 
 rnLCmd :: LHsCmd RdrName -> RnM (LHsCmd Name, FreeVars)
@@ -418,7 +419,7 @@ rnCmd :: HsCmd RdrName -> RnM (HsCmd Name, FreeVars)
 rnCmd (HsCmdArrApp arrow arg _ ho rtl)
   = do { (arrow',fvArrow) <- select_arrow_scope (rnLExpr arrow)
        ; (arg',fvArg) <- rnLExpr arg
-       ; return (HsCmdArrApp arrow' arg' () ho rtl,
+       ; return (HsCmdArrApp arrow' arg' placeHolderType ho rtl,
                  fvArrow `plusFV` fvArg) }
   where
     select_arrow_scope tc = case ho of
@@ -478,7 +479,7 @@ rnCmd (HsCmdLet binds cmd)
 
 rnCmd (HsCmdDo stmts _)
   = do  { ((stmts', _), fvs) <- rnStmts ArrowExpr rnLCmd stmts (\ _ -> return ((), emptyFVs))
-        ; return ( HsCmdDo stmts' (), fvs ) }
+        ; return ( HsCmdDo stmts' placeHolderType, fvs ) }
 
 rnCmd cmd@(HsCmdCast {}) = pprPanic "rnCmd" (ppr cmd)
 
@@ -656,7 +657,7 @@ rnStmt ctxt rnBody (L loc (BodyStmt body _ _ _)) thing_inside
                               -- Also for sub-stmts of same eg [ e | x<-xs, gd | blah ]
                               -- Here "gd" is a guard
         ; (thing, fvs3)    <- thing_inside []
-        ; return (([L loc (BodyStmt body' then_op guard_op ())], thing),
+        ; return (([L loc (BodyStmt body' then_op guard_op placeHolderType)], thing),
                   fv_expr `plusFV` fvs1 `plusFV` fvs2 `plusFV` fvs3) }
 
 rnStmt ctxt rnBody (L loc (BindStmt pat body _ _)) thing_inside
@@ -948,7 +949,7 @@ rn_rec_stmt rnBody _ (L loc (BodyStmt body _ _ _)) _
   = do { (body', fvs) <- rnBody body
        ; (then_op, fvs1) <- lookupSyntaxName thenMName
        ; return [(emptyNameSet, fvs `plusFV` fvs1, emptyNameSet,
-                 L loc (BodyStmt body' then_op noSyntaxExpr ()))] }
+                 L loc (BodyStmt body' then_op noSyntaxExpr placeHolderType))] }
 
 rn_rec_stmt rnBody _ (L loc (BindStmt pat' body _ _)) fv_pat
   = do { (body', fv_expr) <- rnBody body

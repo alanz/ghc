@@ -9,7 +9,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
 
 module HsPat (
         Pat(..), InPat, OutPat, LPat,

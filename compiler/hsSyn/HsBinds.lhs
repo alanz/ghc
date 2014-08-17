@@ -10,7 +10,7 @@ Datatype for: @BindGroup@, @Bind@, @Sig@, @Bind@.
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
 
 module HsBinds where
 

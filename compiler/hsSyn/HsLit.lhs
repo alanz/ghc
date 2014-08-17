@@ -18,7 +18,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
 
 module HsLit where
 
@@ -47,28 +47,28 @@ import BasicTypes       ( Fixity )
 %************************************************************************
 
 \begin{code}
-type family PostTc it ty :: *
+
+-- | used as place holder in PostTc and PostRn values
+data PlaceHolder = PlaceHolder
+  deriving (Data,Typeable)
+
+-- | Types that are not defined until after type checking
+type family PostTc it ty :: * -- Note [pass sensitive types]
 type instance PostTc Id      ty = ty
-type instance PostTc Name    ty = ()
-type instance PostTc RdrName ty = ()
+type instance PostTc Name    ty = PlaceHolder
+type instance PostTc RdrName ty = PlaceHolder
 
-
-type family PostRn id ty :: *
+-- | Types that are not defined until after renaming
+type family PostRn id ty :: * -- Note [pass sensitive types]
 type instance PostRn Id      ty = ty
 type instance PostRn Name    ty = ty
-type instance PostRn RdrName ty = ()
+type instance PostRn RdrName ty = PlaceHolder
 
-{-
-we have
+placeHolderKind :: PlaceHolder
+placeHolderKind = PlaceHolder
 
-  PostTc id Kind
-  PostTc id Type
-
-  PostRn id Fixity
-  PostRn id NameSet
-
-TcId and Var are synonyms for Id
--}
+placeHolderFixity :: PlaceHolder
+placeHolderFixity = PlaceHolder
 
 -- Note: It seems placeHolderType is still required, it is called at least once
 --       in an `Id` context.
@@ -80,8 +80,8 @@ instance PlaceHolderType Type where
   placeHolderType
             = panic "Evaluated the place holder for a Type before type checking"
 
-instance PlaceHolderType () where
-  placeHolderType = ()
+instance PlaceHolderType PlaceHolder where
+  placeHolderType = PlaceHolder
 
 
 -- Note: It seems placeHolderNames is still required, it is called at least once
@@ -95,10 +95,40 @@ instance PlaceHolderNames NameSet where
   placeHolderNames
             = panic "Evaluated the place holder for a NameSet before renaming"
 
-instance PlaceHolderNames () where
-  placeHolderNames = ()
-
+instance PlaceHolderNames PlaceHolder where
+  placeHolderNames = PlaceHolder
 \end{code}
+
+Note [pass sensitive types]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since the same AST types are re-used through parsing,renaming and type
+checking there are naturally some places in the AST that do not have
+any meaningful value prior to the pass they are assigned a value.
+
+Historically these have been filled in with place holder values of the form
+
+  panic "error message"
+
+This has meant the AST is difficult to traverse using standed generic
+programming techniques. The problem is addressed by introducing
+pass-specific data types, implemented as a pair of open type families,
+one for PostTc and one for PostRn. These are then explicitly populated
+with a PlaceHolder value when they do not yet have meaning.
+
+Since the required bootstrap compiler at this stage does not have
+closed type families, an open type family had to be used, which
+unfortunately forces the requirement for UndecidableInstances.
+
+In terms of actual usage, we have the following
+
+  PostTc id Kind
+  PostTc id Type
+
+  PostRn id Fixity
+  PostRn id NameSet
+
+TcId and Var are synonyms for Id
+
 
 %************************************************************************
 %*                                                                      *
@@ -151,7 +181,7 @@ data HsOverLit id       -- An overloaded literal
         ol_val :: OverLitVal,
         ol_rebindable :: Bool,          -- Note [ol_rebindable]
         ol_witness :: SyntaxExpr id,    -- Note [Overloaded literal witnesses]
-        ol_type ::(PostTc id Type) }
+        ol_type :: PostTc id Type }
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
                             Data (PostRn id Fixity))

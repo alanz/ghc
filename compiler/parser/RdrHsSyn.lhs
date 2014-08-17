@@ -137,7 +137,7 @@ mkClassDecl loc (L _ (mcxt, tycl_hdr)) fds where_cls
        ; return (L loc (ClassDecl { tcdCtxt = cxt, tcdLName = cls, tcdTyVars = tyvars,
                                     tcdFDs = unLoc fds, tcdSigs = sigs, tcdMeths = binds,
                                     tcdATs = ats, tcdATDefs = at_defs, tcdDocs  = docs,
-                                    tcdFVs = () })) }
+                                    tcdFVs = placeHolderNames })) }
 
 mkATDefault :: LTyFamInstDecl RdrName
             -> Either (SrcSpan, SDoc) (LTyFamDefltEqn RdrName)
@@ -168,7 +168,7 @@ mkTyData loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
        ; defn <- mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
        ; return (L loc (DataDecl { tcdLName = tc, tcdTyVars = tyvars,
                                    tcdDataDefn = defn,
-                                   tcdFVs = () })) }
+                                   tcdFVs = placeHolderNames })) }
 
 mkDataDefn :: NewOrData
            -> Maybe CType
@@ -194,7 +194,7 @@ mkTySynonym loc lhs rhs
   = do { (tc, tparams) <- checkTyClHdr lhs
        ; tyvars <- checkTyVarsP (ptext (sLit "type")) equalsDots tc tparams
        ; return (L loc (SynDecl { tcdLName = tc, tcdTyVars = tyvars
-                                , tcdRhs = rhs, tcdFVs = () })) }
+                                , tcdRhs = rhs, tcdFVs = placeHolderNames })) }
 
 mkTyFamInstEqn :: LHsType RdrName
                -> LHsType RdrName
@@ -218,14 +218,14 @@ mkDataFamInst loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_
        ; defn <- mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
        ; return (L loc (DataFamInstD (
                   DataFamInstDecl { dfid_tycon = tc, dfid_pats = mkHsWithBndrs tparams
-                                  , dfid_defn = defn, dfid_fvs = () }))) }
+                                  , dfid_defn = defn, dfid_fvs = placeHolderNames }))) }
 
 mkTyFamInst :: SrcSpan
             -> LTyFamInstEqn RdrName
             -> P (LInstDecl RdrName)
 mkTyFamInst loc eqn
   = return (L loc (TyFamInstD (TyFamInstDecl { tfid_eqn  = eqn
-                                             , tfid_fvs  = () })))
+                                             , tfid_fvs  = placeHolderNames })))
 
 mkFamDecl :: SrcSpan
           -> FamilyInfo RdrName
@@ -703,7 +703,7 @@ checkAPat msg loc e0 = do
  pState <- getPState
  let dynflags = dflags pState
  case e0 of
-   EWildPat -> return (WildPat ())
+   EWildPat -> return (WildPat placeHolderType)
    HsVar x  -> return (VarPat x)
    HsLit l  -> return (LitPat l)
 
@@ -724,7 +724,7 @@ checkAPat msg loc e0 = do
    EAsPat n e         -> checkLPat msg e >>= (return . AsPat n)
    -- view pattern is well-formed if the pattern is
    EViewPat expr patE -> checkLPat msg patE >>=
-                            (return . (\p -> ViewPat expr p ()))
+                            (return . (\p -> ViewPat expr p placeHolderType))
    ExprWithTySig e t  -> do e <- checkLPat msg e
                             -- Pattern signatures are parsed as sigtypes,
                             -- but they aren't explicit forall points.  Hence
@@ -749,9 +749,9 @@ checkAPat msg loc e0 = do
 
    HsPar e            -> checkLPat msg e >>= (return . ParPat)
    ExplicitList _ _ es  -> do ps <- mapM (checkLPat msg) es
-                              return (ListPat ps () Nothing)
+                              return (ListPat ps placeHolderType Nothing)
    ExplicitPArr _ es  -> do ps <- mapM (checkLPat msg) es
-                            return (PArrPat ps ())
+                            return (PArrPat ps placeHolderType)
 
    ExplicitTuple es b
      | all tupArgPresent es  -> do ps <- mapM (checkLPat msg) [e | Present e <- es]
@@ -835,7 +835,7 @@ checkPatBind :: SDoc
              -> P (HsBind RdrName)
 checkPatBind msg lhs (L _ grhss)
   = do  { lhs <- checkPattern msg lhs
-        ; return (PatBind lhs grhss () ()
+        ; return (PatBind lhs grhss placeHolderType placeHolderNames
                     (Nothing,[])) }
 
 checkValSig
@@ -1005,8 +1005,8 @@ checkCmd _ (OpApp eLeft op _fixity eRight) = do
     -- OpApp becomes a HsCmdArrForm with a (Just fixity) in it
     c1 <- checkCommand eLeft
     c2 <- checkCommand eRight
-    let arg1 = L (getLoc c1) $ HsCmdTop c1 () () []
-        arg2 = L (getLoc c2) $ HsCmdTop c2 () () []
+    let arg1 = L (getLoc c1) $ HsCmdTop c1 placeHolderType placeHolderType []
+        arg2 = L (getLoc c2) $ HsCmdTop c2 placeHolderType placeHolderType []
     return $ HsCmdArrForm op Nothing [arg1, arg2]
 
 checkCmd l e = cmdFail l e

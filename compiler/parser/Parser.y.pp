@@ -973,7 +973,7 @@ rule    :: { LHsDecl RdrName }
         : STRING rule_activation rule_forall infixexp '=' exp
              { LL $ RuleD (HsRule (getSTRING $1)
                                   ($2 `orElse` AlwaysActive)
-                                  $3 $4 () $6 ()) }
+                                  $3 $4 placeHolderNames $6 placeHolderNames) }
 
 -- Rules can be specified to be NeverActive, unlike inline/specialize pragmas
 rule_activation :: { Maybe Activation }
@@ -1203,10 +1203,10 @@ atype :: { LHsType RdrName }
                                                       -- see Note [Promotion] for the followings
         | SIMPLEQUOTE qcon                            { LL $ HsTyVar $ unLoc $2 }
         | SIMPLEQUOTE  '(' ctype ',' comma_types1 ')' { LL $ HsExplicitTupleTy [] ($3 : $5) }
-        | SIMPLEQUOTE  '[' comma_types0 ']'     { LL $ HsExplicitListTy () $3 }
+        | SIMPLEQUOTE  '[' comma_types0 ']'     { LL $ HsExplicitListTy placeHolderType $3 }
         | SIMPLEQUOTE var                       { LL $ HsTyVar $ unLoc $2 }
 
-        | '[' ctype ',' comma_types1 ']'  { LL $ HsExplicitListTy () ($2 : $4) }
+        | '[' ctype ',' comma_types1 ']'  { LL $ HsExplicitListTy placeHolderType ($2 : $4) }
         | INTEGER            {% mkTyLit $ LL $ HsNumTy $ getINTEGER $1 }
         | STRING             {% mkTyLit $ LL $ HsStrTy $ getSTRING  $1 }
 
@@ -1437,7 +1437,9 @@ decl_no_th :: { Located (OrdList (LHsDecl RdrName)) }
                                         pat <- checkPattern empty e;
                                         return $ LL $ unitOL $ LL $ ValD $
                                                PatBind pat (unLoc $3)
-                                                       () () (Nothing,[]) } }
+                                                       placeHolderType
+                                                       placeHolderNames
+                                                       (Nothing,[]) } }
                                 -- Turn it all into an expression so that
                                 -- checkPattern can check that bangs are enabled
 
@@ -1514,15 +1516,15 @@ quasiquote :: { Located (HsQuasiQuote RdrName) }
 
 exp   :: { LHsExpr RdrName }
         : infixexp '::' sigtype { LL $ ExprWithTySig $1 $3 }
-        | infixexp '-<' exp     { LL $ HsArrApp $1 $3 () HsFirstOrderApp True }
-        | infixexp '>-' exp     { LL $ HsArrApp $3 $1 () HsFirstOrderApp False }
-        | infixexp '-<<' exp    { LL $ HsArrApp $1 $3 () HsHigherOrderApp True }
-        | infixexp '>>-' exp    { LL $ HsArrApp $3 $1 () HsHigherOrderApp False}
+        | infixexp '-<' exp     { LL $ HsArrApp $1 $3 placeHolderType HsFirstOrderApp True }
+        | infixexp '>-' exp     { LL $ HsArrApp $3 $1 placeHolderType HsFirstOrderApp False }
+        | infixexp '-<<' exp    { LL $ HsArrApp $1 $3 placeHolderType HsHigherOrderApp True }
+        | infixexp '>>-' exp    { LL $ HsArrApp $3 $1 placeHolderType HsHigherOrderApp False}
         | infixexp              { $1 }
 
 infixexp :: { LHsExpr RdrName }
         : exp10                         { $1 }
-        | infixexp qop exp10            { LL (OpApp $1 $2 (panic "fixity") $3) }
+        | infixexp qop exp10            { LL (OpApp $1 $2 placeHolderFixity $3) }
 
 exp10 :: { LHsExpr RdrName }
         : '\\' apat apats opt_asig '->' exp
@@ -1531,13 +1533,14 @@ exp10 :: { LHsExpr RdrName }
                                                               ]) }
         | 'let' binds 'in' exp                  { LL $ HsLet (unLoc $2) $4 }
         | '\\' 'lcase' altslist
-            { LL $ HsLamCase () (mkMatchGroup FromSource (unLoc $3)) }
+            { LL $ HsLamCase placeHolderType (mkMatchGroup FromSource (unLoc $3)) }
         | 'if' exp optSemi 'then' exp optSemi 'else' exp
                                         {% checkDoAndIfThenElse $2 $3 $5 $6 $8 >>
                                            return (LL $ mkHsIf $2 $5 $8) }
         | 'if' ifgdpats                 {% hintMultiWayIf (getLoc $1) >>
                                            return (LL $ HsMultiIf
-                                                      () (reverse $ unLoc $2)) }
+                                                      placeHolderType
+                                                      (reverse $ unLoc $2)) }
         | 'case' exp 'of' altslist              { LL $ HsCase $2 (mkMatchGroup FromSource (unLoc $4)) }
         | '-' fexp                              { LL $ NegApp $2 noSyntaxExpr }
 
@@ -1556,8 +1559,8 @@ exp10 :: { LHsExpr RdrName }
         | 'proc' aexp '->' exp
                         {% checkPattern empty $2 >>= \ p ->
                             checkCommand $4 >>= \ cmd ->
-                            return (LL $ HsProc p (LL $ HsCmdTop cmd ()
-                                                    () undefined)) }
+                            return (LL $ HsProc p (LL $ HsCmdTop cmd placeHolderType
+                                                    placeHolderType [])) }
                                                 -- TODO: is LL right here?
 
         | '{-# CORE' STRING '#-}' exp           { LL $ HsCoreAnn (getSTRING $2) $4 }
@@ -1604,9 +1607,9 @@ aexp2   :: { LHsExpr RdrName }
         | literal                       { L1 (HsLit   $! unLoc $1) }
 -- This will enable overloaded strings permanently.  Normally the renamer turns HsString
 -- into HsOverLit when -foverloaded-strings is on.
---      | STRING     { sL (getLoc $1) (HsOverLit $! mkHsIsString (getSTRING $1) ()) }
-        | INTEGER    { sL (getLoc $1) (HsOverLit $! mkHsIntegral (getINTEGER $1) ()) }
-        | RATIONAL   { sL (getLoc $1) (HsOverLit $! mkHsFractional (getRATIONAL $1) ()) }
+--      | STRING     { sL (getLoc $1) (HsOverLit $! mkHsIsString (getSTRING $1) placeHolderType) }
+        | INTEGER    { sL (getLoc $1) (HsOverLit $! mkHsIntegral (getINTEGER $1) placeHolderType) }
+        | RATIONAL   { sL (getLoc $1) (HsOverLit $! mkHsFractional (getRATIONAL $1) placeHolderType) }
 
         -- N.B.: sections get parsed by these next two productions.
         -- This allows you to write, e.g., '(+ 3, 4 -)', which isn't
@@ -1656,7 +1659,7 @@ cmdargs :: { [LHsCmdTop RdrName] }
 
 acmd    :: { LHsCmdTop RdrName }
         : aexp2                 {% checkCommand $1 >>= \ cmd ->
-                                    return (L1 $ HsCmdTop cmd () () undefined) }
+                                    return (L1 $ HsCmdTop cmd placeHolderType placeHolderType []) }
 
 cvtopbody :: { [LHsDecl RdrName] }
         :  '{'            cvtopdecls0 '}'               { $2 }
@@ -1714,8 +1717,8 @@ tup_tail :: { [HsTupArg RdrName] }
 -- avoiding another shift/reduce-conflict.
 
 list :: { LHsExpr RdrName }
-        : texp             { L1 $ ExplicitList () Nothing [$1] }
-        | lexps            { L1 $ ExplicitList () Nothing (reverse (unLoc $1)) }
+        : texp    { L1 $ ExplicitList placeHolderType Nothing [$1] }
+        | lexps   { L1 $ ExplicitList placeHolderType Nothing (reverse (unLoc $1)) }
         | texp '..'             { LL $ ArithSeq noPostTcExpr Nothing (From $1) }
         | texp ',' exp '..'     { LL $ ArithSeq noPostTcExpr Nothing (FromThen $1 $3) }
         | texp '..' exp         { LL $ ArithSeq noPostTcExpr Nothing (FromTo $1 $3) }
@@ -1738,7 +1741,7 @@ flattenedpquals :: { Located [LStmt RdrName (LHsExpr RdrName)] }
                     -- We just had one thing in our "parallel" list so
                     -- we simply return that thing directly
 
-                    qss -> L1 [L1 $ ParStmt [ParStmtBlock qs undefined noSyntaxExpr | qs <- qss]
+                    qss -> L1 [L1 $ ParStmt [ParStmtBlock qs [] noSyntaxExpr | qs <- qss]
                                             noSyntaxExpr noSyntaxExpr]
                     -- We actually found some actual parallel lists so
                     -- we wrap them into as a ParStmt
@@ -1784,9 +1787,9 @@ transformqual :: { Located ([LStmt RdrName (LHsExpr RdrName)] -> Stmt RdrName (L
 -- constructor in the list case).
 
 parr :: { LHsExpr RdrName }
-        :                               { noLoc (ExplicitPArr () []) }
-        | texp                          { L1 $ ExplicitPArr () [$1] }
-        | lexps                         { L1 $ ExplicitPArr ()
+        :                               { noLoc (ExplicitPArr placeHolderType []) }
+        | texp                          { L1 $ ExplicitPArr placeHolderType [$1] }
+        | lexps                         { L1 $ ExplicitPArr placeHolderType
                                                        (reverse (unLoc $1)) }
         | texp '..' exp                 { LL $ PArrSeq noPostTcExpr (FromTo $1 $3) }
         | texp ',' exp '..' exp         { LL $ PArrSeq noPostTcExpr (FromThenTo $1 $3 $5) }

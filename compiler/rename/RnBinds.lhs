@@ -479,7 +479,7 @@ rnBind _ bind@(PatBind { pat_lhs = pat
                 -- MonoLocalBinds test in TcBinds.decideGeneralisationPlan
               bndrs = collectPatBinders pat
               bind' = bind { pat_rhs  = grhss',
-                             pat_rhs_ty = (), bind_fvs = fvs' }
+                             pat_rhs_ty = placeHolderType, bind_fvs = fvs' }
               is_wild_pat = case pat of
                               L _ (WildPat {})                 -> True
                               L _ (BangPat (L _ (WildPat {}))) -> True -- #9127

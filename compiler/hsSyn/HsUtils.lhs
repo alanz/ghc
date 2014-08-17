@@ -281,7 +281,7 @@ mkHsSpliceTE :: LHsExpr RdrName -> HsExpr RdrName
 mkHsSpliceTE e = HsSpliceE True (mkHsSplice e)
 
 mkHsSpliceTy :: LHsExpr RdrName -> HsType RdrName
-mkHsSpliceTy e = HsSpliceTy (mkHsSplice e) ()
+mkHsSpliceTy e = HsSpliceTy (mkHsSplice e) placeHolderType
 
 unqualSplice :: RdrName
 unqualSplice = mkRdrUnqual (mkVarOccFS (fsLit "splice"))
@@ -505,7 +505,7 @@ mkFunBind :: Located RdrName -> [LMatch RdrName (LHsExpr RdrName)]
 mkFunBind fn ms = FunBind { fun_id = fn, fun_infix = False
                           , fun_matches = mkMatchGroup Generated ms
                           , fun_co_fn = idHsWrapper
-                          , bind_fvs = ()
+                          , bind_fvs = placeHolderNames
                           , fun_tick = Nothing }
 
 mkTopFunBind :: Origin -> Located Name -> [LMatch Name (LHsExpr Name)]
@@ -533,7 +533,7 @@ mkPatSynBind name details lpat dir = PatSynBind psb
              , psb_args = details
              , psb_def = lpat
              , psb_dir = dir
-             , psb_fvs = () }
+             , psb_fvs = placeHolderNames }
 
 ------------
 mk_easy_FunBind :: SrcSpan -> RdrName -> [LPat RdrName]

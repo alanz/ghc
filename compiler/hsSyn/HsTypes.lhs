@@ -11,7 +11,7 @@ HsTypes: Abstract syntax: user-defined types
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
 
 module HsTypes (
         HsType(..), LHsType, HsKind, LHsKind,
