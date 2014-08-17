@@ -232,8 +232,8 @@ rnExpr (ExplicitList _ _  exps)
         ; if opt_OverloadedLists
            then do {
             ; (from_list_n_name, fvs') <- lookupSyntaxName fromListNName
-            ; return (ExplicitList placeHolderType (Just from_list_n_name) exps',
-                      fvs `plusFV` fvs') }
+            ; return (ExplicitList placeHolderType (Just from_list_n_name) exps'
+                     , fvs `plusFV` fvs') }
            else
             return  (ExplicitList placeHolderType Nothing exps', fvs) }
 
