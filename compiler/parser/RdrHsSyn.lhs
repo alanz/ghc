@@ -85,8 +85,6 @@ import Outputable
 import FastString
 import Maybes
 import Util
-import Type
-import NameSet
 
 import Control.Applicative ((<$>))
 import Control.Monad
@@ -821,9 +819,8 @@ checkFunBind msg lhs_loc fun is_infix pats opt_sig (L rhs_span grhss)
         -- The span of the match covers the entire equation.
         -- That isn't quite right, but it'll do for now.
 
-makeFunBind :: (PlaceHolderType (PostTc id Type),
-                PlaceHolderNames (PostRn id NameSet))
-            => Located id -> Bool -> [LMatch id (LHsExpr id)] -> HsBind id
+makeFunBind :: Located RdrName -> Bool -> [LMatch RdrName (LHsExpr RdrName)]
+            -> HsBind RdrName
 -- Like HsUtils.mkFunBind, but we need to be able to set the fixity too
 makeFunBind fn is_infix ms
   = FunBind { fun_id = fn, fun_infix = is_infix, fun_matches = mkMatchGroup FromSource ms,

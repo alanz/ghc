@@ -84,19 +84,11 @@ instance PlaceHolderType PlaceHolder where
   placeHolderType = PlaceHolder
 
 
--- Note: It seems placeHolderNames is still required, it is called at least once
---       in an `Id` context.
--- | Used for the NameSet in FunBind and PatBind prior to the renamer
-class PlaceHolderNames a where
-  placeHolderNames :: a
+placeHolderNames :: PlaceHolder
+placeHolderNames = PlaceHolder
 
-instance PlaceHolderNames NameSet where
-  -- This function should never be called, exists to make the type checker happy
-  placeHolderNames
-            = panic "Evaluated the place holder for a NameSet before renaming"
-
-instance PlaceHolderNames PlaceHolder where
-  placeHolderNames = PlaceHolder
+placeHolderNamesTc :: NameSet
+placeHolderNamesTc = emptyNameSet
 \end{code}
 
 Note [pass sensitive types]

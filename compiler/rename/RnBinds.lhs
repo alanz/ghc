@@ -435,7 +435,7 @@ rnBindLHS name_maker _ bind@(PatBind { pat_lhs = pat })
 rnBindLHS name_maker _ bind@(FunBind { fun_id = name@(L nameLoc _) })
   = do { newname <- applyNameMaker name_maker name
        ; return (bind { fun_id = L nameLoc newname
-                      , bind_fvs = placeHolderNames }) }
+                      , bind_fvs = placeHolderNamesTc }) }
 
 rnBindLHS name_maker _ (PatSynBind psb@PSB{ psb_id = rdrname@(L nameLoc _) })
   = do { unless (isTopRecNameMaker name_maker) $
