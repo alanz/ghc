@@ -211,7 +211,7 @@ data ABExport id
 
 data PatSynBind idL idR
   = PSB { psb_id   :: Located idL,             -- ^ Name of the pattern synonym
-          psb_fvs  :: (PostRn idR NameSet),    -- ^ See Note [Bind free vars]
+          psb_fvs  :: PostRn idR NameSet,      -- ^ See Note [Bind free vars]
           psb_args :: HsPatSynDetails (Located idR), -- ^ Formal parameter names
           psb_def  :: LPat idR,                      -- ^ Right-hand side
           psb_dir  :: HsPatSynDir idR                -- ^ Directionality
