@@ -1169,7 +1169,8 @@ tcRhs (TcFunBind (_,_,mono_id) loc inf matches)
         ; return (FunBind { fun_id = L loc mono_id, fun_infix = inf
                           , fun_matches = matches'
                           , fun_co_fn = co_fn 
-                          , bind_fvs = placeHolderNamesTc, fun_tick = Nothing }) }
+                          , bind_fvs = placeHolderNamesTc
+                          , fun_tick = Nothing }) }
 
 tcRhs (TcPatBind infos pat' grhss pat_ty)
   = tcExtendIdBndrs [ TcIdBndr mono_id NotTopLevel | (_,_,mono_id) <- infos ] $
