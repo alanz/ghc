@@ -734,7 +734,7 @@ rnMethodBind cls sig_fn
     (new_matches, fvs) <- bindSigTyVarsFV (sig_fn plain_name) $
                           mapFvRn (rnMatch (FunRhs plain_name is_infix) rnLExpr)
                                            matches
-    let new_group = mkMatchGroup origin new_matches
+    let new_group = mkMatchGroupName origin new_matches
 
     when is_infix $ checkPrecMatch plain_name new_group
     return (unitBag (L loc (bind { fun_id      = sel_name
@@ -942,7 +942,7 @@ rnMatchGroup ctxt rnBody (MG { mg_alts = ms, mg_origin = origin })
   = do { empty_case_ok <- xoptM Opt_EmptyCase
        ; when (null ms && not empty_case_ok) (addErr (emptyCaseErr ctxt))
        ; (new_ms, ms_fvs) <- mapFvRn (rnMatch ctxt rnBody) ms
-       ; return (mkMatchGroup origin new_ms, ms_fvs) }
+       ; return (mkMatchGroupName origin new_ms, ms_fvs) }
 
 rnMatch :: Outputable (body RdrName) => HsMatchContext Name
         -> (Located (body RdrName) -> RnM (Located (body Name), FreeVars))

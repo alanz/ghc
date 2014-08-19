@@ -681,9 +681,9 @@ rnStmt ctxt rnBody (L _ (RecStmt { recS_stmts = rec_stmts })) thing_inside
   = do  { (return_op, fvs1)  <- lookupStmtName ctxt returnMName
         ; (mfix_op,   fvs2)  <- lookupStmtName ctxt mfixName
         ; (bind_op,   fvs3)  <- lookupStmtName ctxt bindMName
-        ; let empty_rec_stmt = emptyRecStmt { recS_ret_fn  = return_op
-                                            , recS_mfix_fn = mfix_op
-                                            , recS_bind_fn = bind_op }
+        ; let empty_rec_stmt = emptyRecStmtName { recS_ret_fn  = return_op
+                                                , recS_mfix_fn = mfix_op
+                                                , recS_bind_fn = bind_op }
 
         -- Step1: Bring all the binders of the mdo into scope
         -- (Remember that this also removes the binders from the

@@ -28,7 +28,7 @@ module HsUtils(
   -- Terms
   mkHsPar, mkHsApp, mkHsConApp, mkSimpleHsAlt,
   mkSimpleMatch, unguardedGRHSs, unguardedRHS,
-  mkMatchGroup, mkMatch, mkHsLam, mkHsIf,
+  mkMatchGroup, mkMatchGroupName, mkMatch, mkHsLam, mkHsIf,
   mkHsWrap, mkLHsWrap, mkHsWrapCo, mkLHsWrapCo,
   coToHsWrapper, mkHsDictLet, mkHsLams,
   mkHsOpApp, mkHsDo, mkHsComp, mkHsWrapPat, mkHsWrapPatCo,
@@ -46,8 +46,9 @@ module HsUtils(
   mkHsIntegral, mkHsFractional, mkHsIsString, mkHsString,
 
   -- Patterns
-  mkNPat, mkNPlusKPat, nlVarPat, nlLitPat, nlConVarPat, nlConPat, nlInfixConPat,
-  nlNullaryConPat, nlWildConPat, nlWildPat, nlTuplePat, mkParPat,
+  mkNPat, mkNPlusKPat, nlVarPat, nlLitPat, nlConVarPat, nlConPat,
+  nlConPatName, nlInfixConPat, nlNullaryConPat, nlWildConPat, nlWildPat,
+  nlWildPatName, nlWildPatId, nlTuplePat, mkParPat,
 
   -- Types
   mkHsAppTy, userHsTyVarBndrs,
@@ -56,7 +57,7 @@ module HsUtils(
   -- Stmts
   mkTransformStmt, mkTransformByStmt, mkBodyStmt, mkBindStmt, mkLastStmt,
   emptyTransStmt, mkGroupUsingStmt, mkGroupByUsingStmt,
-  emptyRecStmt, mkRecStmt,
+  emptyRecStmt, emptyRecStmtName, emptyRecStmtId, mkRecStmt,
 
   -- Template Haskell
   mkHsSpliceTy, mkHsSpliceE, mkHsSpliceTE, mkHsSplice,
@@ -139,13 +140,17 @@ unguardedGRHSs rhs = GRHSs (unguardedRHS rhs) emptyLocalBinds
 unguardedRHS :: Located (body id) -> [LGRHS id (Located (body id))]
 unguardedRHS rhs@(L loc _) = [L loc (GRHS [] rhs)]
 
-mkMatchGroup :: (PlaceHolderType (PostTc id Type))
-             => Origin -> [LMatch id (Located (body id))]
-             -> MatchGroup id (Located (body id))
+mkMatchGroup :: Origin -> [LMatch RdrName (Located (body RdrName))]
+             -> MatchGroup RdrName (Located (body RdrName))
 mkMatchGroup origin matches = MG { mg_alts = matches, mg_arg_tys = []
                                  , mg_res_ty = placeHolderType
-                                      -- ++AZ++ used for both RdrName/Name
                                  , mg_origin = origin }
+
+mkMatchGroupName :: Origin -> [LMatch Name (Located (body Name))]
+             -> MatchGroup Name (Located (body Name))
+mkMatchGroupName origin matches = MG { mg_alts = matches, mg_arg_tys = []
+                                     , mg_res_ty = placeHolderType
+                                     , mg_origin = origin }
 
 mkHsAppTy :: LHsType name -> LHsType name -> LHsType name
 mkHsAppTy t1 t2 = addCLoc t1 t2 (HsAppTy t1 t2)
@@ -153,8 +158,7 @@ mkHsAppTy t1 t2 = addCLoc t1 t2 (HsAppTy t1 t2)
 mkHsApp :: LHsExpr name -> LHsExpr name -> LHsExpr name
 mkHsApp e1 e2 = addCLoc e1 e2 (HsApp e1 e2)
 
-mkHsLam :: (PlaceHolderType (PostTc id Type))
-        => [LPat id] -> LHsExpr id -> LHsExpr id
+mkHsLam :: [LPat RdrName] -> LHsExpr RdrName -> LHsExpr RdrName
 mkHsLam pats body = mkHsPar (L (getLoc body) (HsLam matches))
         where
           matches = mkMatchGroup Generated [mkSimpleMatch pats body]
@@ -197,23 +201,22 @@ mkParPat lp@(L loc p) | hsPatNeedsParens p = L loc (ParPat lp)
 mkHsIntegral   :: Integer -> PostTc id Type -> HsOverLit id
 mkHsFractional :: FractionalLit -> PostTc id Type -> HsOverLit id
 mkHsIsString   :: FastString -> PostTc id Type -> HsOverLit id
-mkHsDo         :: (PlaceHolderType (PostTc id Type))
-                => HsStmtContext Name -> [ExprLStmt id] -> HsExpr id
-mkHsComp       :: (PlaceHolderType (PostTc id Type))
-               => HsStmtContext Name -> [ExprLStmt id] -> LHsExpr id
-               -> HsExpr id
+mkHsDo         :: HsStmtContext Name -> [ExprLStmt RdrName] -> HsExpr RdrName
+mkHsComp       :: HsStmtContext Name -> [ExprLStmt RdrName] -> LHsExpr RdrName
+               -> HsExpr RdrName
 
 mkNPat      :: HsOverLit id -> Maybe (SyntaxExpr id) -> Pat id
 mkNPlusKPat :: Located id -> HsOverLit id -> Pat id
 
 mkLastStmt :: Located (bodyR idR) -> StmtLR idL idR (Located (bodyR idR))
-mkBodyStmt :: (PlaceHolderType (PostTc idR Type)) => Located (bodyR idR)
-           -> StmtLR idL idR (Located (bodyR idR))
+mkBodyStmt :: Located (bodyR RdrName)
+           -> StmtLR idL RdrName (Located (bodyR RdrName))
 mkBindStmt :: LPat idL -> Located (bodyR idR) -> StmtLR idL idR (Located (bodyR idR))
 
-emptyRecStmt :: (PlaceHolderType (PostTc idR Type)) => StmtLR idL idR bodyR
-mkRecStmt    :: (PlaceHolderType (PostTc idR Type))
-             => [LStmtLR idL idR bodyR] -> StmtLR idL idR bodyR
+emptyRecStmt     :: StmtLR idL  RdrName bodyR
+emptyRecStmtName :: StmtLR Name Name    bodyR
+emptyRecStmtId   :: StmtLR Id   Id      bodyR
+mkRecStmt    :: [LStmtLR idL RdrName bodyR] -> StmtLR idL RdrName bodyR
 
 
 mkHsIntegral   i       = OverLit (HsIntegral   i)  noRebindableInfo noSyntaxExpr
@@ -258,10 +261,29 @@ mkLastStmt body     = LastStmt body noSyntaxExpr
 mkBodyStmt body     = BodyStmt body noSyntaxExpr noSyntaxExpr placeHolderType
 mkBindStmt pat body = BindStmt pat body noSyntaxExpr noSyntaxExpr
 
-emptyRecStmt = RecStmt { recS_stmts = [], recS_later_ids = [], recS_rec_ids = []
-                       , recS_ret_fn = noSyntaxExpr, recS_mfix_fn = noSyntaxExpr
-                       , recS_bind_fn = noSyntaxExpr, recS_later_rets = []
-                       , recS_rec_rets = [], recS_ret_ty = placeHolderType }
+emptyRecStmt = RecStmt
+                 { recS_stmts = [], recS_later_ids = []
+                 , recS_rec_ids = []
+                 , recS_ret_fn = noSyntaxExpr
+                 , recS_mfix_fn = noSyntaxExpr
+                 , recS_bind_fn = noSyntaxExpr, recS_later_rets = []
+                 , recS_rec_rets = [], recS_ret_ty = placeHolderType }
+
+emptyRecStmtName = RecStmt
+                 { recS_stmts = [], recS_later_ids = []
+                 , recS_rec_ids = []
+                 , recS_ret_fn = noSyntaxExpr
+                 , recS_mfix_fn = noSyntaxExpr
+                 , recS_bind_fn = noSyntaxExpr, recS_later_rets = []
+                 , recS_rec_rets = [], recS_ret_ty = placeHolderType }
+
+emptyRecStmtId = RecStmt
+                 { recS_stmts = [], recS_later_ids = []
+                 , recS_rec_ids = []
+                 , recS_ret_fn = noSyntaxExpr
+                 , recS_mfix_fn = noSyntaxExpr
+                 , recS_bind_fn = noSyntaxExpr, recS_later_rets = []
+                 , recS_rec_rets = [], recS_ret_ty = placeHolderTypeTc }
 
 mkRecStmt stmts = emptyRecStmt { recS_stmts = stmts }
 
@@ -339,41 +361,48 @@ nlHsVarApps f xs = noLoc (foldl mk (HsVar f) (map HsVar xs))
                  where
                    mk f a = HsApp (noLoc f) (noLoc a)
 
-nlConVarPat :: id -> [id] -> LPat id
+nlConVarPat :: RdrName -> [RdrName] -> LPat RdrName
 nlConVarPat con vars = nlConPat con (map nlVarPat vars)
 
 nlInfixConPat :: id -> LPat id -> LPat id -> LPat id
 nlInfixConPat con l r = noLoc (ConPatIn (noLoc con) (InfixCon l r))
 
-nlConPat :: id -> [LPat id] -> LPat id
+nlConPat :: RdrName -> [LPat RdrName] -> LPat RdrName
 nlConPat con pats = noLoc (ConPatIn (noLoc con) (PrefixCon pats))
+
+nlConPatName :: Name -> [LPat Name] -> LPat Name
+nlConPatName con pats = noLoc (ConPatIn (noLoc con) (PrefixCon pats))
 
 nlNullaryConPat :: id -> LPat id
 nlNullaryConPat con = noLoc (ConPatIn (noLoc con) (PrefixCon []))
 
-nlWildConPat :: (PlaceHolderType (PostTc RdrName Type))
-             => DataCon -> LPat RdrName
+nlWildConPat :: DataCon -> LPat RdrName
 nlWildConPat con = noLoc (ConPatIn (noLoc (getRdrName con))
                          (PrefixCon (nOfThem (dataConSourceArity con)
                                              nlWildPat)))
 
-nlWildPat :: (PlaceHolderType (PostTc id Type)) => LPat id
+nlWildPat :: LPat RdrName
 nlWildPat  = noLoc (WildPat placeHolderType )  -- Pre-typechecking
 
-nlHsDo :: (PlaceHolderType (PostTc id Type))
-       => HsStmtContext Name -> [LStmt id (LHsExpr id)] -> LHsExpr id
+nlWildPatName :: LPat Name
+nlWildPatName  = noLoc (WildPat placeHolderType )  -- Pre-typechecking
+
+nlWildPatId :: LPat Id
+nlWildPatId  = noLoc (WildPat placeHolderTypeTc )  -- Post-typechecking
+
+nlHsDo :: HsStmtContext Name -> [LStmt RdrName (LHsExpr RdrName)]
+       -> LHsExpr RdrName
 nlHsDo ctxt stmts = noLoc (mkHsDo ctxt stmts)
 
 nlHsOpApp :: LHsExpr id -> id -> LHsExpr id -> LHsExpr id
 nlHsOpApp e1 op e2 = noLoc (mkHsOpApp e1 op e2)
 
-nlHsLam  :: (PlaceHolderType (PostTc id Type))
-         => LMatch id (LHsExpr id) -> LHsExpr id
+nlHsLam  :: LMatch RdrName (LHsExpr RdrName) -> LHsExpr RdrName
 nlHsPar  :: LHsExpr id -> LHsExpr id
 nlHsIf   :: LHsExpr id -> LHsExpr id -> LHsExpr id -> LHsExpr id
-nlHsCase :: (PlaceHolderType (PostTc id Type))
-         => LHsExpr id -> [LMatch id (LHsExpr id)] -> LHsExpr id
-nlList   :: (PlaceHolderType (PostTc id Type)) => [LHsExpr id] -> LHsExpr id
+nlHsCase :: LHsExpr RdrName -> [LMatch RdrName (LHsExpr RdrName)]
+         -> LHsExpr RdrName
+nlList   :: [LHsExpr RdrName] -> LHsExpr RdrName
 
 nlHsLam match          = noLoc (HsLam (mkMatchGroup Generated [match]))
 nlHsPar e              = noLoc (HsPar e)
@@ -408,7 +437,7 @@ mkLHsVarTuple ids  = mkLHsTupleExpr (map nlHsVar ids)
 nlTuplePat :: [LPat id] -> Boxity -> LPat id
 nlTuplePat pats box = noLoc (TuplePat pats box [])
 
-missingTupArg :: (PlaceHolderType (PostTc a Type)) => HsTupArg a
+missingTupArg :: HsTupArg RdrName
 missingTupArg = Missing placeHolderType
 \end{code}
 
@@ -512,7 +541,7 @@ mkTopFunBind :: Origin -> Located Name -> [LMatch Name (LHsExpr Name)]
              -> HsBind Name
 -- In Name-land, with empty bind_fvs
 mkTopFunBind origin fn ms = FunBind { fun_id = fn, fun_infix = False
-                                    , fun_matches = mkMatchGroup origin ms
+                                    , fun_matches = mkMatchGroupName origin ms
                                     , fun_co_fn = idHsWrapper
                                     , bind_fvs = emptyNameSet -- NB: closed
                                                               --     binding

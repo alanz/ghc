@@ -70,19 +70,11 @@ placeHolderKind = PlaceHolder
 placeHolderFixity :: PlaceHolder
 placeHolderFixity = PlaceHolder
 
--- Note: It seems placeHolderType is still required, it is called at least once
---       in an `Id` context.
-class PlaceHolderType a where
-  placeHolderType :: a
+placeHolderType :: PlaceHolder
+placeHolderType = PlaceHolder
 
-instance PlaceHolderType Type where
-  -- This function should never be called, exists to make the type checker happy
-  placeHolderType
-            = panic "Evaluated the place holder for a Type before type checking"
-
-instance PlaceHolderType PlaceHolder where
-  placeHolderType = PlaceHolder
-
+placeHolderTypeTc :: Type
+placeHolderTypeTc = panic "Evaluated the place holder for a PostTcType"
 
 placeHolderNames :: PlaceHolder
 placeHolderNames = PlaceHolder
