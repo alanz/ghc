@@ -11,5 +11,3 @@ landmines: clean
 
 
 .PHONY: clean
-
-

@@ -19,5 +19,3 @@ We need one each of
 module MineType where
 
 foo = undefined
-
-

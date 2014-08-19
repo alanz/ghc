@@ -20,5 +20,3 @@ module MineNames where
 
 foo :: Int
 foo = 1
-
-

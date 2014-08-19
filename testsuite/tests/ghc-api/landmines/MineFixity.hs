@@ -21,6 +21,3 @@ module MineFixity where
 infixl 3 `foo`
 
 foo = undefined
-
-
-

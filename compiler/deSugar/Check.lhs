@@ -281,7 +281,8 @@ process_literals used_lits qs
        default_eqns    = ASSERT2( okGroup qs, pprGroup qs )
                          [remove_var q | q <- qs, is_var (firstPatN q)]
        (pats',indexs') = check' default_eqns
-       pats_default    = [(nlWildPatName:ps,constraints) | (ps,constraints) <- (pats')] ++ pats
+       pats_default    = [(nlWildPatName:ps,constraints) |
+                                        (ps,constraints) <- (pats')] ++ pats
        indexs_default  = unionUniqSets indexs' indexs
 \end{code}
 
@@ -326,9 +327,10 @@ nothing to do.
 
 \begin{code}
 first_column_only_vars :: [(EqnNo, EquationInfo)] -> ([ExhaustivePat],EqnSet)
-first_column_only_vars qs = (map (\ (xs,ys) -> (nlWildPatName:xs,ys)) pats,indexs)
-                          where
-                            (pats, indexs) = check' (map remove_var qs)
+first_column_only_vars qs
+  = (map (\ (xs,ys) -> (nlWildPatName:xs,ys)) pats,indexs)
+  where
+    (pats, indexs) = check' (map remove_var qs)
 \end{code}
 
 This equation takes a matrix of patterns and split the equations by
@@ -400,7 +402,8 @@ remove_first_column _ _ = panic "Check.remove_first_column: Not ConPatOut"
 
 make_row_vars :: [HsLit] -> (EqnNo, EquationInfo) -> ExhaustivePat
 make_row_vars used_lits (_, EqnInfo { eqn_pats = pats})
-   = (nlVarPat new_var:takeList (tail pats) (repeat nlWildPatName),[(new_var,used_lits)])
+   = (nlVarPat new_var:takeList (tail pats) (repeat nlWildPatName)
+     ,[(new_var,used_lits)])
   where
      new_var = hash_x
 

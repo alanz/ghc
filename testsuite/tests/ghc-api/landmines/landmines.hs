@@ -28,7 +28,9 @@ testOneFile libdir fileName = do
                         dflags <- getSessionDynFlags
                         setSessionDynFlags dflags
                         let mn =mkModuleName fileName
-                        addTarget Target { targetId = TargetModule mn, targetAllowObjCode = True, targetContents = Nothing }
+                        addTarget Target { targetId = TargetModule mn
+                                         , targetAllowObjCode = True
+                                         , targetContents = Nothing }
                         load LoadAllTargets
                         modSum <- getModSummary mn
                         p <- parseModule modSum
@@ -86,4 +88,3 @@ everything :: (r -> r -> r) -> GenericQ r -> GenericQ r
 -- use ordinary foldl to reduce list of intermediate results
 
 everything k f x = foldl k (f x) (gmapQ (everything k f) x)
-

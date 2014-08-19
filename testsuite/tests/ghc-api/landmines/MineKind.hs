@@ -24,5 +24,3 @@ data HList :: [*] -> * where
 
 data Tuple :: (*,*) -> * where
   Tuple :: a -> b -> Tuple '(a,b)
-
-
