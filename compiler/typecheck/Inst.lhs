@@ -34,8 +34,8 @@ module Inst (
 
 #include "HsVersions.h"
 
-import {-# SOURCE #-}	TcExpr( tcPolyExpr, tcSyntaxOp )
-import {-# SOURCE #-}	TcUnify( unifyType )
+import {-# SOURCE #-}   TcExpr( tcPolyExpr, tcSyntaxOp )
+import {-# SOURCE #-}   TcUnify( unifyType )
 
 import FastString
 import HsSyn
