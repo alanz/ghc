@@ -5,13 +5,6 @@
 \section[HsLit]{Abstract syntax: source-language literals}
 
 \begin{code}
-{-# OPTIONS_GHC -fno-warn-tabs #-}
--- The above warning supression flag is a temporary kludge.
--- While working on this module you are encouraged to remove it and
--- detab the module (please do the detabbing in a separate patch). See
---     http://ghc.haskell.org/trac/ghc/wiki/Commentary/CodingStyle#TabsvsSpaces
--- for details
-
 {-# LANGUAGE CPP, DeriveDataTypeable #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -159,7 +152,6 @@ instance Eq HsLit where
   (HsDoublePrim x1) == (HsDoublePrim x2) = x1==x2
   _                 == _                 = False
 
-
 data HsOverLit id       -- An overloaded literal
   = OverLit {
         ol_val :: OverLitVal,
@@ -175,8 +167,7 @@ data OverLitVal
   = HsIntegral   !Integer       -- Integer-looking literals;
   | HsFractional !FractionalLit -- Frac-looking literals
   | HsIsString   !FastString    -- String-looking literals
- deriving (Data, Typeable)
-
+  deriving (Data, Typeable)
 
 overLitType :: HsOverLit a -> PostTc a Type
 overLitType = ol_type
