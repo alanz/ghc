@@ -265,7 +265,7 @@ newOverloadedLit' dflags orig
   lit@(OverLit { ol_val = val, ol_rebindable = rebindable
 	       , ol_witness = meth_name }) res_ty
 
-  | not rebindable
+  | rebindable == RebindableOff
   , Just expr <- shortCutLit dflags val res_ty 
 	-- Do not generate a LitInst for rebindable syntax.  
 	-- Reason: If we do, tcSimplify will call lookupInst, which

@@ -223,8 +223,8 @@ mkHsIntegral   i       = OverLit (HsIntegral   i)  noRebindableInfo noSyntaxExpr
 mkHsFractional f       = OverLit (HsFractional f)  noRebindableInfo noSyntaxExpr
 mkHsIsString   s       = OverLit (HsIsString   s)  noRebindableInfo noSyntaxExpr
 
-noRebindableInfo :: Bool
-noRebindableInfo = error "noRebindableInfo"   -- Just another placeholder;
+noRebindableInfo :: Rebindable
+noRebindableInfo = RebindableUnknown -- Just another placeholder;
 
 mkHsDo ctxt stmts = HsDo ctxt stmts placeHolderType
 mkHsComp ctxt stmts expr = mkHsDo ctxt (stmts ++ [last_stmt])

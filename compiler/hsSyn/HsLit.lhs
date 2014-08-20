@@ -155,7 +155,7 @@ instance Eq HsLit where
 data HsOverLit id       -- An overloaded literal
   = OverLit {
         ol_val :: OverLitVal,
-        ol_rebindable :: Bool,          -- Note [ol_rebindable]
+        ol_rebindable :: Rebindable,    -- Note [ol_rebindable]
         ol_witness :: SyntaxExpr id,    -- Note [Overloaded literal witnesses]
         ol_type :: PostTc id Type }
   deriving (Typeable)
@@ -171,6 +171,12 @@ data OverLitVal
 
 overLitType :: HsOverLit a -> PostTc a Type
 overLitType = ol_type
+
+data Rebindable
+   = RebindableUnknown
+   | RebindableOff
+   | RebindableOn
+  deriving (Data, Typeable, Eq)
 \end{code}
 
 Note [ol_rebindable]

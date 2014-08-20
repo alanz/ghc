@@ -694,8 +694,10 @@ rnOverLit origLit
         ; let std_name = hsOverLitName val
         ; (from_thing_name, fvs) <- lookupSyntaxName std_name
         ; let rebindable = case from_thing_name of
-                                HsVar v -> v /= std_name
-                                _       -> panic "rnOverLit"
+                                HsVar v -> if v /= std_name
+                                             then RebindableOn
+                                             else RebindableOff
+                                _       -> RebindableUnknown
         ; return (lit { ol_witness = from_thing_name
                       , ol_rebindable = rebindable
                       , ol_type = placeHolderType }, fvs) }
