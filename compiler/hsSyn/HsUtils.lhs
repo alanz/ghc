@@ -261,31 +261,22 @@ mkLastStmt body     = LastStmt body noSyntaxExpr
 mkBodyStmt body     = BodyStmt body noSyntaxExpr noSyntaxExpr placeHolderType
 mkBindStmt pat body = BindStmt pat body noSyntaxExpr noSyntaxExpr
 
-emptyRecStmt = RecStmt
-                 { recS_stmts = [], recS_later_ids = []
-                 , recS_rec_ids = []
-                 , recS_ret_fn = noSyntaxExpr
-                 , recS_mfix_fn = noSyntaxExpr
-                 , recS_bind_fn = noSyntaxExpr, recS_later_rets = []
-                 , recS_rec_rets = [], recS_ret_ty = placeHolderType }
 
-emptyRecStmtName = RecStmt
-                 { recS_stmts = [], recS_later_ids = []
-                 , recS_rec_ids = []
-                 , recS_ret_fn = noSyntaxExpr
-                 , recS_mfix_fn = noSyntaxExpr
-                 , recS_bind_fn = noSyntaxExpr, recS_later_rets = []
-                 , recS_rec_rets = [], recS_ret_ty = placeHolderType }
+emptyRecStmt' :: forall idL idR body.
+                       PostTc idR Type -> StmtLR idL idR body
+emptyRecStmt' tyVal =
+   RecStmt
+     { recS_stmts = [], recS_later_ids = []
+     , recS_rec_ids = []
+     , recS_ret_fn = noSyntaxExpr
+     , recS_mfix_fn = noSyntaxExpr
+     , recS_bind_fn = noSyntaxExpr, recS_later_rets = []
+     , recS_rec_rets = [], recS_ret_ty = tyVal }
 
-emptyRecStmtId = RecStmt
-                 { recS_stmts = [], recS_later_ids = []
-                 , recS_rec_ids = []
-                 , recS_ret_fn = noSyntaxExpr
-                 , recS_mfix_fn = noSyntaxExpr
-                 , recS_bind_fn = noSyntaxExpr, recS_later_rets = []
-                 , recS_rec_rets = [], recS_ret_ty = placeHolderTypeTc }
-
-mkRecStmt stmts = emptyRecStmt { recS_stmts = stmts }
+emptyRecStmt     = emptyRecStmt' placeHolderType
+emptyRecStmtName = emptyRecStmt' placeHolderType
+emptyRecStmtId   = emptyRecStmt' placeHolderTypeTc
+mkRecStmt stmts  = emptyRecStmt { recS_stmts = stmts }
 
 -------------------------------
 --- A useful function for building @OpApps@.  The operator is always a
