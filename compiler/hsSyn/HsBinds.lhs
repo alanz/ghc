@@ -34,6 +34,7 @@ import Var
 import Bag
 import FastString
 import BooleanFormula (BooleanFormula)
+import Coercion
 
 import Data.Data hiding ( Fixity )
 import Data.List
@@ -70,8 +71,10 @@ data HsLocalBindsLR idL idR
   deriving (Typeable)
 deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
                              Data (PostRn idL Fixity), Data (PostRn idL Bool),
+                             Data (PostTc idL Coercion),
                    Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity), Data (PostRn idR Bool))
+                             Data (PostRn idR Fixity), Data (PostRn idR Bool),
+                             Data (PostTc idR Coercion))
   => Data (HsLocalBindsLR idL idR)
 
 type HsValBinds id = HsValBindsLR id id
@@ -94,8 +97,10 @@ data HsValBindsLR idL idR
   deriving (Typeable)
 deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
                              Data (PostRn idL Fixity), Data (PostRn idL Bool),
+                             Data (PostTc idL Coercion),
                    Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity), Data (PostRn idR Bool))
+                             Data (PostRn idR Fixity), Data (PostRn idR Bool),
+                             Data (PostTc idR Coercion))
   => Data (HsValBindsLR idL idR)
 
 type LHsBind  id = LHsBindLR  id id
@@ -185,8 +190,10 @@ data HsBindLR idL idR
   deriving (Typeable)
 deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
                              Data (PostRn idL Fixity), Data (PostRn idL Bool),
+                             Data (PostTc idL Coercion),
                    Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity), Data (PostRn idR Bool))
+                             Data (PostRn idR Fixity), Data (PostRn idR Bool),
+                             Data (PostTc idR Coercion))
   => Data (HsBindLR idL idR)
 
         -- Consider (AbsBinds tvs ds [(ftvs, poly_f, mono_f) binds]
@@ -218,7 +225,8 @@ data PatSynBind idL idR
   } deriving (Typeable)
 deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
                    Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity), Data (PostRn idR Bool)
+                             Data (PostRn idR Fixity), Data (PostRn idR Bool),
+                             Data (PostTc idR Coercion)
                   )
   => Data (PatSynBind idL idR)
 
@@ -524,7 +532,8 @@ data HsIPBinds id
                         -- uses of the implicit parameters
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity), Data (PostRn id Bool))
+                            Data (PostRn id Fixity), Data (PostRn id Bool),
+                            Data (PostTc id Coercion))
   => Data (HsIPBinds id)
 
 isEmptyIPBinds :: HsIPBinds id -> Bool
@@ -543,7 +552,8 @@ data IPBind id
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (IPBind name)
 
 instance (OutputableBndr id) => Outputable (HsIPBinds id) where
@@ -639,7 +649,8 @@ data Sig name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (Sig name)
 
 
@@ -834,6 +845,7 @@ data HsPatSynDir id
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (HsPatSynDir name)
 \end{code}

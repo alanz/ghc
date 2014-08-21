@@ -59,6 +59,7 @@ import StaticFlags
 import Outputable
 import FastString
 import NameSet
+import Coercion
 
 import Data.Data hiding ( Fixity )
 \end{code}
@@ -146,7 +147,8 @@ data LHsTyVarBndrs name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
    => Data (LHsTyVarBndrs name)
 
 mkHsQTvs :: [LHsTyVarBndr RdrName] -> LHsTyVarBndrs RdrName
@@ -201,7 +203,8 @@ data HsTyVarBndr name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (HsTyVarBndr name)
 
 -- | Does this 'HsTyVarBndr' come with an explicit kind annotation?
@@ -280,7 +283,8 @@ data HsType name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (HsType name)
 
 
@@ -405,7 +409,8 @@ data ConDeclField name  -- Record fields have Haddoc docs on them
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (ConDeclField name)
 
 -----------------------

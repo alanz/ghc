@@ -10,6 +10,7 @@ module HsPat where
 import SrcLoc( Located )
 import Type       ( Type )
 import NameSet
+import Coercion
 
 import Data.Data hiding (Fixity)
 import BasicTypes       (Fixity)
@@ -31,6 +32,7 @@ instance Typeable1 Pat
 instance (Data id, Data (PostTc id Type),
                    Data (PostRn id NameSet),
                    Data (PostRn id Fixity),
-                   Data (PostRn id Bool)) => Data (Pat id)
+                   Data (PostRn id Bool),
+                   Data (PostTc id Coercion)) => Data (Pat id)
 instance (OutputableBndr name) => Outputable (Pat name)
 \end{code}

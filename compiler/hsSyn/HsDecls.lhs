@@ -83,7 +83,7 @@ import Name
 import BasicTypes
 import Coercion
 import ForeignCall
-import PlaceHolder ( PostTc,PostRn )
+import PlaceHolder ( PostTc,PostRn,PlaceHolder(..) )
 import Type
 import NameSet
 
@@ -130,7 +130,8 @@ data HsDecl id
   | RoleAnnotD  (RoleAnnotDecl id)
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity), Data (PostRn id Bool))
+                            Data (PostRn id Fixity), Data (PostRn id Bool),
+                            Data (PostTc id Coercion))
   => Data (HsDecl id)
 
 
@@ -179,7 +180,8 @@ data HsGroup id
         hs_docs   :: [LDocDecl]
   } deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity), Data (PostRn id Bool))
+                            Data (PostRn id Fixity), Data (PostRn id Bool),
+                            Data (PostTc id Coercion))
   => Data (HsGroup id)
 
 emptyGroup, emptyRdrGroup, emptyRnGroup :: HsGroup a
@@ -302,7 +304,8 @@ data SpliceDecl id
                                 -- Implicit <=> f x y,  i.e. a naked top level expression
     deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity), Data (PostRn id Bool))
+                            Data (PostRn id Fixity), Data (PostRn id Bool),
+                            Data (PostTc id Coercion))
   => Data (SpliceDecl id)
 
 instance OutputableBndr name => Outputable (SpliceDecl name) where
@@ -495,7 +498,8 @@ data TyClDecl name
 
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity), Data (PostRn id Bool))
+                            Data (PostRn id Fixity), Data (PostRn id Bool),
+                            Data (PostTc id Coercion))
   => Data (TyClDecl id)
 
  -- This is used in TcTyClsDecls to represent
@@ -508,7 +512,8 @@ data TyClGroup name
               , group_roles  :: [LRoleAnnotDecl name] }
     deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity), Data (PostRn id Bool))
+                            Data (PostRn id Fixity), Data (PostRn id Bool),
+                            Data (PostTc id Coercion))
   => Data (TyClGroup id)
 
 tyClGroupConcat :: [TyClGroup name] -> [LTyClDecl name]
@@ -525,7 +530,8 @@ data FamilyDecl name = FamilyDecl
   , fdKindSig :: Maybe (LHsKind name) }     -- result kind
   deriving( Typeable )
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity), Data (PostRn id Bool))
+                            Data (PostRn id Fixity), Data (PostRn id Bool),
+                            Data (PostTc id Coercion))
   => Data (FamilyDecl id)
 
 data FamilyInfo name
@@ -538,7 +544,8 @@ data FamilyInfo name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (FamilyInfo name)
 
 \end{code}
@@ -819,7 +826,8 @@ data HsDataDefn name   -- The payload of a data type defn
     }
     deriving( Typeable )
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity), Data (PostRn id Bool))
+                            Data (PostRn id Fixity), Data (PostRn id Bool),
+                            Data (PostTc id Coercion))
    => Data (HsDataDefn id)
 
 data NewOrData
@@ -882,7 +890,8 @@ data ConDecl name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (ConDecl name)
 
 type HsConDeclDetails name = HsConDetails (LBangType name) [ConDeclField name]
@@ -1019,7 +1028,8 @@ data TyFamEqn name pats
 deriving instance (Data name, Data pats, Data (PostTc name Type),
                                          Data (PostRn name NameSet),
                                          Data (PostRn name Fixity),
-                                         Data (PostRn name Bool))
+                                         Data (PostRn name Bool),
+                                         Data (PostTc name Coercion))
   => Data (TyFamEqn name pats)
 
 type LTyFamInstDecl name = Located (TyFamInstDecl name)
@@ -1031,7 +1041,8 @@ data TyFamInstDecl name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (TyFamInstDecl name)
 
 ----------------- Data family instances -------------
@@ -1048,7 +1059,8 @@ data DataFamInstDecl name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (DataFamInstDecl name)
 
 
@@ -1068,7 +1080,8 @@ data ClsInstDecl name
       }
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity), Data (PostRn id Bool))
+                            Data (PostRn id Fixity), Data (PostRn id Bool),
+                            Data (PostTc id Coercion))
   => Data (ClsInstDecl id)
 
 
@@ -1084,7 +1097,8 @@ data InstDecl name  -- Both class and family instances
       { tfid_inst :: TyFamInstDecl name }
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity), Data (PostRn id Bool))
+                            Data (PostRn id Fixity), Data (PostRn id Bool),
+                            Data (PostTc id Coercion))
   => Data (InstDecl id)
 \end{code}
 
@@ -1210,7 +1224,8 @@ data DerivDecl name = DerivDecl { deriv_type :: LHsType name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (DerivDecl name)
 
 instance (OutputableBndr name) => Outputable (DerivDecl name) where
@@ -1237,7 +1252,8 @@ data DefaultDecl name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (DefaultDecl name)
 
 instance (OutputableBndr name)
@@ -1266,17 +1282,18 @@ type LForeignDecl name = Located (ForeignDecl name)
 data ForeignDecl name
   = ForeignImport (Located name) -- defines this name
                   (LHsType name) -- sig_ty
-                  Coercion       -- rep_ty ~ sig_ty
+                  (PostTc name Coercion) -- rep_ty ~ sig_ty
                   ForeignImport
   | ForeignExport (Located name) -- uses this name
                   (LHsType name) -- sig_ty
-                  Coercion       -- sig_ty ~ rep_ty
+                  (PostTc name Coercion)  -- sig_ty ~ rep_ty
                   ForeignExport
   deriving (Typeable)
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (ForeignDecl name)
 {-
     In both ForeignImport and ForeignExport:
@@ -1287,13 +1304,11 @@ deriving instance (Data name, Data (PostTc name Type),
     such as Int and IO that we know how to make foreign calls with.
 -}
 
-noForeignImportCoercionYet :: Coercion
-noForeignImportCoercionYet
-    = panic "ForeignImport coercion evaluated before typechecking"
+noForeignImportCoercionYet :: PlaceHolder
+noForeignImportCoercionYet = PlaceHolder
 
-noForeignExportCoercionYet :: Coercion
-noForeignExportCoercionYet
-    = panic "ForeignExport coercion evaluated before typechecking"
+noForeignExportCoercionYet :: PlaceHolder
+noForeignExportCoercionYet = PlaceHolder
 
 -- Specification Of an imported external entity in dependence on the calling
 -- convention 
@@ -1391,7 +1406,8 @@ data RuleDecl name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (RuleDecl name)
 
 data RuleBndr name
@@ -1401,7 +1417,8 @@ data RuleBndr name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (RuleBndr name)
 
 collectRuleBndrSigTys :: [RuleBndr name] -> [HsWithBndrs (LHsType name)]
@@ -1466,7 +1483,8 @@ data VectDecl name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (VectDecl name)
 
 lvectDeclName :: NamedThing name => LVectDecl name -> Name
@@ -1579,7 +1597,8 @@ data AnnDecl name = HsAnnotation (AnnProvenance name) (Located (HsExpr name))
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (AnnDecl name)
 
 instance (OutputableBndr name) => Outputable (AnnDecl name) where

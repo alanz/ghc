@@ -48,6 +48,7 @@ import Type
 import SrcLoc
 import FastString
 import NameSet
+import Coercion
 -- libraries:
 import Data.Data hiding (TyCon,Fixity)
 import Data.Maybe
@@ -170,7 +171,8 @@ data Pat id
         -- the scrutinee, followed by a match on 'pat'
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity), Data (PostRn id Bool))
+                            Data (PostRn id Fixity), Data (PostRn id Bool),
+                            Data (PostTc id Coercion))
   => Data (Pat id)
 \end{code}
 

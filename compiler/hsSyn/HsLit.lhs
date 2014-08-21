@@ -23,6 +23,7 @@ import Outputable
 import FastString
 import PlaceHolder ( PostTc,PostRn )
 import NameSet
+import Coercion
 
 import Data.ByteString (ByteString)
 import Data.Data hiding ( Fixity )
@@ -84,7 +85,8 @@ data HsOverLit id       -- An overloaded literal
         ol_type :: PostTc id Type }
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Bool), Data (PostRn id Fixity))
+                            Data (PostRn id Bool), Data (PostRn id Fixity),
+                            Data (PostTc id Coercion))
    => Data (HsOverLit id)
 
 data OverLitVal

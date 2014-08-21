@@ -51,6 +51,7 @@ import Module           ( ModuleName )
 import FastString
 import Type
 import NameSet
+import Coercion
 
 -- libraries:
 import Data.Data hiding ( Fixity )
@@ -86,7 +87,8 @@ data HsModule name
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
                               Data (PostRn name Fixity),
-                              Data (PostRn name Bool))
+                              Data (PostRn name Bool),
+                              Data (PostTc name Coercion))
   => Data (HsModule name)
 \end{code}
 
