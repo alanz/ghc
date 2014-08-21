@@ -110,7 +110,7 @@ dsOverLit' :: DynFlags -> HsOverLit Id -> DsM CoreExpr
 -- (an expression for) the literal value itself
 dsOverLit' dflags (OverLit { ol_val = val, ol_rebindable = rebindable
                            , ol_witness = witness, ol_type = ty })
-  | rebindable == RebindableOff
+  | not rebindable
   , Just expr <- shortCutLit dflags val ty = dsExpr expr        -- Note [Literal short cut]
   | otherwise                              = dsExpr witness
 \end{code}
@@ -280,7 +280,7 @@ tidyNPat :: (HsLit -> Pat Id)   -- How to tidy a LitPat
                  -- literals consistently (see Trac #5117)
          -> HsOverLit Id -> Maybe (SyntaxExpr Id) -> SyntaxExpr Id
          -> Pat Id
-tidyNPat tidy_lit_pat (OverLit val RebindableOff _ ty) mb_neg _
+tidyNPat tidy_lit_pat (OverLit val False _ ty) mb_neg _
         -- False: Take short cuts only if the literal is not using rebindable syntax
         --
         -- Once that is settled, look for cases where the type of the

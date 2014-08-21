@@ -32,6 +32,7 @@ import {-# SOURCE #-} HsExpr            (SyntaxExpr, LHsExpr, HsSplice, pprLExpr
 -- friends:
 import HsBinds
 import HsLit
+import PlaceHolder ( PostTc,PostRn )
 import HsTypes
 import TcEvidence
 import BasicTypes
@@ -169,7 +170,7 @@ data Pat id
         -- the scrutinee, followed by a match on 'pat'
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity))
+                            Data (PostRn id Fixity), Data (PostRn id Bool))
   => Data (Pat id)
 \end{code}
 

@@ -19,7 +19,7 @@ import {-# SOURCE #-} HsExpr ( pprExpr, LHsExpr,
                                GRHSs, pprPatBind )
 import {-# SOURCE #-} HsPat  ( LPat )
 
-import HsLit
+import PlaceHolder ( PostTc,PostRn )
 import HsTypes
 import PprCore ()
 import CoreSyn
@@ -69,9 +69,9 @@ data HsLocalBindsLR idL idR
   | EmptyLocalBinds
   deriving (Typeable)
 deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
-                             Data (PostRn idL Fixity),
+                             Data (PostRn idL Fixity), Data (PostRn idL Bool),
                    Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity))
+                             Data (PostRn idR Fixity), Data (PostRn idR Bool))
   => Data (HsLocalBindsLR idL idR)
 
 type HsValBinds id = HsValBindsLR id id
@@ -93,9 +93,9 @@ data HsValBindsLR idL idR
         [LSig Name]
   deriving (Typeable)
 deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
-                             Data (PostRn idL Fixity),
+                             Data (PostRn idL Fixity), Data (PostRn idL Bool),
                    Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity))
+                             Data (PostRn idR Fixity), Data (PostRn idR Bool))
   => Data (HsValBindsLR idL idR)
 
 type LHsBind  id = LHsBindLR  id id
@@ -184,9 +184,9 @@ data HsBindLR idL idR
 
   deriving (Typeable)
 deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
-                             Data (PostRn idL Fixity),
+                             Data (PostRn idL Fixity), Data (PostRn idL Bool),
                    Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity))
+                             Data (PostRn idR Fixity), Data (PostRn idR Bool))
   => Data (HsBindLR idL idR)
 
         -- Consider (AbsBinds tvs ds [(ftvs, poly_f, mono_f) binds]
@@ -218,7 +218,7 @@ data PatSynBind idL idR
   } deriving (Typeable)
 deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
                    Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity)
+                             Data (PostRn idR Fixity), Data (PostRn idR Bool)
                   )
   => Data (PatSynBind idL idR)
 
@@ -524,7 +524,7 @@ data HsIPBinds id
                         -- uses of the implicit parameters
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity))
+                            Data (PostRn id Fixity), Data (PostRn id Bool))
   => Data (HsIPBinds id)
 
 isEmptyIPBinds :: HsIPBinds id -> Bool
@@ -542,7 +542,8 @@ data IPBind id
   deriving (Typeable)
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
-                              Data (PostRn name Fixity))
+                              Data (PostRn name Fixity),
+                              Data (PostRn name Bool))
   => Data (IPBind name)
 
 instance (OutputableBndr id) => Outputable (HsIPBinds id) where
@@ -637,7 +638,8 @@ data Sig name
   deriving (Typeable)
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
-                              Data (PostRn name Fixity))
+                              Data (PostRn name Fixity),
+                              Data (PostRn name Bool))
   => Data (Sig name)
 
 
@@ -831,6 +833,7 @@ data HsPatSynDir id
   deriving (Typeable)
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
-                              Data (PostRn name Fixity))
+                              Data (PostRn name Fixity),
+                              Data (PostRn name Bool))
   => Data (HsPatSynDir name)
 \end{code}

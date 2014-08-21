@@ -88,6 +88,7 @@ import HsExpr
 import HsPat
 import HsTypes
 import HsLit
+import PlaceHolder
 
 import TcEvidence
 import RdrName
@@ -198,9 +199,9 @@ mkParPat lp@(L loc p) | hsPatNeedsParens p = L loc (ParPat lp)
 -- These are the bits of syntax that contain rebindable names
 -- See RnEnv.lookupSyntaxName
 
-mkHsIntegral   :: Integer -> PostTc id Type -> HsOverLit id
-mkHsFractional :: FractionalLit -> PostTc id Type -> HsOverLit id
-mkHsIsString   :: FastString -> PostTc id Type -> HsOverLit id
+mkHsIntegral   :: Integer -> PostTc RdrName Type -> HsOverLit RdrName
+mkHsFractional :: FractionalLit -> PostTc RdrName Type -> HsOverLit RdrName
+mkHsIsString   :: FastString -> PostTc RdrName Type -> HsOverLit RdrName
 mkHsDo         :: HsStmtContext Name -> [ExprLStmt RdrName] -> HsExpr RdrName
 mkHsComp       :: HsStmtContext Name -> [ExprLStmt RdrName] -> LHsExpr RdrName
                -> HsExpr RdrName
@@ -223,8 +224,8 @@ mkHsIntegral   i       = OverLit (HsIntegral   i)  noRebindableInfo noSyntaxExpr
 mkHsFractional f       = OverLit (HsFractional f)  noRebindableInfo noSyntaxExpr
 mkHsIsString   s       = OverLit (HsIsString   s)  noRebindableInfo noSyntaxExpr
 
-noRebindableInfo :: Rebindable
-noRebindableInfo = RebindableUnknown -- Just another placeholder;
+noRebindableInfo :: PlaceHolder
+noRebindableInfo = PlaceHolder -- Just another placeholder;
 
 mkHsDo ctxt stmts = HsDo ctxt stmts placeHolderType
 mkHsComp ctxt stmts expr = mkHsDo ctxt (stmts ++ [last_stmt])

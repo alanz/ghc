@@ -24,6 +24,7 @@ module HsSyn (
         module HsTypes,
         module HsUtils,
         module HsDoc,
+        module PlaceHolder,
         Fixity,
 
         HsModule(..)
@@ -35,6 +36,7 @@ import HsBinds
 import HsExpr
 import HsImpExp
 import HsLit
+import PlaceHolder
 import HsPat
 import HsTypes
 import BasicTypes       ( Fixity, WarningTxt )
@@ -83,7 +85,8 @@ data HsModule name
    } deriving (Typeable)
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
-                              Data (PostRn name Fixity))
+                              Data (PostRn name Fixity),
+                              Data (PostRn name Bool))
   => Data (HsModule name)
 \end{code}
 

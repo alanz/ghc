@@ -6,7 +6,6 @@
 
 \begin{code}
 {-# LANGUAGE CPP, DeriveDataTypeable #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -22,89 +21,14 @@ import BasicTypes ( FractionalLit(..) )
 import Type       ( Type )
 import Outputable
 import FastString
-import Name
+import PlaceHolder ( PostTc,PostRn )
 import NameSet
-import RdrName
-import Var
 
 import Data.ByteString (ByteString)
 import Data.Data hiding ( Fixity )
 import BasicTypes       ( Fixity )
 \end{code}
 
-
-%************************************************************************
-%*                                                                      *
-\subsection{Annotating the syntax}
-%*                                                                      *
-%************************************************************************
-
-\begin{code}
-
--- | used as place holder in PostTc and PostRn values
-data PlaceHolder = PlaceHolder
-  deriving (Data,Typeable)
-
--- | Types that are not defined until after type checking
-type family PostTc it ty :: * -- Note [pass sensitive types]
-type instance PostTc Id      ty = ty
-type instance PostTc Name    ty = PlaceHolder
-type instance PostTc RdrName ty = PlaceHolder
-
--- | Types that are not defined until after renaming
-type family PostRn id ty :: * -- Note [pass sensitive types]
-type instance PostRn Id      ty = ty
-type instance PostRn Name    ty = ty
-type instance PostRn RdrName ty = PlaceHolder
-
-placeHolderKind :: PlaceHolder
-placeHolderKind = PlaceHolder
-
-placeHolderFixity :: PlaceHolder
-placeHolderFixity = PlaceHolder
-
-placeHolderType :: PlaceHolder
-placeHolderType = PlaceHolder
-
-placeHolderTypeTc :: Type
-placeHolderTypeTc = panic "Evaluated the place holder for a PostTcType"
-
-placeHolderNames :: PlaceHolder
-placeHolderNames = PlaceHolder
-
-placeHolderNamesTc :: NameSet
-placeHolderNamesTc = emptyNameSet
-\end{code}
-
-Note [pass sensitive types]
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Since the same AST types are re-used through parsing,renaming and type
-checking there are naturally some places in the AST that do not have
-any meaningful value prior to the pass they are assigned a value.
-
-Historically these have been filled in with place holder values of the form
-
-  panic "error message"
-
-This has meant the AST is difficult to traverse using standed generic
-programming techniques. The problem is addressed by introducing
-pass-specific data types, implemented as a pair of open type families,
-one for PostTc and one for PostRn. These are then explicitly populated
-with a PlaceHolder value when they do not yet have meaning.
-
-Since the required bootstrap compiler at this stage does not have
-closed type families, an open type family had to be used, which
-unfortunately forces the requirement for UndecidableInstances.
-
-In terms of actual usage, we have the following
-
-  PostTc id Kind
-  PostTc id Type
-
-  PostRn id Fixity
-  PostRn id NameSet
-
-TcId and Var are synonyms for Id
 
 
 %************************************************************************
@@ -155,12 +79,12 @@ instance Eq HsLit where
 data HsOverLit id       -- An overloaded literal
   = OverLit {
         ol_val :: OverLitVal,
-        ol_rebindable :: Rebindable,    -- Note [ol_rebindable]
-        ol_witness :: SyntaxExpr id,    -- Note [Overloaded literal witnesses]
+        ol_rebindable :: PostRn id Bool, -- Note [ol_rebindable]
+        ol_witness :: SyntaxExpr id,     -- Note [Overloaded literal witnesses]
         ol_type :: PostTc id Type }
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity))
+                            Data (PostRn id Bool), Data (PostRn id Fixity))
    => Data (HsOverLit id)
 
 data OverLitVal
@@ -171,12 +95,6 @@ data OverLitVal
 
 overLitType :: HsOverLit a -> PostTc a Type
 overLitType = ol_type
-
-data Rebindable
-   = RebindableUnknown
-   | RebindableOff
-   | RebindableOn
-  deriving (Data, Typeable, Eq)
 \end{code}
 
 Note [ol_rebindable]

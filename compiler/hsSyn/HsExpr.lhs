@@ -17,6 +17,7 @@ module HsExpr where
 import HsDecls
 import HsPat
 import HsLit
+import PlaceHolder ( PostTc,PostRn )
 import HsTypes
 import HsBinds
 
@@ -39,7 +40,6 @@ import NameSet
 -- libraries:
 import Data.Data hiding (Fixity)
 \end{code}
-
 
 %************************************************************************
 %*                                                                      *
@@ -336,7 +336,7 @@ data HsExpr id
   |  HsUnboundVar RdrName
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet)
-                          , Data (PostRn id Fixity))
+                          , Data (PostRn id Fixity), Data (PostRn id Bool))
   => Data (HsExpr id)
 
 -- | HsTupArg is used for tuple sections
@@ -347,7 +347,7 @@ data HsTupArg id
   | Missing (PostTc id Type) -- ^ The argument is missing, but this is its type
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity))
+                            Data (PostRn id Fixity), Data (PostRn id Bool))
   => Data (HsTupArg id)
 
 tupArgPresent :: HsTupArg id -> Bool
@@ -771,7 +771,7 @@ data HsCmd id
                                -- Then (HsCmdCast co cmd) :: arg2 --> res
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity))
+                            Data (PostRn id Fixity), Data (PostRn id Bool))
   => Data (HsCmd id)
 
 data HsArrAppType = HsHigherOrderApp | HsFirstOrderApp
@@ -793,7 +793,7 @@ data HsCmdTop id
              (CmdSyntaxTable id) -- See Note [CmdSyntaxTable]
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity))
+                            Data (PostRn id Fixity), Data (PostRn id Bool))
   => Data (HsCmdTop id)
 \end{code}
 
@@ -931,7 +931,8 @@ data MatchGroup id body
   deriving (Typeable)
 deriving instance (Data id, Data body, Data (PostTc id Type),
                                        Data (PostRn id NameSet),
-                                       Data (PostRn id Fixity))
+                                       Data (PostRn id Fixity),
+                                       Data (PostRn id Bool))
    => Data (MatchGroup id body)
 
 type LMatch id body = Located (Match id body)
@@ -945,7 +946,8 @@ data Match id body
   deriving (Typeable)
 deriving instance (Data id, Data body, Data (PostTc id Type),
                                        Data (PostRn id NameSet),
-                                       Data (PostRn id Fixity))
+                                       Data (PostRn id Fixity),
+                                       Data (PostRn id Bool))
    => Data (Match id body)
 
 isEmptyMatchGroup :: MatchGroup id body -> Bool
@@ -969,7 +971,8 @@ data GRHSs id body
     } deriving (Typeable)
 deriving instance (Data id, Data body, Data (PostTc id Type),
                                        Data (PostRn id NameSet),
-                                       Data (PostRn id Fixity))
+                                       Data (PostRn id Fixity),
+                                       Data (PostRn id Bool))
    => Data (GRHSs id body)
 
 type LGRHS id body = Located (GRHS id body)
@@ -980,7 +983,8 @@ data GRHS id body = GRHS [GuardLStmt id] -- Guards
   deriving (Typeable)
 deriving instance (Data id, Data body, Data (PostTc id Type),
                                        Data (PostRn id NameSet),
-                                       Data (PostRn id Fixity))
+                                       Data (PostRn id Fixity),
+                                       Data (PostRn id Bool))
    => Data (GRHS id body)
 \end{code}
 
@@ -1170,9 +1174,9 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
       }
   deriving (Typeable)
 deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
-                             Data (PostRn idL Fixity),
+                             Data (PostRn idL Fixity), Data (PostRn idL Bool),
                    Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity),
+                             Data (PostRn idR Fixity), Data (PostRn idR Bool),
                    Data body)
   => Data (StmtLR idL idR body)
 
@@ -1188,9 +1192,9 @@ data ParStmtBlock idL idR
         (SyntaxExpr idR)   -- The return operator
   deriving( Typeable )
 deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
-                             Data (PostRn idL Fixity),
+                             Data (PostRn idL Fixity), Data (PostRn idL Bool),
                    Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity))
+                             Data (PostRn idR Fixity), Data (PostRn idR Bool))
   => Data (ParStmtBlock idL idR)
 \end{code}
 
@@ -1419,7 +1423,7 @@ data HsSplice id  = HsSplice            --  $z  or $(f 4)
                         (LHsExpr id)    -- identify this splice point
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity))
+                            Data (PostRn id Fixity), Data (PostRn id Bool))
   => Data (HsSplice id)
 
 instance OutputableBndr id => Outputable (HsSplice id) where
@@ -1456,7 +1460,8 @@ data HsBracket id = ExpBr (LHsExpr id)   -- [|  expr  |]
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type),
                             Data (PostRn id NameSet),
-                            Data (PostRn id Fixity)) => Data (HsBracket id)
+                            Data (PostRn id Fixity),
+                            Data (PostRn id Bool)) => Data (HsBracket id)
 
 isTypedBracket :: HsBracket id -> Bool
 isTypedBracket (TExpBr {}) = True
@@ -1509,7 +1514,7 @@ data ArithSeqInfo id
                     (LHsExpr id)
   deriving (Typeable)
 deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity))
+                            Data (PostRn id Fixity), Data (PostRn id Bool))
   => Data (ArithSeqInfo id)
 \end{code}
 

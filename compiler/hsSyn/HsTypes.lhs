@@ -45,7 +45,7 @@ module HsTypes (
 
 import {-# SOURCE #-} HsExpr ( HsSplice, pprUntypedSplice )
 
-import HsLit
+import PlaceHolder ( PostTc,PostRn )
 
 import Name( Name )
 import RdrName( RdrName )
@@ -145,7 +145,8 @@ data LHsTyVarBndrs name
   deriving( Typeable )
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
-                              Data (PostRn name Fixity))
+                              Data (PostRn name Fixity),
+                              Data (PostRn name Bool))
    => Data (LHsTyVarBndrs name)
 
 mkHsQTvs :: [LHsTyVarBndr RdrName] -> LHsTyVarBndrs RdrName
@@ -199,7 +200,8 @@ data HsTyVarBndr name
   deriving (Typeable)
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
-                              Data (PostRn name Fixity))
+                              Data (PostRn name Fixity),
+                              Data (PostRn name Bool))
   => Data (HsTyVarBndr name)
 
 -- | Does this 'HsTyVarBndr' come with an explicit kind annotation?
@@ -277,7 +279,8 @@ data HsType name
   deriving (Typeable)
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
-                              Data (PostRn name Fixity))
+                              Data (PostRn name Fixity),
+                              Data (PostRn name Bool))
   => Data (HsType name)
 
 
@@ -401,7 +404,8 @@ data ConDeclField name  -- Record fields have Haddoc docs on them
   deriving (Typeable)
 deriving instance (Data name, Data (PostTc name Type),
                               Data (PostRn name NameSet),
-                              Data (PostRn name Fixity))
+                              Data (PostRn name Fixity),
+                              Data (PostRn name Bool))
   => Data (ConDeclField name)
 
 -----------------------

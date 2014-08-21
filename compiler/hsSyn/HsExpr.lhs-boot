@@ -11,10 +11,9 @@ module HsExpr where
 import SrcLoc     ( Located )
 import Outputable ( SDoc, OutputableBndr, Outputable )
 import {-# SOURCE #-} HsPat  ( LPat )
-import {-# SOURCE #-} HsLit ( PostTc,PostRn )
 import Type       ( Type )
 import NameSet
-
+import PlaceHolder ( PostTc,PostRn )
 import BasicTypes       ( Fixity )
 import Data.Data hiding ( Fixity )
 
@@ -45,19 +44,19 @@ instance Typeable2 GRHSs
 #endif
 
 instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                   Data (PostRn id Fixity))
+                   Data (PostRn id Fixity), Data (PostRn id Bool))
   => Data (HsSplice id)
 instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                   Data (PostRn id Fixity))
+                   Data (PostRn id Fixity), Data (PostRn id Bool))
   => Data (HsExpr id)
 instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                   Data (PostRn id Fixity))
+                   Data (PostRn id Fixity), Data (PostRn id Bool))
   => Data (HsCmd id)
 instance (Data id, Data body, Data (PostTc id Type), Data (PostRn id NameSet),
-                              Data (PostRn id Fixity))
+                              Data (PostRn id Fixity), Data (PostRn id Bool))
   => Data (MatchGroup id body)
 instance (Data id, Data body, Data (PostTc id Type), Data (PostRn id NameSet)
-                            , Data (PostRn id Fixity))
+                            , Data (PostRn id Fixity), Data (PostRn id Bool))
    => Data (GRHSs id body)
 
 instance OutputableBndr id => Outputable (HsExpr id)
