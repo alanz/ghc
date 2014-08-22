@@ -2,20 +2,17 @@
 {-# LANGUAGE CPP, KindSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
+{-# LANGUAGE ConstraintKinds #-}
 #if __GLASGOW_HASKELL__ > 706
 {-# LANGUAGE RoleAnnotations #-}
 #endif
 
 module HsPat where
 import SrcLoc( Located )
-import Type       ( Type )
-import NameSet
-import Coercion
 
 import Data.Data hiding (Fixity)
-import BasicTypes       (Fixity)
 import Outputable
-import PlaceHolder      ( PostTc,PostRn )
+import PlaceHolder      ( DataId )
 
 #if __GLASGOW_HASKELL__ > 706
 type role Pat nominal
@@ -29,10 +26,6 @@ instance Typeable Pat
 instance Typeable1 Pat
 #endif
 
-instance (Data id, Data (PostTc id Type),
-                   Data (PostRn id NameSet),
-                   Data (PostRn id Fixity),
-                   Data (PostRn id Bool),
-                   Data (PostTc id Coercion)) => Data (Pat id)
+instance (DataId id) => Data (Pat id)
 instance (OutputableBndr name) => Outputable (Pat name)
 \end{code}

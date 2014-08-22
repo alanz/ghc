@@ -417,8 +417,8 @@ newTyVarNameRn mb_assoc rdr_env loc rdr
 
 --------------------------------
 rnHsBndrSig :: HsDocContext
-            -> HsWithBndrs (LHsType RdrName)
-            -> (HsWithBndrs (LHsType Name) -> RnM (a, FreeVars))
+            -> HsWithBndrs RdrName (LHsType RdrName)
+            -> (HsWithBndrs Name (LHsType Name) -> RnM (a, FreeVars))
             -> RnM (a, FreeVars)
 rnHsBndrSig doc (HsWB { hswb_cts = ty@(L loc _) }) thing_inside
   = do { sig_ok <- xoptM Opt_ScopedTypeVariables

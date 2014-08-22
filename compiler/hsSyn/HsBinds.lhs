@@ -11,6 +11,7 @@ Datatype for: @BindGroup@, @Bind@, @Sig@, @Bind@.
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
+{-# LANGUAGE ConstraintKinds #-}
 
 module HsBinds where
 
@@ -19,7 +20,7 @@ import {-# SOURCE #-} HsExpr ( pprExpr, LHsExpr,
                                GRHSs, pprPatBind )
 import {-# SOURCE #-} HsPat  ( LPat )
 
-import PlaceHolder ( PostTc,PostRn )
+import PlaceHolder ( PostTc,PostRn,DataId )
 import HsTypes
 import PprCore ()
 import CoreSyn
@@ -34,7 +35,6 @@ import Var
 import Bag
 import FastString
 import BooleanFormula (BooleanFormula)
-import Coercion
 
 import Data.Data hiding ( Fixity )
 import Data.List
@@ -69,12 +69,7 @@ data HsLocalBindsLR idL idR
   | HsIPBinds  (HsIPBinds idR)
   | EmptyLocalBinds
   deriving (Typeable)
-deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
-                             Data (PostRn idL Fixity), Data (PostRn idL Bool),
-                             Data (PostTc idL Coercion),
-                   Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity), Data (PostRn idR Bool),
-                             Data (PostTc idR Coercion))
+deriving instance (DataId idL, DataId idR)
   => Data (HsLocalBindsLR idL idR)
 
 type HsValBinds id = HsValBindsLR id id
@@ -95,12 +90,7 @@ data HsValBindsLR idL idR
         [(RecFlag, LHsBinds idL)]       
         [LSig Name]
   deriving (Typeable)
-deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
-                             Data (PostRn idL Fixity), Data (PostRn idL Bool),
-                             Data (PostTc idL Coercion),
-                   Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity), Data (PostRn idR Bool),
-                             Data (PostTc idR Coercion))
+deriving instance (DataId idL, DataId idR)
   => Data (HsValBindsLR idL idR)
 
 type LHsBind  id = LHsBindLR  id id
@@ -188,12 +178,7 @@ data HsBindLR idL idR
   | PatSynBind (PatSynBind idL idR)
 
   deriving (Typeable)
-deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
-                             Data (PostRn idL Fixity), Data (PostRn idL Bool),
-                             Data (PostTc idL Coercion),
-                   Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity), Data (PostRn idR Bool),
-                             Data (PostTc idR Coercion))
+deriving instance (DataId idL, DataId idR)
   => Data (HsBindLR idL idR)
 
         -- Consider (AbsBinds tvs ds [(ftvs, poly_f, mono_f) binds]
@@ -223,11 +208,7 @@ data PatSynBind idL idR
           psb_def  :: LPat idR,                      -- ^ Right-hand side
           psb_dir  :: HsPatSynDir idR                -- ^ Directionality
   } deriving (Typeable)
-deriving instance (Data idL, Data (PostTc idL Type), Data (PostRn idL NameSet),
-                   Data idR, Data (PostTc idR Type), Data (PostRn idR NameSet),
-                             Data (PostRn idR Fixity), Data (PostRn idR Bool),
-                             Data (PostTc idR Coercion)
-                  )
+deriving instance (DataId idL, DataId idR )
   => Data (PatSynBind idL idR)
 
 \end{code}
@@ -531,10 +512,7 @@ data HsIPBinds id
         TcEvBinds       -- Only in typechecker output; binds
                         -- uses of the implicit parameters
   deriving (Typeable)
-deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity), Data (PostRn id Bool),
-                            Data (PostTc id Coercion))
-  => Data (HsIPBinds id)
+deriving instance (DataId id) => Data (HsIPBinds id)
 
 isEmptyIPBinds :: HsIPBinds id -> Bool
 isEmptyIPBinds (IPBinds is ds) = null is && isEmptyTcEvBinds ds
@@ -549,12 +527,7 @@ evidene for the implicit parameter. -}
 data IPBind id
   = IPBind (Either HsIPName id) (LHsExpr id)
   deriving (Typeable)
-deriving instance (Data name, Data (PostTc name Type),
-                              Data (PostRn name NameSet),
-                              Data (PostRn name Fixity),
-                              Data (PostRn name Bool),
-                              Data (PostTc name Coercion))
-  => Data (IPBind name)
+deriving instance (DataId name) => Data (IPBind name)
 
 instance (OutputableBndr id) => Outputable (HsIPBinds id) where
   ppr (IPBinds bs ds) = pprDeeperList vcat (map ppr bs)
@@ -646,12 +619,7 @@ data Sig name
   | MinimalSig (BooleanFormula (Located name))
 
   deriving (Typeable)
-deriving instance (Data name, Data (PostTc name Type),
-                              Data (PostRn name NameSet),
-                              Data (PostRn name Fixity),
-                              Data (PostRn name Bool),
-                              Data (PostTc name Coercion))
-  => Data (Sig name)
+deriving instance (DataId name) => Data (Sig name)
 
 
 type LFixitySig name = Located (FixitySig name)
@@ -842,10 +810,5 @@ data HsPatSynDir id
   | ImplicitBidirectional
   | ExplicitBidirectional (MatchGroup id (LHsExpr id))
   deriving (Typeable)
-deriving instance (Data name, Data (PostTc name Type),
-                              Data (PostRn name NameSet),
-                              Data (PostRn name Fixity),
-                              Data (PostRn name Bool),
-                              Data (PostTc name Coercion))
-  => Data (HsPatSynDir name)
+deriving instance (DataId id) => Data (HsPatSynDir id)
 \end{code}

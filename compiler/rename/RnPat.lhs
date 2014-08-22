@@ -205,7 +205,8 @@ matchNameMaker ctxt = LamMk report_unused
                       StmtCtxt GhciStmtCtxt -> False
                       _                     -> True
 
-rnHsSigCps :: HsWithBndrs (LHsType RdrName) -> CpsRn (HsWithBndrs (LHsType Name))
+rnHsSigCps :: HsWithBndrs RdrName (LHsType RdrName)
+           -> CpsRn (HsWithBndrs Name (LHsType Name))
 rnHsSigCps sig 
   = CpsRn (rnHsBndrSig PatCtx sig)
 

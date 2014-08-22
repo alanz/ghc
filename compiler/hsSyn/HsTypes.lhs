@@ -12,6 +12,7 @@ HsTypes: Abstract syntax: user-defined types
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
+{-# LANGUAGE ConstraintKinds #-}
 
 module HsTypes (
         HsType(..), LHsType, HsKind, LHsKind,
@@ -45,7 +46,7 @@ module HsTypes (
 
 import {-# SOURCE #-} HsExpr ( HsSplice, pprUntypedSplice )
 
-import PlaceHolder ( PostTc,PostRn )
+import PlaceHolder ( PostTc,PostRn,DataId )
 
 import Name( Name )
 import RdrName( RdrName )
@@ -58,8 +59,6 @@ import SrcLoc
 import StaticFlags
 import Outputable
 import FastString
-import NameSet
-import Coercion
 
 import Data.Data hiding ( Fixity )
 \end{code}
@@ -144,12 +143,7 @@ data LHsTyVarBndrs name
              -- See Note [HsForAllTy tyvar binders]
     }
   deriving( Typeable )
-deriving instance (Data name, Data (PostTc name Type),
-                              Data (PostRn name NameSet),
-                              Data (PostRn name Fixity),
-                              Data (PostRn name Bool),
-                              Data (PostTc name Coercion))
-   => Data (LHsTyVarBndrs name)
+deriving instance (DataId name) => Data (LHsTyVarBndrs name)
 
 mkHsQTvs :: [LHsTyVarBndr RdrName] -> LHsTyVarBndrs RdrName
 -- Just at RdrName because in the Name variant we should know just
@@ -164,14 +158,16 @@ emptyHsQTvs =  HsQTvs { hsq_kvs = [], hsq_tvs = [] }
 hsQTvBndrs :: LHsTyVarBndrs name -> [LHsTyVarBndr name]
 hsQTvBndrs = hsq_tvs
 
-data HsWithBndrs thing
-  = HsWB { hswb_cts :: thing         -- Main payload (type or list of types)
-         , hswb_kvs :: [Name]        -- Kind vars
-         , hswb_tvs :: [Name]        -- Type vars
+data HsWithBndrs name thing
+  = HsWB { hswb_cts :: thing              -- Main payload (type or list of types)
+         , hswb_kvs :: PostRn name [Name] -- Kind vars
+         , hswb_tvs :: PostRn name [Name] -- Type vars
     }
-  deriving (Data, Typeable)
+  deriving (Typeable)
+deriving instance (Data name, Data thing, Data (PostRn name [Name]))
+  => Data (HsWithBndrs name thing)
 
-mkHsWithBndrs :: thing -> HsWithBndrs thing
+mkHsWithBndrs :: thing -> HsWithBndrs RdrName thing
 mkHsWithBndrs x = HsWB { hswb_cts = x, hswb_kvs = panic "mkHsTyWithBndrs:kvs"
                                      , hswb_tvs = panic "mkHsTyWithBndrs:tvs" }
 
@@ -200,12 +196,7 @@ data HsTyVarBndr name
          name
          (LHsKind name)  -- The user-supplied kind signature
   deriving (Typeable)
-deriving instance (Data name, Data (PostTc name Type),
-                              Data (PostRn name NameSet),
-                              Data (PostRn name Fixity),
-                              Data (PostRn name Bool),
-                              Data (PostTc name Coercion))
-  => Data (HsTyVarBndr name)
+deriving instance (DataId name) => Data (HsTyVarBndr name)
 
 -- | Does this 'HsTyVarBndr' come with an explicit kind annotation?
 isHsKindedTyVar :: HsTyVarBndr name -> Bool
@@ -280,12 +271,7 @@ data HsType name
 
   | HsWrapTy HsTyWrapper (HsType name)  -- only in typechecker output
   deriving (Typeable)
-deriving instance (Data name, Data (PostTc name Type),
-                              Data (PostRn name NameSet),
-                              Data (PostRn name Fixity),
-                              Data (PostRn name Bool),
-                              Data (PostTc name Coercion))
-  => Data (HsType name)
+deriving instance (DataId name) => Data (HsType name)
 
 
 data HsTyLit
@@ -406,12 +392,7 @@ data ConDeclField name  -- Record fields have Haddoc docs on them
                    cd_fld_type :: LBangType name, 
                    cd_fld_doc  :: Maybe LHsDocString }
   deriving (Typeable)
-deriving instance (Data name, Data (PostTc name Type),
-                              Data (PostRn name NameSet),
-                              Data (PostRn name Fixity),
-                              Data (PostRn name Bool),
-                              Data (PostTc name Coercion))
-  => Data (ConDeclField name)
+deriving instance (DataId name) => Data (ConDeclField name)
 
 -----------------------
 -- Combine adjacent for-alls. 
@@ -596,7 +577,7 @@ instance (OutputableBndr name) => Outputable (HsTyVarBndr name) where
     ppr (UserTyVar n)     = ppr n
     ppr (KindedTyVar n k) = parens $ hsep [ppr n, dcolon, ppr k]
 
-instance (Outputable thing) => Outputable (HsWithBndrs thing) where
+instance (Outputable thing) => Outputable (HsWithBndrs name thing) where
     ppr (HsWB { hswb_cts = ty }) = ppr ty
 
 pprHsForAll :: OutputableBndr name => HsExplicitFlag -> LHsTyVarBndrs name ->  LHsContext name -> SDoc

@@ -10,6 +10,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
+{-# LANGUAGE ConstraintKinds #-}
 
 module HsPat (
         Pat(..), InPat, OutPat, LPat,
@@ -32,7 +33,7 @@ import {-# SOURCE #-} HsExpr            (SyntaxExpr, LHsExpr, HsSplice, pprLExpr
 -- friends:
 import HsBinds
 import HsLit
-import PlaceHolder ( PostTc,PostRn )
+import PlaceHolder ( PostTc,DataId )
 import HsTypes
 import TcEvidence
 import BasicTypes
@@ -47,8 +48,6 @@ import Outputable
 import Type
 import SrcLoc
 import FastString
-import NameSet
-import Coercion
 -- libraries:
 import Data.Data hiding (TyCon,Fixity)
 import Data.Maybe
@@ -156,8 +155,9 @@ data Pat id
                     (SyntaxExpr id)     -- Name of '-' (see RnEnv.lookupSyntaxName)
 
         ------------ Pattern type signatures ---------------
-  | SigPatIn        (LPat id)                   -- Pattern with a type signature
-                    (HsWithBndrs (LHsType id))  -- Signature can bind both kind and type vars
+  | SigPatIn        (LPat id)                     -- Pattern with a type signature
+                    (HsWithBndrs id (LHsType id)) -- Signature can bind both
+                                                  -- kind and type vars
 
   | SigPatOut       (LPat id)           -- Pattern with a type signature
                     Type
@@ -170,10 +170,7 @@ data Pat id
         -- During desugaring a (CoPat co pat) turns into a cast with 'co' on
         -- the scrutinee, followed by a match on 'pat'
   deriving (Typeable)
-deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Fixity), Data (PostRn id Bool),
-                            Data (PostTc id Coercion))
-  => Data (Pat id)
+deriving instance (DataId id) => Data (Pat id)
 \end{code}
 
 HsConDetails is use for patterns/expressions *and* for data type declarations

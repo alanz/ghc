@@ -331,7 +331,7 @@ cvt_tycl_hdr cxt tc tvs
 cvt_tyinst_hdr :: TH.Cxt -> TH.Name -> [TH.Type]
                -> CvtM ( LHsContext RdrName
                        , Located RdrName
-                       , HsWithBndrs [LHsType RdrName])
+                       , HsWithBndrs RdrName [LHsType RdrName])
 cvt_tyinst_hdr cxt tc tys
   = do { cxt' <- cvtContext cxt
        ; tc'  <- tconNameL tc

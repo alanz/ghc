@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 module PlaceHolder where
 
@@ -9,8 +10,10 @@ import Name
 import NameSet
 import RdrName
 import Var
+import Coercion
 
 import Data.Data hiding ( Fixity )
+import BasicTypes       (Fixity)
 
 
 {-
@@ -87,3 +90,14 @@ In terms of actual usage, we have the following
 
 TcId and Var are synonyms for Id
 -}
+
+type DataId id =
+  ( Data id
+  , Data (PostRn id NameSet)
+  , Data (PostRn id Fixity)
+  , Data (PostRn id Bool)
+  , Data (PostRn id [Name])
+
+  , Data (PostTc id Type)
+  , Data (PostTc id Coercion)
+  )

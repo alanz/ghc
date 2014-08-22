@@ -13,6 +13,7 @@ therefore, is almost nothing but re-exporting.
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
+{-# LANGUAGE ConstraintKinds #-}
 
 module HsSyn (
         module HsBinds,
@@ -49,9 +50,6 @@ import Outputable
 import SrcLoc
 import Module           ( ModuleName )
 import FastString
-import Type
-import NameSet
-import Coercion
 
 -- libraries:
 import Data.Data hiding ( Fixity )
@@ -84,12 +82,7 @@ data HsModule name
       hsmodHaddockModHeader :: Maybe LHsDocString
         -- ^ Haddock module info and description, unparsed
    } deriving (Typeable)
-deriving instance (Data name, Data (PostTc name Type),
-                              Data (PostRn name NameSet),
-                              Data (PostRn name Fixity),
-                              Data (PostRn name Bool),
-                              Data (PostTc name Coercion))
-  => Data (HsModule name)
+deriving instance (DataId name) => Data (HsModule name)
 \end{code}
 
 

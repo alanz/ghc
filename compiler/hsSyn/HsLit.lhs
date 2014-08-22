@@ -11,6 +11,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
+{-# LANGUAGE ConstraintKinds #-}
 
 module HsLit where
 
@@ -21,14 +22,13 @@ import BasicTypes ( FractionalLit(..) )
 import Type       ( Type )
 import Outputable
 import FastString
-import PlaceHolder ( PostTc,PostRn )
-import NameSet
-import Coercion
+import PlaceHolder ( PostTc,PostRn,DataId )
 
 import Data.ByteString (ByteString)
 import Data.Data hiding ( Fixity )
-import BasicTypes       ( Fixity )
 \end{code}
+
+
 
 
 
@@ -84,10 +84,7 @@ data HsOverLit id       -- An overloaded literal
         ol_witness :: SyntaxExpr id,     -- Note [Overloaded literal witnesses]
         ol_type :: PostTc id Type }
   deriving (Typeable)
-deriving instance (Data id, Data (PostTc id Type), Data (PostRn id NameSet),
-                            Data (PostRn id Bool), Data (PostRn id Fixity),
-                            Data (PostTc id Coercion))
-   => Data (HsOverLit id)
+deriving instance (DataId id) => Data (HsOverLit id)
 
 data OverLitVal
   = HsIntegral   !Integer       -- Integer-looking literals;
