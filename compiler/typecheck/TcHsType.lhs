@@ -14,7 +14,7 @@
 -- for details
 
 module TcHsType (
-	tcHsSigType, tcHsSigTypeNC, tcHsDeriv, tcHsVectInst, 
+	tcHsSigType, tcHsSigTypeNC, tcHsDeriv, tcHsVectInst,
 	tcHsInstHead, 
 	UserTypeCtxt(..), 
 

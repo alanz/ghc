@@ -159,7 +159,7 @@ hsQTvBndrs :: LHsTyVarBndrs name -> [LHsTyVarBndr name]
 hsQTvBndrs = hsq_tvs
 
 data HsWithBndrs name thing
-  = HsWB { hswb_cts :: thing              -- Main payload (type or list of types)
+  = HsWB { hswb_cts :: thing             -- Main payload (type or list of types)
          , hswb_kvs :: PostRn name [Name] -- Kind vars
          , hswb_tvs :: PostRn name [Name] -- Type vars
     }
