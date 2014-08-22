@@ -46,7 +46,7 @@ module HsTypes (
 
 import {-# SOURCE #-} HsExpr ( HsSplice, pprUntypedSplice )
 
-import PlaceHolder ( PostTc,PostRn,DataId )
+import PlaceHolder ( PostTc,PostRn,DataId,PlaceHolder(..) )
 
 import Name( Name )
 import RdrName( RdrName )
@@ -168,8 +168,8 @@ deriving instance (Data name, Data thing, Data (PostRn name [Name]))
   => Data (HsWithBndrs name thing)
 
 mkHsWithBndrs :: thing -> HsWithBndrs RdrName thing
-mkHsWithBndrs x = HsWB { hswb_cts = x, hswb_kvs = panic "mkHsTyWithBndrs:kvs"
-                                     , hswb_tvs = panic "mkHsTyWithBndrs:tvs" }
+mkHsWithBndrs x = HsWB { hswb_cts = x, hswb_kvs = PlaceHolder
+                                     , hswb_tvs = PlaceHolder }
 
 
 -- | These names are used early on to store the names of implicit
