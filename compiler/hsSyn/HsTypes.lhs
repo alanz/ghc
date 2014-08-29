@@ -11,7 +11,8 @@ HsTypes: Abstract syntax: user-defined types
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
+{-# LANGUAGE UndecidableInstances #-} -- Note [Pass sensitive types]
+                                      -- in module PlaceHolder
 {-# LANGUAGE ConstraintKinds #-}
 
 module HsTypes (

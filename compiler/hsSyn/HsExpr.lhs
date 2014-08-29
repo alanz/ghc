@@ -6,7 +6,8 @@
 {-# LANGUAGE CPP, DeriveDataTypeable, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
+{-# LANGUAGE UndecidableInstances #-} -- Note [Pass sensitive types]
+                                      -- in module PlaceHolder
 {-# LANGUAGE ConstraintKinds #-}
 
 -- | Abstract Haskell syntax for expressions.

@@ -10,7 +10,8 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-} -- Note [pass sensitive types]
+{-# LANGUAGE UndecidableInstances #-} -- Note [Pass sensitive types]
+                                      -- in module PlaceHolder
 {-# LANGUAGE ConstraintKinds #-}
 
 module HsLit where

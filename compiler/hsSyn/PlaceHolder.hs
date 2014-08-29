@@ -29,13 +29,13 @@ data PlaceHolder = PlaceHolder
   deriving (Data,Typeable)
 
 -- | Types that are not defined until after type checking
-type family PostTc it ty :: * -- Note [pass sensitive types]
+type family PostTc it ty :: * -- Note [Pass sensitive types]
 type instance PostTc Id      ty = ty
 type instance PostTc Name    ty = PlaceHolder
 type instance PostTc RdrName ty = PlaceHolder
 
 -- | Types that are not defined until after renaming
-type family PostRn id ty :: * -- Note [pass sensitive types]
+type family PostRn id ty :: * -- Note [Pass sensitive types]
 type instance PostRn Id      ty = ty
 type instance PostRn Name    ty = ty
 type instance PostRn RdrName ty = PlaceHolder
@@ -60,7 +60,7 @@ placeHolderNamesTc = emptyNameSet
 
 {-
 
-Note [pass sensitive types]
+Note [Pass sensitive types]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Since the same AST types are re-used through parsing,renaming and type
 checking there are naturally some places in the AST that do not have
