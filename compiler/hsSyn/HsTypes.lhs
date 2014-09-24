@@ -48,7 +48,8 @@ module HsTypes (
 
 import {-# SOURCE #-} HsExpr ( HsSplice, pprUntypedSplice )
 
-import PlaceHolder ( PostTc,PostRn,DataId,PlaceHolder(..) )
+-- import PlaceHolder ( PostTc,PostRn,DataId,PlaceHolder(..) )
+import PlaceHolder ( PostTc,PostRn,PlaceHolder(..) )
 
 import Name( Name )
 import RdrName( RdrName )
@@ -145,7 +146,7 @@ data LHsTyVarBndrs l name
              -- See Note [HsForAllTy tyvar binders]
     }
   deriving( Typeable)
-deriving instance (DataId name, Data l) => Data (LHsTyVarBndrs l name)
+-- deriving instance (DataId name, Data l) => Data (LHsTyVarBndrs l name)
 
 mkHsQTvs :: [LHsTyVarBndr SrcSpan RdrName] -> LHsTyVarBndrs SrcSpan RdrName
 -- Just at RdrName because in the Name variant we should know just
@@ -198,7 +199,7 @@ data HsTyVarBndr l name
          name
          (LHsKind l name)  -- The user-supplied kind signature
   deriving (Typeable)
-deriving instance (DataId name, Data l) => Data (HsTyVarBndr l name)
+-- deriving instance (DataId name, Data l) => Data (HsTyVarBndr l name)
 
 -- | Does this 'HsTyVarBndr' come with an explicit kind annotation?
 isHsKindedTyVar :: HsTyVarBndr l name -> Bool
@@ -250,10 +251,10 @@ data HsType l name
 
   | HsQuasiQuoteTy      (HsQuasiQuote name)
 
-  | HsSpliceTy          (HsSplice name) 
+  | HsSpliceTy          (HsSplice l name)
                         (PostTc name Kind)
 
-  | HsDocTy             (LHsType l name) LHsDocString -- A documented type
+  | HsDocTy             (LHsType l name) (LHsDocString l) -- A documented type
 
   | HsBangTy    HsBang (LHsType l name)   -- Bang-style type annotations 
   | HsRecTy [ConDeclField l name]         -- Only in data type declarations
@@ -273,7 +274,7 @@ data HsType l name
 
   | HsWrapTy HsTyWrapper (HsType l name) -- only in typechecker output
   deriving (Typeable)
-deriving instance (DataId name, Data l) => Data (HsType l name)
+-- deriving instance (DataId name, Data l) => Data (HsType l name)
 
 
 data HsTyLit
@@ -399,9 +400,9 @@ data HsExplicitFlag = Qualified | Implicit | Explicit deriving (Data, Typeable)
 data ConDeclField l name  -- Record fields have Haddoc docs on them
   = ConDeclField { cd_fld_name :: GenLocated l name,
                    cd_fld_type :: LBangType l name,
-                   cd_fld_doc  :: Maybe LHsDocString }
+                   cd_fld_doc  :: Maybe (LHsDocString l) }
   deriving (Typeable)
-deriving instance (DataId name, Data l) => Data (ConDeclField l name)
+-- deriving instance (DataId name, Data l) => Data (ConDeclField l name)
 
 -----------------------
 -- Combine adjacent for-alls. 
@@ -576,24 +577,24 @@ splitHsFunType other = ([], other)
 %************************************************************************
 
 \begin{code}
-instance (OutputableBndr name,Outputable l) => Outputable (HsType l name) where
+instance (OutputableBndr name, SrcAnnotation l) => Outputable (HsType l name) where
     ppr ty = pprHsType ty
 
 instance Outputable HsTyLit where
     ppr = ppr_tylit
 
-instance (OutputableBndr name, Outputable l) => Outputable (LHsTyVarBndrs l name) where
+instance (OutputableBndr name, SrcAnnotation l) => Outputable (LHsTyVarBndrs l name) where
     ppr (HsQTvs { hsq_kvs = kvs, hsq_tvs = tvs }) 
       = sep [ ifPprDebug $ braces (interppSP kvs), interppSP tvs ]
 
-instance (OutputableBndr name, Outputable l) => Outputable (HsTyVarBndr l name) where
+instance (OutputableBndr name, SrcAnnotation l) => Outputable (HsTyVarBndr l name) where
     ppr (UserTyVar n)     = ppr n
     ppr (KindedTyVar n k) = parens $ hsep [ppr n, dcolon, ppr k]
 
 instance (Outputable thing) => Outputable (HsWithBndrs name thing) where
     ppr (HsWB { hswb_cts = ty }) = ppr ty
 
-pprHsForAll :: (OutputableBndr name, Outputable l)
+pprHsForAll :: (OutputableBndr name, SrcAnnotation l)
   => HsExplicitFlag -> LHsTyVarBndrs l name ->  LHsContext l name -> SDoc
 pprHsForAll exp qtvs cxt 
   | show_forall = forall_part <+> pprHsContext (unLoc cxt)
@@ -604,16 +605,16 @@ pprHsForAll exp qtvs cxt
     is_explicit = case exp of {Explicit -> True; Implicit -> False; Qualified -> False}
     forall_part = forAllLit <+> ppr qtvs <> dot
 
-pprHsContext :: (OutputableBndr name, Outputable l) => HsContext l name -> SDoc
+pprHsContext :: (OutputableBndr name, SrcAnnotation l) => HsContext l name -> SDoc
 pprHsContext []  = empty
 pprHsContext cxt = pprHsContextNoArrow cxt <+> darrow
 
-pprHsContextNoArrow :: (OutputableBndr name, Outputable l) => HsContext l name -> SDoc
+pprHsContextNoArrow :: (OutputableBndr name, SrcAnnotation l) => HsContext l name -> SDoc
 pprHsContextNoArrow []         = empty
 pprHsContextNoArrow [L _ pred] = ppr_mono_ty FunPrec pred
 pprHsContextNoArrow cxt        = parens (interpp'SP cxt)
 
-pprConDeclFields :: (OutputableBndr name, Outputable l) => [ConDeclField l name] -> SDoc
+pprConDeclFields :: (OutputableBndr name, SrcAnnotation l) => [ConDeclField l name] -> SDoc
 pprConDeclFields fields = braces (sep (punctuate comma (map ppr_fld fields)))
   where
     ppr_fld (ConDeclField { cd_fld_name = n, cd_fld_type = ty, 
@@ -635,7 +636,7 @@ seems like the Right Thing anyway.)
 \begin{code}
 -- Printing works more-or-less as for Types
 
-pprHsType, pprParendHsType :: (OutputableBndr name, Outputable l) => HsType l name -> SDoc
+pprHsType, pprParendHsType :: (OutputableBndr name, SrcAnnotation l) => HsType l name -> SDoc
 
 pprHsType ty       = getPprStyle $ \sty -> ppr_mono_ty TopPrec (prepare sty ty)
 pprParendHsType ty = ppr_mono_ty TyConPrec ty
@@ -648,10 +649,10 @@ prepare :: PprStyle -> HsType l name -> HsType l name
 prepare sty (HsParTy ty)          = prepare sty (unLoc ty)
 prepare _   ty                    = ty
 
-ppr_mono_lty :: (OutputableBndr name, Outputable l) => TyPrec -> LHsType l name -> SDoc
+ppr_mono_lty :: (OutputableBndr name, SrcAnnotation l) => TyPrec -> LHsType l name -> SDoc
 ppr_mono_lty ctxt_prec ty = ppr_mono_ty ctxt_prec (unLoc ty)
 
-ppr_mono_ty :: (OutputableBndr name, Outputable l) => TyPrec -> HsType l name -> SDoc
+ppr_mono_ty :: (OutputableBndr name, SrcAnnotation l) => TyPrec -> HsType l name -> SDoc
 ppr_mono_ty ctxt_prec (HsForAllTy exp tvs ctxt ty)
   = maybeParen ctxt_prec FunPrec $
     sep [pprHsForAll exp tvs ctxt, ppr_mono_lty TopPrec ty]
@@ -717,7 +718,7 @@ ppr_mono_ty ctxt_prec (HsDocTy ty doc)
   -- postfix operators
 
 --------------------------
-ppr_fun_ty :: (OutputableBndr name, Outputable l) => TyPrec -> LHsType l name -> LHsType l name -> SDoc
+ppr_fun_ty :: (OutputableBndr name, SrcAnnotation l) => TyPrec -> LHsType l name -> LHsType l name -> SDoc
 ppr_fun_ty ctxt_prec ty1 ty2
   = let p1 = ppr_mono_lty FunPrec ty1
         p2 = ppr_mono_lty TopPrec ty2

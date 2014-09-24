@@ -20,10 +20,12 @@ module HsLit where
 
 import {-# SOURCE #-} HsExpr( SyntaxExpr, pprExpr )
 import BasicTypes ( FractionalLit(..) )
+import SrcLoc ( SrcAnnotation )
 import Type       ( Type )
 import Outputable
 import FastString
-import PlaceHolder ( PostTc,PostRn,DataId )
+-- import PlaceHolder ( PostTc,PostRn,DataId )
+import PlaceHolder ( PostTc,PostRn  )
 
 import Data.ByteString (ByteString)
 import Data.Data hiding ( Fixity )
@@ -85,7 +87,7 @@ data HsOverLit l id     -- An overloaded literal
         ol_witness :: SyntaxExpr l id,   -- Note [Overloaded literal witnesses]
         ol_type :: PostTc id Type }
   deriving (Typeable)
-deriving instance (DataId id, Data l) => Data (HsOverLit l id)
+-- deriving instance (DataId id, Data l) => Data (HsOverLit l id)
 
 data OverLitVal
   = HsIntegral   !Integer       -- Integer-looking literals;
@@ -170,7 +172,7 @@ instance Outputable HsLit where
     ppr (HsWord64Prim w) = integer w  <> text "L##"
 
 -- in debug mode, print the expression that it's resolved to, too
-instance (OutputableBndr id, Outputable l) => Outputable (HsOverLit l id) where
+instance (OutputableBndr id, SrcAnnotation l) => Outputable (HsOverLit l id) where
   ppr (OverLit {ol_val=val, ol_witness=witness})
         = ppr val <+> (ifPprDebug (parens (pprExpr witness)))
 

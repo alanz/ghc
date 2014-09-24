@@ -34,7 +34,8 @@ import {-# SOURCE #-} HsExpr            (SyntaxExpr, LHsExpr, HsSplice, pprLExpr
 -- friends:
 import HsBinds
 import HsLit
-import PlaceHolder ( PostTc,DataId )
+-- import PlaceHolder ( PostTc,DataId )
+import PlaceHolder ( PostTc  )
 import HsTypes
 import TcEvidence
 import BasicTypes
@@ -56,8 +57,8 @@ import Data.Maybe
 
 
 \begin{code}
-type InPat id  = LPat l id        -- No 'Out' constructors
-type OutPat id = LPat l id        -- No 'In' constructors
+type InPat l id  = LPat l id        -- No 'Out' constructors
+type OutPat l id = LPat l id        -- No 'In' constructors
 
 type LPat l id = GenLocated l (Pat l id)
 
@@ -77,7 +78,7 @@ data Pat l id
         ------------ Lists, tuples, arrays ---------------
   | ListPat     [LPat l id]                          -- Syntactic list
                 (PostTc id Type)                     -- The type of the elements
-                (Maybe (PostTc id Type, SyntaxExpr id)) -- For rebindable syntax
+                (Maybe (PostTc id Type, SyntaxExpr l id)) -- For rebindable syntax
                    -- For OverloadedLists a Just (ty,fn) gives
                    -- overall type of the pattern, and the toList
                    -- function to convert the scrutinee to a list value
@@ -110,7 +111,7 @@ data Pat l id
                 (HsConPatDetails l id)
 
   | ConPatOut {
-        pat_con     :: Located ConLike,
+        pat_con     :: GenLocated l ConLike,
         pat_arg_tys :: [Type],          -- The univeral arg types, 1-1 with the universal
                                         -- tyvars of the constructor/pattern synonym
                                         --   Use (conLikeResTy pat_con pat_arg_tys) to get 
@@ -121,7 +122,7 @@ data Pat l id
                                         -- One reason for putting coercion variable here, I think,
                                         --      is to ensure their kinds are zonked
         pat_binds :: TcEvBinds,         -- Bindings involving those dictionaries
-        pat_args  :: HsConPatDetails id,
+        pat_args  :: HsConPatDetails l id,
         pat_wrap  :: HsWrapper          -- Extra wrapper to pass to the matcher
     }
 
@@ -133,7 +134,7 @@ data Pat l id
                                     -- for hsPatType.
 
         ------------ Pattern splices ---------------
-  | SplicePat       (HsSplice id)
+  | SplicePat       (HsSplice l id)
 
         ------------ Quasiquoted patterns ---------------
         -- See Note [Quasi-quote overview] in TcSplice
@@ -145,15 +146,15 @@ data Pat l id
 
   | NPat                -- Used for all overloaded literals,
                         -- including overloaded strings with -XOverloadedStrings
-                    (HsOverLit id)              -- ALWAYS positive
-                    (Maybe (SyntaxExpr id))     -- Just (Name of 'negate') for negative
+                    (HsOverLit l id)            -- ALWAYS positive
+                    (Maybe (SyntaxExpr l id))   -- Just (Name of 'negate') for negative
                                                 -- patterns, Nothing otherwise
-                    (SyntaxExpr id)             -- Equality checker, of type t->t->Bool
+                    (SyntaxExpr l id)           -- Equality checker, of type t->t->Bool
 
   | NPlusKPat       (GenLocated l id)   -- n+k pattern
-                    (HsOverLit id)      -- It'll always be an HsIntegral
-                    (SyntaxExpr id)     -- (>=) function, of type t->t->Bool
-                    (SyntaxExpr id)     -- Name of '-' (see RnEnv.lookupSyntaxName)
+                    (HsOverLit l id)    -- It'll always be an HsIntegral
+                    (SyntaxExpr l id)   -- (>=) function, of type t->t->Bool
+                    (SyntaxExpr l id)   -- Name of '-' (see RnEnv.lookupSyntaxName)
 
         ------------ Pattern type signatures ---------------
   | SigPatIn        (LPat l id)                -- Pattern with a type signature
@@ -171,7 +172,7 @@ data Pat l id
         -- During desugaring a (CoPat co pat) turns into a cast with 'co' on
         -- the scrutinee, followed by a match on 'pat'
   deriving (Typeable)
-deriving instance (DataId id, Data l) => Data (Pat l id)
+-- deriving instance (DataId id, Data l) => Data (Pat l id)
 \end{code}
 
 HsConDetails is use for patterns/expressions *and* for data type declarations
@@ -183,9 +184,9 @@ data HsConDetails arg rec
   | InfixCon  arg arg           -- p1 `C` p2
   deriving (Data, Typeable)
 
-type HsConPatDetails id = HsConDetails (LPat id) (HsRecFields id (LPat id))
+type HsConPatDetails l id = HsConDetails (LPat l id) (HsRecFields l id (LPat l id))
 
-hsConPatArgs :: HsConPatDetails id -> [LPat id]
+hsConPatArgs :: HsConPatDetails l id -> [LPat l id]
 hsConPatArgs (PrefixCon ps)   = ps
 hsConPatArgs (RecCon fs)      = map hsRecFieldArg (rec_flds fs)
 hsConPatArgs (InfixCon p1 p2) = [p1,p2]
@@ -195,10 +196,10 @@ However HsRecFields is used only for patterns and expressions
 (not data type declarations)
 
 \begin{code}
-data HsRecFields id arg         -- A bunch of record fields
+data HsRecFields l id arg       -- A bunch of record fields
                                 --      { x = 3, y = True }
         -- Used for both expressions and patterns
-  = HsRecFields { rec_flds   :: [HsRecField id arg],
+  = HsRecFields { rec_flds   :: [HsRecField l id arg],
                   rec_dotdot :: Maybe Int }  -- Note [DotDot fields]
   deriving (Data, Typeable)
 
@@ -216,8 +217,8 @@ data HsRecFields id arg         -- A bunch of record fields
 --                     the first 'n' being the user-written ones
 --                     and the remainder being 'filled in' implicitly
 
-data HsRecField id arg = HsRecField {
-        hsRecFieldId  :: Located id,
+data HsRecField l id arg = HsRecField {
+        hsRecFieldId  :: GenLocated l id,
         hsRecFieldArg :: arg,           -- Filled in by renamer
         hsRecPun      :: Bool           -- Note [Punning]
   } deriving (Data, Typeable)
@@ -234,7 +235,7 @@ data HsRecField id arg = HsRecField {
 -- If the original field was qualified, we un-qualify it, thus
 --    T { A.x } means T { A.x = x }
 
-hsRecFields :: HsRecFields id arg -> [id]
+hsRecFields :: HsRecFields l id arg -> [id]
 hsRecFields rbinds = map (unLoc . hsRecFieldId) (rec_flds rbinds)
 \end{code}
 
@@ -245,7 +246,7 @@ hsRecFields rbinds = map (unLoc . hsRecFieldId) (rec_flds rbinds)
 %************************************************************************
 
 \begin{code}
-instance (OutputableBndr name) => Outputable (Pat name) where
+instance (OutputableBndr name, SrcAnnotation l) => Outputable (Pat l name) where
     ppr = pprPat
 
 pprPatBndr :: OutputableBndr name => name -> SDoc
@@ -257,14 +258,14 @@ pprPatBndr var                  -- Print with type info if -dppr-debug is on
     else
         pprPrefixOcc var
 
-pprParendLPat :: (OutputableBndr name) => LPat name -> SDoc
+pprParendLPat :: (OutputableBndr name, SrcAnnotation l) => LPat l name -> SDoc
 pprParendLPat (L _ p) = pprParendPat p
 
-pprParendPat :: (OutputableBndr name) => Pat name -> SDoc
+pprParendPat :: (OutputableBndr name, SrcAnnotation l) => Pat l name -> SDoc
 pprParendPat p | hsPatNeedsParens p = parens (pprPat p)
                | otherwise          = pprPat p
 
-pprPat :: (OutputableBndr name) => Pat name -> SDoc
+pprPat :: (OutputableBndr name, SrcAnnotation l) => Pat l name -> SDoc
 pprPat (VarPat var)       = pprPatBndr var
 pprPat (WildPat _)        = char '_'
 pprPat (LazyPat pat)      = char '~' <> pprParendLPat pat
@@ -298,17 +299,18 @@ pprPat (CoPat co pat _)     = pprHsWrapper (ppr pat) co
 pprPat (SigPatIn pat ty)    = ppr pat <+> dcolon <+> ppr ty
 pprPat (SigPatOut pat ty)   = ppr pat <+> dcolon <+> ppr ty
 
-pprUserCon :: (OutputableBndr con, OutputableBndr id) => con -> HsConPatDetails id -> SDoc
+pprUserCon :: (OutputableBndr con, OutputableBndr id, SrcAnnotation l)
+  => con -> HsConPatDetails l id -> SDoc
 pprUserCon c (InfixCon p1 p2) = ppr p1 <+> pprInfixOcc c <+> ppr p2
 pprUserCon c details          = pprPrefixOcc c <+> pprConArgs details
 
-pprConArgs ::  OutputableBndr id => HsConPatDetails id -> SDoc
+pprConArgs :: (OutputableBndr id, SrcAnnotation l) => HsConPatDetails l id -> SDoc
 pprConArgs (PrefixCon pats) = sep (map pprParendLPat pats)
 pprConArgs (InfixCon p1 p2) = sep [pprParendLPat p1, pprParendLPat p2]
 pprConArgs (RecCon rpats)   = ppr rpats
 
-instance (OutputableBndr id, Outputable arg)
-      => Outputable (HsRecFields id arg) where
+instance (OutputableBndr id, Outputable arg, Outputable l)
+      => Outputable (HsRecFields l id arg) where
   ppr (HsRecFields { rec_flds = flds, rec_dotdot = Nothing })
         = braces (fsep (punctuate comma (map ppr flds)))
   ppr (HsRecFields { rec_flds = flds, rec_dotdot = Just n })
@@ -316,8 +318,8 @@ instance (OutputableBndr id, Outputable arg)
         where
           dotdot = ptext (sLit "..") <+> ifPprDebug (ppr (drop n flds))
 
-instance (OutputableBndr id, Outputable arg)
-      => Outputable (HsRecField id arg) where
+instance (OutputableBndr id, Outputable arg, Outputable l)
+      => Outputable (HsRecField l id arg) where
   ppr (HsRecField { hsRecFieldId = f, hsRecFieldArg = arg,
                     hsRecPun = pun })
     = ppr f <+> (ppUnless pun $ equals <+> ppr arg)
@@ -331,18 +333,21 @@ instance (OutputableBndr id, Outputable arg)
 %************************************************************************
 
 \begin{code}
-mkPrefixConPat :: DataCon -> [OutPat id] -> [Type] -> OutPat id
+mkPrefixConPat :: (SrcAnnotation l)
+  => DataCon -> [OutPat l id] -> [Type] -> OutPat l id
 -- Make a vanilla Prefix constructor pattern
 mkPrefixConPat dc pats tys
-  = noLoc $ ConPatOut { pat_con = noLoc (RealDataCon dc), pat_tvs = [], pat_dicts = [],
-                        pat_binds = emptyTcEvBinds, pat_args = PrefixCon pats,
-                        pat_arg_tys = tys, pat_wrap = idHsWrapper }
+  = annNoLoc $ ConPatOut { pat_con = annNoLoc (RealDataCon dc), pat_tvs = [],
+                           pat_dicts = [],
+                           pat_binds = emptyTcEvBinds,
+                           pat_args = PrefixCon pats,
+                           pat_arg_tys = tys, pat_wrap = idHsWrapper }
 
-mkNilPat :: Type -> OutPat id
+mkNilPat :: (SrcAnnotation l) => Type -> OutPat l id
 mkNilPat ty = mkPrefixConPat nilDataCon [] [ty]
 
-mkCharLitPat :: Char -> OutPat id
-mkCharLitPat c = mkPrefixConPat charDataCon [noLoc $ LitPat (HsCharPrim c)] []
+mkCharLitPat :: (SrcAnnotation l) => Char -> OutPat l id
+mkCharLitPat c = mkPrefixConPat charDataCon [annNoLoc $ LitPat (HsCharPrim c)] []
 \end{code}
 
 
@@ -376,19 +381,19 @@ patterns are treated specially, of course.
 
 The 1.3 report defines what ``irrefutable'' and ``failure-free'' patterns are.
 \begin{code}
-isStrictLPat :: LPat id -> Bool
+isStrictLPat :: LPat l id -> Bool
 isStrictLPat (L _ (ParPat p))             = isStrictLPat p
 isStrictLPat (L _ (BangPat {}))           = True
 isStrictLPat (L _ (TuplePat _ Unboxed _)) = True
 isStrictLPat _                            = False
 
-isStrictHsBind :: HsBind id -> Bool
+isStrictHsBind :: HsBind l id -> Bool
 -- A pattern binding with an outermost bang or unboxed tuple must be matched strictly
 -- Defined in this module because HsPat is above HsBinds in the import graph
 isStrictHsBind (PatBind { pat_lhs = p }) = isStrictLPat p
 isStrictHsBind _                         = False
 
-looksLazyPatBind :: HsBind id -> Bool
+looksLazyPatBind :: HsBind l id -> Bool
 -- Returns True of anything *except*
 --     a StrictHsBind (as above) or 
 --     a VarPat
@@ -396,7 +401,7 @@ looksLazyPatBind :: HsBind id -> Bool
 looksLazyPatBind (PatBind { pat_lhs = p }) = looksLazyLPat p
 looksLazyPatBind _                         = False
 
-looksLazyLPat :: LPat id -> Bool
+looksLazyLPat :: LPat l id -> Bool
 looksLazyLPat (L _ (ParPat p))             = looksLazyLPat p
 looksLazyLPat (L _ (AsPat _ p))            = looksLazyLPat p
 looksLazyLPat (L _ (BangPat {}))           = False
@@ -405,7 +410,7 @@ looksLazyLPat (L _ (VarPat {}))            = False
 looksLazyLPat (L _ (WildPat {}))           = False
 looksLazyLPat _                            = True
 
-isIrrefutableHsPat :: OutputableBndr id => LPat id -> Bool
+isIrrefutableHsPat :: (OutputableBndr id, SrcAnnotation l) => LPat l id -> Bool
 -- (isIrrefutableHsPat p) is true if matching against p cannot fail,
 -- in the sense of falling through to the next pattern.
 --      (NB: this is not quite the same as the (silly) defn
@@ -453,7 +458,7 @@ isIrrefutableHsPat pat
 
     urk pat = pprPanic "isIrrefutableHsPat:" (ppr pat)
 
-hsPatNeedsParens :: Pat a -> Bool
+hsPatNeedsParens :: Pat l a -> Bool
 hsPatNeedsParens (NPlusKPat {})      = True
 hsPatNeedsParens (SplicePat {})      = False
 hsPatNeedsParens (QuasiQuotePat {})  = True

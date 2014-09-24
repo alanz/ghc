@@ -17,12 +17,12 @@ import Data.Data
 newtype HsDocString = HsDocString FastString
   deriving (Eq, Show, Data, Typeable)
 
-type LHsDocString = Located HsDocString
+type LHsDocString l = GenLocated l HsDocString
 
 instance Outputable HsDocString where
   ppr (HsDocString fs) = ftext fs
 
-ppr_mbDoc :: Maybe LHsDocString -> SDoc
+ppr_mbDoc :: (Outputable l) => Maybe (LHsDocString l) -> SDoc
 ppr_mbDoc (Just doc) = ppr doc
 ppr_mbDoc Nothing    = empty
 

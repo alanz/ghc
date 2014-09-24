@@ -164,7 +164,7 @@ advanceSrcLoc (SrcLoc f l c) _    = SrcLoc f  l (c + 1)
 
 \begin{code}
 
-class SrcAnnotation l where
+class (Outputable l, OutputableBndr l) => SrcAnnotation l where
     annGetLoc :: GenLocated l e -> SrcSpan
     annNoLoc :: e -> GenLocated l e
 
