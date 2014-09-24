@@ -114,27 +114,27 @@ import Data.Maybe
 %************************************************************************
 
 \begin{code}
-type LHsDecl id = Located (HsDecl id)
+type LHsDecl l id = GenLocated l (HsDecl l id)
 
 -- | A Haskell Declaration
-data HsDecl id
-  = TyClD       (TyClDecl id)     -- ^ A type or class declaration.
-  | InstD       (InstDecl  id)    -- ^ An instance declaration.
-  | DerivD      (DerivDecl id)
-  | ValD        (HsBind id)
-  | SigD        (Sig id)
-  | DefD        (DefaultDecl id)
-  | ForD        (ForeignDecl id)
-  | WarningD    (WarnDecl id)
-  | AnnD        (AnnDecl id)
-  | RuleD       (RuleDecl id)
-  | VectD       (VectDecl id)
-  | SpliceD     (SpliceDecl id)
+data HsDecl l id
+  = TyClD       (TyClDecl l id)     -- ^ A type or class declaration.
+  | InstD       (InstDecl  l id)    -- ^ An instance declaration.
+  | DerivD      (DerivDecl l id)
+  | ValD        (HsBind l id)
+  | SigD        (Sig l id)
+  | DefD        (DefaultDecl l id)
+  | ForD        (ForeignDecl l id)
+  | WarningD    (WarnDecl l id)
+  | AnnD        (AnnDecl l id)
+  | RuleD       (RuleDecl l id)
+  | VectD       (VectDecl l id)
+  | SpliceD     (SpliceDecl l id)
   | DocD        (DocDecl)
-  | QuasiQuoteD (HsQuasiQuote id)
-  | RoleAnnotD  (RoleAnnotDecl id)
+  | QuasiQuoteD (HsQuasiQuote l id)
+  | RoleAnnotD  (RoleAnnotDecl l id)
   deriving (Typeable)
-deriving instance (DataId id) => Data (HsDecl id)
+deriving instance (DataId id, Data l) => Data (HsDecl l id)
 
 
 -- NB: all top-level fixity decls are contained EITHER
@@ -452,12 +452,12 @@ Interface file code:
 
 
 \begin{code}
-type LTyClDecl name = Located (TyClDecl name)
+type LTyClDecl l name = GenLocated l (TyClDecl l name)
 
 -- | A type or class declaration.
-data TyClDecl name
+data TyClDecl l name
   = ForeignType { 
-                tcdLName    :: Located name,
+                tcdLName    :: GenLocated l name,
                 tcdExtName  :: Maybe FastString
     }
 
@@ -465,38 +465,38 @@ data TyClDecl name
     FamDecl { tcdFam :: FamilyDecl name }
 
   | -- | @type@ declaration
-    SynDecl { tcdLName  :: Located name            -- ^ Type constructor
-            , tcdTyVars :: LHsTyVarBndrs name      -- ^ Type variables; for an associated type
-                                                  --   these include outer binders
-            , tcdRhs    :: LHsType name            -- ^ RHS of type declaration
+    SynDecl { tcdLName  :: GenLocated l name       -- ^ Type constructor
+            , tcdTyVars :: LHsTyVarBndrs l name    -- ^ Type variables; for an associated type
+                                                   --   these include outer binders
+            , tcdRhs    :: LHsType l name          -- ^ RHS of type declaration
             , tcdFVs    :: PostRn name NameSet }
 
   | -- | @data@ declaration
-    DataDecl { tcdLName    :: Located name        -- ^ Type constructor
-             , tcdTyVars   :: LHsTyVarBndrs name  -- ^ Type variables; for an assoicated type
-                                                  --   these include outer binders
-                                                  -- Eg  class T a where
-                                                  --       type F a :: *
-                                                  --       type F a = a -> a
-                                                  -- Here the type decl for 'f' includes 'a' 
-                                                  -- in its tcdTyVars
+    DataDecl { tcdLName    :: GenLocated l name    -- ^ Type constructor
+             , tcdTyVars   :: LHsTyVarBndrs l name -- ^ Type variables; for an assoicated type
+                                                   --   these include outer binders
+                                                   -- Eg  class T a where
+                                                   --       type F a :: *
+                                                   --       type F a = a -> a
+                                                   -- Here the type decl for 'f' includes 'a' 
+                                                   -- in its tcdTyVars
              , tcdDataDefn :: HsDataDefn name
              , tcdFVs      :: PostRn name NameSet }
 
-  | ClassDecl { tcdCtxt    :: LHsContext name,          -- ^ Context...
-                tcdLName   :: Located name,             -- ^ Name of the class
-                tcdTyVars  :: LHsTyVarBndrs name,       -- ^ Class type variables
-                tcdFDs     :: [Located (FunDep name)],  -- ^ Functional deps
-                tcdSigs    :: [LSig name],              -- ^ Methods' signatures
-                tcdMeths   :: LHsBinds name,            -- ^ Default methods
-                tcdATs     :: [LFamilyDecl name],       -- ^ Associated types; ie
-                tcdATDefs  :: [LTyFamDefltEqn name],    -- ^ Associated type defaults
-                tcdDocs    :: [LDocDecl],               -- ^ Haddock docs
+  | ClassDecl { tcdCtxt    :: LHsContext l name,        -- ^ Context...
+                tcdLName   :: GenLocated l name,        -- ^ Name of the class
+                tcdTyVars  :: LHsTyVarBndrs l name,     -- ^ Class type variables
+                tcdFDs     :: [GenLocated l (FunDep l name)], -- ^ Functional deps
+                tcdSigs    :: [LSig l name],              -- ^ Methods' signatures
+                tcdMeths   :: LHsBinds l name,            -- ^ Default methods
+                tcdATs     :: [LFamilyDecl l name],       -- ^ Associated types; ie
+                tcdATDefs  :: [LTyFamDefltEqn l name],    -- ^ Associated type defaults
+                tcdDocs    :: [LDocDecl l],               -- ^ Haddock docs
                 tcdFVs     :: PostRn name NameSet
     }
 
   deriving (Typeable)
-deriving instance (DataId id) => Data (TyClDecl id)
+deriving instance (DataId id, Data l) => Data (TyClDecl l id)
 
  -- This is used in TcTyClsDecls to represent
  -- strongly connected components of decls

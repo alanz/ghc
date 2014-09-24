@@ -51,12 +51,12 @@ import Data.Data hiding (Fixity)
 \begin{code}
 -- * Expressions proper
 
-type LHsExpr id = Located (HsExpr id)
+type LHsExpr l id = GenLocated l (HsExpr l id)
 
 -------------------------
 -- | PostTcExpr is an evidence expression attached to the syntax tree by the
 -- type checker (c.f. postTcType).
-type PostTcExpr  = HsExpr Id
+type PostTcExpr  = HsExpr SrcSpan Id
 -- | We use a PostTcTable where there are a bunch of pieces of evidence, more
 -- than is convenient to keep individually.
 type PostTcTable = [(Name, PostTcExpr)]
@@ -272,8 +272,8 @@ data HsExpr id
   -- Arrow notation extension
 
   -- | @proc@ notation for Arrows
-  | HsProc      (LPat id)               -- arrow abstraction, proc
-                (LHsCmdTop id)          -- body of the abstraction
+  | HsProc      (LPat l id)             -- arrow abstraction, proc
+                (LHsCmdTop l id)        -- body of the abstraction
                                         -- always has an empty stack
 
   ---------------------------------------
@@ -913,10 +913,10 @@ a function defined by pattern matching must have the same number of
 patterns in each equation.
 
 \begin{code}
-data MatchGroup id body
-  = MG { mg_alts    :: [LMatch id body]  -- The alternatives
-       , mg_arg_tys :: [PostTc id Type]  -- Types of the arguments, t1..tn
-       , mg_res_ty  :: PostTc id Type    -- Type of the result, tr
+data MatchGroup l id body
+  = MG { mg_alts    :: [LMatch l id body] -- The alternatives
+       , mg_arg_tys :: [PostTc id Type]   -- Types of the arguments, t1..tn
+       , mg_res_ty  :: PostTc id Type     -- Type of the result, tr
        , mg_origin  :: Origin }
      -- The type is the type of the entire group
      --      t1 -> ... -> tn -> tr
@@ -924,16 +924,16 @@ data MatchGroup id body
   deriving (Typeable)
 deriving instance (Data body,DataId id) => Data (MatchGroup id body)
 
-type LMatch id body = Located (Match id body)
+type LMatch l id body = GenLocated l (Match l id body)
 
-data Match id body
+data Match l id body
   = Match
-        [LPat id]               -- The patterns
-        (Maybe (LHsType id))    -- A type signature for the result of the match
+        [LPat l id]               -- The patterns
+        (Maybe (LHsType l id))    -- A type signature for the result of the match
                                 -- Nothing after typechecking
-        (GRHSs id body)
+        (GRHSs l id body)
   deriving (Typeable)
-deriving instance (Data body,DataId id) => Data (Match id body)
+deriving instance (Data body,DataId id, Data l) => Data (Match l id body)
 
 isEmptyMatchGroup :: MatchGroup id body -> Bool
 isEmptyMatchGroup (MG { mg_alts = ms }) = null ms

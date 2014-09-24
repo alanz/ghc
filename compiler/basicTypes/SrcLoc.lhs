@@ -72,7 +72,10 @@ module SrcLoc (
         -- ** Combining and comparing Located values
         eqLocated, cmpLocated, combineLocs, addCLoc,
         leftmost_smallest, leftmost_largest, rightmost,
-        spans, isSubspanOf, sortLocated
+        spans, isSubspanOf, sortLocated,
+
+        -- ** GHC API annotations
+        SrcAnnotation(..)
     ) where
 
 import Util
@@ -150,6 +153,21 @@ advanceSrcLoc (SrcLoc f l _) '\n' = SrcLoc f  (l + 1) 1
 advanceSrcLoc (SrcLoc f l c) '\t' = SrcLoc f  l (((((c - 1) `shiftR` 3) + 1)
                                                   `shiftL` 3) + 1)
 advanceSrcLoc (SrcLoc f l c) _    = SrcLoc f  l (c + 1)
+\end{code}
+
+
+%************************************************************************
+%*                                                                      *
+\subsection[SrcAnnotations]{Annotations for use in GHC API}
+%*                                                                      *
+%************************************************************************
+
+\begin{code}
+
+class SrcAnnotation l where
+    annGetLoc :: GenLocated l e -> SrcSpan
+    annNoLoc :: e -> GenLocated l e
+
 \end{code}
 
 %************************************************************************

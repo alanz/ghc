@@ -56,33 +56,33 @@ import Data.Maybe
 
 
 \begin{code}
-type InPat id  = LPat id        -- No 'Out' constructors
-type OutPat id = LPat id        -- No 'In' constructors
+type InPat id  = LPat l id        -- No 'Out' constructors
+type OutPat id = LPat l id        -- No 'In' constructors
 
-type LPat id = Located (Pat id)
+type LPat l id = GenLocated l (Pat l id)
 
-data Pat id
+data Pat l id
   =     ------------ Simple patterns ---------------
     WildPat     (PostTc id Type)        -- Wild card
         -- The sole reason for a type on a WildPat is to
         -- support hsPatType :: Pat Id -> Type
 
   | VarPat      id                      -- Variable
-  | LazyPat     (LPat id)               -- Lazy pattern
-  | AsPat       (Located id) (LPat id)  -- As pattern
-  | ParPat      (LPat id)               -- Parenthesised pattern
+  | LazyPat     (LPat l id)             -- Lazy pattern
+  | AsPat       (GenLocated l id) (LPat l id) -- As pattern
+  | ParPat      (LPat l id)             -- Parenthesised pattern
                                         -- See Note [Parens in HsSyn] in HsExpr
-  | BangPat     (LPat id)               -- Bang pattern
+  | BangPat     (LPat l id)             -- Bang pattern
 
         ------------ Lists, tuples, arrays ---------------
-  | ListPat     [LPat id]                            -- Syntactic list
+  | ListPat     [LPat l id]                          -- Syntactic list
                 (PostTc id Type)                     -- The type of the elements
                 (Maybe (PostTc id Type, SyntaxExpr id)) -- For rebindable syntax
                    -- For OverloadedLists a Just (ty,fn) gives
                    -- overall type of the pattern, and the toList
                    -- function to convert the scrutinee to a list value
 
-  | TuplePat    [LPat id]        -- Tuple sub-patterns
+  | TuplePat    [LPat l id]      -- Tuple sub-patterns
                 Boxity           -- UnitPat is TuplePat []
                 [PostTc id Type] -- [] before typechecker, filled in afterwards
                                  -- with the types of the tuple components
@@ -102,12 +102,12 @@ data Pat id
         -- (June 14: I'm not sure this comment is right; the sub-patterns
         --           will be wrapped in CoPats, no?)
 
-  | PArrPat     [LPat id]               -- Syntactic parallel array
+  | PArrPat     [LPat l id]             -- Syntactic parallel array
                 (PostTc id Type)        -- The type of the elements
 
         ------------ Constructor patterns ---------------
-  | ConPatIn    (Located id)
-                (HsConPatDetails id)
+  | ConPatIn    (GenLocated l id)
+                (HsConPatDetails l id)
 
   | ConPatOut {
         pat_con     :: Located ConLike,
@@ -126,8 +126,8 @@ data Pat id
     }
 
         ------------ View patterns ---------------
-  | ViewPat       (LHsExpr id)
-                  (LPat id)
+  | ViewPat       (LHsExpr l id)
+                  (LPat l id)
                   (PostTc id Type)  -- The overall type of the pattern
                                     -- (= the argument type of the view function)
                                     -- for hsPatType.
@@ -150,28 +150,28 @@ data Pat id
                                                 -- patterns, Nothing otherwise
                     (SyntaxExpr id)             -- Equality checker, of type t->t->Bool
 
-  | NPlusKPat       (Located id)        -- n+k pattern
+  | NPlusKPat       (GenLocated l id)   -- n+k pattern
                     (HsOverLit id)      -- It'll always be an HsIntegral
                     (SyntaxExpr id)     -- (>=) function, of type t->t->Bool
                     (SyntaxExpr id)     -- Name of '-' (see RnEnv.lookupSyntaxName)
 
         ------------ Pattern type signatures ---------------
-  | SigPatIn        (LPat id)                  -- Pattern with a type signature
-                    (HsWithBndrs id (LHsType id)) -- Signature can bind both
-                                                  -- kind and type vars
+  | SigPatIn        (LPat l id)                -- Pattern with a type signature
+                    (HsWithBndrs id (LHsType l id)) -- Signature can bind both
+                                                    -- kind and type vars
 
-  | SigPatOut       (LPat id)           -- Pattern with a type signature
+  | SigPatOut       (LPat l id)           -- Pattern with a type signature
                     Type
 
         ------------ Pattern coercions (translation only) ---------------
   | CoPat       HsWrapper               -- If co :: t1 ~ t2, p :: t2,
                                         -- then (CoPat co p) :: t1
-                (Pat id)                -- Why not LPat?  Ans: existing locn will do
+                (Pat l id)              -- Why not LPat?  Ans: existing locn will do
                 Type                    -- Type of whole pattern, t1
         -- During desugaring a (CoPat co pat) turns into a cast with 'co' on
         -- the scrutinee, followed by a match on 'pat'
   deriving (Typeable)
-deriving instance (DataId id) => Data (Pat id)
+deriving instance (DataId id, Data l) => Data (Pat l id)
 \end{code}
 
 HsConDetails is use for patterns/expressions *and* for data type declarations

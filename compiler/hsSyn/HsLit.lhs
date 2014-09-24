@@ -78,14 +78,14 @@ instance Eq HsLit where
   (HsDoublePrim x1) == (HsDoublePrim x2) = x1==x2
   _                 == _                 = False
 
-data HsOverLit id       -- An overloaded literal
+data HsOverLit l id     -- An overloaded literal
   = OverLit {
         ol_val :: OverLitVal,
         ol_rebindable :: PostRn id Bool, -- Note [ol_rebindable]
-        ol_witness :: SyntaxExpr id,     -- Note [Overloaded literal witnesses]
+        ol_witness :: SyntaxExpr l id,   -- Note [Overloaded literal witnesses]
         ol_type :: PostTc id Type }
   deriving (Typeable)
-deriving instance (DataId id) => Data (HsOverLit id)
+deriving instance (DataId id, Data l) => Data (HsOverLit l id)
 
 data OverLitVal
   = HsIntegral   !Integer       -- Integer-looking literals;
@@ -93,7 +93,7 @@ data OverLitVal
   | HsIsString   !FastString    -- String-looking literals
   deriving (Data, Typeable)
 
-overLitType :: HsOverLit a -> PostTc a Type
+overLitType :: HsOverLit l a -> PostTc a Type
 overLitType = ol_type
 \end{code}
 
@@ -128,7 +128,7 @@ found to have.
 \begin{code}
 -- Comparison operations are needed when grouping literals
 -- for compiling pattern-matching (module MatchLit)
-instance Eq (HsOverLit id) where
+instance Eq (HsOverLit l id) where
   (OverLit {ol_val = val1}) == (OverLit {ol_val=val2}) = val1 == val2
 
 instance Eq OverLitVal where
@@ -137,7 +137,7 @@ instance Eq OverLitVal where
   (HsIsString s1)   == (HsIsString s2)   = s1 == s2
   _                 == _                 = False
 
-instance Ord (HsOverLit id) where
+instance Ord (HsOverLit l id) where
   compare (OverLit {ol_val=val1}) (OverLit {ol_val=val2}) = val1 `compare` val2
 
 instance Ord OverLitVal where
@@ -170,7 +170,7 @@ instance Outputable HsLit where
     ppr (HsWord64Prim w) = integer w  <> text "L##"
 
 -- in debug mode, print the expression that it's resolved to, too
-instance OutputableBndr id => Outputable (HsOverLit id) where
+instance (OutputableBndr id, Outputable l) => Outputable (HsOverLit l id) where
   ppr (OverLit {ol_val=val, ol_witness=witness})
         = ppr val <+> (ifPprDebug (parens (pprExpr witness)))
 

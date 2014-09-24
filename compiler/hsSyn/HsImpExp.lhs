@@ -29,24 +29,24 @@ import Data.Data
 
 One per \tr{import} declaration in a module.
 \begin{code}
-type LImportDecl name = Located (ImportDecl name)
+type LImportDecl l name = GenLocated l (ImportDecl l name)
 
 -- | A single Haskell @import@ declaration.
-data ImportDecl name
+data ImportDecl l name
   = ImportDecl {
-      ideclName      :: Located ModuleName, -- ^ Module name.
+      ideclName      :: GenLocated l ModuleName, -- ^ Module name.
       ideclPkgQual   :: Maybe FastString,   -- ^ Package qualifier.
       ideclSource    :: Bool,               -- ^ True <=> {-# SOURCE #-} import
       ideclSafe      :: Bool,               -- ^ True => safe import
       ideclQualified :: Bool,               -- ^ True => qualified
       ideclImplicit  :: Bool,               -- ^ True => implicit import (of Prelude)
       ideclAs        :: Maybe ModuleName,   -- ^ as Module
-      ideclHiding    :: Maybe (Bool, [LIE name]) -- ^ (True => hiding, names)
+      ideclHiding    :: Maybe (Bool, [LIE l name]) -- ^ (True => hiding, names)
     } deriving (Data, Typeable)
 
-simpleImportDecl :: ModuleName -> ImportDecl name
+simpleImportDecl :: (SrcAnnotation l) => ModuleName -> ImportDecl l name
 simpleImportDecl mn = ImportDecl {
-      ideclName      = noLoc mn,
+      ideclName      = annNoLoc mn,
       ideclPkgQual   = Nothing,
       ideclSource    = False,
       ideclSafe      = False,
@@ -58,7 +58,7 @@ simpleImportDecl mn = ImportDecl {
 \end{code}
 
 \begin{code}
-instance (OutputableBndr name, HasOccName name) => Outputable (ImportDecl name) where
+instance (OutputableBndr name, HasOccName name, Outputable l) => Outputable (ImportDecl l name) where
     ppr (ImportDecl { ideclName = mod', ideclPkgQual = pkg
                     , ideclSource = from, ideclSafe = safe
                     , ideclQualified = qual, ideclImplicit = implicit
@@ -100,7 +100,7 @@ instance (OutputableBndr name, HasOccName name) => Outputable (ImportDecl name) 
 %************************************************************************
 
 \begin{code}
-type LIE name = Located (IE name)
+type LIE l name = GenLocated l (IE name)
 
 -- | Imported or exported entity.
 data IE name

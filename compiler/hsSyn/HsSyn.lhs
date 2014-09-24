@@ -58,12 +58,12 @@ import Data.Data hiding ( Fixity )
 
 \begin{code}
 -- | All we actually declare here is the top-level structure for a module.
-data HsModule name
+data HsModule l name
   = HsModule {
-      hsmodName :: Maybe (Located ModuleName),
+      hsmodName :: Maybe (GenLocated l ModuleName),
         -- ^ @Nothing@: \"module X where\" is omitted (in which case the next
         --     field is Nothing too)
-      hsmodExports :: Maybe [LIE name],
+      hsmodExports :: Maybe [LIE l name],
         -- ^ Export list
         --
         --  - @Nothing@: export list omitted, so export everything
@@ -72,11 +72,11 @@ data HsModule name
         --
         --  - @Just [...]@: as you would expect...
         --
-      hsmodImports :: [LImportDecl name],
+      hsmodImports :: [LImportDecl l name],
         -- ^ We snaffle interesting stuff out of the imported interfaces early
         -- on, adding that info to TyDecls/etc; so this list is often empty,
         -- downstream.
-      hsmodDecls :: [LHsDecl name],
+      hsmodDecls :: [LHsDecl l name],
         -- ^ Type, class, value, and interface signature decls
       hsmodDeprecMessage :: Maybe WarningTxt,
         -- ^ reason\/explanation for warning/deprecation of this module
