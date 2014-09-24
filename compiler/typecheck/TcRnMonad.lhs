@@ -884,14 +884,14 @@ updCtxt upd = updLclEnv (\ env@(TcLclEnv { tcl_ctxt = ctxt }) ->
 popErrCtxt :: TcM a -> TcM a
 popErrCtxt = updCtxt (\ msgs -> case msgs of { [] -> []; (_ : ms) -> ms })
 
-getCtLoc :: CtOrigin -> TcM CtLoc
+getCtLoc :: CtOrigin l -> TcM (CtLoc l)
 getCtLoc origin
   = do { env <- getLclEnv 
        ; return (CtLoc { ctl_origin = origin
                        , ctl_env = env
                        , ctl_depth = initialSubGoalDepth }) }
 
-setCtLoc :: CtLoc -> TcM a -> TcM a
+setCtLoc :: CtLoc l -> TcM a -> TcM a
 -- Set the SrcSpan and error context from the CtLoc
 setCtLoc (CtLoc { ctl_env = lcl }) thing_inside
   = updLclEnv (\env -> env { tcl_loc = tcl_loc lcl
@@ -1067,23 +1067,23 @@ chooseUniqueOccTc fn =
      ; writeTcRef dfun_n_var (extendOccSet set occ)
      ; return occ }
 
-getConstraintVar :: TcM (TcRef WantedConstraints)
+getConstraintVar :: TcM (TcRef (WantedConstraints SrcSpan))
 getConstraintVar = do { env <- getLclEnv; return (tcl_lie env) }
 
-setConstraintVar :: TcRef WantedConstraints -> TcM a -> TcM a
+setConstraintVar :: TcRef (WantedConstraints SrcSpan) -> TcM a -> TcM a
 setConstraintVar lie_var = updLclEnv (\ env -> env { tcl_lie = lie_var })
 
-emitConstraints :: WantedConstraints -> TcM ()
+emitConstraints :: WantedConstraints SrcSpan -> TcM ()
 emitConstraints ct
   = do { lie_var <- getConstraintVar ;
          updTcRef lie_var (`andWC` ct) }
 
-emitFlat :: Ct -> TcM ()
+emitFlat :: Ct SrcSpan -> TcM ()
 emitFlat ct
   = do { lie_var <- getConstraintVar ;
          updTcRef lie_var (`addFlats` unitBag ct) }
 
-emitFlats :: Cts -> TcM ()
+emitFlats :: Cts SrcSpan -> TcM ()
 emitFlats cts
   = do { lie_var <- getConstraintVar ;
          updTcRef lie_var (`addFlats` cts) }
@@ -1098,14 +1098,14 @@ emitImplications ct
   = do { lie_var <- getConstraintVar ;
          updTcRef lie_var (`addImplics` ct) }
 
-emitInsoluble :: Ct -> TcM ()
+emitInsoluble :: Ct SrcSpan -> TcM ()
 emitInsoluble ct
   = do { lie_var <- getConstraintVar ;
          updTcRef lie_var (`addInsols` unitBag ct) ;
          v <- readTcRef lie_var ;
          traceTc "emitInsoluble" (ppr v) }
 
-captureConstraints :: TcM a -> TcM (a, WantedConstraints)
+captureConstraints :: TcM a -> TcM (a, WantedConstraints SrcSpan)
 -- (captureConstraints m) runs m, and returns the type constraints it generates
 captureConstraints thing_inside
   = do { lie_var <- newTcRef emptyWC ;
@@ -1175,17 +1175,18 @@ keepAlive name
        ; traceRn (ptext (sLit "keep alive") <+> ppr name)
        ; updTcRef (tcg_keep env) (`addOneToNameSet` name) }
 
-getStage :: TcM ThStage
+getStage :: TcM (ThStage SrcSpan)
 getStage = do { env <- getLclEnv; return (tcl_th_ctxt env) }
 
-getStageAndBindLevel :: Name -> TcRn (Maybe (TopLevelFlag, ThLevel, ThStage))
+getStageAndBindLevel :: Name
+                     -> TcRn (Maybe (TopLevelFlag, ThLevel, ThStage SrcSpan))
 getStageAndBindLevel name
   = do { env <- getLclEnv;
        ; case lookupNameEnv (tcl_th_bndrs env) name of
            Nothing                  -> return Nothing
            Just (top_lvl, bind_lvl) -> return (Just (top_lvl, bind_lvl, tcl_th_ctxt env)) }
 
-setStage :: ThStage -> TcM a -> TcRn a
+setStage :: ThStage SrcSpan -> TcM a -> TcRn a
 setStage s = updLclEnv (\ env -> env { tcl_th_ctxt = s })
 \end{code}
 

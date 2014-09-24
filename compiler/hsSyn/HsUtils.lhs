@@ -123,11 +123,11 @@ from their components, compared with the nl* functions below which
 just attach noSrcSpan to everything.
 
 \begin{code}
-mkHsPar :: (SrcAnnotation l) => LHsExpr l id -> LHsExpr l id
-mkHsPar e = L (annGetLoc e) (HsPar e)
+mkHsPar :: LHsExpr l id -> LHsExpr l id
+mkHsPar e@(L l _) = L l (HsPar e)
 
-mkSimpleMatch :: [LPat l id] -> GenLocated l (body id)
-              -> LMatch l id (GenLocated l (body id))
+mkSimpleMatch :: [LPat SrcSpan id] -> GenLocated SrcSpan (body id)
+              -> LMatch SrcSpan id (GenLocated SrcSpan (body id))
 mkSimpleMatch pats rhs
   = L loc $
     Match pats Nothing (unguardedGRHSs rhs)
@@ -149,18 +149,20 @@ mkMatchGroup origin matches = MG { mg_alts = matches, mg_arg_tys = []
                                  , mg_origin = origin }
 
 mkMatchGroupName :: Origin -> [LMatch l Name (GenLocated l (body l Name))]
-             -> MatchGroup Name (GenLocated l (body l Name))
+             -> MatchGroup l Name (GenLocated l (body l Name))
 mkMatchGroupName origin matches = MG { mg_alts = matches, mg_arg_tys = []
                                      , mg_res_ty = placeHolderType
                                      , mg_origin = origin }
 
-mkHsAppTy :: LHsType l name -> LHsType l name -> LHsType l name
+mkHsAppTy :: LHsType SrcSpan name -> LHsType SrcSpan name
+          -> LHsType SrcSpan name
 mkHsAppTy t1 t2 = addCLoc t1 t2 (HsAppTy t1 t2)
 
-mkHsApp :: LHsExpr l name -> LHsExpr l name -> LHsExpr l name
+mkHsApp :: LHsExpr SrcSpan name -> LHsExpr SrcSpan name -> LHsExpr SrcSpan name
 mkHsApp e1 e2 = addCLoc e1 e2 (HsApp e1 e2)
 
-mkHsLam :: [LPat l RdrName] -> LHsExpr l RdrName -> LHsExpr l RdrName
+mkHsLam :: [LPat SrcSpan RdrName] -> LHsExpr SrcSpan RdrName
+        -> LHsExpr SrcSpan RdrName
 mkHsLam pats body = mkHsPar (L (getLoc body) (HsLam matches))
         where
           matches = mkMatchGroup Generated [mkSimpleMatch pats body]
@@ -169,20 +171,20 @@ mkHsLams :: [TyVar] -> [EvVar] -> LHsExpr l Id -> LHsExpr l Id
 mkHsLams tyvars dicts expr = mkLHsWrap (mkWpTyLams tyvars
                                        <.> mkWpLams dicts) expr
 
-mkHsConApp :: DataCon -> [Type] -> [HsExpr Id] -> LHsExpr Id
+mkHsConApp :: DataCon -> [Type] -> [HsExpr SrcSpan Id] -> LHsExpr SrcSpan Id
 -- Used for constructing dictionary terms etc, so no locations
 mkHsConApp data_con tys args
   = foldl mk_app (nlHsTyApp (dataConWrapId data_con) tys) args
   where
     mk_app f a = noLoc (HsApp f (noLoc a))
 
-mkSimpleHsAlt :: LPat l id -> (GenLocated l (body l id))
-              -> LMatch l id (GenLocated l (body l id))
+mkSimpleHsAlt :: LPat SrcSpan id -> (GenLocated SrcSpan (body SrcSpan id))
+              -> LMatch SrcSpan id (GenLocated SrcSpan (body SrcSpan id))
 -- A simple lambda with a single pattern, no binds, no guards; pre-typechecking
 mkSimpleHsAlt pat expr
   = mkSimpleMatch [pat] expr
 
-nlHsTyApp :: name -> [Type] -> LHsExpr l name
+nlHsTyApp :: name -> [Type] -> LHsExpr SrcSpan name
 nlHsTyApp fun_id tys = noLoc (HsWrap (mkWpTyApps tys) (HsVar fun_id))
 
 --------- Adding parens ---------
@@ -240,19 +242,22 @@ mkHsIf c a b = HsIf (Just noSyntaxExpr) c a b
 mkNPat lit neg     = NPat lit neg noSyntaxExpr
 mkNPlusKPat id lit = NPlusKPat id lit noSyntaxExpr noSyntaxExpr
 
-mkTransformStmt    :: [ExprLStmt l idL] -> LHsExpr l idR
+mkTransformStmt    :: (SrcAnnotation l) => [ExprLStmt l idL] -> LHsExpr l idR
                    -> StmtLR l idL idR (LHsExpr l idL)
-mkTransformByStmt  :: [ExprLStmt l idL] -> LHsExpr l idR -> LHsExpr l idR
+mkTransformByStmt  :: (SrcAnnotation l) => [ExprLStmt l idL] -> LHsExpr l idR
+                   -> LHsExpr l idR
                    -> StmtLR l idL idR (LHsExpr l idL)
-mkGroupUsingStmt   :: [ExprLStmt l idL]                  -> LHsExpr l idR
+mkGroupUsingStmt   :: (SrcAnnotation l) => [ExprLStmt l idL]
+                   -> LHsExpr l idR
                    -> StmtLR l idL idR (LHsExpr l idL)
-mkGroupByUsingStmt :: [ExprLStmt l idL] -> LHsExpr l idR -> LHsExpr l idR
+mkGroupByUsingStmt :: (SrcAnnotation l) => [ExprLStmt l idL] -> LHsExpr l idR
+                   -> LHsExpr l idR
                    -> StmtLR l idL idR (LHsExpr l idL)
 
-emptyTransStmt :: StmtLR l idL idR (LHsExpr l idR)
+emptyTransStmt :: (SrcAnnotation l) => StmtLR l idL idR (LHsExpr l idR)
 emptyTransStmt = TransStmt { trS_form = panic "emptyTransStmt: form"
                            , trS_stmts = [], trS_bndrs = []
-                           , trS_by = Nothing, trS_using = noLoc noSyntaxExpr
+                           , trS_by = Nothing, trS_using = annNoLoc noSyntaxExpr
                            , trS_ret = noSyntaxExpr, trS_bind = noSyntaxExpr
                            , trS_fmap = noSyntaxExpr }
 mkTransformStmt    ss u   = emptyTransStmt { trS_form = ThenForm,  trS_stmts = ss, trS_using = u }
@@ -284,8 +289,8 @@ mkRecStmt stmts  = emptyRecStmt { recS_stmts = stmts }
 -------------------------------
 --- A useful function for building @OpApps@.  The operator is always a
 -- variable, and we don't know the fixity yet.
-mkHsOpApp :: LHsExpr l id -> id -> LHsExpr l id -> HsExpr l id
-mkHsOpApp e1 op e2 = OpApp e1 (noLoc (HsVar op)) (error "mkOpApp:fixity") e2
+mkHsOpApp :: (SrcAnnotation l) => LHsExpr l id -> id -> LHsExpr l id -> HsExpr l id
+mkHsOpApp e1 op e2 = OpApp e1 (annNoLoc (HsVar op)) (error "mkOpApp:fixity") e2
 
 mkHsSplice :: LHsExpr l RdrName -> HsSplice l RdrName
 mkHsSplice e = HsSplice unqualSplice e
@@ -304,7 +309,7 @@ unqualSplice = mkRdrUnqual (mkVarOccFS (fsLit "splice"))
                 -- A name (uniquified later) to
                 -- identify the splice
 
-mkHsQuasiQuote :: RdrName -> l -> FastString -> HsQuasiQuote l RdrName
+mkHsQuasiQuote :: RdrName -> SrcSpan -> FastString -> HsQuasiQuote RdrName
 mkHsQuasiQuote quoter span quote = HsQuasiQuote quoter span quote
 
 unqualQuasiQuote :: RdrName
@@ -329,46 +334,46 @@ userHsTyVarBndrs loc bndrs = [ L loc (UserTyVar v) | v <- bndrs ]
 %************************************************************************
 
 \begin{code}
-nlHsVar :: id -> LHsExpr l id
-nlHsVar n = noLoc (HsVar n)
+nlHsVar :: (SrcAnnotation l) => id -> LHsExpr l id
+nlHsVar n = annNoLoc (HsVar n)
 
-nlHsLit :: HsLit -> LHsExpr l id
-nlHsLit n = noLoc (HsLit n)
+nlHsLit :: (SrcAnnotation l) => HsLit -> LHsExpr l id
+nlHsLit n = annNoLoc (HsLit n)
 
-nlVarPat :: id -> LPat l id
-nlVarPat n = noLoc (VarPat n)
+nlVarPat :: (SrcAnnotation l) => id -> LPat l id
+nlVarPat n = annNoLoc (VarPat n)
 
-nlLitPat :: HsLit -> LPat l id
-nlLitPat l = noLoc (LitPat l)
+nlLitPat :: (SrcAnnotation l) => HsLit -> LPat l id
+nlLitPat l = annNoLoc (LitPat l)
 
-nlHsApp :: LHsExpr l id -> LHsExpr l id -> LHsExpr l id
-nlHsApp f x = noLoc (HsApp f x)
+nlHsApp :: (SrcAnnotation l) => LHsExpr l id -> LHsExpr l id -> LHsExpr l id
+nlHsApp f x = annNoLoc (HsApp f x)
 
-nlHsIntLit :: Integer -> LHsExpr l id
-nlHsIntLit n = noLoc (HsLit (HsInt n))
+nlHsIntLit :: (SrcAnnotation l) => Integer -> LHsExpr l id
+nlHsIntLit n = annNoLoc (HsLit (HsInt n))
 
-nlHsApps :: id -> [LHsExpr l id] -> LHsExpr l id
+nlHsApps :: (SrcAnnotation l) => id -> [LHsExpr l id] -> LHsExpr l id
 nlHsApps f xs = foldl nlHsApp (nlHsVar f) xs
 
-nlHsVarApps :: id -> [id] -> LHsExpr l id
-nlHsVarApps f xs = noLoc (foldl mk (HsVar f) (map HsVar xs))
+nlHsVarApps :: (SrcAnnotation l) => id -> [id] -> LHsExpr l id
+nlHsVarApps f xs = annNoLoc (foldl mk (HsVar f) (map HsVar xs))
                  where
-                   mk f a = HsApp (noLoc f) (noLoc a)
+                   mk f a = HsApp (annNoLoc f) (annNoLoc a)
 
-nlConVarPat :: RdrName -> [RdrName] -> LPat l RdrName
+nlConVarPat :: (SrcAnnotation l) => RdrName -> [RdrName] -> LPat l RdrName
 nlConVarPat con vars = nlConPat con (map nlVarPat vars)
 
-nlInfixConPat :: id -> LPat l id -> LPat l id -> LPat l id
-nlInfixConPat con l r = noLoc (ConPatIn (noLoc con) (InfixCon l r))
+nlInfixConPat :: (SrcAnnotation l) => id -> LPat l id -> LPat l id -> LPat l id
+nlInfixConPat con l r = annNoLoc (ConPatIn (annNoLoc con) (InfixCon l r))
 
-nlConPat :: RdrName -> [LPat l RdrName] -> LPat l RdrName
-nlConPat con pats = noLoc (ConPatIn (noLoc con) (PrefixCon pats))
+nlConPat :: (SrcAnnotation l) => RdrName -> [LPat l RdrName] -> LPat l RdrName
+nlConPat con pats = annNoLoc (ConPatIn (annNoLoc con) (PrefixCon pats))
 
 nlConPatName :: (SrcAnnotation l) => Name -> [LPat l Name] -> LPat l Name
-nlConPatName con pats = noLoc (ConPatIn (annNoLoc con) (PrefixCon pats))
+nlConPatName con pats = annNoLoc (ConPatIn (annNoLoc con) (PrefixCon pats))
 
 nlNullaryConPat :: (SrcAnnotation l) => id -> LPat l id
-nlNullaryConPat con = annNoLoc (ConPatIn (noLoc con) (PrefixCon []))
+nlNullaryConPat con = annNoLoc (ConPatIn (annNoLoc con) (PrefixCon []))
 
 nlWildConPat :: (SrcAnnotation l) => DataCon -> LPat l RdrName
 nlWildConPat con = annNoLoc (ConPatIn (annNoLoc (getRdrName con))
@@ -385,7 +390,7 @@ nlWildPatId :: (SrcAnnotation l) => LPat l Id
 nlWildPatId  = annNoLoc (WildPat placeHolderTypeTc )  -- Post-typechecking
 
 nlHsDo :: (SrcAnnotation l) =>
-          HsStmtContext l Name -> [LStmt l RdrName (LHsExpr l RdrName)]
+          HsStmtContext Name -> [LStmt l RdrName (LHsExpr l RdrName)]
        -> LHsExpr l RdrName
 nlHsDo ctxt stmts = annNoLoc (mkHsDo ctxt stmts)
 
@@ -421,7 +426,7 @@ nlHsAppTy f t           = annNoLoc (HsAppTy f t)
 nlHsTyVar x             = annNoLoc (HsTyVar x)
 nlHsFunTy a b           = annNoLoc (HsFunTy a b)
 
-nlHsTyConApp :: name -> [LHsType l name] -> LHsType l name
+nlHsTyConApp :: (SrcAnnotation l) => name -> [LHsType l name] -> LHsType l name
 nlHsTyConApp tycon tys  = foldl nlHsAppTy (nlHsTyVar tycon) tys
 \end{code}
 
@@ -434,7 +439,7 @@ mkLHsTupleExpr :: (SrcAnnotation l) => [LHsExpr l a] -> LHsExpr l a
 mkLHsTupleExpr [e] = e
 mkLHsTupleExpr es  = annNoLoc $ ExplicitTuple (map Present es) Boxed
 
-mkLHsVarTuple :: [a] -> LHsExpr l a
+mkLHsVarTuple :: (SrcAnnotation l) => [a] -> LHsExpr l a
 mkLHsVarTuple ids  = mkLHsTupleExpr (map nlHsVar ids)
 
 nlTuplePat :: (SrcAnnotation l) => [LPat l id] -> Boxity -> LPat l id
@@ -454,15 +459,15 @@ missingTupArg = Missing placeHolderType
 This is needed to implement GeneralizedNewtypeDeriving.
 
 \begin{code}
-toHsType :: Type -> LHsType l RdrName
+toHsType :: (SrcAnnotation l) => Type -> LHsType l RdrName
 toHsType ty
   | [] <- tvs_only
   , [] <- theta
   = to_hs_type tau
   | otherwise
-  = noLoc $
+  = annNoLoc $
     mkExplicitHsForAllTy (map mk_hs_tvb tvs_only)
-                         (noLoc $ map toHsType theta)
+                         (annNoLoc $ map toHsType theta)
                          (to_hs_type tau)
 
   where
@@ -479,12 +484,12 @@ toHsType ty
     to_hs_type (FunTy arg res) = ASSERT( not (isConstraintKind (typeKind arg)) )
                                  nlHsFunTy (toHsType arg) (toHsType res)
     to_hs_type t@(ForAllTy {}) = pprPanic "toHsType" (ppr t)
-    to_hs_type (LitTy (NumTyLit n)) = noLoc $ HsTyLit (HsNumTy n)
-    to_hs_type (LitTy (StrTyLit s)) = noLoc $ HsTyLit (HsStrTy s)
+    to_hs_type (LitTy (NumTyLit n)) = annNoLoc $ HsTyLit (HsNumTy n)
+    to_hs_type (LitTy (StrTyLit s)) = annNoLoc $ HsTyLit (HsStrTy s)
 
-    mk_hs_tvb tv = noLoc $ KindedTyVar (getRdrName tv) (toHsKind (tyVarKind tv))
+    mk_hs_tvb tv = annNoLoc $ KindedTyVar (getRdrName tv) (toHsKind (tyVarKind tv))
 
-toHsKind :: Kind -> LHsKind l RdrName
+toHsKind :: (SrcAnnotation l) => Kind -> LHsKind l RdrName
 toHsKind = toHsType
 
 \end{code}
@@ -559,11 +564,12 @@ mkTopFunBind origin fn ms = FunBind { fun_id = fn, fun_infix = False
                                                               --     binding
                                     , fun_tick = Nothing }
 
-mkHsVarBind :: l -> RdrName -> LHsExpr l RdrName -> LHsBind l RdrName
+mkHsVarBind :: (SrcAnnotation l)
+            => l -> RdrName -> LHsExpr l RdrName -> LHsBind l RdrName
 mkHsVarBind loc var rhs = mk_easy_FunBind loc var [] rhs
 
 mkVarBind :: (SrcAnnotation l) => id -> LHsExpr l id -> LHsBind l id
-mkVarBind var rhs = L (annGetLoc rhs) $
+mkVarBind var rhs@(L lr _) = L lr $
                     VarBind { var_id = var, var_rhs = rhs, var_inline = False }
 
 mkPatSynBind :: GenLocated l RdrName -> HsPatSynDetails (GenLocated l RdrName)
@@ -577,16 +583,16 @@ mkPatSynBind name details lpat dir = PatSynBind psb
              , psb_fvs = placeHolderNames }
 
 ------------
-mk_easy_FunBind :: l -> RdrName -> [LPat l RdrName]
+mk_easy_FunBind :: (SrcAnnotation l) => l -> RdrName -> [LPat l RdrName]
                 -> LHsExpr l RdrName -> LHsBind l RdrName
 mk_easy_FunBind loc fun pats expr
   = L loc $ mkFunBind (L loc fun) [mkMatch pats expr emptyLocalBinds]
 
 ------------
-mkMatch :: [LPat l id] -> LHsExpr l id -> HsLocalBinds l id
+mkMatch :: (SrcAnnotation l) => [LPat l id] -> LHsExpr l id -> HsLocalBinds l id
         -> LMatch l id (LHsExpr l id)
 mkMatch pats expr binds
-  = noLoc (Match (map paren pats) Nothing
+  = annNoLoc (Match (map paren pats) Nothing
                  (GRHSs (unguardedRHS expr) binds))
   where
     paren lp@(L l p) | hsPatNeedsParens p = L l (ParPat lp)
@@ -669,10 +675,10 @@ collectLStmtsBinders = concatMap collectLStmtBinders
 collectStmtsBinders :: [StmtLR l idL idR body] -> [idL]
 collectStmtsBinders = concatMap collectStmtBinders
 
-collectLStmtBinders :: LStmtLR idL idR body -> [idL]
+collectLStmtBinders :: LStmtLR l idL idR body -> [idL]
 collectLStmtBinders = collectStmtBinders . unLoc
 
-collectStmtBinders :: StmtLR idL idR body -> [idL]
+collectStmtBinders :: StmtLR l idL idR body -> [idL]
   -- Id Binders for a Stmt... [but what about pattern-sig type vars]?
 collectStmtBinders (BindStmt pat _ _ _) = collectPatBinders pat
 collectStmtBinders (LetStmt binds)      = collectLocalBinders binds
@@ -861,7 +867,7 @@ The main purpose is to find names introduced by record wildcards so that we can 
 warning the user when they don't use those names (#4404)
 
 \begin{code}
-lStmtsImplicits :: [LStmtLR l Name idR (GenLocated l (body idR))] -> NameSet
+lStmtsImplicits :: [LStmtLR l Name idR (GenLocated l (body l idR))] -> NameSet
 lStmtsImplicits = hs_lstmts
   where
     hs_lstmts :: [LStmtLR l Name idR (GenLocated l (body l idR))] -> NameSet

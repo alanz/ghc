@@ -712,19 +712,19 @@ But local instance decls includes
 as well as explicit user written ones.
 
 \begin{code}
-data InstInfo a
+data InstInfo l a
   = InstInfo {
-      iSpec   :: ClsInst,        -- Includes the dfun id.  Its forall'd type
-      iBinds  :: InstBindings a   -- variables scope over the stuff in InstBindings!
+      iSpec   :: ClsInst,         -- Includes the dfun id.  Its forall'd type
+      iBinds  :: InstBindings l a -- variables scope over the stuff in InstBindings!
     }
 
 iDFunId :: InstInfo a -> DFunId
 iDFunId info = instanceDFunId (iSpec info)
 
-data InstBindings a
+data InstBindings l a
   = InstBindings
-      { ib_binds :: (LHsBinds a)  -- Bindings for the instance methods
-      , ib_pragmas :: [LSig a]    -- User pragmas recorded for generating 
+      { ib_binds :: (LHsBinds l a) -- Bindings for the instance methods
+      , ib_pragmas :: [LSig l a]   -- User pragmas recorded for generating
                                   -- specialised instances
       , ib_extensions :: [ExtensionFlag] -- any extra extensions that should
                                          -- be enabled when type-checking this

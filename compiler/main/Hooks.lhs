@@ -59,9 +59,9 @@ emptyHooks = Hooks Nothing Nothing Nothing Nothing Nothing Nothing
                    Nothing Nothing Nothing Nothing Nothing Nothing
 
 data Hooks = Hooks
-  { dsForeignsHook         :: Maybe ([LForeignDecl Id] -> DsM (ForeignStubs, OrdList (Id, CoreExpr)))
-  , tcForeignImportsHook   :: Maybe ([LForeignDecl Name] -> TcM ([Id], [LForeignDecl Id], Bag GlobalRdrElt))
-  , tcForeignExportsHook   :: Maybe ([LForeignDecl Name] -> TcM (LHsBinds TcId, [LForeignDecl TcId], Bag GlobalRdrElt))
+  { dsForeignsHook         :: Maybe ([LForeignDecl SrcSpan Id] -> DsM (ForeignStubs, OrdList (Id, CoreExpr)))
+  , tcForeignImportsHook   :: Maybe ([LForeignDecl SrcSpan Name] -> TcM ([Id], [LForeignDecl SrcSpan Id], Bag GlobalRdrElt))
+  , tcForeignExportsHook   :: Maybe ([LForeignDecl SrcSpan Name] -> TcM (LHsBinds SrcSpan TcId, [LForeignDecl SrcSpan TcId], Bag GlobalRdrElt))
   , hscFrontendHook        :: Maybe (ModSummary -> Hsc TcGblEnv)
   , hscCompileOneShotHook  :: Maybe (HscEnv -> ModSummary -> SourceModified -> IO HscStatus)
   , hscCompileCoreExprHook :: Maybe (HscEnv -> SrcSpan -> CoreExpr -> IO HValue)
@@ -69,7 +69,7 @@ data Hooks = Hooks
   , runPhaseHook           :: Maybe (PhasePlus -> FilePath -> DynFlags -> CompPipeline (PhasePlus, FilePath))
   , linkHook               :: Maybe (GhcLink -> DynFlags -> Bool -> HomePackageTable -> IO SuccessFlag)
   , runQuasiQuoteHook      :: Maybe (HsQuasiQuote Name -> RnM (HsQuasiQuote Name))
-  , runRnSpliceHook        :: Maybe (LHsExpr Name -> RnM (LHsExpr Name))
+  , runRnSpliceHook        :: Maybe (LHsExpr SrcSpan Name -> RnM (LHsExpr SrcSpan Name))
   , getValueSafelyHook     :: Maybe (HscEnv -> Name -> Type -> IO (Maybe HValue))
   }
 

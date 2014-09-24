@@ -20,27 +20,27 @@ tcSpliceExpr :: HsSplice Name
              -> TcRhoType
              -> TcM (HsExpr TcId)
 
-tcUntypedBracket :: HsBracket Name
-                 -> [PendingRnSplice]
+tcUntypedBracket :: HsBracket l Name
+                 -> [PendingRnSplice l]
                  -> TcRhoType
-                 -> TcM (HsExpr TcId)
-tcTypedBracket :: HsBracket Name
+                 -> TcM (HsExpr l TcId)
+tcTypedBracket :: HsBracket l Name
                -> TcRhoType
-               -> TcM (HsExpr TcId)
+               -> TcM (HsExpr l TcId)
 
-runQuasiQuoteDecl :: HsQuasiQuote RdrName -> TcM [LHsDecl RdrName]
-runQuasiQuoteExpr :: HsQuasiQuote RdrName -> TcM (LHsExpr RdrName)
-runQuasiQuoteType :: HsQuasiQuote RdrName -> TcM (LHsType RdrName)
-runQuasiQuotePat  :: HsQuasiQuote RdrName -> TcM (LPat RdrName)
-runAnnotation     :: CoreAnnTarget -> LHsExpr Name -> TcM Annotation
+runQuasiQuoteDecl :: HsQuasiQuote RdrName -> TcM [LHsDecl l RdrName]
+runQuasiQuoteExpr :: HsQuasiQuote RdrName -> TcM (LHsExpr l RdrName)
+runQuasiQuoteType :: HsQuasiQuote RdrName -> TcM (LHsType l RdrName)
+runQuasiQuotePat  :: HsQuasiQuote RdrName -> TcM (LPat l RdrName)
+runAnnotation     :: CoreAnnTarget -> LHsExpr l Name -> TcM Annotation
 
 #ifdef GHCI
 tcTopSpliceExpr :: Bool -> TcM (LHsExpr Id) -> TcM (LHsExpr Id)
 
-runMetaE :: LHsExpr Id -> TcM (LHsExpr RdrName)
-runMetaP :: LHsExpr Id -> TcM (LPat RdrName)
-runMetaT :: LHsExpr Id  -> TcM (LHsType RdrName)
-runMetaD :: LHsExpr Id -> TcM [LHsDecl RdrName]
+runMetaE :: LHsExpr l Id -> TcM (LHsExpr l RdrName)
+runMetaP :: LHsExpr l Id -> TcM (LPat l RdrName)
+runMetaT :: LHsExpr l Id  -> TcM (LHsType l RdrName)
+runMetaD :: LHsExpr l Id -> TcM [LHsDecl l RdrName]
 
 lookupThName_maybe :: TH.Name -> TcM (Maybe Name)
 runQuasi :: TH.Q a -> TcM a

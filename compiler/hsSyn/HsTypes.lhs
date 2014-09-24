@@ -48,8 +48,7 @@ module HsTypes (
 
 import {-# SOURCE #-} HsExpr ( HsSplice, pprUntypedSplice )
 
--- import PlaceHolder ( PostTc,PostRn,DataId,PlaceHolder(..) )
-import PlaceHolder ( PostTc,PostRn,PlaceHolder(..) )
+import PlaceHolder ( PostTc,PostRn,DataId,PlaceHolder(..) )
 
 import Name( Name )
 import RdrName( RdrName )
@@ -146,9 +145,9 @@ data LHsTyVarBndrs l name
              -- See Note [HsForAllTy tyvar binders]
     }
   deriving( Typeable)
--- deriving instance (DataId name, Data l) => Data (LHsTyVarBndrs l name)
+deriving instance (DataId name, Data l) => Data (LHsTyVarBndrs l name)
 
-mkHsQTvs :: [LHsTyVarBndr SrcSpan RdrName] -> LHsTyVarBndrs SrcSpan RdrName
+mkHsQTvs :: [LHsTyVarBndr l RdrName] -> LHsTyVarBndrs l RdrName
 -- Just at RdrName because in the Name variant we should know just
 -- what the kind-variable binders are; and we don't
 -- We put an empty list (rather than a panic) for the kind vars so
@@ -199,7 +198,7 @@ data HsTyVarBndr l name
          name
          (LHsKind l name)  -- The user-supplied kind signature
   deriving (Typeable)
--- deriving instance (DataId name, Data l) => Data (HsTyVarBndr l name)
+deriving instance (DataId name, Data l) => Data (HsTyVarBndr l name)
 
 -- | Does this 'HsTyVarBndr' come with an explicit kind annotation?
 isHsKindedTyVar :: HsTyVarBndr l name -> Bool
@@ -274,7 +273,7 @@ data HsType l name
 
   | HsWrapTy HsTyWrapper (HsType l name) -- only in typechecker output
   deriving (Typeable)
--- deriving instance (DataId name, Data l) => Data (HsType l name)
+deriving instance (DataId name, Data l) => Data (HsType l name)
 
 
 data HsTyLit
@@ -402,7 +401,7 @@ data ConDeclField l name  -- Record fields have Haddoc docs on them
                    cd_fld_type :: LBangType l name,
                    cd_fld_doc  :: Maybe (LHsDocString l) }
   deriving (Typeable)
--- deriving instance (DataId name, Data l) => Data (ConDeclField l name)
+deriving instance (DataId name, Data l) => Data (ConDeclField l name)
 
 -----------------------
 -- Combine adjacent for-alls. 
@@ -414,23 +413,28 @@ data ConDeclField l name  -- Record fields have Haddoc docs on them
 --
 -- A valid type must have one for-all at the top of the type, or of the fn arg types
 
-mkImplicitHsForAllTy  ::                           LHsContext SrcSpan RdrName -> LHsType SrcSpan RdrName -> HsType SrcSpan RdrName
-mkExplicitHsForAllTy  :: [LHsTyVarBndr SrcSpan RdrName] -> LHsContext SrcSpan RdrName -> LHsType SrcSpan RdrName -> HsType SrcSpan RdrName
-mkQualifiedHsForAllTy ::                           LHsContext SrcSpan RdrName -> LHsType SrcSpan RdrName -> HsType SrcSpan RdrName
+mkImplicitHsForAllTy  :: (SrcAnnotation l) =>
+                   LHsContext l RdrName -> LHsType l RdrName -> HsType l RdrName
+mkExplicitHsForAllTy  :: (SrcAnnotation l) =>
+                [LHsTyVarBndr l RdrName] -> LHsContext l RdrName
+                -> LHsType l RdrName -> HsType l RdrName
+mkQualifiedHsForAllTy :: (SrcAnnotation l) =>
+                  LHsContext l RdrName -> LHsType l RdrName -> HsType l RdrName
 mkImplicitHsForAllTy      ctxt ty = mkHsForAllTy Implicit  []  ctxt ty
 mkExplicitHsForAllTy  tvs ctxt ty = mkHsForAllTy Explicit  tvs ctxt ty
 mkQualifiedHsForAllTy     ctxt ty = mkHsForAllTy Qualified []  ctxt ty
 
-mkHsForAllTy :: HsExplicitFlag -> [LHsTyVarBndr SrcSpan RdrName] -> LHsContext SrcSpan RdrName -> LHsType SrcSpan RdrName -> HsType SrcSpan RdrName
+mkHsForAllTy :: (SrcAnnotation l) => HsExplicitFlag -> [LHsTyVarBndr l RdrName]
+             -> LHsContext l RdrName -> LHsType l RdrName -> HsType l RdrName
 -- Smart constructor for HsForAllTy
 mkHsForAllTy exp tvs (L _ []) ty = mk_forall_ty exp tvs ty
 mkHsForAllTy exp tvs ctxt     ty = HsForAllTy exp (mkHsQTvs tvs) ctxt ty
 
 -- mk_forall_ty makes a pure for-all type (no context)
-mk_forall_ty :: HsExplicitFlag -> [LHsTyVarBndr SrcSpan RdrName] -> LHsType SrcSpan RdrName -> HsType SrcSpan RdrName
+mk_forall_ty :: (SrcAnnotation l) => HsExplicitFlag -> [LHsTyVarBndr l RdrName] -> LHsType l RdrName -> HsType l RdrName
 mk_forall_ty exp  tvs  (L _ (HsParTy ty))                    = mk_forall_ty exp tvs ty
 mk_forall_ty exp1 tvs1 (L _ (HsForAllTy exp2 qtvs2 ctxt ty)) = mkHsForAllTy (exp1 `plus` exp2) (tvs1 ++ hsq_tvs qtvs2) ctxt ty
-mk_forall_ty exp  tvs  ty                                    = HsForAllTy exp (mkHsQTvs tvs) (noLoc []) ty
+mk_forall_ty exp  tvs  ty                                    = HsForAllTy exp (mkHsQTvs tvs) (annNoLoc []) ty
         -- Even if tvs is empty, we still make a HsForAll!
         -- In the Implicit case, this signals the place to do implicit quantification
         -- In the Explicit case, it prevents implicit quantification    

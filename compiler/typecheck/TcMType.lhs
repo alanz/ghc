@@ -164,7 +164,7 @@ predTypeOccName ty = case classifyPredType ty of
 *********************************************************************************
 
 \begin{code}
-newFlatWanted :: CtOrigin -> PredType -> TcM Ct
+newFlatWanted :: CtOrigin l -> PredType -> TcM (Ct l)
 newFlatWanted orig pty
   = do loc <- getCtLoc orig
        v <- newWantedEvVar pty
@@ -173,7 +173,7 @@ newFlatWanted orig pty
                      , ctev_pred = pty
                      , ctev_loc = loc }
 
-newFlatWanteds :: CtOrigin -> ThetaType -> TcM [Ct]
+newFlatWanteds :: CtOrigin l -> ThetaType -> TcM [Ct l]
 newFlatWanteds orig = mapM (newFlatWanted orig)
 \end{code}
 
@@ -754,21 +754,21 @@ zonkEvVar var = do { ty' <- zonkTcType (varType var)
 
 
 zonkWC :: EvBindsVar -- May add new bindings for wanted family equalities in here
-       -> WantedConstraints -> TcM WantedConstraints
+       -> WantedConstraints l -> TcM (WantedConstraints l)
 zonkWC binds_var wc
   = do { untch <- getUntouchables
        ; zonkWCRec binds_var untch wc }
 
 zonkWCRec :: EvBindsVar
           -> Untouchables
-          -> WantedConstraints -> TcM WantedConstraints
+          -> WantedConstraints l -> TcM (WantedConstraints l)
 zonkWCRec binds_var untch (WC { wc_flat = flat, wc_impl = implic, wc_insol = insol })
   = do { flat'   <- zonkFlats binds_var untch flat
        ; implic' <- flatMapBagM zonkImplication implic
        ; insol'  <- zonkCts insol -- No need to do the more elaborate zonkFlats thing
        ; return (WC { wc_flat = flat', wc_impl = implic', wc_insol = insol' }) }
 
-zonkFlats :: EvBindsVar -> Untouchables -> Cts -> TcM Cts
+zonkFlats :: EvBindsVar -> Untouchables -> Cts l -> TcM (Cts l)
 -- This zonks and unflattens a bunch of flat constraints
 -- See Note [Unflattening while zonking]
 zonkFlats binds_var untch cts
@@ -850,10 +850,10 @@ the inforamtion from later ones to earlier ones.  Eg
 
 
 \begin{code}
-zonkCts :: Cts -> TcM Cts
+zonkCts :: Cts l -> TcM (Cts l)
 zonkCts = mapBagM zonkCt
 
-zonkCt :: Ct -> TcM Ct
+zonkCt :: Ct l -> TcM (Ct l)
 zonkCt ct@(CHoleCan { cc_ev = ev })
   = do { ev' <- zonkCtEvidence ev
        ; return $ ct { cc_ev = ev' } }
@@ -861,7 +861,7 @@ zonkCt ct
   = do { fl' <- zonkCtEvidence (cc_ev ct)
        ; return (mkNonCanonical fl') }
 
-zonkCtEvidence :: CtEvidence -> TcM CtEvidence
+zonkCtEvidence :: CtEvidence l -> TcM (CtEvidence l)
 zonkCtEvidence ctev@(CtGiven { ctev_pred = pred }) 
   = do { pred' <- zonkTcType pred
        ; return (ctev { ctev_pred = pred'}) }

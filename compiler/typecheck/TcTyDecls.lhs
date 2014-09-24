@@ -122,12 +122,12 @@ synTyConsOfType ty
 ---------------------------------------- END NOTE ]
 
 \begin{code}
-mkSynEdges :: [LTyClDecl Name] -> [(LTyClDecl Name, Name, [Name])]
+mkSynEdges :: [LTyClDecl l Name] -> [(LTyClDecl l Name, Name, [Name])]
 mkSynEdges syn_decls = [ (ldecl, name, nameSetToList fvs)
                        | ldecl@(L _ (SynDecl { tcdLName = L _ name
                                              , tcdFVs = fvs })) <- syn_decls ]
 
-calcSynCycles :: [LTyClDecl Name] -> [SCC (LTyClDecl Name)]
+calcSynCycles :: [LTyClDecl l Name] -> [SCC (LTyClDecl l Name)]
 calcSynCycles = stronglyConnCompFromEdgedVertices . mkSynEdges
 \end{code}
 
@@ -367,7 +367,7 @@ data RecTyInfo = RTI { rti_promotable :: Bool
                      , rti_is_rec     :: Name -> RecFlag }
 
 calcRecFlags :: ModDetails -> Bool  -- hs-boot file?
-             -> RoleAnnots -> [TyThing] -> RecTyInfo
+             -> RoleAnnots l -> [TyThing] -> RecTyInfo
 -- The 'boot_names' are the things declared in M.hi-boot, if M is the current module.
 -- Any type constructors in boot_names are automatically considered loop breakers
 calcRecFlags boot_details is_boot mrole_env tyclss
@@ -542,17 +542,17 @@ isPromotableType rec_tcs con_arg_ty
 %************************************************************************
 
 \begin{code}
-type RoleAnnots = NameEnv (LRoleAnnotDecl Name)
+type RoleAnnots l = NameEnv (LRoleAnnotDecl l Name)
 
-extractRoleAnnots :: TyClGroup Name -> RoleAnnots
+extractRoleAnnots :: TyClGroup l Name -> RoleAnnots l
 extractRoleAnnots (TyClGroup { group_roles = roles })
   = mkNameEnv [ (tycon, role_annot)
               | role_annot@(L _ (RoleAnnotDecl (L _ tycon) _)) <- roles ]
 
-emptyRoleAnnots :: RoleAnnots
+emptyRoleAnnots :: RoleAnnots l
 emptyRoleAnnots = emptyNameEnv
 
-lookupRoleAnnots :: RoleAnnots -> Name -> Maybe (LRoleAnnotDecl Name)
+lookupRoleAnnots :: RoleAnnots l -> Name -> Maybe (LRoleAnnotDecl l Name)
 lookupRoleAnnots = lookupNameEnv
 
 \end{code}
@@ -663,7 +663,7 @@ type RoleEnv    = NameEnv [Role]        -- from tycon names to roles
 -- This, and any of the functions it calls, must *not* look at the roles
 -- field of a tycon we are inferring roles about!
 -- See Note [Role inference]
-inferRoles :: Bool -> RoleAnnots -> [TyCon] -> Name -> [Role]
+inferRoles :: Bool -> RoleAnnots l -> [TyCon] -> Name -> [Role]
 inferRoles is_boot annots tycons
   = let role_env  = initialRoleEnv is_boot annots tycons
         role_env' = irGroup role_env tycons in
@@ -671,11 +671,11 @@ inferRoles is_boot annots tycons
       Just roles -> roles
       Nothing    -> pprPanic "inferRoles" (ppr name)
 
-initialRoleEnv :: Bool -> RoleAnnots -> [TyCon] -> RoleEnv
+initialRoleEnv :: Bool -> RoleAnnots l -> [TyCon] -> RoleEnv
 initialRoleEnv is_boot annots = extendNameEnvList emptyNameEnv .
                                 map (initialRoleEnv1 is_boot annots)
 
-initialRoleEnv1 :: Bool -> RoleAnnots -> TyCon -> (Name, [Role])
+initialRoleEnv1 :: Bool -> RoleAnnots l -> TyCon -> (Name, [Role])
 initialRoleEnv1 is_boot annots_env tc
   | isFamilyTyCon tc      = (name, map (const Nominal) tyvars)
   | isAlgTyCon tc         = (name, default_roles)

@@ -80,16 +80,16 @@ data HsModule l name
         -- ^ Type, class, value, and interface signature decls
       hsmodDeprecMessage :: Maybe WarningTxt,
         -- ^ reason\/explanation for warning/deprecation of this module
-      hsmodHaddockModHeader :: Maybe LHsDocString
+      hsmodHaddockModHeader :: Maybe (LHsDocString l)
         -- ^ Haddock module info and description, unparsed
    } deriving (Typeable)
-deriving instance (DataId name) => Data (HsModule name)
+-- deriving instance (DataId name, Data l) => Data (HsModule l name)
 \end{code}
 
 
 \begin{code}
-instance (OutputableBndr name, HasOccName name)
-        => Outputable (HsModule name) where
+instance (OutputableBndr name, HasOccName name, SrcAnnotation l)
+        => Outputable (HsModule l name) where
 
     ppr (HsModule Nothing _ imports decls _ mbDoc)
       = pp_mb mbDoc $$ pp_nonnull imports $$ pp_nonnull decls

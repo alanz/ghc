@@ -28,7 +28,7 @@ import FastString
 
 #ifndef GHCI
 
-tcAnnotations :: [LAnnDecl Name] -> TcM [Annotation]
+tcAnnotations :: [LAnnDecl l Name] -> TcM [Annotation]
 -- No GHCI; emit a warning (not an error) and ignore. cf Trac #4268
 tcAnnotations [] = return []
 tcAnnotations anns@(L loc _ : _)
@@ -39,11 +39,11 @@ tcAnnotations anns@(L loc _ : _)
 
 #else
 
-tcAnnotations :: [LAnnDecl Name] -> TcM [Annotation]
+tcAnnotations :: [LAnnDecl l Name] -> TcM [Annotation]
 -- GHCI exists, typecheck the annotations
 tcAnnotations anns = mapM tcAnnotation anns
 
-tcAnnotation :: LAnnDecl Name -> TcM Annotation
+tcAnnotation :: LAnnDecl l Name -> TcM Annotation
 tcAnnotation (L loc ann@(HsAnnotation provenance expr)) = do
     -- Work out what the full target of this annotation was
     mod <- getModule
@@ -58,7 +58,7 @@ annProvenanceToTarget _   (TypeAnnProvenance name)  = NamedTarget name
 annProvenanceToTarget mod ModuleAnnProvenance       = ModuleTarget mod
 #endif
 
-annCtxt :: OutputableBndr id => AnnDecl id -> SDoc
+annCtxt :: OutputableBndr id => AnnDecl l id -> SDoc
 annCtxt ann
   = hang (ptext (sLit "In the annotation:")) 2 (ppr ann)
 \end{code}

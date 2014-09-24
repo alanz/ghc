@@ -22,8 +22,7 @@ import {-# SOURCE #-} HsExpr ( pprExpr, LHsExpr,
                                GRHSs, pprPatBind )
 import {-# SOURCE #-} HsPat  ( LPat )
 
--- import PlaceHolder ( PostTc,PostRn,DataId )
-import PlaceHolder ( PostTc,PostRn )
+import PlaceHolder ( PostTc,PostRn,DataId )
 import HsTypes
 import PprCore ()
 import CoreSyn
@@ -67,7 +66,7 @@ Global bindings (where clauses)
 -- one for the left and one for the right.
 -- Other than during renaming, these will be the same.
 
-type HsLocalBinds id = HsLocalBindsLR id id
+type HsLocalBinds l id = HsLocalBindsLR l id id
 
 -- | Bindings in a 'let' expression
 -- or a 'where' clause
@@ -76,8 +75,8 @@ data HsLocalBindsLR l idL idR
   | HsIPBinds  (HsIPBinds l idR)
   | EmptyLocalBinds
   deriving (Typeable)
--- deriving instance (DataId idL, DataId idR, Data l)
---   => Data (HsLocalBindsLR l idL idR)
+deriving instance (DataId idL, DataId idR, Data l)
+  => Data (HsLocalBindsLR l idL idR)
 
 type HsValBinds l id = HsValBindsLR l id id
 
@@ -97,8 +96,8 @@ data HsValBindsLR l idL idR
         [(RecFlag, LHsBinds l idL)]
         [LSig l Name]
   deriving (Typeable)
--- deriving instance (DataId idL, DataId idR, Data l)
---   => Data (HsValBindsLR l idL idR)
+deriving instance (DataId idL, DataId idR, Data l)
+  => Data (HsValBindsLR l idL idR)
 
 type LHsBind  l id = LHsBindLR  l id id
 type LHsBinds l id = LHsBindsLR l id id
@@ -185,8 +184,8 @@ data HsBindLR l idL idR
   | PatSynBind (PatSynBind l idL idR)
 
   deriving (Typeable)
--- deriving instance (DataId idL, DataId idR, Data l)
---   => Data (HsBindLR l idL idR)
+deriving instance (DataId idL, DataId idR, Data l)
+  => Data (HsBindLR l idL idR)
 
         -- Consider (AbsBinds tvs ds [(ftvs, poly_f, mono_f) binds]
         --
@@ -215,8 +214,8 @@ data PatSynBind l idL idR
           psb_def  :: LPat l idR,                    -- ^ Right-hand side
           psb_dir  :: HsPatSynDir l idR              -- ^ Directionality
   } deriving (Typeable)
--- deriving instance (DataId idL, DataId idR, Data l )
---   => Data (PatSynBind l idL idR)
+deriving instance (DataId idL, DataId idR, Data l )
+  => Data (PatSynBind l idL idR)
 
 \end{code}
 
@@ -526,7 +525,7 @@ data HsIPBinds l id
         TcEvBinds       -- Only in typechecker output; binds
                         -- uses of the implicit parameters
   deriving (Typeable)
--- deriving instance (DataId id, Data l) => Data (HsIPBinds l id)
+deriving instance (DataId id, Data l) => Data (HsIPBinds l id)
 
 isEmptyIPBinds :: HsIPBinds l id -> Bool
 isEmptyIPBinds (IPBinds is ds) = null is && isEmptyTcEvBinds ds
@@ -541,7 +540,7 @@ evidene for the implicit parameter. -}
 data IPBind l id
   = IPBind (Either HsIPName id) (LHsExpr l id)
   deriving (Typeable)
--- deriving instance (DataId name, Data l) => Data (IPBind l name)
+deriving instance (DataId name, Data l) => Data (IPBind l name)
 
 instance (OutputableBndr id, SrcAnnotation l) => Outputable (HsIPBinds l id) where
   ppr (IPBinds bs ds) = pprDeeperList vcat (map ppr bs)
@@ -633,7 +632,7 @@ data Sig l name
   | MinimalSig (BooleanFormula (GenLocated l name))
 
   deriving (Typeable)
--- deriving instance (DataId name, Data l) => Data (Sig l name)
+deriving instance (DataId name, Data l) => Data (Sig l name)
 
 
 type LFixitySig l name = GenLocated l (FixitySig l name)
@@ -825,5 +824,5 @@ data HsPatSynDir l id
   | ImplicitBidirectional
   | ExplicitBidirectional (MatchGroup l id (LHsExpr l id))
   deriving (Typeable)
--- deriving instance (DataId id, Data l) => Data (HsPatSynDir l id)
+deriving instance (DataId id, Data l) => Data (HsPatSynDir l id)
 \end{code}

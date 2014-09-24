@@ -54,7 +54,8 @@ getImports :: DynFlags
                            --   reporting parse error locations.
            -> FilePath     -- ^ The original source filename (used for locations
                            --   in the function result)
-           -> IO ([Located (ImportDecl RdrName)], [Located (ImportDecl RdrName)], Located ModuleName)
+           -> IO ([Located (ImportDecl SrcSpan RdrName)],
+                  [Located (ImportDecl SrcSpan RdrName)], Located ModuleName)
               -- ^ The source imports, normal imports, and the module name.
 getImports dflags buf filename source_filename = do
   let loc  = mkRealSrcLoc (mkFastString filename) 1 1
@@ -87,8 +88,8 @@ getImports dflags buf filename source_filename = do
 
 mkPrelImports :: ModuleName
               -> SrcSpan    -- Attribute the "import Prelude" to this location
-              -> Bool -> [LImportDecl RdrName]
-              -> [LImportDecl RdrName]
+              -> Bool -> [LImportDecl SrcSpan RdrName]
+              -> [LImportDecl SrcSpan RdrName]
 -- Consruct the implicit declaration "import Prelude" (or not)
 --
 -- NB: opt_NoImplicitPrelude is slightly different to import Prelude ();
@@ -107,7 +108,7 @@ mkPrelImports this_mod loc implicit_prelude import_decls
                           <- import_decls
                       , unLoc mod == pRELUDE_NAME ]
 
-      preludeImportDecl :: LImportDecl RdrName
+      preludeImportDecl :: LImportDecl SrcSpan RdrName
       preludeImportDecl
         = L loc $ ImportDecl { ideclName      = L loc pRELUDE_NAME,
                                ideclPkgQual   = Nothing,

@@ -337,7 +337,7 @@ data HsExpr l id
                 (HsExpr l id)
   |  HsUnboundVar RdrName
   deriving (Typeable)
--- deriving instance (DataId id, Data l) => Data (HsExpr l id)
+deriving instance (DataId id, Data l) => Data (HsExpr l id)
 
 -- | HsTupArg is used for tuple sections
 --  (,a,) is represented by  ExplicitTuple [Mising ty1, Present a, Missing ty3]
@@ -346,7 +346,7 @@ data HsTupArg l id
   = Present (LHsExpr l id)   -- ^ The argument
   | Missing (PostTc id Type) -- ^ The argument is missing, but this is its type
   deriving (Typeable)
--- deriving instance (DataId id, Data l) => Data (HsTupArg l id)
+deriving instance (DataId id, Data l) => Data (HsTupArg l id)
 
 tupArgPresent :: HsTupArg l id -> Bool
 tupArgPresent (Present {}) = True
@@ -360,7 +360,7 @@ data PendingRnSplice l
   | PendingRnDeclSplice       (HsSplice l Name)
   | PendingRnCrossStageSplice Name
   deriving (Typeable)
--- deriving instance (Data l) => Data (PendingRnSplice l)
+deriving instance (Data l) => Data (PendingRnSplice l)
 
 type PendingTcSplice l = (Name, LHsExpr l Id)
 \end{code}
@@ -769,7 +769,7 @@ data HsCmd l id
                                --       co :: arg1 ~ arg2
                                -- Then (HsCmdCast co cmd) :: arg2 --> res
   deriving (Typeable)
--- deriving instance (DataId id, Data l) => Data (HsCmd l id)
+deriving instance (DataId id, Data l) => Data (HsCmd l id)
 
 data HsArrAppType = HsHigherOrderApp | HsFirstOrderApp
   deriving (Data, Typeable)
@@ -789,7 +789,7 @@ data HsCmdTop l id
              (PostTc id Type)   -- return type of the command
              (CmdSyntaxTable l id) -- See Note [CmdSyntaxTable]
   deriving (Typeable)
--- deriving instance (DataId id, Data l) => Data (HsCmdTop l id)
+deriving instance (DataId id, Data l) => Data (HsCmdTop l id)
 \end{code}
 
 
@@ -924,7 +924,7 @@ data MatchGroup l id body
      --      t1 -> ... -> tn -> tr
      -- where there are n patterns
   deriving (Typeable)
--- deriving instance (Data body,DataId id, Data l) => Data (MatchGroup l id body)
+deriving instance (Data body,DataId id, Data l) => Data (MatchGroup l id body)
 
 type LMatch l id body = GenLocated l (Match l id body)
 
@@ -935,7 +935,7 @@ data Match l id body
                                 -- Nothing after typechecking
         (GRHSs l id body)
   deriving (Typeable)
--- deriving instance (Data body,DataId id, Data l) => Data (Match l id body)
+deriving instance (Data body,DataId id, Data l) => Data (Match l id body)
 
 isEmptyMatchGroup :: MatchGroup l id body -> Bool
 isEmptyMatchGroup (MG { mg_alts = ms }) = null ms
@@ -956,7 +956,7 @@ data GRHSs l id body
       grhssGRHSs :: [LGRHS l id body],       -- ^ Guarded RHSs
       grhssLocalBinds :: (HsLocalBinds l id) -- ^ The where clause
     } deriving (Typeable)
--- deriving instance (Data body,DataId id, Data l) => Data (GRHSs l id body)
+deriving instance (Data body,DataId id, Data l) => Data (GRHSs l id body)
 
 type LGRHS l id body = GenLocated l (GRHS l id body)
 
@@ -964,7 +964,7 @@ type LGRHS l id body = GenLocated l (GRHS l id body)
 data GRHS l id body = GRHS [GuardLStmt l id] -- Guards
                            body              -- Right hand side
   deriving (Typeable)
--- deriving instance (Data body,DataId id,Data l) => Data (GRHS l id body)
+deriving instance (Data body,DataId id,Data l) => Data (GRHS l id body)
 \end{code}
 
 We know the list must have at least one @Match@ in it.
@@ -1158,8 +1158,8 @@ data StmtLR l idL idR body -- body should always be (LHs**** idR)
                                    -- be quite as simple as (m (tya, tyb, tyc)).
       }
   deriving (Typeable)
--- deriving instance (Data body, DataId idL, DataId idR, Data l)
---   => Data (StmtLR l idL idR body)
+deriving instance (Data body, DataId idL, DataId idR, Data l)
+  => Data (StmtLR l idL idR body)
 
 data TransForm   -- The 'f' below is the 'using' function, 'e' is the by function
   = ThenForm     -- then f               or    then f by e             (depending on trS_by)
@@ -1172,8 +1172,8 @@ data ParStmtBlock l idL idR
         [idR]              -- The variables to be returned
         (SyntaxExpr l idR) -- The return operator
   deriving( Typeable )
--- deriving instance (DataId idL, DataId idR, Data l)
---   => Data (ParStmtBlock l idL idR)
+deriving instance (DataId idL, DataId idR, Data l)
+  => Data (ParStmtBlock l idL idR)
 \end{code}
 
 Note [The type of bind in Stmts]
@@ -1404,7 +1404,7 @@ data HsSplice l id  = HsSplice          --  $z  or $(f 4)
                         id              -- The id is just a unique name to
                         (LHsExpr l id)  -- identify this splice point
   deriving (Typeable)
--- deriving instance (DataId id, Data l) => Data (HsSplice l id)
+deriving instance (DataId id, Data l) => Data (HsSplice l id)
 
 instance (OutputableBndr id, SrcAnnotation l) => Outputable (HsSplice l id) where
   ppr (HsSplice n e) = angleBrackets (ppr n <> comma <+> ppr e)
@@ -1439,7 +1439,7 @@ data HsBracket l id = ExpBr (LHsExpr l id)  -- [|  expr  |]
                                             --   pprHsBracket)
                     | TExpBr (LHsExpr l id) -- [||  expr  ||]
   deriving (Typeable)
--- deriving instance (DataId id, Data l) => Data (HsBracket l id)
+deriving instance (DataId id, Data l) => Data (HsBracket l id)
 
 isTypedBracket :: HsBracket l id -> Bool
 isTypedBracket (TExpBr {}) = True
@@ -1491,7 +1491,7 @@ data ArithSeqInfo l id
                     (LHsExpr l id)
                     (LHsExpr l id)
   deriving (Typeable)
--- deriving instance (DataId id, Data l) => Data (ArithSeqInfo l id)
+deriving instance (DataId id, Data l) => Data (ArithSeqInfo l id)
 \end{code}
 
 \begin{code}

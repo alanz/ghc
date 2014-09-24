@@ -24,8 +24,7 @@ import SrcLoc ( SrcAnnotation )
 import Type       ( Type )
 import Outputable
 import FastString
--- import PlaceHolder ( PostTc,PostRn,DataId )
-import PlaceHolder ( PostTc,PostRn  )
+import PlaceHolder ( PostTc,PostRn,DataId )
 
 import Data.ByteString (ByteString)
 import Data.Data hiding ( Fixity )
@@ -87,7 +86,7 @@ data HsOverLit l id     -- An overloaded literal
         ol_witness :: SyntaxExpr l id,   -- Note [Overloaded literal witnesses]
         ol_type :: PostTc id Type }
   deriving (Typeable)
--- deriving instance (DataId id, Data l) => Data (HsOverLit l id)
+deriving instance (DataId id, Data l) => Data (HsOverLit l id)
 
 data OverLitVal
   = HsIntegral   !Integer       -- Integer-looking literals;

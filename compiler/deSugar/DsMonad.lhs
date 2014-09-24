@@ -80,8 +80,8 @@ data DsMatchContext
   = DsMatchContext (HsMatchContext Name) SrcSpan
   deriving ()
 
-data EquationInfo
-  = EqnInfo { eqn_pats :: [Pat Id],     -- The patterns for an eqn
+data EquationInfo l
+  = EqnInfo { eqn_pats :: [Pat l Id],   -- The patterns for an eqn
               eqn_rhs  :: MatchResult } -- What to do after match
 
 instance Outputable EquationInfo where
@@ -173,20 +173,20 @@ instance ContainsModule DsGblEnv where
     extractModule = ds_mod
 
 data DsLclEnv = DsLclEnv {
-        ds_meta    :: DsMetaEnv,        -- Template Haskell bindings
+        ds_meta    :: DsMetaEnv SrcSpan, -- Template Haskell bindings
         ds_loc     :: SrcSpan           -- to put in pattern-matching error msgs
      }
 
 -- Inside [| |] brackets, the desugarer looks 
 -- up variables in the DsMetaEnv
-type DsMetaEnv = NameEnv DsMetaVal
+type DsMetaEnv l = NameEnv (DsMetaVal l)
 
-data DsMetaVal
+data DsMetaVal l
    = Bound Id           -- Bound by a pattern inside the [| |]. 
                         -- Will be dynamically alpha renamed.
                         -- The Id has type THSyntax.Var
 
-   | Splice (HsExpr Id) -- These bindings are introduced by
+   | Splice (HsExpr l Id) -- These bindings are introduced by
                         -- the PendingSplices on a HsBracketOut
 
 initDs :: HscEnv

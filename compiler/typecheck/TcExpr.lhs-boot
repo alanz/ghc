@@ -6,23 +6,23 @@ import TcType   ( TcType, TcRhoType, TcSigmaType )
 import TcRnTypes( TcM, TcId, CtOrigin )
 
 tcPolyExpr :: 
-          LHsExpr Name
+          LHsExpr l Name
        -> TcSigmaType
-       -> TcM (LHsExpr TcId)
+       -> TcM (LHsExpr l TcId)
 
 tcMonoExpr, tcMonoExprNC :: 
-          LHsExpr Name
+          LHsExpr l Name
        -> TcRhoType
-       -> TcM (LHsExpr TcId)
+       -> TcM (LHsExpr l TcId)
 
 tcInferRho, tcInferRhoNC :: 
-          LHsExpr Name
-       -> TcM (LHsExpr TcId, TcRhoType)
+          LHsExpr l Name
+       -> TcM (LHsExpr l TcId, TcRhoType)
 
-tcSyntaxOp :: CtOrigin
-           -> HsExpr Name
+tcSyntaxOp :: CtOrigin l
+           -> HsExpr l Name
            -> TcType
-           -> TcM (HsExpr TcId)
+           -> TcM (HsExpr l TcId)
 
-tcCheckId :: Name -> TcRhoType -> TcM (HsExpr TcId)
+tcCheckId :: Name -> TcRhoType -> TcM (HsExpr l TcId)
 \end{code}

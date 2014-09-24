@@ -7,9 +7,9 @@ import HsSyn     ( PatSynBind, LHsBinds )
 import TcRnTypes ( TcM )
 import PatSyn    ( PatSyn )
 
-tcPatSynDecl :: PatSynBind Name Name
-             -> TcM (PatSyn, LHsBinds Id)
+tcPatSynDecl :: PatSynBind l Name Name
+             -> TcM (PatSyn, LHsBinds l Id)
 
-tcPatSynWrapper :: PatSynBind Name Name
-                -> TcM (LHsBinds Id)
+tcPatSynWrapper :: PatSynBind l Name Name
+                -> TcM (LHsBinds l Id)
 \end{code}

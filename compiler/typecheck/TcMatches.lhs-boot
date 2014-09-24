@@ -7,12 +7,12 @@ import TcType   ( TcRhoType )
 import TcRnTypes( TcM, TcId )
 --import SrcLoc   ( Located )
 
-tcGRHSsPat    :: GRHSs Name (LHsExpr Name)
+tcGRHSsPat    :: GRHSs l Name (LHsExpr l Name)
               -> TcRhoType
-              -> TcM (GRHSs TcId (LHsExpr TcId))
+              -> TcM (GRHSs l TcId (LHsExpr l TcId))
 
 tcMatchesFun :: Name -> Bool
-             -> MatchGroup Name (LHsExpr Name)
+             -> MatchGroup l Name (LHsExpr l Name)
              -> TcRhoType
-             -> TcM (HsWrapper, MatchGroup TcId (LHsExpr TcId))
+             -> TcM (HsWrapper, MatchGroup l TcId (LHsExpr l TcId))
 \end{code}

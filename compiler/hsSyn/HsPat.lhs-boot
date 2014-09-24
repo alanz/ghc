@@ -13,7 +13,7 @@ import SrcLoc( GenLocated, SrcAnnotation )
 
 import Data.Data hiding (Fixity)
 import Outputable
--- import PlaceHolder      ( DataId )
+import PlaceHolder      ( DataId )
 
 #if __GLASGOW_HASKELL__ > 706
 type role Pat nominal nominal
@@ -27,6 +27,6 @@ instance Typeable Pat
 instance Typeable1 Pat
 #endif
 
--- instance (DataId id, Data l) => Data (Pat l id)
+instance (DataId id, Data l) => Data (Pat l id)
 instance (OutputableBndr name, SrcAnnotation l) => Outputable (Pat l name)
 \end{code}

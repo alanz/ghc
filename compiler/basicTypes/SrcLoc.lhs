@@ -168,6 +168,13 @@ class (Outputable l, OutputableBndr l) => SrcAnnotation l where
     annGetLoc :: GenLocated l e -> SrcSpan
     annNoLoc :: e -> GenLocated l e
 
+instance SrcAnnotation SrcSpan where
+  annGetLoc (L l _) = l
+  annNoLoc = noLoc
+
+instance OutputableBndr SrcSpan where
+  pprPrefixOcc = ppr
+  pprInfixOcc = ppr
 \end{code}
 
 %************************************************************************

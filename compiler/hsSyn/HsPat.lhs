@@ -34,8 +34,7 @@ import {-# SOURCE #-} HsExpr            (SyntaxExpr, LHsExpr, HsSplice, pprLExpr
 -- friends:
 import HsBinds
 import HsLit
--- import PlaceHolder ( PostTc,DataId )
-import PlaceHolder ( PostTc  )
+import PlaceHolder ( PostTc,DataId )
 import HsTypes
 import TcEvidence
 import BasicTypes
@@ -172,7 +171,7 @@ data Pat l id
         -- During desugaring a (CoPat co pat) turns into a cast with 'co' on
         -- the scrutinee, followed by a match on 'pat'
   deriving (Typeable)
--- deriving instance (DataId id, Data l) => Data (Pat l id)
+deriving instance (DataId id, Data l) => Data (Pat l id)
 \end{code}
 
 HsConDetails is use for patterns/expressions *and* for data type declarations

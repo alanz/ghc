@@ -300,11 +300,11 @@ data TcGblEnv
         -- initially in un-zonked form and are finally zonked in tcRnSrcDecls
 
         tcg_rn_exports :: Maybe [Located (IE Name)],
-        tcg_rn_imports :: [LImportDecl Name],
+        tcg_rn_imports :: [LImportDecl SrcSpan Name],
                 -- Keep the renamed imports regardless.  They are not
                 -- voluminous and are needed if you want to report unused imports
 
-        tcg_rn_decls :: Maybe (HsGroup Name),
+        tcg_rn_decls :: Maybe (HsGroup SrcSpan Name),
           -- ^ Renamed decls, maybe.  @Nothing@ <=> Don't retain renamed
           -- decls.
 
@@ -328,20 +328,20 @@ data TcGblEnv
 
         -- Things defined in this module, or (in GHCi) in the interactive package
         --   For the latter, see Note [The interactive package] in HscTypes
-        tcg_binds     :: LHsBinds Id,       -- Value bindings in this module
+        tcg_binds     :: LHsBinds SrcSpan Id, -- Value bindings in this module
         tcg_sigs      :: NameSet,           -- ...Top-level names that *lack* a signature
-        tcg_imp_specs :: [LTcSpecPrag],     -- ...SPECIALISE prags for imported Ids
+        tcg_imp_specs :: [LTcSpecPrag SrcSpan], -- ...SPECIALISE prags for imported Ids
         tcg_warns     :: Warnings,          -- ...Warnings and deprecations
         tcg_anns      :: [Annotation],      -- ...Annotations
         tcg_tcs       :: [TyCon],           -- ...TyCons and Classes
         tcg_insts     :: [ClsInst],         -- ...Instances
         tcg_fam_insts :: [FamInst],         -- ...Family instances
-        tcg_rules     :: [LRuleDecl Id],    -- ...Rules
-        tcg_fords     :: [LForeignDecl Id], -- ...Foreign import & exports
-        tcg_vects     :: [LVectDecl Id],    -- ...Vectorisation declarations
+        tcg_rules     :: [LRuleDecl SrcSpan Id], -- ...Rules
+        tcg_fords     :: [LForeignDecl SrcSpan Id], -- ...Foreign import & exports
+        tcg_vects     :: [LVectDecl SrcSpan Id],    -- ...Vectorisation declarations
         tcg_patsyns   :: [PatSyn],          -- ...Pattern synonyms
 
-        tcg_doc_hdr   :: Maybe LHsDocString, -- ^ Maybe Haddock header docs
+        tcg_doc_hdr   :: Maybe (LHsDocString SrcSpan), -- ^ Maybe Haddock header docs
         tcg_hpc       :: AnyHpcUsage,        -- ^ @True@ if any part of the
                                              --  prog uses hpc instrumentation.
 
@@ -464,7 +464,7 @@ data TcLclEnv           -- Changes as we move inside an expression
         tcl_ctxt       :: [ErrCtxt],       -- Error context, innermost on top
         tcl_untch      :: Untouchables,    -- Birthplace for new unification variables
 
-        tcl_th_ctxt    :: ThStage,         -- Template Haskell context
+        tcl_th_ctxt    :: ThStage SrcSpan, -- Template Haskell context
         tcl_th_bndrs   :: ThBindEnv,       -- Binding level of in-scope Names
                                            -- defined in this module (not imported)
 
@@ -497,7 +497,7 @@ data TcLclEnv           -- Changes as we move inside an expression
                         -- in tcl_lenv.
                         -- Why mutable? see notes with tcGetGlobalTyVars
 
-        tcl_lie  :: TcRef WantedConstraints,    -- Place to accumulate type constraints
+        tcl_lie  :: TcRef (WantedConstraints SrcSpan), -- Place to accumulate type constraints
         tcl_errs :: TcRef Messages              -- Place to accumulate errors
     }
 
@@ -537,7 +537,7 @@ pass it inwards.
 -- Template Haskell stages and levels
 ---------------------------
 
-data ThStage    -- See Note [Template Haskell state diagram] in TcSplice
+data ThStage l  -- See Note [Template Haskell state diagram] in TcSplice
   = Splice      -- Top-level splicing
                 -- This code will be run *at compile time*;
                 --   the result replaces the splice
@@ -548,25 +548,25 @@ data ThStage    -- See Note [Template Haskell state diagram] in TcSplice
                 -- Binding level = 1
 
   | Brack                       -- Inside brackets
-      ThStage                   --   Enclosing stage
-      PendingStuff
+      (ThStage l)               --   Enclosing stage
+      (PendingStuff l)
 
-data PendingStuff
+data PendingStuff l
   = RnPendingUntyped              -- Renaming the inside of an *untyped* bracket
-      (TcRef [PendingRnSplice])   -- Pending splices in here
+      (TcRef [PendingRnSplice l]) -- Pending splices in here
 
   | RnPendingTyped                -- Renaming the inside of a *typed* bracket
 
   | TcPending                     -- Typechecking the iniside of a typed bracket
-      (TcRef [PendingTcSplice])   --   Accumulate pending splices here
-      (TcRef WantedConstraints)   --     and type constraints here
+      (TcRef [PendingTcSplice l]) --   Accumulate pending splices here
+      (TcRef (WantedConstraints l)) --     and type constraints here
 
-topStage, topAnnStage, topSpliceStage :: ThStage
+topStage, topAnnStage, topSpliceStage :: ThStage l
 topStage       = Comp
 topAnnStage    = Splice False
 topSpliceStage = Splice False
 
-instance Outputable ThStage where
+instance Outputable (ThStage l) where
    ppr (Splice _)  = text "Splice"
    ppr Comp        = text "Comp"
    ppr (Brack s _) = text "Brack" <> parens (ppr s)
@@ -582,7 +582,7 @@ impLevel, outerLevel :: ThLevel
 impLevel = 0    -- Imported things; they can be used inside a top level splice
 outerLevel = 1  -- Things defined outside brackets
 
-thLevel :: ThStage -> ThLevel
+thLevel :: ThStage l -> ThLevel
 thLevel (Splice _)  = 0
 thLevel Comp        = 1
 thLevel (Brack s _) = thLevel s + 1
@@ -927,18 +927,18 @@ instance Outputable WhereFrom where
 
 type Xi = Type       -- In many comments, "xi" ranges over Xi
 
-type Cts = Bag Ct
+type Cts l = Bag (Ct l)
 
-data Ct
+data Ct l
   -- Atomic canonical constraints
   = CDictCan {  -- e.g.  Num xi
-      cc_ev :: CtEvidence,   -- See Note [Ct/evidence invariant]
+      cc_ev :: CtEvidence l,   -- See Note [Ct/evidence invariant]
       cc_class  :: Class,
       cc_tyargs :: [Xi]
     }
 
   | CIrredEvCan {  -- These stand for yet-unusable predicates
-      cc_ev :: CtEvidence   -- See Note [Ct/evidence invariant]
+      cc_ev :: CtEvidence l -- See Note [Ct/evidence invariant]
         -- The ctev_pred of the evidence is
         -- of form   (tv xi1 xi2 ... xin)
         --      or   (tv1 ~ ty2)   where the CTyEqCan  kind invariant fails
@@ -952,7 +952,7 @@ data Ct
        --   * typeKind xi `subKind` typeKind tv
        --       See Note [Kind orientation for CTyEqCan]
        --   * We prefer unification variables on the left *JUST* for efficiency
-      cc_ev :: CtEvidence,    -- See Note [Ct/evidence invariant]
+      cc_ev :: CtEvidence l,  -- See Note [Ct/evidence invariant]
       cc_tyvar  :: TcTyVar,
       cc_rhs    :: Xi
     }
@@ -961,7 +961,7 @@ data Ct
        -- Invariant: * isSynFamilyTyCon cc_fun
        --            * typeKind (F xis) `subKind` typeKind xi
        --       See Note [Kind orientation for CFunEqCan]
-      cc_ev     :: CtEvidence,  -- See Note [Ct/evidence invariant]
+      cc_ev     :: CtEvidence l, -- See Note [Ct/evidence invariant]
       cc_fun    :: TyCon,       -- A type function
       cc_tyargs :: [Xi],        -- Either under-saturated or exactly saturated
       cc_rhs    :: Xi           --    *never* over-saturated (because if so
@@ -969,12 +969,12 @@ data Ct
     }
 
   | CNonCanonical {        -- See Note [NonCanonical Semantics]
-      cc_ev  :: CtEvidence
+      cc_ev  :: CtEvidence l
     }
 
   | CHoleCan {             -- Treated as an "insoluble" constraint
                            -- See Note [Insoluble constraints]
-      cc_ev  :: CtEvidence,
+      cc_ev  :: CtEvidence l,
       cc_occ :: OccName    -- The name of this hole
     }
 \end{code}
@@ -1052,23 +1052,23 @@ the evidence may *not* be fully zonked; we are careful not to look at it
 during constraint solving.  See Note [Evidence field of CtEvidence]
 
 \begin{code}
-mkNonCanonical :: CtEvidence -> Ct
+mkNonCanonical :: CtEvidence l -> Ct l
 mkNonCanonical ev = CNonCanonical { cc_ev = ev }
 
-mkNonCanonicalCt :: Ct -> Ct
+mkNonCanonicalCt :: Ct l -> Ct l
 mkNonCanonicalCt ct = CNonCanonical { cc_ev = cc_ev ct }
 
-ctEvidence :: Ct -> CtEvidence
+ctEvidence :: Ct l -> CtEvidence l
 ctEvidence = cc_ev
 
-ctLoc :: Ct -> CtLoc
+ctLoc :: Ct l -> CtLoc l
 ctLoc = ctev_loc . cc_ev
 
-ctPred :: Ct -> PredType
+ctPred :: Ct l -> PredType
 -- See Note [Ct/evidence invariant]
 ctPred ct = ctEvPred (cc_ev ct)
 
-dropDerivedWC :: WantedConstraints -> WantedConstraints
+dropDerivedWC :: WantedConstraints l -> WantedConstraints l
 -- See Note [Dropping derived constraints]
 dropDerivedWC wc@(WC { wc_flat = flats, wc_insol = insols })
   = wc { wc_flat  = filterBag isWantedCt          flats
@@ -1110,48 +1110,48 @@ programmer wrote.
 %************************************************************************
 
 \begin{code}
-isWantedCt :: Ct -> Bool
+isWantedCt :: Ct l -> Bool
 isWantedCt = isWanted . cc_ev
 
-isGivenCt :: Ct -> Bool
+isGivenCt :: Ct l -> Bool
 isGivenCt = isGiven . cc_ev
 
-isDerivedCt :: Ct -> Bool
+isDerivedCt :: Ct l -> Bool
 isDerivedCt = isDerived . cc_ev
 
-isCTyEqCan :: Ct -> Bool
+isCTyEqCan :: Ct l -> Bool
 isCTyEqCan (CTyEqCan {})  = True
 isCTyEqCan (CFunEqCan {}) = False
 isCTyEqCan _              = False
 
-isCDictCan_Maybe :: Ct -> Maybe Class
+isCDictCan_Maybe :: Ct l -> Maybe Class
 isCDictCan_Maybe (CDictCan {cc_class = cls })  = Just cls
 isCDictCan_Maybe _              = Nothing
 
-isCIrredEvCan :: Ct -> Bool
+isCIrredEvCan :: Ct l -> Bool
 isCIrredEvCan (CIrredEvCan {}) = True
 isCIrredEvCan _                = False
 
-isCFunEqCan_maybe :: Ct -> Maybe (TyCon, [Type])
+isCFunEqCan_maybe :: Ct l -> Maybe (TyCon, [Type])
 isCFunEqCan_maybe (CFunEqCan { cc_fun = tc, cc_tyargs = xis }) = Just (tc, xis)
 isCFunEqCan_maybe _ = Nothing
 
-isCFunEqCan :: Ct -> Bool
+isCFunEqCan :: Ct l -> Bool
 isCFunEqCan (CFunEqCan {}) = True
 isCFunEqCan _ = False
 
-isCNonCanonical :: Ct -> Bool
+isCNonCanonical :: Ct l -> Bool
 isCNonCanonical (CNonCanonical {}) = True
 isCNonCanonical _ = False
 
-isHoleCt:: Ct -> Bool
+isHoleCt:: Ct l -> Bool
 isHoleCt (CHoleCan {}) = True
 isHoleCt _ = False
 
 \end{code}
 
 \begin{code}
-instance Outputable Ct where
+instance Outputable (Ct l) where
   ppr ct = ppr (cc_ev ct) <+> parens (text ct_sort)
          where ct_sort = case ct of
                            CTyEqCan {}      -> "CTyEqCan"
@@ -1163,32 +1163,32 @@ instance Outputable Ct where
 \end{code}
 
 \begin{code}
-singleCt :: Ct -> Cts
+singleCt :: Ct l -> Cts l
 singleCt = unitBag
 
-andCts :: Cts -> Cts -> Cts
+andCts :: Cts l -> Cts l -> Cts l
 andCts = unionBags
 
-listToCts :: [Ct] -> Cts
+listToCts :: [Ct l] -> Cts l
 listToCts = listToBag
 
-ctsElts :: Cts -> [Ct]
+ctsElts :: Cts l -> [Ct l]
 ctsElts = bagToList
 
-extendCts :: Cts -> Ct -> Cts
+extendCts :: Cts l -> Ct l -> Cts l
 extendCts = snocBag
 
-extendCtsList :: Cts -> [Ct] -> Cts
+extendCtsList :: Cts l -> [Ct l] -> Cts l
 extendCtsList cts xs | null xs   = cts
                      | otherwise = cts `unionBags` listToBag xs
 
-andManyCts :: [Cts] -> Cts
+andManyCts :: [Cts l] -> Cts l
 andManyCts = unionManyBags
 
-emptyCts :: Cts
+emptyCts :: Cts l
 emptyCts = emptyBag
 
-isEmptyCts :: Cts -> Bool
+isEmptyCts :: Cts l -> Bool
 isEmptyCts = isEmptyBag
 \end{code}
 
@@ -1205,52 +1205,52 @@ v%************************************************************************
 
 \begin{code}
 
-data WantedConstraints
-  = WC { wc_flat  :: Cts               -- Unsolved constraints, all wanted
+data WantedConstraints l
+  = WC { wc_flat  :: (Cts l)           -- Unsolved constraints, all wanted
        , wc_impl  :: Bag Implication
-       , wc_insol :: Cts               -- Insoluble constraints, can be
+       , wc_insol :: (Cts l)           -- Insoluble constraints, can be
                                        -- wanted, given, or derived
                                        -- See Note [Insoluble constraints]
     }
 
-emptyWC :: WantedConstraints
+emptyWC :: WantedConstraints l
 emptyWC = WC { wc_flat = emptyBag, wc_impl = emptyBag, wc_insol = emptyBag }
 
-mkFlatWC :: [Ct] -> WantedConstraints
+mkFlatWC :: [Ct l] -> WantedConstraints l
 mkFlatWC cts
   = WC { wc_flat = listToBag cts, wc_impl = emptyBag, wc_insol = emptyBag }
 
-isEmptyWC :: WantedConstraints -> Bool
+isEmptyWC :: WantedConstraints l -> Bool
 isEmptyWC (WC { wc_flat = f, wc_impl = i, wc_insol = n })
   = isEmptyBag f && isEmptyBag i && isEmptyBag n
 
-insolubleWC :: WantedConstraints -> Bool
+insolubleWC :: WantedConstraints l -> Bool
 -- True if there are any insoluble constraints in the wanted bag
 insolubleWC wc = not (isEmptyBag (wc_insol wc))
                || anyBag ic_insol (wc_impl wc)
 
-andWC :: WantedConstraints -> WantedConstraints -> WantedConstraints
+andWC :: WantedConstraints l -> WantedConstraints l -> WantedConstraints l
 andWC (WC { wc_flat = f1, wc_impl = i1, wc_insol = n1 })
       (WC { wc_flat = f2, wc_impl = i2, wc_insol = n2 })
   = WC { wc_flat  = f1 `unionBags` f2
        , wc_impl  = i1 `unionBags` i2
        , wc_insol = n1 `unionBags` n2 }
 
-unionsWC :: [WantedConstraints] -> WantedConstraints
+unionsWC :: [WantedConstraints l] -> WantedConstraints l
 unionsWC = foldr andWC emptyWC
 
-addFlats :: WantedConstraints -> Bag Ct -> WantedConstraints
+addFlats :: WantedConstraints l -> Bag (Ct l) -> WantedConstraints l
 addFlats wc cts
   = wc { wc_flat = wc_flat wc `unionBags` cts }
 
-addImplics :: WantedConstraints -> Bag Implication -> WantedConstraints
+addImplics :: WantedConstraints l -> Bag Implication -> WantedConstraints l
 addImplics wc implic = wc { wc_impl = wc_impl wc `unionBags` implic }
 
-addInsols :: WantedConstraints -> Bag Ct -> WantedConstraints
+addInsols :: WantedConstraints l -> Bag (Ct l) -> WantedConstraints l
 addInsols wc cts
   = wc { wc_insol = wc_insol wc `unionBags` cts }
 
-instance Outputable WantedConstraints where
+instance Outputable (WantedConstraints l) where
   ppr (WC {wc_flat = f, wc_impl = i, wc_insol = n})
    = ptext (sLit "WC") <+> braces (vcat
         [ if isEmptyBag f then empty else
@@ -1296,7 +1296,7 @@ data Implication
                                  -- for the implicatdion, and hence for all the
                                  -- given evidence variables
 
-      ic_wanted :: WantedConstraints,  -- The wanted
+      ic_wanted :: WantedConstraints SrcSpan, -- The wanted
       ic_insol  :: Bool,               -- True iff insolubleWC ic_wanted is true
 
       ic_binds  :: EvBindsVar   -- Points to the place to fill in the
@@ -1388,7 +1388,7 @@ pprEvVarTheta ev_vars = pprTheta (map evVarPred ev_vars)
 pprEvVarWithType :: EvVar -> SDoc
 pprEvVarWithType v = ppr v <+> dcolon <+> pprType (evVarPred v)
 
-pprWantedsWithLocs :: WantedConstraints -> SDoc
+pprWantedsWithLocs :: WantedConstraints l -> SDoc
 pprWantedsWithLocs wcs
   =  vcat [ pprBag ppr (wc_flat wcs)
           , pprBag ppr (wc_impl wcs)
@@ -1408,65 +1408,65 @@ ctev_evar; instead we look at the cte_pred field.  The evtm/evar field
 may be un-zonked.
 
 \begin{code}
-data CtEvidence
+data CtEvidence l
   = CtGiven { ctev_pred :: TcPredType      -- See Note [Ct/evidence invariant]
             , ctev_evtm :: EvTerm          -- See Note [Evidence field of CtEvidence]
-            , ctev_loc  :: CtLoc }
+            , ctev_loc  :: CtLoc l }
     -- Truly given, not depending on subgoals
     -- NB: Spontaneous unifications belong here
 
   | CtWanted { ctev_pred :: TcPredType     -- See Note [Ct/evidence invariant]
              , ctev_evar :: EvVar          -- See Note [Evidence field of CtEvidence]
-             , ctev_loc  :: CtLoc }
+             , ctev_loc  :: CtLoc l }
     -- Wanted goal
 
   | CtDerived { ctev_pred :: TcPredType
-              , ctev_loc  :: CtLoc }
+              , ctev_loc  :: CtLoc l }
     -- A goal that we don't really have to solve and can't immediately
     -- rewrite anything other than a derived (there's no evidence!)
     -- but if we do manage to solve it may help in solving other goals.
 
-ctEvPred :: CtEvidence -> TcPredType
+ctEvPred :: CtEvidence l -> TcPredType
 -- The predicate of a flavor
 ctEvPred = ctev_pred
 
-ctEvTerm :: CtEvidence -> EvTerm
+ctEvTerm :: CtEvidence l -> EvTerm
 ctEvTerm (CtGiven   { ctev_evtm = tm }) = tm
 ctEvTerm (CtWanted  { ctev_evar = ev }) = EvId ev
 ctEvTerm ctev@(CtDerived {}) = pprPanic "ctEvTerm: derived constraint cannot have id"
                                       (ppr ctev)
 
 -- | Checks whether the evidence can be used to solve a goal with the given minimum depth
-ctEvCheckDepth :: SubGoalDepth -> CtEvidence -> Bool
+ctEvCheckDepth :: SubGoalDepth -> CtEvidence l -> Bool
 ctEvCheckDepth _      (CtGiven {})   = True -- Given evidence has infinite depth
 ctEvCheckDepth min ev@(CtWanted {})  = min <= ctLocDepth (ctev_loc ev)
 ctEvCheckDepth _   ev@(CtDerived {}) = pprPanic "ctEvCheckDepth: cannot consider derived evidence" (ppr ev)
 
-ctEvId :: CtEvidence -> TcId
+ctEvId :: CtEvidence l -> TcId
 ctEvId (CtWanted  { ctev_evar = ev }) = ev
 ctEvId ctev = pprPanic "ctEvId:" (ppr ctev)
 
-instance Outputable CtEvidence where
+instance Outputable (CtEvidence l) where
   ppr fl = case fl of
              CtGiven {}   -> ptext (sLit "[G]") <+> ppr (ctev_evtm fl) <+> ppr_pty
              CtWanted {}  -> ptext (sLit "[W]") <+> ppr (ctev_evar fl) <+> ppr_pty
              CtDerived {} -> ptext (sLit "[D]") <+> text "_" <+> ppr_pty
          where ppr_pty = dcolon <+> ppr (ctEvPred fl)
 
-isWanted :: CtEvidence -> Bool
+isWanted :: CtEvidence l -> Bool
 isWanted (CtWanted {}) = True
 isWanted _ = False
 
-isGiven :: CtEvidence -> Bool
+isGiven :: CtEvidence l -> Bool
 isGiven (CtGiven {})  = True
 isGiven _ = False
 
-isDerived :: CtEvidence -> Bool
+isDerived :: CtEvidence l -> Bool
 isDerived (CtDerived {}) = True
 isDerived _              = False
 
 -----------------------------------------
-canRewrite :: CtEvidence -> CtEvidence -> Bool
+canRewrite :: CtEvidence l -> CtEvidence l -> Bool
 -- Very important function!
 -- See Note [canRewrite and canRewriteOrSame]
 canRewrite (CtGiven {})   _              = True
@@ -1474,7 +1474,7 @@ canRewrite (CtWanted {})  (CtDerived {}) = True
 canRewrite (CtDerived {}) (CtDerived {}) = True  -- Derived can't solve wanted/given
 canRewrite _ _ = False             -- No evidence for a derived, anyway
 
-canRewriteOrSame :: CtEvidence -> CtEvidence -> Bool
+canRewriteOrSame :: CtEvidence l -> CtEvidence l -> Bool
 canRewriteOrSame (CtGiven {})   _              = True
 canRewriteOrSame (CtWanted {})  (CtWanted {})  = True
 canRewriteOrSame (CtWanted {})  (CtDerived {}) = True
@@ -1623,57 +1623,57 @@ dictionaries don't appear in the original source code.
 type will evolve...
 
 \begin{code}
-data CtLoc = CtLoc { ctl_origin :: CtOrigin
-                   , ctl_env    :: TcLclEnv
-                   , ctl_depth  :: !SubGoalDepth }
+data CtLoc l = CtLoc { ctl_origin :: CtOrigin l
+                     , ctl_env    :: TcLclEnv
+                     , ctl_depth  :: !SubGoalDepth }
   -- The TcLclEnv includes particularly
   --    source location:  tcl_loc   :: SrcSpan
   --    context:          tcl_ctxt  :: [ErrCtxt]
   --    binder stack:     tcl_bndrs :: [TcIdBinders]
 
-mkGivenLoc :: SkolemInfo -> TcLclEnv -> CtLoc
+mkGivenLoc :: SkolemInfo -> TcLclEnv -> CtLoc l
 mkGivenLoc skol_info env = CtLoc { ctl_origin = GivenOrigin skol_info
                                  , ctl_env = env
                                  , ctl_depth = initialSubGoalDepth }
 
-ctLocEnv :: CtLoc -> TcLclEnv
+ctLocEnv :: CtLoc l -> TcLclEnv
 ctLocEnv = ctl_env
 
-ctLocDepth :: CtLoc -> SubGoalDepth
+ctLocDepth :: CtLoc l -> SubGoalDepth
 ctLocDepth = ctl_depth
 
-ctLocOrigin :: CtLoc -> CtOrigin
+ctLocOrigin :: CtLoc l -> CtOrigin l
 ctLocOrigin = ctl_origin
 
-ctLocSpan :: CtLoc -> SrcSpan
+ctLocSpan :: CtLoc l -> SrcSpan
 ctLocSpan (CtLoc { ctl_env = lcl}) = tcl_loc lcl
 
-bumpCtLocDepth :: SubGoalCounter -> CtLoc -> CtLoc
+bumpCtLocDepth :: SubGoalCounter -> CtLoc l -> CtLoc l
 bumpCtLocDepth cnt loc@(CtLoc { ctl_depth = d }) = loc { ctl_depth = bumpSubGoalDepth cnt d }
 
-setCtLocOrigin :: CtLoc -> CtOrigin -> CtLoc
+setCtLocOrigin :: CtLoc l -> CtOrigin l -> CtLoc l
 setCtLocOrigin ctl orig = ctl { ctl_origin = orig }
 
-setCtLocEnv :: CtLoc -> TcLclEnv -> CtLoc
+setCtLocEnv :: CtLoc l -> TcLclEnv -> CtLoc l
 setCtLocEnv ctl env = ctl { ctl_env = env }
 
-pushErrCtxt :: CtOrigin -> ErrCtxt -> CtLoc -> CtLoc
+pushErrCtxt :: CtOrigin l -> ErrCtxt -> CtLoc l -> CtLoc l
 pushErrCtxt o err loc@(CtLoc { ctl_env = lcl })
   = loc { ctl_origin = o, ctl_env = lcl { tcl_ctxt = err : tcl_ctxt lcl } }
 
-pushErrCtxtSameOrigin :: ErrCtxt -> CtLoc -> CtLoc
+pushErrCtxtSameOrigin :: ErrCtxt -> CtLoc l -> CtLoc l
 -- Just add information w/o updating the origin!
 pushErrCtxtSameOrigin err loc@(CtLoc { ctl_env = lcl })
   = loc { ctl_env = lcl { tcl_ctxt = err : tcl_ctxt lcl } }
 
-pprArising :: CtOrigin -> SDoc
+pprArising :: (SrcAnnotation l) => CtOrigin l -> SDoc
 -- Used for the main, top-level error message
 -- We've done special processing for TypeEq and FunDep origins
 pprArising (TypeEqOrigin {}) = empty
 pprArising FunDepOrigin      = empty
 pprArising orig              = text "arising from" <+> ppr orig
 
-pprArisingAt :: CtLoc -> SDoc
+pprArisingAt :: (SrcAnnotation l) => CtLoc l -> SDoc
 pprArisingAt (CtLoc { ctl_origin = o, ctl_env = lcl})
   = sep [ text "arising from" <+> ppr o
         , text "at" <+> ppr (tcl_loc lcl)]
@@ -1776,7 +1776,7 @@ pprSkolInfo UnkSkol = WARN( True, text "pprSkolInfo: UnkSkol" ) ptext (sLit "Unk
 %************************************************************************
 
 \begin{code}
-data CtOrigin
+data CtOrigin l
   = GivenOrigin SkolemInfo
   | FlatSkolOrigin              -- Flatten-skolems created for Givens
                                 -- Note [When does an implication have given equalities?]
@@ -1792,15 +1792,15 @@ data CtOrigin
                  , uo_expected :: TcType }
   | KindEqOrigin
       TcType TcType             -- A kind equality arising from unifying these two types
-      CtOrigin                  -- originally arising from this
+      (CtOrigin l)              -- originally arising from this
 
   | IPOccOrigin  HsIPName       -- Occurrence of an implicit parameter
 
-  | LiteralOrigin (HsOverLit Name)      -- Occurrence of a literal
+  | LiteralOrigin (HsOverLit l Name) -- Occurrence of a literal
   | NegateOrigin                        -- Occurrence of syntactic negation
 
-  | ArithSeqOrigin (ArithSeqInfo Name) -- [x..], [x..y] etc
-  | PArrSeqOrigin  (ArithSeqInfo Name) -- [:x..y:] and [:x,y..z:]
+  | ArithSeqOrigin (ArithSeqInfo l Name) -- [x..], [x..y] etc
+  | PArrSeqOrigin  (ArithSeqInfo l Name) -- [:x..y:] and [:x,y..z:]
   | SectionOrigin
   | TupleOrigin                        -- (..,..)
   | AmbigOrigin UserTypeCtxt    -- Will be FunSigCtxt, InstDeclCtxt, or SpecInstCtxt
@@ -1829,7 +1829,7 @@ data CtOrigin
   | UnboundOccurrenceOf RdrName
   | ListOrigin          -- An overloaded list
 
-pprO :: CtOrigin -> SDoc
+pprO :: (SrcAnnotation l) => CtOrigin l -> SDoc
 pprO (GivenOrigin sk)      = ppr sk
 pprO FlatSkolOrigin        = ptext (sLit "a given flatten-skolem")
 pprO (OccurrenceOf name)   = hsep [ptext (sLit "a use of"), quotes (ppr name)]
@@ -1876,6 +1876,6 @@ pprO HoleOrigin            = ptext (sLit "a use of") <+> quotes (ptext $ sLit "_
 pprO (UnboundOccurrenceOf name) = hsep [ptext (sLit "an undeclared identifier"), quotes (ppr name)]
 pprO ListOrigin            = ptext (sLit "an overloaded list")
 
-instance Outputable CtOrigin where
+instance (SrcAnnotation l) => Outputable (CtOrigin l) where
   ppr = pprO
 \end{code}

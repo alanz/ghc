@@ -1274,7 +1274,7 @@ data InteractiveContext
     }
 
 data InteractiveImport
-  = IIDecl (ImportDecl RdrName)
+  = IIDecl (ImportDecl SrcSpan RdrName)
       -- ^ Bring the exports of a particular module
       -- (filtered by an import decl) into scope
 
@@ -2268,9 +2268,9 @@ data ModSummary
           -- ^ Timestamp of source file
         ms_obj_date     :: Maybe UTCTime,
           -- ^ Timestamp of object, if we have one
-        ms_srcimps      :: [Located (ImportDecl RdrName)],
+        ms_srcimps      :: [Located (ImportDecl SrcSpan RdrName)],
           -- ^ Source imports of the module
-        ms_textual_imps :: [Located (ImportDecl RdrName)],
+        ms_textual_imps :: [Located (ImportDecl SrcSpan RdrName)],
           -- ^ Non-source imports of the module from the module *text*
         ms_hspp_file    :: FilePath,
           -- ^ Filename of preprocessed source file
@@ -2284,7 +2284,7 @@ data ModSummary
 ms_mod_name :: ModSummary -> ModuleName
 ms_mod_name = moduleName . ms_mod
 
-ms_imps :: ModSummary -> [Located (ImportDecl RdrName)]
+ms_imps :: ModSummary -> [Located (ImportDecl SrcSpan RdrName)]
 ms_imps ms =
   ms_textual_imps ms ++
   map mk_additional_import (dynFlagDependencies (ms_hspp_opts ms))
@@ -2572,7 +2572,7 @@ instance Binary IfaceTrustInfo where
 
 \begin{code}
 data HsParsedModule = HsParsedModule {
-    hpm_module    :: Located (HsModule RdrName),
+    hpm_module    :: Located (HsModule SrcSpan RdrName),
     hpm_src_files :: [FilePath]
        -- ^ extra source files (e.g. from #includes).  The lexer collects
        -- these from '# <file> <line>' pragmas, which the C preprocessor
