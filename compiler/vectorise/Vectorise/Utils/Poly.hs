@@ -27,7 +27,7 @@ import Control.Monad
 -- The purpose of this function is to introduce the additional 'PA' dictionary arguments that are
 -- needed when vectorising type abstractions.
 --
-polyAbstract :: [TyVar] -> ([Var] -> VM a) -> VM a
+polyAbstract :: [TyVar] -> ([Var] -> VM l a) -> VM l a
 polyAbstract tvs p
   = localV
   $ do { mdicts <- mapM mk_dict_var tvs
@@ -48,7 +48,7 @@ polyAbstract tvs p
 -- |Determine the number of 'PA' dictionary arguments required for a set of type variables (depends
 -- on their kinds).
 --
-polyArity :: [TyVar] -> VM Int
+polyArity :: [TyVar] -> VM l Int
 polyArity tvs 
   = do { tys <- mapM paDictArgType tvs
        ; return $ length [() | Just _ <- tys]
@@ -56,7 +56,7 @@ polyArity tvs
 
 -- |Apply a expression to its type arguments as well as 'PA' dictionaries for these type arguments.
 --
-polyApply :: CoreExpr -> [Type] -> VM CoreExpr
+polyApply :: CoreExpr -> [Type] -> VM l CoreExpr
 polyApply expr tys
  = do { dicts <- mapM paDictOfType tys
       ; return $ expr `mkTyApps` tys `mkApps` dicts
@@ -65,7 +65,7 @@ polyApply expr tys
 -- |Apply a vectorised expression to a set of type arguments together with 'PA' dictionaries for 
 -- these type arguments.
 --
-polyVApply :: VExpr -> [Type] -> VM VExpr
+polyVApply :: VExpr -> [Type] -> VM l VExpr
 polyVApply expr tys
  = do { dicts <- mapM paDictOfType tys
       ; return $ mapVect (\e -> e `mkTyApps` tys `mkApps` dicts) expr

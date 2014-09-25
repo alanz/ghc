@@ -30,7 +30,7 @@ import Control.Monad
 --
 -- > forall (a :: * -> *). (forall (b :: *). PA b -> PA (a b)) -> PA (v a)
 --
-paDictArgType :: TyVar -> VM (Maybe Type)
+paDictArgType :: TyVar -> VM l (Maybe Type)
 paDictArgType tv = go (TyVarTy tv) (tyVarKind tv)
   where
     go ty (FunTy k1 k2)
@@ -54,13 +54,13 @@ paDictArgType tv = go (TyVarTy tv) (tyVarKind tv)
 
 -- |Get the PA dictionary for some type
 --
-paDictOfType :: Type -> VM CoreExpr
-paDictOfType ty 
+paDictOfType :: Type -> VM l CoreExpr
+paDictOfType ty
   = paDictOfTyApp ty_fn ty_args
   where
     (ty_fn, ty_args) = splitAppTys ty
 
-    paDictOfTyApp :: Type -> [Type] -> VM CoreExpr
+    paDictOfTyApp :: Type -> [Type] -> VM l CoreExpr
     paDictOfTyApp ty_fn ty_args
         | Just ty_fn' <- coreView ty_fn 
         = paDictOfTyApp ty_fn' ty_args
@@ -102,7 +102,7 @@ paDictOfType ty
 
 -- |Produce code that refers to a method of the 'PA' class.
 --
-paMethod :: (Builtins -> Var) -> (TyCon -> Builtins -> Var) -> Type -> VM CoreExpr
+paMethod :: (Builtins -> Var) -> (TyCon -> Builtins -> Var) -> Type -> VM l CoreExpr
 paMethod _ query ty
   | Just tycon <- splitPrimTyCon ty             -- Is 'ty' from 'GHC.Prim' (e.g., 'Int#')?
   = liftM Var $ builtin (query tycon)
@@ -115,7 +115,7 @@ paMethod method _ ty
 
 -- |Given a type @ty@, return the PR dictionary for @PRepr ty@.
 --
-prDictOfPReprInst :: Type -> VM CoreExpr
+prDictOfPReprInst :: Type -> VM l CoreExpr
 prDictOfPReprInst ty
   = do
     { (FamInstMatch { fim_instance = prepr_fam, fim_tys = prepr_args }) <- preprSynTyCon ty
@@ -137,7 +137,7 @@ prDictOfPReprInst ty
 --
 -- Note that @ty@ is only used for error messages
 --
-prDictOfPReprInstTyCon :: Type -> CoAxiom Unbranched -> [Type] -> VM CoreExpr
+prDictOfPReprInstTyCon :: Type -> CoAxiom Unbranched -> [Type] -> VM l CoreExpr
 prDictOfPReprInstTyCon _ty prepr_ax prepr_args
   = do
       let rhs = mkUnbranchedAxInstRHS prepr_ax prepr_args
@@ -151,7 +151,7 @@ prDictOfPReprInstTyCon _ty prepr_ax prepr_args
 -- |Get the PR dictionary for a type. The argument must be a representation
 -- type.
 --
-prDictOfReprType :: Type -> VM CoreExpr
+prDictOfReprType :: Type -> VM l CoreExpr
 prDictOfReprType ty
   | Just (tycon, tyargs) <- splitTyConApp_maybe ty
     = do
@@ -182,7 +182,7 @@ prDictOfReprType ty
         prsel <- builtin paPRSel
         return $ Var prsel `mkApps` [Type ty, pa]
 
-prDictOfReprType' :: Type -> VM CoreExpr
+prDictOfReprType' :: Type -> VM l CoreExpr
 prDictOfReprType' ty = prDictOfReprType ty `orElseV`
                        do dflags <- getDynFlags
                           cantVectorise dflags "No PR dictionary for representation type"
@@ -190,7 +190,7 @@ prDictOfReprType' ty = prDictOfReprType ty `orElseV`
 
 -- | Apply a tycon's PR dfun to dictionary arguments (PR or PA) corresponding
 -- to the argument types.
-prDFunApply :: Var -> [Type] -> VM CoreExpr
+prDFunApply :: Var -> [Type] -> VM l CoreExpr
 prDFunApply dfun tys
   | Just [] <- ctxs    -- PR (a :-> b) doesn't have a context
   = return $ Var dfun `mkTyApps` tys

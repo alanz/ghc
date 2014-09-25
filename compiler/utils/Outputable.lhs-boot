@@ -1,8 +1,7 @@
 
 \begin{code}
-{-# LANGUAGE KindSignatures #-}
 module Outputable where
 
-data SDoc (l :: *)
+data SDoc
 \end{code}
 

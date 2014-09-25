@@ -1,13 +1,12 @@
-{-# LANGUAGE KindSignatures #-}
 module DynFlags where
 
 import Platform
 
-data DynFlags (l :: *)
+data DynFlags
 
-targetPlatform       :: DynFlags l -> Platform
-pprUserLength        :: DynFlags l -> Int
-pprCols              :: DynFlags l -> Int
-unsafeGlobalDynFlags :: DynFlags l
-useUnicode     :: DynFlags l -> Bool
-useUnicodeSyntax     :: DynFlags l -> Bool
+targetPlatform       :: DynFlags -> Platform
+pprUserLength        :: DynFlags -> Int
+pprCols              :: DynFlags -> Int
+unsafeGlobalDynFlags :: DynFlags
+useUnicode     :: DynFlags -> Bool
+useUnicodeSyntax     :: DynFlags -> Bool

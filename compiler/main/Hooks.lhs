@@ -37,7 +37,7 @@ import RdrName
 import CoreSyn
 import BasicTypes
 import Type
-import SrcLoc
+-- import SrcLoc
 
 import Data.Maybe
 \end{code}
@@ -97,8 +97,13 @@ data Hooks l = Hooks
 getHooked :: (Functor f, HasDynFlags f) => (Hooks l -> Maybe a) -> a -> f a
 getHooked hook def = fmap (lookupHook hook def) getDynFlags
 
-lookupHook :: (Hooks l -> Maybe a) -> a -> DynFlags l -> a
-lookupHook hook def = fromMaybe def . hook . hooks
+-- lookupHook :: (Hooks l -> Maybe a) -> a -> DynFlags -> a
+lookupHook :: (Hooks l -> Maybe a) -> a -> DynFlags -> a
+lookupHook hook def _ = fromMaybe def . hook $ hooks
+
+-- ++AZ++ temporary
+hooks :: Hooks l
+hooks = emptyHooks
 
 \end{code}
 

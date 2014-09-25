@@ -2054,8 +2054,8 @@ genAuxBindSpec loc (DerivMaxTag tycon)
     max_tag =  case (tyConDataCons tycon) of
                  data_cons -> toInteger ((length data_cons) - fIRST_TAG)
 
-type SeparateBagsDerivStuff = -- AuxBinds and SYB bindings
-                              ( Bag (LHsBind RdrName, LSig RdrName)
+type SeparateBagsDerivStuff l = -- AuxBinds and SYB bindings
+                              ( Bag (LHsBind l RdrName, LSig l RdrName)
                                 -- Extra bindings (used by Generic only)
                               , Bag TyCon   -- Extra top-level datatypes
                               , Bag (FamInst)           -- Extra family instances

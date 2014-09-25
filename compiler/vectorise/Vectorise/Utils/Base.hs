@@ -46,13 +46,13 @@ import FastString
 
 -- Simple Types ---------------------------------------------------------------
 
-voidType :: VM Type
+voidType :: VM l Type
 voidType = mkBuiltinTyConApp voidTyCon []
 
 
 -- Name Generation ------------------------------------------------------------
 
-newLocalVVar :: FastString -> Type -> VM VVar
+newLocalVVar :: FastString -> Type -> VM l VVar
 newLocalVVar fs vty
   = do
       lty <- mkPDataType vty
@@ -74,32 +74,32 @@ dataConTagZ con = dataConTag con - fIRST_TAG
 
 -- |Make an application of the 'Wrap' type constructor.
 --
-mkWrapType :: Type -> VM Type
+mkWrapType :: Type -> VM l Type
 mkWrapType ty = mkBuiltinTyConApp wrapTyCon [ty]
 
 -- |Make an application of the closure type constructor.
 --
-mkClosureTypes :: [Type] -> Type -> VM Type
+mkClosureTypes :: [Type] -> Type -> VM l Type
 mkClosureTypes = mkBuiltinTyConApps closureTyCon
 
 -- |Make an application of the 'PRepr' type constructor.
 --
-mkPReprType :: Type -> VM Type
+mkPReprType :: Type -> VM l Type
 mkPReprType ty = mkBuiltinTyConApp preprTyCon [ty]
 
 -- | Make an appliction of the 'PData' tycon to some argument.
 --
-mkPDataType :: Type -> VM Type
+mkPDataType :: Type -> VM l Type
 mkPDataType ty = mkBuiltinTyConApp pdataTyCon [ty]
 
 -- | Make an application of the 'PDatas' tycon to some argument.
 --
-mkPDatasType :: Type -> VM Type
+mkPDatasType :: Type -> VM l Type
 mkPDatasType ty = mkBuiltinTyConApp pdatasTyCon [ty]
 
 -- Make an application of a builtin type constructor to some arguments.
 --
-mkBuiltinTyConApp :: (Builtins -> TyCon) -> [Type] -> VM Type
+mkBuiltinTyConApp :: (Builtins -> TyCon) -> [Type] -> VM l Type
 mkBuiltinTyConApp get_tc tys
   = do { tc <- builtin get_tc
        ; return $ mkTyConApp tc tys
@@ -107,7 +107,7 @@ mkBuiltinTyConApp get_tc tys
 
 -- Make a cascading application of a builtin type constructor.
 --
-mkBuiltinTyConApps :: (Builtins -> TyCon) -> [Type] -> Type -> VM Type
+mkBuiltinTyConApps :: (Builtins -> TyCon) -> [Type] -> Type -> VM l Type
 mkBuiltinTyConApps get_tc tys ty
  = do { tc <- builtin get_tc
       ; return $ foldr (mk tc) ty tys
@@ -132,7 +132,7 @@ splitPrimTyCon ty
 
 -- |Make a representational coersion to some builtin type.
 --
-mkBuiltinCo :: (Builtins -> TyCon) -> VM Coercion
+mkBuiltinCo :: (Builtins -> TyCon) -> VM l Coercion
 mkBuiltinCo get_tc
   = do { tc <- builtin get_tc
        ; return $ mkTyConAppCo Representational tc []
@@ -143,7 +143,7 @@ mkBuiltinCo get_tc
 
 -- |Apply the constructor wrapper of the 'Wrap' /newtype/.
 --
-wrapNewTypeBodyOfWrap :: CoreExpr -> Type -> VM CoreExpr
+wrapNewTypeBodyOfWrap :: CoreExpr -> Type -> VM l CoreExpr
 wrapNewTypeBodyOfWrap e ty
   = do { wrap_tc <- builtin wrapTyCon
        ; return $ wrapNewTypeBody wrap_tc [ty] e
@@ -151,7 +151,7 @@ wrapNewTypeBodyOfWrap e ty
 
 -- |Strip the constructor wrapper of the 'Wrap' /newtype/.
 --
-unwrapNewTypeBodyOfWrap :: CoreExpr -> Type -> VM CoreExpr
+unwrapNewTypeBodyOfWrap :: CoreExpr -> Type -> VM l CoreExpr
 unwrapNewTypeBodyOfWrap e ty
   = do { wrap_tc <- builtin wrapTyCon
        ; return $ unwrapNewTypeBody wrap_tc [ty] e
@@ -159,7 +159,7 @@ unwrapNewTypeBodyOfWrap e ty
 
 -- |Apply the constructor wrapper of the 'PData' /newtype/ instance of 'Wrap'.
 --
-wrapNewTypeBodyOfPDataWrap :: CoreExpr -> Type -> VM CoreExpr
+wrapNewTypeBodyOfPDataWrap :: CoreExpr -> Type -> VM l CoreExpr
 wrapNewTypeBodyOfPDataWrap e ty
   = do { wrap_tc  <- builtin wrapTyCon
        ; pwrap_tc <- pdataReprTyConExact wrap_tc
@@ -168,7 +168,7 @@ wrapNewTypeBodyOfPDataWrap e ty
 
 -- |Strip the constructor wrapper of the 'PData' /newtype/ instance of 'Wrap'.
 --
-unwrapNewTypeBodyOfPDataWrap :: CoreExpr -> Type -> VM CoreExpr
+unwrapNewTypeBodyOfPDataWrap :: CoreExpr -> Type -> VM l CoreExpr
 unwrapNewTypeBodyOfPDataWrap e ty
   = do { wrap_tc  <- builtin wrapTyCon
        ; pwrap_tc <- pdataReprTyConExact wrap_tc
@@ -177,7 +177,7 @@ unwrapNewTypeBodyOfPDataWrap e ty
 
 -- |Apply the constructor wrapper of the 'PDatas' /newtype/ instance of 'Wrap'.
 --
-wrapNewTypeBodyOfPDatasWrap :: CoreExpr -> Type -> VM CoreExpr
+wrapNewTypeBodyOfPDatasWrap :: CoreExpr -> Type -> VM l CoreExpr
 wrapNewTypeBodyOfPDatasWrap e ty
   = do { wrap_tc  <- builtin wrapTyCon
        ; pwrap_tc <- pdatasReprTyConExact wrap_tc
@@ -186,7 +186,7 @@ wrapNewTypeBodyOfPDatasWrap e ty
 
 -- |Strip the constructor wrapper of the 'PDatas' /newtype/ instance of 'Wrap'.
 --
-unwrapNewTypeBodyOfPDatasWrap :: CoreExpr -> Type -> VM CoreExpr
+unwrapNewTypeBodyOfPDatasWrap :: CoreExpr -> Type -> VM l CoreExpr
 unwrapNewTypeBodyOfPDatasWrap e ty
   = do { wrap_tc  <- builtin wrapTyCon
        ; pwrap_tc <- pdatasReprTyConExact wrap_tc
@@ -206,10 +206,10 @@ unwrapNewTypeBodyOfPDatasWrap e ty
 -- The type for which we look up a 'PData' instance may be more specific than the type in the
 -- instance declaration.  In that case the second component of the result will be more specific than
 -- a set of distinct type variables.
--- 
-pdataReprTyCon :: Type -> VM (TyCon, [Type])
-pdataReprTyCon ty 
-  = do 
+--
+pdataReprTyCon :: Type -> VM l (TyCon, [Type])
+pdataReprTyCon ty
+  = do
     { FamInstMatch { fim_instance = famInst
                    , fim_tys      = tys } <- builtin pdataTyCon >>= (`lookupFamInst` [ty])
     ; return (dataFamInstRepTyCon famInst, tys)
@@ -220,7 +220,7 @@ pdataReprTyCon ty
 -- For example, for a binary type constructor 'T', we determine the representation type constructor
 -- for 'PData (T a b)'.
 --
-pdataReprTyConExact :: TyCon -> VM TyCon
+pdataReprTyConExact :: TyCon -> VM l TyCon
 pdataReprTyConExact tycon
   = do {   -- look up the representation tycon; if there is a match at all, it will be be exact
        ;   -- (i.e.,' _tys' will be distinct type variables)
@@ -233,7 +233,7 @@ pdataReprTyConExact tycon
 -- For example, for a binary type constructor 'T', we determine the representation type constructor
 -- for 'PDatas (T a b)'.
 --
-pdatasReprTyConExact :: TyCon -> VM TyCon
+pdatasReprTyConExact :: TyCon -> VM l TyCon
 pdatasReprTyConExact tycon
   = do {   -- look up the representation tycon; if there is a match at all, it will be be exact
        ; (FamInstMatch { fim_instance = ptycon }) <- pdatasReprTyCon (tycon `mkTyConApp` mkTyVarTys (tyConTyVars tycon))
@@ -244,7 +244,7 @@ pdatasReprTyConExact tycon
 
 -- |Unwrap a 'PData' representation scrutinee.
 --
-pdataUnwrapScrut :: VExpr -> VM (CoreExpr, CoreExpr, DataCon)
+pdataUnwrapScrut :: VExpr -> VM l (CoreExpr, CoreExpr, DataCon)
 pdataUnwrapScrut (ve, le)
   = do { (tc, arg_tys) <- pdataReprTyCon ty
        ; let [dc] = tyConDataCons tc
@@ -258,5 +258,5 @@ pdataUnwrapScrut (ve, le)
 
 -- |Get the representation tycon of the 'PRepr' type family for a given type.
 --
-preprSynTyCon :: Type -> VM FamInstMatch
+preprSynTyCon :: Type -> VM l FamInstMatch
 preprSynTyCon ty = builtin preprTyCon >>= (`lookupFamInst` [ty])

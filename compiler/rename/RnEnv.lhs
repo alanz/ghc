@@ -107,7 +107,7 @@ newTopSrcBinder (L loc rdr_name)
          ; occ `seq` return ()  -- c.f. seq in newGlobalBinder
          ; this_mod <- getModule
          ; updNameCache $ \ ns ->
-           let name' = mkExternalName (nameUnique name) this_mod occ loc
+           let name' = mkExternalName (nameUnique name) this_mod occ (annGetLoc loc)
                ns'   = ns { nsNames = extendNameCache (nsNames ns) this_mod occ name' }
            in (ns', name') }
 
@@ -1342,14 +1342,14 @@ check_dup_names names
     (_, dups) = removeDups (\n1 n2 -> nameOccName n1 `compare` nameOccName n2) names
 
 ---------------------
-checkShadowedRdrNames :: [GenLocated l RdrName] -> RnM l ()
+checkShadowedRdrNames :: (ApiAnnotation l) => [GenLocated l RdrName] -> RnM l ()
 checkShadowedRdrNames loc_rdr_names
   = do { envs <- getRdrEnvs
        ; checkShadowedOccs envs get_loc_occ filtered_rdrs }
   where
     filtered_rdrs = filterOut (isExact . unLoc) loc_rdr_names
                 -- See Note [Binders in Template Haskell] in Convert
-    get_loc_occ (L loc rdr) = (loc,rdrNameOcc rdr)
+    get_loc_occ (L loc rdr) = (annGetLoc loc,rdrNameOcc rdr)
 
 checkDupAndShadowedNames :: (GlobalRdrEnv, LocalRdrEnv) -> [Name] -> RnM l ()
 checkDupAndShadowedNames envs names

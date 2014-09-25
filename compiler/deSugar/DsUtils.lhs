@@ -96,7 +96,7 @@ hand, which should indeed be bound to the pattern as a whole, then use it;
 otherwise, make one up.
 
 \begin{code}
-selectSimpleMatchVarL :: LPat Id -> DsM Id
+selectSimpleMatchVarL :: LPat l Id -> DsM l Id
 selectSimpleMatchVarL pat = selectMatchVar (unLoc pat)
 
 -- (selectMatchVars ps tys) chooses variables of type tys
@@ -115,10 +115,10 @@ selectSimpleMatchVarL pat = selectMatchVar (unLoc pat)
 --    Then we must not choose (x::Int) as the matching variable!
 -- And nowadays we won't, because the (x::Int) will be wrapped in a CoPat
 
-selectMatchVars :: [Pat Id] -> DsM [Id]
+selectMatchVars :: [Pat l Id] -> DsM l [Id]
 selectMatchVars ps = mapM selectMatchVar ps
 
-selectMatchVar :: Pat Id -> DsM Id
+selectMatchVar :: Pat l Id -> DsM l Id
 selectMatchVar (BangPat pat) = selectMatchVar (unLoc pat)
 selectMatchVar (LazyPat pat) = selectMatchVar (unLoc pat)
 selectMatchVar (ParPat pat)  = selectMatchVar (unLoc pat)
@@ -177,10 +177,10 @@ The ``equation info'' used by @match@ is relatively complicated and
 worthy of a type synonym and a few handy functions.
 
 \begin{code}
-firstPat :: EquationInfo -> Pat Id
+firstPat :: EquationInfo l -> Pat l Id
 firstPat eqn = ASSERT( notNull (eqn_pats eqn) ) head (eqn_pats eqn)
 
-shiftEqns :: [EquationInfo] -> [EquationInfo]
+shiftEqns :: [EquationInfo l] -> [EquationInfo l]
 -- Drop the first pattern in each equation
 shiftEqns eqns = [ eqn { eqn_pats = tail (eqn_pats eqn) } | eqn <- eqns ]
 \end{code}
@@ -188,17 +188,17 @@ shiftEqns eqns = [ eqn { eqn_pats = tail (eqn_pats eqn) } | eqn <- eqns ]
 Functions on MatchResults
 
 \begin{code}
-matchCanFail :: MatchResult -> Bool
+matchCanFail :: MatchResult l -> Bool
 matchCanFail (MatchResult CanFail _)  = True
 matchCanFail (MatchResult CantFail _) = False
 
-alwaysFailMatchResult :: MatchResult
+alwaysFailMatchResult :: MatchResult l
 alwaysFailMatchResult = MatchResult CanFail (\fail -> return fail)
 
-cantFailMatchResult :: CoreExpr -> MatchResult
+cantFailMatchResult :: CoreExpr -> MatchResult l
 cantFailMatchResult expr = MatchResult CantFail (\_ -> return expr)
 
-extractMatchResult :: MatchResult -> CoreExpr -> DsM CoreExpr
+extractMatchResult :: MatchResult l -> CoreExpr -> DsM l CoreExpr
 extractMatchResult (MatchResult CantFail match_fn) _
   = match_fn (error "It can't fail!")
 
@@ -208,7 +208,7 @@ extractMatchResult (MatchResult CanFail match_fn) fail_expr = do
     return (mkCoreLet fail_bind body)
 
 
-combineMatchResults :: MatchResult -> MatchResult -> MatchResult
+combineMatchResults :: MatchResult l -> MatchResult l -> MatchResult l
 combineMatchResults (MatchResult CanFail      body_fn1)
                     (MatchResult can_it_fail2 body_fn2)
   = MatchResult can_it_fail2 body_fn
@@ -221,11 +221,12 @@ combineMatchResults (MatchResult CanFail      body_fn1)
 combineMatchResults match_result1@(MatchResult CantFail _) _
   = match_result1
 
-adjustMatchResult :: DsWrapper -> MatchResult -> MatchResult
+adjustMatchResult :: DsWrapper -> MatchResult l -> MatchResult l
 adjustMatchResult encl_fn (MatchResult can_it_fail body_fn)
   = MatchResult can_it_fail (\fail -> encl_fn <$> body_fn fail)
 
-adjustMatchResultDs :: (CoreExpr -> DsM CoreExpr) -> MatchResult -> MatchResult
+adjustMatchResultDs :: (CoreExpr -> DsM l CoreExpr) -> MatchResult l
+                    -> MatchResult l
 adjustMatchResultDs encl_fn (MatchResult can_it_fail body_fn)
   = MatchResult can_it_fail (\fail -> encl_fn =<< body_fn fail)
 
@@ -242,16 +243,16 @@ seqVar :: Var -> CoreExpr -> CoreExpr
 seqVar var body = Case (Var var) var (exprType body)
 			[(DEFAULT, [], body)]
 
-mkCoLetMatchResult :: CoreBind -> MatchResult -> MatchResult
+mkCoLetMatchResult :: CoreBind -> MatchResult l -> MatchResult l
 mkCoLetMatchResult bind = adjustMatchResult (mkCoreLet bind)
 
 -- (mkViewMatchResult var' viewExpr var mr) makes the expression
 -- let var' = viewExpr var in mr
-mkViewMatchResult :: Id -> CoreExpr -> Id -> MatchResult -> MatchResult
+mkViewMatchResult :: Id -> CoreExpr -> Id -> MatchResult l -> MatchResult l
 mkViewMatchResult var' viewExpr var = 
     adjustMatchResult (mkCoreLet (NonRec var' (mkCoreAppDs viewExpr (Var var))))
 
-mkEvalMatchResult :: Id -> Type -> MatchResult -> MatchResult
+mkEvalMatchResult :: Id -> Type -> MatchResult l -> MatchResult l
 mkEvalMatchResult var ty
   = adjustMatchResult (\e -> Case (Var var) var ty [(DEFAULT, [], e)]) 
 
@@ -277,10 +278,10 @@ mkCoPrimCaseMatchResult var ty match_alts
          do body <- body_fn fail
             return (LitAlt lit, [], body)
 
-data CaseAlt a = MkCaseAlt{ alt_pat :: a,
-                            alt_bndrs :: [CoreBndr],
-                            alt_wrapper :: HsWrapper,
-                            alt_result :: MatchResult }
+data CaseAlt l a = MkCaseAlt{ alt_pat :: a,
+                              alt_bndrs :: [CoreBndr],
+                              alt_wrapper :: HsWrapper,
+                              alt_result :: MatchResult l }
 
 mkCoAlgCaseMatchResult 
   :: DynFlags

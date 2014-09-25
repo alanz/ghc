@@ -152,7 +152,7 @@ import Platform
 import PlatformConstants
 import Module
 import PackageConfig
-import {-# SOURCE #-} Hooks
+-- import {-# SOURCE #-} Hooks
 import {-# SOURCE #-} PrelNames ( mAIN )
 import {-# SOURCE #-} Packages (PackageState)
 import DriverPhases     ( Phase(..), phaseInputExt )
@@ -593,7 +593,7 @@ data ExtensionFlag
 
 -- | Contains not only a collection of 'GeneralFlag's but also a plethora of
 -- information relating to the compilation of a single file or GHC session
-data DynFlags l = DynFlags {
+data DynFlags = DynFlags {
   ghcMode               :: GhcMode,
   ghcLink               :: GhcLink,
   hscTarget             :: HscTarget,
@@ -696,7 +696,7 @@ data DynFlags l = DynFlags {
   pluginModNameOpts     :: [(ModuleName,String)],
 
   -- GHC API hooks
-  hooks                 :: Hooks l,
+  -- hooks                 :: Hooks l,
 
   --  For ghc -M
   depMakefile           :: FilePath,
@@ -771,7 +771,7 @@ data DynFlags l = DynFlags {
   ghciHistSize          :: Int,
 
   -- | MsgDoc output action: use "ErrUtils" instead of this if you can
-  log_action            :: LogAction l,
+  log_action            :: LogAction,
   flushOut              :: FlushOut,
   flushErr              :: FlushErr,
 
@@ -827,8 +827,8 @@ class HasDynFlags m where
     getDynFlags :: m DynFlags
 
 class ContainsDynFlags t where
-    extractDynFlags :: t -> DynFlags l
-    replaceDynFlags :: t -> DynFlags l -> t
+    extractDynFlags :: t -> DynFlags
+    replaceDynFlags :: t -> DynFlags -> t
 
 data ProfAuto
   = NoProfAuto         -- ^ no SCC annotations added
@@ -882,71 +882,71 @@ data Settings = Settings {
   sPlatformConstants     :: PlatformConstants
  }
 
-targetPlatform :: DynFlags l -> Platform
+targetPlatform :: DynFlags -> Platform
 targetPlatform dflags = sTargetPlatform (settings dflags)
 
-ghcUsagePath          :: DynFlags l -> FilePath
+ghcUsagePath          :: DynFlags -> FilePath
 ghcUsagePath dflags = sGhcUsagePath (settings dflags)
-ghciUsagePath         :: DynFlags l -> FilePath
+ghciUsagePath         :: DynFlags -> FilePath
 ghciUsagePath dflags = sGhciUsagePath (settings dflags)
-topDir                :: DynFlags l -> FilePath
+topDir                :: DynFlags -> FilePath
 topDir dflags = sTopDir (settings dflags)
-tmpDir                :: DynFlags l -> String
+tmpDir                :: DynFlags -> String
 tmpDir dflags = sTmpDir (settings dflags)
-rawSettings           :: DynFlags l -> [(String, String)]
+rawSettings           :: DynFlags -> [(String, String)]
 rawSettings dflags = sRawSettings (settings dflags)
-extraGccViaCFlags     :: DynFlags l -> [String]
+extraGccViaCFlags     :: DynFlags -> [String]
 extraGccViaCFlags dflags = sExtraGccViaCFlags (settings dflags)
-systemPackageConfig   :: DynFlags l -> FilePath
+systemPackageConfig   :: DynFlags -> FilePath
 systemPackageConfig dflags = sSystemPackageConfig (settings dflags)
-pgm_L                 :: DynFlags l -> String
+pgm_L                 :: DynFlags -> String
 pgm_L dflags = sPgm_L (settings dflags)
-pgm_P                 :: DynFlags l -> (String,[Option])
+pgm_P                 :: DynFlags -> (String,[Option])
 pgm_P dflags = sPgm_P (settings dflags)
-pgm_F                 :: DynFlags l -> String
+pgm_F                 :: DynFlags -> String
 pgm_F dflags = sPgm_F (settings dflags)
-pgm_c                 :: DynFlags l -> (String,[Option])
+pgm_c                 :: DynFlags -> (String,[Option])
 pgm_c dflags = sPgm_c (settings dflags)
-pgm_s                 :: DynFlags l -> (String,[Option])
+pgm_s                 :: DynFlags -> (String,[Option])
 pgm_s dflags = sPgm_s (settings dflags)
-pgm_a                 :: DynFlags l -> (String,[Option])
+pgm_a                 :: DynFlags -> (String,[Option])
 pgm_a dflags = sPgm_a (settings dflags)
-pgm_l                 :: DynFlags l -> (String,[Option])
+pgm_l                 :: DynFlags -> (String,[Option])
 pgm_l dflags = sPgm_l (settings dflags)
-pgm_dll               :: DynFlags l -> (String,[Option])
+pgm_dll               :: DynFlags -> (String,[Option])
 pgm_dll dflags = sPgm_dll (settings dflags)
-pgm_T                 :: DynFlags l -> String
+pgm_T                 :: DynFlags -> String
 pgm_T dflags = sPgm_T (settings dflags)
-pgm_sysman            :: DynFlags l -> String
+pgm_sysman            :: DynFlags -> String
 pgm_sysman dflags = sPgm_sysman (settings dflags)
-pgm_windres           :: DynFlags l -> String
+pgm_windres           :: DynFlags -> String
 pgm_windres dflags = sPgm_windres (settings dflags)
-pgm_libtool           :: DynFlags l -> String
+pgm_libtool           :: DynFlags -> String
 pgm_libtool dflags = sPgm_libtool (settings dflags)
-pgm_lo                :: DynFlags l -> (String,[Option])
+pgm_lo                :: DynFlags -> (String,[Option])
 pgm_lo dflags = sPgm_lo (settings dflags)
-pgm_lc                :: DynFlags l -> (String,[Option])
+pgm_lc                :: DynFlags -> (String,[Option])
 pgm_lc dflags = sPgm_lc (settings dflags)
-opt_L                 :: DynFlags l -> [String]
+opt_L                 :: DynFlags -> [String]
 opt_L dflags = sOpt_L (settings dflags)
-opt_P                 :: DynFlags l -> [String]
+opt_P                 :: DynFlags -> [String]
 opt_P dflags = concatMap (wayOptP (targetPlatform dflags)) (ways dflags)
             ++ sOpt_P (settings dflags)
-opt_F                 :: DynFlags l -> [String]
+opt_F                 :: DynFlags -> [String]
 opt_F dflags = sOpt_F (settings dflags)
-opt_c                 :: DynFlags l -> [String]
+opt_c                 :: DynFlags -> [String]
 opt_c dflags = concatMap (wayOptc (targetPlatform dflags)) (ways dflags)
             ++ sOpt_c (settings dflags)
-opt_a                 :: DynFlags l -> [String]
+opt_a                 :: DynFlags -> [String]
 opt_a dflags = sOpt_a (settings dflags)
-opt_l                 :: DynFlags l -> [String]
+opt_l                 :: DynFlags -> [String]
 opt_l dflags = concatMap (wayOptl (targetPlatform dflags)) (ways dflags)
             ++ sOpt_l (settings dflags)
-opt_windres           :: DynFlags l -> [String]
+opt_windres           :: DynFlags -> [String]
 opt_windres dflags = sOpt_windres (settings dflags)
-opt_lo                :: DynFlags l -> [String]
+opt_lo                :: DynFlags -> [String]
 opt_lo dflags = sOpt_lo (settings dflags)
-opt_lc                :: DynFlags l -> [String]
+opt_lc                :: DynFlags -> [String]
 opt_lc dflags = sOpt_lc (settings dflags)
 
 -- | The target code type of the compilation (if any).
@@ -1051,7 +1051,7 @@ defaultObjectTarget platform
   | cGhcWithNativeCodeGen == "YES"      =  HscAsm
   | otherwise                           =  HscLlvm
 
-tablesNextToCode :: DynFlags l -> Bool
+tablesNextToCode :: DynFlags -> Bool
 tablesNextToCode dflags
     = mkTablesNextToCode (platformUnregisterised (targetPlatform dflags))
 
@@ -1192,7 +1192,7 @@ wayUnsetGeneralFlags _ WayPar      = []
 wayUnsetGeneralFlags _ WayGran     = []
 wayUnsetGeneralFlags _ WayNDP      = []
 
-wayExtras :: Platform -> Way -> DynFlags l -> DynFlags l
+wayExtras :: Platform -> Way -> DynFlags -> DynFlags
 wayExtras _ (WayCustom {}) dflags = dflags
 wayExtras _ WayThreaded dflags = dflags
 wayExtras _ WayDebug    dflags = dflags
@@ -1251,22 +1251,22 @@ wayOptP _ WayPar      = ["-D__PARALLEL_HASKELL__"]
 wayOptP _ WayGran     = ["-D__GRANSIM__"]
 wayOptP _ WayNDP      = []
 
-whenGeneratingDynamicToo :: MonadIO m => DynFlags l -> m () -> m ()
+whenGeneratingDynamicToo :: MonadIO m => DynFlags -> m () -> m ()
 whenGeneratingDynamicToo dflags f = ifGeneratingDynamicToo dflags f (return ())
 
-ifGeneratingDynamicToo :: MonadIO m => DynFlags l -> m a -> m a -> m a
+ifGeneratingDynamicToo :: MonadIO m => DynFlags -> m a -> m a -> m a
 ifGeneratingDynamicToo dflags f g = generateDynamicTooConditional dflags f g g
 
-whenCannotGenerateDynamicToo :: MonadIO m => DynFlags l -> m () -> m ()
+whenCannotGenerateDynamicToo :: MonadIO m => DynFlags -> m () -> m ()
 whenCannotGenerateDynamicToo dflags f
     = ifCannotGenerateDynamicToo dflags f (return ())
 
-ifCannotGenerateDynamicToo :: MonadIO m => DynFlags l -> m a -> m a -> m a
+ifCannotGenerateDynamicToo :: MonadIO m => DynFlags -> m a -> m a -> m a
 ifCannotGenerateDynamicToo dflags f g
     = generateDynamicTooConditional dflags g f g
 
 generateDynamicTooConditional :: MonadIO m
-                              => DynFlags l -> m a -> m a -> m a -> m a
+                              => DynFlags -> m a -> m a -> m a -> m a
 generateDynamicTooConditional dflags canGen cannotGen notTryingToGen
     = if gopt Opt_BuildDynamicToo dflags
       then do let ref = canGenerateDynamicToo dflags
@@ -1274,7 +1274,7 @@ generateDynamicTooConditional dflags canGen cannotGen notTryingToGen
               if b then canGen else cannotGen
       else notTryingToGen
 
-dynamicTooMkDynamicDynFlags :: DynFlags l -> DynFlags l
+dynamicTooMkDynamicDynFlags :: DynFlags -> DynFlags
 dynamicTooMkDynamicDynFlags dflags0
     = let dflags1 = addWay' WayDyn dflags0
           dflags2 = dflags1 {
@@ -1289,7 +1289,7 @@ dynamicTooMkDynamicDynFlags dflags0
 -----------------------------------------------------------------------------
 
 -- | Used by 'GHC.runGhc' to partially initialize a new 'DynFlags' value
-initDynFlags :: DynFlags l -> IO (DynFlags l)
+initDynFlags :: DynFlags -> IO (DynFlags)
 initDynFlags dflags = do
  let -- We can't build with dynamic-too on Windows, as labels before
      -- the fork point are different depending on whether we are
@@ -1328,7 +1328,7 @@ initDynFlags dflags = do
 
 -- | The normal 'DynFlags'. Note that they is not suitable for use in this form
 -- and must be fully initialized by 'GHC.runGhc' first.
-defaultDynFlags :: Settings -> DynFlags l
+defaultDynFlags :: Settings -> DynFlags
 defaultDynFlags mySettings =
      DynFlags {
         ghcMode                 = CompManager,
@@ -1384,7 +1384,7 @@ defaultDynFlags mySettings =
 
         pluginModNames          = [],
         pluginModNameOpts       = [],
-        hooks                   = emptyHooks,
+        -- hooks                   = emptyHooks,
 
         outputFile              = Nothing,
         dynOutputFile           = Nothing,
@@ -1497,12 +1497,12 @@ interpWays = if dynamicGhc
 --------------------------------------------------------------------------
 
 type FatalMessager = String -> IO ()
-type LogAction l = DynFlags l -> Severity -> SrcSpan -> PprStyle -> MsgDoc -> IO ()
+type LogAction = DynFlags -> Severity -> SrcSpan -> PprStyle -> MsgDoc -> IO ()
 
 defaultFatalMessager :: FatalMessager
 defaultFatalMessager = hPutStrLn stderr
 
-defaultLogAction :: LogAction l
+defaultLogAction :: LogAction
 defaultLogAction dflags severity srcSpan style msg
     = case severity of
       SevOutput      -> printSDoc msg style
@@ -1520,12 +1520,12 @@ defaultLogAction dflags severity srcSpan style msg
           printErrs  = defaultLogActionHPrintDoc  dflags stderr
           putStrSDoc = defaultLogActionHPutStrDoc dflags stdout
 
-defaultLogActionHPrintDoc :: DynFlags l -> Handle -> SDoc -> PprStyle -> IO ()
+defaultLogActionHPrintDoc :: DynFlags -> Handle -> SDoc -> PprStyle -> IO ()
 defaultLogActionHPrintDoc dflags h d sty
  = defaultLogActionHPutStrDoc dflags h (d $$ text "") sty
       -- Adds a newline
 
-defaultLogActionHPutStrDoc :: DynFlags l -> Handle -> SDoc -> PprStyle -> IO ()
+defaultLogActionHPutStrDoc :: DynFlags -> Handle -> SDoc -> PprStyle -> IO ()
 defaultLogActionHPutStrDoc dflags h d sty
   = Pretty.printDoc_ Pretty.PageMode (pprCols dflags) h doc
   where   -- Don't add a newline at the end, so that successive
@@ -1542,13 +1542,13 @@ newtype FlushErr = FlushErr (IO ())
 defaultFlushErr :: FlushErr
 defaultFlushErr = FlushErr $ hFlush stderr
 
-printOutputForUser :: DynFlags l -> PrintUnqualified -> SDoc -> IO ()
+printOutputForUser :: DynFlags -> PrintUnqualified -> SDoc -> IO ()
 printOutputForUser = printSevForUser SevOutput
 
-printInfoForUser :: DynFlags l -> PrintUnqualified -> SDoc -> IO ()
+printInfoForUser :: DynFlags -> PrintUnqualified -> SDoc -> IO ()
 printInfoForUser = printSevForUser SevInfo
 
-printSevForUser :: Severity -> DynFlags l -> PrintUnqualified -> SDoc -> IO ()
+printSevForUser :: Severity -> DynFlags -> PrintUnqualified -> SDoc -> IO ()
 printSevForUser sev dflags unqual doc
     = log_action dflags dflags sev noSrcSpan (mkUserStyle unqual AllTheWay) doc
 
@@ -1613,7 +1613,7 @@ languageExtensions (Just Haskell2010)
        Opt_RelaxedPolyRec]
 
 -- | Test whether a 'DumpFlag' is set
-dopt :: DumpFlag -> DynFlags l -> Bool
+dopt :: DumpFlag -> DynFlags -> Bool
 dopt f dflags = (fromEnum f `IntSet.member` dumpFlags dflags)
              || (verbosity dflags >= 4 && enableIfVerbose f)
     where enableIfVerbose Opt_D_dump_tc_trace               = False
@@ -1644,63 +1644,63 @@ dopt f dflags = (fromEnum f `IntSet.member` dumpFlags dflags)
           enableIfVerbose _                                 = True
 
 -- | Set a 'DumpFlag'
-dopt_set :: DynFlags l -> DumpFlag -> DynFlags l
+dopt_set :: DynFlags -> DumpFlag -> DynFlags
 dopt_set dfs f = dfs{ dumpFlags = IntSet.insert (fromEnum f) (dumpFlags dfs) }
 
 -- | Unset a 'DumpFlag'
-dopt_unset :: DynFlags l -> DumpFlag -> DynFlags l
+dopt_unset :: DynFlags -> DumpFlag -> DynFlags
 dopt_unset dfs f = dfs{ dumpFlags = IntSet.delete (fromEnum f) (dumpFlags dfs) }
 
 -- | Test whether a 'GeneralFlag' is set
-gopt :: GeneralFlag -> DynFlags l -> Bool
+gopt :: GeneralFlag -> DynFlags -> Bool
 gopt f dflags  = fromEnum f `IntSet.member` generalFlags dflags
 
 -- | Set a 'GeneralFlag'
-gopt_set :: DynFlags l -> GeneralFlag -> DynFlags l
+gopt_set :: DynFlags -> GeneralFlag -> DynFlags
 gopt_set dfs f = dfs{ generalFlags = IntSet.insert (fromEnum f) (generalFlags dfs) }
 
 -- | Unset a 'GeneralFlag'
-gopt_unset :: DynFlags l -> GeneralFlag -> DynFlags l
+gopt_unset :: DynFlags -> GeneralFlag -> DynFlags
 gopt_unset dfs f = dfs{ generalFlags = IntSet.delete (fromEnum f) (generalFlags dfs) }
 
 -- | Test whether a 'WarningFlag' is set
-wopt :: WarningFlag -> DynFlags l -> Bool
+wopt :: WarningFlag -> DynFlags -> Bool
 wopt f dflags  = fromEnum f `IntSet.member` warningFlags dflags
 
 -- | Set a 'WarningFlag'
-wopt_set :: DynFlags l -> WarningFlag -> DynFlags l
+wopt_set :: DynFlags -> WarningFlag -> DynFlags
 wopt_set dfs f = dfs{ warningFlags = IntSet.insert (fromEnum f) (warningFlags dfs) }
 
 -- | Unset a 'WarningFlag'
-wopt_unset :: DynFlags l -> WarningFlag -> DynFlags l
+wopt_unset :: DynFlags -> WarningFlag -> DynFlags
 wopt_unset dfs f = dfs{ warningFlags = IntSet.delete (fromEnum f) (warningFlags dfs) }
 
 -- | Test whether a 'ExtensionFlag' is set
-xopt :: ExtensionFlag -> DynFlags l -> Bool
+xopt :: ExtensionFlag -> DynFlags -> Bool
 xopt f dflags = fromEnum f `IntSet.member` extensionFlags dflags
 
 -- | Set a 'ExtensionFlag'
-xopt_set :: DynFlags l -> ExtensionFlag -> DynFlags l
+xopt_set :: DynFlags -> ExtensionFlag -> DynFlags
 xopt_set dfs f
     = let onoffs = On f : extensions dfs
       in dfs { extensions = onoffs,
                extensionFlags = flattenExtensionFlags (language dfs) onoffs }
 
 -- | Unset a 'ExtensionFlag'
-xopt_unset :: DynFlags l -> ExtensionFlag -> DynFlags l
+xopt_unset :: DynFlags -> ExtensionFlag -> DynFlags
 xopt_unset dfs f
     = let onoffs = Off f : extensions dfs
       in dfs { extensions = onoffs,
                extensionFlags = flattenExtensionFlags (language dfs) onoffs }
 
-lang_set :: DynFlags l -> Maybe Language -> DynFlags l
+lang_set :: DynFlags -> Maybe Language -> DynFlags
 lang_set dflags lang =
    dflags {
             language = lang,
             extensionFlags = flattenExtensionFlags lang (extensions dflags)
           }
 
-useUnicodeSyntax :: DynFlags l -> Bool
+useUnicodeSyntax :: DynFlags -> Bool
 useUnicodeSyntax = xopt Opt_UnicodeSyntax
 
 -- | Set the Haskell language standard to use
@@ -1708,27 +1708,27 @@ setLanguage :: Language -> DynP l ()
 setLanguage l = upd (`lang_set` Just l)
 
 -- | Some modules have dependencies on others through the DynFlags rather than textual imports
-dynFlagDependencies :: DynFlags l -> [ModuleName]
+dynFlagDependencies :: DynFlags -> [ModuleName]
 dynFlagDependencies = pluginModNames
 
 -- | Is the -fpackage-trust mode on
-packageTrustOn :: DynFlags l -> Bool
+packageTrustOn :: DynFlags -> Bool
 packageTrustOn = gopt Opt_PackageTrust
 
 -- | Is Safe Haskell on in some way (including inference mode)
-safeHaskellOn :: DynFlags l -> Bool
+safeHaskellOn :: DynFlags -> Bool
 safeHaskellOn dflags = safeHaskell dflags /= Sf_None || safeInferOn dflags
 
 -- | Is the Safe Haskell safe language in use
-safeLanguageOn :: DynFlags l -> Bool
+safeLanguageOn :: DynFlags -> Bool
 safeLanguageOn dflags = safeHaskell dflags == Sf_Safe
 
 -- | Is the Safe Haskell safe inference mode active
-safeInferOn :: DynFlags l -> Bool
+safeInferOn :: DynFlags -> Bool
 safeInferOn = safeInfer
 
 -- | Test if Safe Imports are on in some form
-safeImportsOn :: DynFlags l -> Bool
+safeImportsOn :: DynFlags -> Bool
 safeImportsOn dflags = safeHaskell dflags == Sf_Unsafe ||
                        safeHaskell dflags == Sf_Trustworthy ||
                        safeHaskell dflags == Sf_Safe
@@ -1747,12 +1747,12 @@ setSafeHaskell s = updM f
 
 -- | Are all direct imports required to be safe for this Safe Haskell mode?
 -- Direct imports are when the code explicitly imports a module
-safeDirectImpsReq :: DynFlags l -> Bool
+safeDirectImpsReq :: DynFlags -> Bool
 safeDirectImpsReq d = safeLanguageOn d
 
 -- | Are all implicit imports required to be safe for this Safe Haskell mode?
 -- Implicit imports are things in the prelude. e.g System.IO when print is used.
-safeImplicitImpsReq :: DynFlags l -> Bool
+safeImplicitImpsReq :: DynFlags -> Bool
 safeImplicitImpsReq d = safeLanguageOn d
 
 -- | Combine two Safe Haskell modes correctly. Used for dealing with multiple flags.
@@ -1773,7 +1773,7 @@ combineSafeFlags a b | a == Sf_None         = return b
 --     * function to test if the flag is on
 --     * function to turn the flag off
 unsafeFlags, unsafeFlagsForInfer
-  :: [(String, DynFlags l -> SrcSpan, DynFlags l -> Bool, DynFlags l -> DynFlags l)]
+  :: [(String, DynFlags -> SrcSpan, DynFlags -> Bool, DynFlags -> DynFlags)]
 unsafeFlags = [("-XGeneralizedNewtypeDeriving", newDerivOnLoc,
                    xopt Opt_GeneralizedNewtypeDeriving,
                    flip xopt_unset Opt_GeneralizedNewtypeDeriving),
@@ -1787,15 +1787,15 @@ unsafeFlagsForInfer = unsafeFlags ++
                   flip xopt_unset Opt_OverlappingInstances)]
 
 -- | Retrieve the options corresponding to a particular @opt_*@ field in the correct order
-getOpts :: DynFlags l             -- ^ 'DynFlags' to retrieve the options from
-        -> (DynFlags l -> [a])    -- ^ Relevant record accessor: one of the @opt_*@ accessors
+getOpts :: DynFlags             -- ^ 'DynFlags' to retrieve the options from
+        -> (DynFlags -> [a])    -- ^ Relevant record accessor: one of the @opt_*@ accessors
         -> [a]                  -- ^ Correctly ordered extracted options
 getOpts dflags opts = reverse (opts dflags)
         -- We add to the options from the front, so we need to reverse the list
 
 -- | Gets the verbosity flag for the current verbosity level. This is fed to
 -- other tools, so GHC-specific verbosity flags like @-ddump-most@ are not included
-getVerbFlags :: DynFlags l -> [String]
+getVerbFlags :: DynFlags -> [String]
 getVerbFlags dflags
   | verbosity dflags >= 4 = ["-v"]
   | otherwise             = []
@@ -1807,9 +1807,9 @@ setObjectDir, setHiDir, setStubDir, setDumpDir, setOutputDir,
          setPgmP, addOptl, addOptc, addOptP,
          addCmdlineFramework, addHaddockOpts, addGhciScript,
          setInteractivePrint
-   :: String -> DynFlags l -> DynFlags l
+   :: String -> DynFlags -> DynFlags
 setOutputFile, setDynOutputFile, setOutputHi, setDumpPrefixForce
-   :: Maybe String -> DynFlags l -> DynFlags l
+   :: Maybe String -> DynFlags -> DynFlags
 
 setObjectDir  f d = d{ objectDir  = Just f}
 setHiDir      f d = d{ hiDir      = Just f}
@@ -1831,10 +1831,10 @@ setOutputFile f d = d{ outputFile = f}
 setDynOutputFile f d = d{ dynOutputFile = f}
 setOutputHi   f d = d{ outputHi   = f}
 
-addPluginModuleName :: String -> DynFlags l -> DynFlags l
+addPluginModuleName :: String -> DynFlags -> DynFlags
 addPluginModuleName name d = d { pluginModNames = (mkModuleName name) : (pluginModNames d) }
 
-addPluginModuleNameOption :: String -> DynFlags l -> DynFlags l
+addPluginModuleNameOption :: String -> DynFlags -> DynFlags
 addPluginModuleNameOption optflag d = d { pluginModNameOpts = (mkModuleName m, option) : (pluginModNameOpts d) }
   where (m, rest) = break (== ':') optflag
         option = case rest of
@@ -1857,17 +1857,17 @@ addOptc   f = alterSettings (\s -> s { sOpt_c   = f : sOpt_c s})
 addOptP   f = alterSettings (\s -> s { sOpt_P   = f : sOpt_P s})
 
 
-setDepMakefile :: FilePath -> DynFlags l -> DynFlags l
+setDepMakefile :: FilePath -> DynFlags -> DynFlags
 setDepMakefile f d = d { depMakefile = deOptDep f }
 
-setDepIncludePkgDeps :: Bool -> DynFlags l -> DynFlags l
+setDepIncludePkgDeps :: Bool -> DynFlags -> DynFlags
 setDepIncludePkgDeps b d = d { depIncludePkgDeps = b }
 
-addDepExcludeMod :: String -> DynFlags l -> DynFlags l
+addDepExcludeMod :: String -> DynFlags -> DynFlags
 addDepExcludeMod m d
     = d { depExcludeMods = mkModuleName (deOptDep m) : depExcludeMods d }
 
-addDepSuffix :: FilePath -> DynFlags l -> DynFlags l
+addDepSuffix :: FilePath -> DynFlags -> DynFlags
 addDepSuffix s d = d { depSuffixes = deOptDep s : depSuffixes d }
 
 -- XXX Legacy code:
@@ -1910,7 +1910,7 @@ showOpt (Option s)  = s
 -----------------------------------------------------------------------------
 -- Setting the optimisation level
 
-updOptLevel :: Int -> DynFlags l -> DynFlags l
+updOptLevel :: Int -> DynFlags -> DynFlags
 -- ^ Sets the 'DynFlags' to be appropriate to the optimisation level
 updOptLevel n dfs
   = dfs2{ optLevel = final_n }
@@ -1931,7 +1931,7 @@ data StgToDo
   -- is so critical that it is hardwired in (no flag).
   | D_stg_stats
 
-getStgToDo :: DynFlags l -> [StgToDo]
+getStgToDo :: DynFlags -> [StgToDo]
 getStgToDo dflags
   = todo2
   where
@@ -1958,8 +1958,8 @@ getStgToDo dflags
 -- the parsed 'DynFlags', the left-over arguments, and a list of warnings.
 -- Throws a 'UsageError' if errors occurred during parsing (such as unknown
 -- flags or missing arguments).
-parseDynamicFlagsCmdLine :: MonadIO m => DynFlags l -> [Located String]
-                         -> m (DynFlags l, [Located String], [Located String])
+parseDynamicFlagsCmdLine :: MonadIO m => DynFlags -> [Located String]
+                         -> m (DynFlags, [Located String], [Located String])
                             -- ^ Updated 'DynFlags', left-over arguments, and
                             -- list of warnings.
 parseDynamicFlagsCmdLine = parseDynamicFlagsFull flagsAll True
@@ -1968,8 +1968,8 @@ parseDynamicFlagsCmdLine = parseDynamicFlagsFull flagsAll True
 -- | Like 'parseDynamicFlagsCmdLine' but does not allow the package flags
 -- (-package, -hide-package, -ignore-package, -hide-all-packages, -package-db).
 -- Used to parse flags set in a modules pragma.
-parseDynamicFilePragma :: MonadIO m => DynFlags l -> [Located String]
-                       -> m (DynFlags l, [Located String], [Located String])
+parseDynamicFilePragma :: MonadIO m => DynFlags -> [Located String]
+                       -> m (DynFlags, [Located String], [Located String])
                           -- ^ Updated 'DynFlags', left-over arguments, and
                           -- list of warnings.
 parseDynamicFilePragma = parseDynamicFlagsFull flagsDynamic False
@@ -1980,11 +1980,11 @@ parseDynamicFilePragma = parseDynamicFlagsFull flagsDynamic False
 -- saying which flags are valid flags and indicating if we are parsing
 -- arguments from the command line or from a file pragma.
 parseDynamicFlagsFull :: MonadIO m
-                  => [Flag (CmdLineP (DynFlags l))] -- ^ valid flags to match against
+                  => [Flag (CmdLineP (DynFlags))] -- ^ valid flags to match against
                   -> Bool                           -- ^ are the arguments from the command line?
-                  -> DynFlags l                     -- ^ current dynamic flags
+                  -> DynFlags                     -- ^ current dynamic flags
                   -> [Located String]              -- ^ arguments to parse
-                  -> m (DynFlags l, [Located String], [Located String])
+                  -> m (DynFlags, [Located String], [Located String])
 parseDynamicFlagsFull activeFlags cmdline dflags0 args = do
   -- XXX Legacy support code
   -- We used to accept things like
@@ -2048,7 +2048,7 @@ parseDynamicFlagsFull activeFlags cmdline dflags0 args = do
 
   return (dflags6, leftover, consistency_warnings ++ sh_warns ++ warns)
 
-updateWays :: DynFlags l -> DynFlags l
+updateWays :: DynFlags -> DynFlags
 updateWays dflags
     = let theWays = sort $ nub $ ways dflags
           f = if WayDyn `elem` theWays then unSetGeneralFlag'
@@ -2065,7 +2065,7 @@ updateWays dflags
 --
 -- The bool is to indicate if we are parsing command line flags (false means
 -- file pragma). This allows us to generate better warnings.
-safeFlagCheck :: Bool -> DynFlags l -> (DynFlags l, [Located String])
+safeFlagCheck :: Bool -> DynFlags -> (DynFlags, [Located String])
 safeFlagCheck _ dflags | safeLanguageOn dflags = (dflagsUnset, warns)
   where
     -- Handle illegal flags under safe language.
@@ -2129,19 +2129,19 @@ allFlags = map ('-':) $
  -}
 
 -- All dynamic flags present in GHC.
-flagsAll :: [Flag (CmdLineP (DynFlags l))]
+flagsAll :: [Flag (CmdLineP (DynFlags))]
 flagsAll     = package_flags ++ dynamic_flags
 
 -- All dynamic flags, minus package flags, present in GHC.
-flagsDynamic :: [Flag (CmdLineP (DynFlags l))]
+flagsDynamic :: [Flag (CmdLineP (DynFlags))]
 flagsDynamic = dynamic_flags
 
 -- ALl package flags present in GHC.
-flagsPackage :: [Flag (CmdLineP (DynFlags l))]
+flagsPackage :: [Flag (CmdLineP (DynFlags))]
 flagsPackage = package_flags
 
 --------------- The main flags themselves ------------------
-dynamic_flags :: [Flag (CmdLineP (DynFlags l))]
+dynamic_flags :: [Flag (CmdLineP (DynFlags))]
 dynamic_flags = [
     Flag "n"        (NoArg (addWarn "The -n flag is deprecated and no longer has any effect"))
   , Flag "cpp"      (NoArg (setExtensionFlag Opt_Cpp))
@@ -2528,7 +2528,7 @@ dynamic_flags = [
  ++ [ Flag "XGenerics"       (NoArg (deprecate "it does nothing; look into -XDefaultSignatures and -XDeriveGeneric for generic programming support."))
     , Flag "XNoGenerics"     (NoArg (deprecate "it does nothing; look into -XDefaultSignatures and -XDeriveGeneric for generic programming support.")) ]
 
-package_flags :: [Flag (CmdLineP (DynFlags l))]
+package_flags :: [Flag (CmdLineP (DynFlags))]
 package_flags = [
         ------- Packages ----------------------------------------------------
     Flag "package-db"            (HasArg (addPkgConfRef . PkgConfFile))
@@ -2578,7 +2578,7 @@ mkFlag :: TurnOnFlag            -- ^ True <=> it should be turned on
        -> String                -- ^ The flag prefix
        -> (flag -> DynP l ())   -- ^ What to do when the flag is found
        -> FlagSpec l flag       -- ^ Specification of this particular flag
-       -> Flag (CmdLineP (DynFlags l))
+       -> Flag (CmdLineP (DynFlags))
 mkFlag turn_on flagPrefix f (name, flag, extra_action)
     = Flag (flagPrefix ++ name) (NoArg (f flag >> extra_action turn_on))
 
@@ -3211,51 +3211,51 @@ checkTemplateHaskellOk turn_on
 %*                                                                      *
 %********************************************************************* -}
 
-type DynP l = EwM (CmdLineP (DynFlags l))
+type DynP l = EwM (CmdLineP (DynFlags))
 
-upd :: (DynFlags l -> DynFlags l) -> DynP l ()
+upd :: (DynFlags -> DynFlags) -> DynP l ()
 upd f = liftEwM (do dflags <- getCmdLineState
                     putCmdLineState $! f dflags)
 
-updM :: (DynFlags l -> DynP l (DynFlags l)) -> DynP l ()
+updM :: (DynFlags -> DynP l (DynFlags)) -> DynP l ()
 updM f = do dflags <- liftEwM getCmdLineState
             dflags' <- f dflags
             liftEwM $ putCmdLineState $! dflags'
 
 --------------- Constructor functions for OptKind -----------------
-noArg :: (DynFlags l -> DynFlags l) -> OptKind (CmdLineP (DynFlags l))
+noArg :: (DynFlags -> DynFlags) -> OptKind (CmdLineP (DynFlags))
 noArg fn = NoArg (upd fn)
 
-noArgM :: (DynFlags l -> DynP l (DynFlags l)) -> OptKind (CmdLineP (DynFlags l))
+noArgM :: (DynFlags -> DynP l (DynFlags)) -> OptKind (CmdLineP (DynFlags))
 noArgM fn = NoArg (updM fn)
 
-hasArg :: (String -> DynFlags l -> DynFlags l) -> OptKind (CmdLineP (DynFlags l))
+hasArg :: (String -> DynFlags -> DynFlags) -> OptKind (CmdLineP (DynFlags))
 hasArg fn = HasArg (upd . fn)
 
-sepArg :: (String -> DynFlags l -> DynFlags l) -> OptKind (CmdLineP (DynFlags l))
+sepArg :: (String -> DynFlags -> DynFlags) -> OptKind (CmdLineP (DynFlags))
 sepArg fn = SepArg (upd . fn)
 
-intSuffix :: (Int -> DynFlags l -> DynFlags l) -> OptKind (CmdLineP (DynFlags l))
+intSuffix :: (Int -> DynFlags -> DynFlags) -> OptKind (CmdLineP (DynFlags))
 intSuffix fn = IntSuffix (\n -> upd (fn n))
 
-floatSuffix :: (Float -> DynFlags l -> DynFlags l) -> OptKind (CmdLineP (DynFlags l))
+floatSuffix :: (Float -> DynFlags -> DynFlags) -> OptKind (CmdLineP (DynFlags))
 floatSuffix fn = FloatSuffix (\n -> upd (fn n))
 
-optIntSuffixM :: (Maybe Int -> DynFlags l -> DynP l (DynFlags l))
-              -> OptKind (CmdLineP (DynFlags l))
+optIntSuffixM :: (Maybe Int -> DynFlags -> DynP l (DynFlags))
+              -> OptKind (CmdLineP (DynFlags))
 optIntSuffixM fn = OptIntSuffix (\mi -> updM (fn mi))
 
-versionSuffix :: (Int -> Int -> DynFlags l -> DynFlags l) -> OptKind (CmdLineP (DynFlags l))
+versionSuffix :: (Int -> Int -> DynFlags -> DynFlags) -> OptKind (CmdLineP (DynFlags))
 versionSuffix fn = VersionSuffix (\maj min -> upd (fn maj min))
 
-setDumpFlag :: DumpFlag -> OptKind (CmdLineP (DynFlags l))
+setDumpFlag :: DumpFlag -> OptKind (CmdLineP (DynFlags))
 setDumpFlag dump_flag = NoArg (setDumpFlag' dump_flag)
 
 --------------------------
 addWay :: Way -> DynP l ()
 addWay w = upd (addWay' w)
 
-addWay' :: Way -> DynFlags l -> DynFlags l
+addWay' :: Way -> DynFlags -> DynFlags
 addWay' w dflags0 = let platform = targetPlatform dflags0
                         dflags1 = dflags0 { ways = w : ways dflags0 }
                         dflags2 = wayExtras platform w dflags1
@@ -3273,9 +3273,9 @@ setGeneralFlag, unSetGeneralFlag :: GeneralFlag -> DynP l ()
 setGeneralFlag   f = upd (setGeneralFlag' f)
 unSetGeneralFlag f = upd (unSetGeneralFlag' f)
 
-setGeneralFlag' :: GeneralFlag -> DynFlags l -> DynFlags l
+setGeneralFlag' :: GeneralFlag -> DynFlags -> DynFlags
 setGeneralFlag' f dflags = gopt_set dflags f
-unSetGeneralFlag' :: GeneralFlag -> DynFlags l -> DynFlags l
+unSetGeneralFlag' :: GeneralFlag -> DynFlags -> DynFlags
 unSetGeneralFlag' f dflags = gopt_unset dflags f
 
 --------------------------
@@ -3288,7 +3288,7 @@ setExtensionFlag, unSetExtensionFlag :: ExtensionFlag -> DynP l ()
 setExtensionFlag f = upd (setExtensionFlag' f)
 unSetExtensionFlag f = upd (unSetExtensionFlag' f)
 
-setExtensionFlag', unSetExtensionFlag' :: ExtensionFlag -> DynFlags l -> DynFlags l
+setExtensionFlag', unSetExtensionFlag' :: ExtensionFlag -> DynFlags -> DynFlags
 setExtensionFlag' f dflags = foldr ($) (xopt_set dflags f) deps
   where
     deps = [ if turn_on then setExtensionFlag'   d
@@ -3303,7 +3303,7 @@ unSetExtensionFlag' f dflags = xopt_unset dflags f
    --      (except for -fno-glasgow-exts, which is treated specially)
 
 --------------------------
-alterSettings :: (Settings -> Settings) -> DynFlags l -> DynFlags l
+alterSettings :: (Settings -> Settings) -> DynFlags -> DynFlags
 alterSettings f dflags = dflags { settings = f (settings dflags) }
 
 --------------------------
@@ -3407,12 +3407,12 @@ trustPackage p = exposePackage p >> -- both trust and distrust also expose a pac
 distrustPackage p = exposePackage p >>
   upd (\s -> s{ packageFlags = DistrustPackage p : packageFlags s })
 
-exposePackage' :: String -> DynFlags l -> DynFlags l
+exposePackage' :: String -> DynFlags -> DynFlags
 exposePackage' p dflags
     = dflags { packageFlags =
             parsePackageFlag PackageArg p : packageFlags dflags }
 
-setPackageKey :: String -> DynFlags l -> DynFlags l
+setPackageKey :: String -> DynFlags -> DynFlags
 setPackageKey p s =  s{ thisPackage = stringToPackageKey p }
 
 -- If we're linking a binary, then only targets that produce object
@@ -3440,7 +3440,7 @@ setObjTarget l = updM set
        = return $ dflags { hscTarget = l }
      | otherwise = return dflags
 
-setOptLevel :: Int -> DynFlags l -> DynP l (DynFlags l)
+setOptLevel :: Int -> DynFlags -> DynP l (DynFlags)
 setOptLevel n dflags
    | hscTarget dflags == HscInterpreted && n > 0
         = do addWarn "-O conflicts with --interactive; -O ignored."
@@ -3455,7 +3455,7 @@ setOptLevel n dflags
 --    -fmax-simplifier-iterations20     this is necessary sometimes
 --    -fsimplifier-phases=3             we use an additional simplifier phase for fusion
 --
-setDPHOpt :: DynFlags l -> DynP l (DynFlags l)
+setDPHOpt :: DynFlags -> DynP l (DynFlags)
 setDPHOpt dflags = setOptLevel 2 (dflags { maxSimplIterations  = 20
                                          , simplPhases         = 3
                                          })
@@ -3475,7 +3475,7 @@ setMainIs arg
   where
     (main_mod, main_fn) = splitLongestPrefix arg (== '.')
 
-addLdInputs :: Option -> DynFlags l -> DynFlags l
+addLdInputs :: Option -> DynFlags -> DynFlags
 addLdInputs p dflags = dflags{ldInputs = ldInputs dflags ++ [p]}
 
 -----------------------------------------------------------------------------
@@ -3556,7 +3556,7 @@ splitPathList s = filter notNull (splitUp s)
 -- -----------------------------------------------------------------------------
 -- tmpDir, where we store temporary files.
 
-setTmpDir :: FilePath -> DynFlags l -> DynFlags l
+setTmpDir :: FilePath -> DynFlags -> DynFlags
 setTmpDir dir = alterSettings (\s -> s { sTmpDir = normalise dir })
   -- we used to fix /cygdrive/c/.. on Windows, but this doesn't
   -- seem necessary now --SDM 7/2/2008
@@ -3590,7 +3590,7 @@ setOptHpcDir arg  = upd $ \ d -> d{hpcDir = arg}
 -- The options below are not dependent on the version of gcc, only the
 -- platform.
 
-picCCOpts :: DynFlags l -> [String]
+picCCOpts :: DynFlags -> [String]
 picCCOpts dflags
     = case platformOS (targetPlatform dflags) of
       OSDarwin
@@ -3617,7 +3617,7 @@ picCCOpts dflags
           ["-fPIC", "-U__PIC__", "-D__PIC__"]
        | otherwise                             -> []
 
-picPOpts :: DynFlags l -> [String]
+picPOpts :: DynFlags -> [String]
 picPOpts dflags
  | gopt Opt_PIC dflags = ["-U__PIC__", "-D__PIC__"]
  | otherwise           = []
@@ -3631,7 +3631,7 @@ can_split = cSupportsSplitObjs == "YES"
 -- -----------------------------------------------------------------------------
 -- Compiler Info
 
-compilerInfo :: DynFlags l -> [(String, String)]
+compilerInfo :: DynFlags -> [(String, String)]
 compilerInfo dflags
     = -- We always make "Project name" be first to keep parsing in
       -- other languages simple, i.e. when looking for other fields,
@@ -3671,20 +3671,20 @@ compilerInfo dflags
 
 #include "../includes/dist-derivedconstants/header/GHCConstantsHaskellWrappers.hs"
 
-bLOCK_SIZE_W :: DynFlags l -> Int
+bLOCK_SIZE_W :: DynFlags -> Int
 bLOCK_SIZE_W dflags = bLOCK_SIZE dflags `quot` wORD_SIZE dflags
 
-wORD_SIZE_IN_BITS :: DynFlags l -> Int
+wORD_SIZE_IN_BITS :: DynFlags -> Int
 wORD_SIZE_IN_BITS dflags = wORD_SIZE dflags * 8
 
-tAG_MASK :: DynFlags l -> Int
+tAG_MASK :: DynFlags -> Int
 tAG_MASK dflags = (1 `shiftL` tAG_BITS dflags) - 1
 
-mAX_PTR_TAG :: DynFlags l -> Int
+mAX_PTR_TAG :: DynFlags -> Int
 mAX_PTR_TAG = tAG_MASK
 
 -- Might be worth caching these in targetPlatform?
-tARGET_MIN_INT, tARGET_MAX_INT, tARGET_MAX_WORD :: DynFlags l -> Integer
+tARGET_MIN_INT, tARGET_MAX_INT, tARGET_MAX_WORD :: DynFlags -> Integer
 tARGET_MIN_INT dflags
     = case platformWordSize (targetPlatform dflags) of
       4 -> toInteger (minBound :: Int32)
@@ -3704,7 +3704,7 @@ tARGET_MAX_WORD dflags
 -- Whenever makeDynFlagsConsistent does anything, it starts over, to
 -- ensure that a later change doesn't invalidate an earlier check.
 -- Be careful not to introduce potential loops!
-makeDynFlagsConsistent :: DynFlags l -> (DynFlags l, [Located String])
+makeDynFlagsConsistent :: DynFlags -> (DynFlags, [Located String])
 makeDynFlagsConsistent dflags
  -- Disable -dynamic-too on Windows (#8228, #7134, #5987)
  | os == OSMinGW32 && gopt Opt_BuildDynamicToo dflags
@@ -3761,12 +3761,12 @@ makeDynFlagsConsistent dflags
 --
 -- Do not use it if you can help it. You may get the wrong value!
 
-GLOBAL_VAR(v_unsafeGlobalDynFlags, panic "v_unsafeGlobalDynFlags: not initialised", DynFlags l)
+GLOBAL_VAR(v_unsafeGlobalDynFlags, panic "v_unsafeGlobalDynFlags: not initialised", DynFlags)
 
-unsafeGlobalDynFlags :: DynFlags l
+unsafeGlobalDynFlags :: DynFlags
 unsafeGlobalDynFlags = unsafePerformIO $ readIORef v_unsafeGlobalDynFlags
 
-setUnsafeGlobalDynFlags :: DynFlags l -> IO ()
+setUnsafeGlobalDynFlags :: DynFlags -> IO ()
 setUnsafeGlobalDynFlags = writeIORef v_unsafeGlobalDynFlags
 
 -- -----------------------------------------------------------------------------
@@ -3776,13 +3776,13 @@ setUnsafeGlobalDynFlags = writeIORef v_unsafeGlobalDynFlags
 -- check if SSE is enabled, we might have x86-64 imply the -msse2
 -- flag.
 
-isSseEnabled :: DynFlags l -> Bool
+isSseEnabled :: DynFlags -> Bool
 isSseEnabled dflags = case platformArch (targetPlatform dflags) of
     ArchX86_64 -> True
     ArchX86    -> sseVersion dflags >= Just (1,0)
     _          -> False
 
-isSse2Enabled :: DynFlags l -> Bool
+isSse2Enabled :: DynFlags -> Bool
 isSse2Enabled dflags = case platformArch (targetPlatform dflags) of
     ArchX86_64 -> -- SSE2 is fixed on for x86_64.  It would be
                   -- possible to make it optional, but we'd need to
@@ -3793,25 +3793,25 @@ isSse2Enabled dflags = case platformArch (targetPlatform dflags) of
     ArchX86    -> sseVersion dflags >= Just (2,0)
     _          -> False
 
-isSse4_2Enabled :: DynFlags l -> Bool
+isSse4_2Enabled :: DynFlags -> Bool
 isSse4_2Enabled dflags = sseVersion dflags >= Just (4,2)
 
-isAvxEnabled :: DynFlags l -> Bool
+isAvxEnabled :: DynFlags -> Bool
 isAvxEnabled dflags = avx dflags || avx2 dflags || avx512f dflags
 
-isAvx2Enabled :: DynFlags l -> Bool
+isAvx2Enabled :: DynFlags -> Bool
 isAvx2Enabled dflags = avx2 dflags || avx512f dflags
 
-isAvx512cdEnabled :: DynFlags l -> Bool
+isAvx512cdEnabled :: DynFlags -> Bool
 isAvx512cdEnabled dflags = avx512cd dflags
 
-isAvx512erEnabled :: DynFlags l -> Bool
+isAvx512erEnabled :: DynFlags -> Bool
 isAvx512erEnabled dflags = avx512er dflags
 
-isAvx512fEnabled :: DynFlags l -> Bool
+isAvx512fEnabled :: DynFlags -> Bool
 isAvx512fEnabled dflags = avx512f dflags
 
-isAvx512pfEnabled :: DynFlags l -> Bool
+isAvx512pfEnabled :: DynFlags -> Bool
 isAvx512pfEnabled dflags = avx512pf dflags
 
 -- -----------------------------------------------------------------------------

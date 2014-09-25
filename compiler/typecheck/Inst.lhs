@@ -347,7 +347,7 @@ tcSyntaxName orig ty (std_nm, HsVar user_nm)
 
 tcSyntaxName orig ty (std_nm, user_nm_expr) = do
     std_id <- tcLookupId std_nm
-    let	
+    let
 	-- C.f. newMethodAtLoc
 	([tv], _, tau)  = tcSplitSigmaTy (idType std_id)
  	sigma1		= substTyWith [tv] [ty] tau
@@ -357,7 +357,7 @@ tcSyntaxName orig ty (std_nm, user_nm_expr) = do
     addErrCtxtM (syntaxNameCtxt user_nm_expr orig sigma1) $ do
 
 	-- Check that the user-supplied thing has the
-	-- same type as the standard one.  
+	-- same type as the standard one.
 	-- Tiresome jiggling because tcCheckSigma takes a located expression
      span <- getSrcSpanM
      expr <- tcPolyExpr (L span user_nm_expr) sigma1
@@ -419,7 +419,8 @@ tcExtendLocalInstEnv dfuns thing_inside
 		       , tcg_inst_env = inst_env' }
       ; setGblEnv env' thing_inside }
 
-addLocalInst :: (InstEnv, [ClsInst]) -> ClsInst -> TcM l (InstEnv, [ClsInst])
+addLocalInst :: (ApiAnnotation l)
+             => (InstEnv, [ClsInst]) -> ClsInst -> TcM l (InstEnv, [ClsInst])
 -- Check that the proposed new instance is OK,
 -- and then add it to the home inst env
 -- If overwrite_inst, then we can overwrite a direct match

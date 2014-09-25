@@ -161,8 +161,8 @@ data HsBindLR l idL idR
 
   -- | Dictionary binding and suchlike.
   -- All VarBinds are introduced by the type checker
-  | VarBind {   
-        var_id     :: idL,           
+  | VarBind {
+        var_id     :: idL,
         var_rhs    :: LHsExpr l idR, -- ^ Located only for consistency
         var_inline :: Bool           -- ^ True <=> inline this binding regardless
                                      -- (used for implication constraints only)
@@ -230,9 +230,9 @@ top-level binding
 In Hindley-Milner, a recursive binding is typechecked with the *recursive* uses
 being *monomorphic*.  So after typechecking *and* desugaring we will get something
 like this
- 
+
     M.reverse :: forall a. [a] -> [a]
-      = /\a. letrec 
+      = /\a. letrec
                 reverse :: [a] -> [a] = \xs -> case xs of
                                                 []     -> []
                                                 (x:xs) -> reverse xs ++ [x]
@@ -242,22 +242,22 @@ Notice that 'M.reverse' is polymorphic as expected, but there is a local
 definition for plain 'reverse' which is *monomorphic*.  The type variable
 'a' scopes over the entire letrec.
 
-That's after desugaring.  What about after type checking but before desugaring?  
+That's after desugaring.  What about after type checking but before desugaring?
 That's where AbsBinds comes in.  It looks like this:
 
    AbsBinds { abs_tvs     = [a]
             , abs_exports = [ABE { abe_poly = M.reverse :: forall a. [a] -> [a],
                                  , abe_mono = reverse :: a -> a}]
-            , abs_binds = { reverse :: [a] -> [a] 
+            , abs_binds = { reverse :: [a] -> [a]
                                = \xs -> case xs of
                                             []     -> []
                                             (x:xs) -> reverse xs ++ [x] } }
 
 Here,
-  * abs_tvs says what type variables are abstracted over the binding group, 
+  * abs_tvs says what type variables are abstracted over the binding group,
     just 'a' in this case.
   * abs_binds is the *monomorphic* bindings of the group
-  * abs_exports describes how to get the polymorphic Id 'M.reverse' from the 
+  * abs_exports describes how to get the polymorphic Id 'M.reverse' from the
     monomorphic one 'reverse'
 
 Notice that the *original* function (the polymorphic one you thought
@@ -650,9 +650,9 @@ type LTcSpecPrag l = GenLocated l TcSpecPrag
 
 data TcSpecPrag
   = SpecPrag
-        Id              
-        HsWrapper       
-        InlinePragma    
+        Id
+        HsWrapper
+        InlinePragma
   -- ^ The Id to be specialised, an wrapper that specialises the
   -- polymorphic function, and inlining spec for the specialised function
   deriving (Data, Typeable)
