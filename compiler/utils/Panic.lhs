@@ -17,6 +17,8 @@ module Panic (
      progName,
      pgmError,
 
+     P(..),
+
      panic, sorry, panicFastInt, assertPanic, trace,
      panicDoc, sorryDoc, panicDocFastInt, pgmErrorDoc,
 
@@ -63,7 +65,7 @@ import System.Mem.Weak  ( Weak, deRefWeak )
 --   a <location> of "ghc", except for ProgramError (where the string is
 --  assumed to contain a location already, so we don't print one).
 
-data GhcException
+data GhcException l
   = PhaseFailed  String         -- name of phase
                  ExitCode       -- an external phase (eg. cpp) failed
 
@@ -78,24 +80,24 @@ data GhcException
 
   -- | The 'impossible' happened.
   | Panic        String
-  | PprPanic     String SDoc
+  | PprPanic     String (SDoc l)
 
   -- | The user tickled something that's known not to work yet,
   --   but we're not counting it as a bug.
   | Sorry        String
-  | PprSorry     String SDoc
+  | PprSorry     String (SDoc l)
 
   -- | An installation problem.
   | InstallationError String
 
   -- | An error in the user's code, probably.
   | ProgramError    String
-  | PprProgramError String SDoc
+  | PprProgramError String (SDoc l)
   deriving (Typeable)
 
-instance Exception GhcException
+instance (Typeable l) => Exception (GhcException l)
 
-instance Show GhcException where
+instance Show (GhcException l) where
   showsPrec _ e@(ProgramError _) = showGhcException e
   showsPrec _ e@(CmdLineError _) = showString "<command line>: " . showGhcException e
   showsPrec _ e = showString progName . showString ": " . showGhcException e
@@ -130,7 +132,7 @@ safeShowException e = do
         forceList xs@(x : xt) = x `seq` forceList xt `seq` xs
 
 -- | Append a description of the given exception to this string.
-showGhcException :: GhcException -> String -> String
+showGhcException :: GhcException l -> String -> String
 showGhcException exception
  = case exception of
         UsageError str
@@ -171,40 +173,44 @@ showGhcException exception
                 ExitFailure x -> x
 
 
-throwGhcException :: GhcException -> a
+throwGhcException :: (Typeable l) => GhcException l -> a
 throwGhcException = Exception.throw
 
-throwGhcExceptionIO :: GhcException -> IO a
+throwGhcExceptionIO :: (Typeable l) => GhcException l -> IO a
 throwGhcExceptionIO = Exception.throwIO
 
-handleGhcException :: ExceptionMonad m => (GhcException -> m a) -> m a -> m a
+handleGhcException :: (Typeable l) => ExceptionMonad m => (GhcException l -> m a) -> m a -> m a
 handleGhcException = ghandle
 
+-- | Phantom type to bring the annotation type in
+data P a l = P { p :: a }
 
 -- | Panics and asserts.
-panic, sorry, pgmError :: String -> a
-panic    x = unsafeDupablePerformIO $ do
+panic, sorry, pgmError :: forall l a.(Typeable l) => P String l -> a
+panic    (P x) = unsafeDupablePerformIO $ do
    stack <- ccsToStrings =<< getCurrentCCS x
    if null stack
-      then throwGhcException (Panic x)
-      else throwGhcException (Panic (x ++ '\n' : renderStack stack))
+      then throwGhcException ((Panic x ) :: GhcException l)
+      else throwGhcException ((Panic (x ++ '\n' : renderStack stack))
+                                  :: GhcException l)
 
-sorry    x = throwGhcException (Sorry x)
-pgmError x = throwGhcException (ProgramError x)
+sorry    (P x) = throwGhcException ((Sorry x) :: GhcException l)
+pgmError (P x) = throwGhcException ((ProgramError x) :: GhcException l)
 
-panicDoc, sorryDoc, pgmErrorDoc :: String -> SDoc -> a
-panicDoc    x doc = throwGhcException (PprPanic        x doc)
-sorryDoc    x doc = throwGhcException (PprSorry        x doc)
-pgmErrorDoc x doc = throwGhcException (PprProgramError x doc)
+panicDoc, sorryDoc, pgmErrorDoc :: forall a l. (Typeable l)
+                                => String -> SDoc l -> a
+panicDoc    x doc = throwGhcException ((PprPanic        x doc) :: GhcException l)
+sorryDoc    x doc = throwGhcException ((PprSorry        x doc) :: GhcException l)
+pgmErrorDoc x doc = throwGhcException ((PprProgramError x doc) :: GhcException l)
 
 
 -- | Panic while pretending to return an unboxed int.
 --   You can't use the regular panic functions in expressions
 --   producing unboxed ints because they have the wrong kind.
-panicFastInt :: String -> FastInt
+panicFastInt :: forall l. (Typeable l) => P String l -> FastInt
 panicFastInt s = case (panic s) of () -> _ILIT(0)
 
-panicDocFastInt :: String -> SDoc -> FastInt
+panicDocFastInt :: (Typeable l) => String -> SDoc l -> FastInt
 panicDocFastInt s d = case (panicDoc s d) of () -> _ILIT(0)
 
 
@@ -218,32 +224,33 @@ assertPanic file line =
 -- | Like try, but pass through UserInterrupt and Panic exceptions.
 --   Used when we want soft failures when reading interface files, for example.
 --   TODO: I'm not entirely sure if this is catching what we really want to catch
-tryMost :: IO a -> IO (Either SomeException a)
-tryMost action = do r <- try action
-                    case r of
-                        Left se ->
-                            case fromException se of
-                                -- Some GhcException's we rethrow,
-                                Just (Signal _)  -> throwIO se
-                                Just (Panic _)   -> throwIO se
-                                -- others we return
-                                Just _           -> return (Left se)
-                                Nothing ->
-                                    case fromException se of
-                                        -- All IOExceptions are returned
-                                        Just (_ :: IOException) ->
-                                            return (Left se)
-                                        -- Anything else is rethrown
-                                        Nothing -> throwIO se
-                        Right v -> return (Right v)
+tryMost :: forall l a. (Typeable l) => P () l -> IO a -> IO (Either SomeException a)
+tryMost _ action =
+   do r <- try action
+      case r of
+          Left se ->
+              case fromException se of
+                  -- Some GhcException's we rethrow,
+                  Just ((Signal _)::GhcException l) -> throwIO se
+                  Just ((Panic _)::GhcException l)  -> throwIO se
+                  -- others we return
+                  Just _           -> return (Left se)
+                  Nothing ->
+                      case fromException se of
+                          -- All IOExceptions are returned
+                          Just (_ :: IOException) ->
+                              return (Left se)
+                          -- Anything else is rethrown
+                          Nothing -> throwIO se
+          Right v -> return (Right v)
 
 
 -- | Install standard signal handlers for catching ^C, which just throw an
 --   exception in the target thread.  The current target thread is the
 --   thread at the head of the list in the MVar passed to
 --   installSignalHandlers.
-installSignalHandlers :: IO ()
-installSignalHandlers = do
+installSignalHandlers :: forall l. (Typeable l) => P () l -> IO ()
+installSignalHandlers _ = do
   main_thread <- myThreadId
   pushInterruptTargetThread main_thread
 
@@ -262,7 +269,7 @@ installSignalHandlers = do
   _ <- installHandler sigINT   (Catch interrupt) Nothing
   -- see #3656; in the future we should install these automatically for
   -- all Haskell programs in the same way that we install a ^C handler.
-  let fatal_signal n = throwTo main_thread (Signal (fromIntegral n))
+  let fatal_signal n = throwTo main_thread ((Signal (fromIntegral n)) :: GhcException l)
   _ <- installHandler sigHUP   (Catch (fatal_signal sigHUP))  Nothing
   _ <- installHandler sigTERM  (Catch (fatal_signal sigTERM)) Nothing
   return ()
