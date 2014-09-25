@@ -81,10 +81,10 @@ data DsMatchContext
   deriving ()
 
 data EquationInfo l
-  = EqnInfo { eqn_pats :: [Pat l Id],   -- The patterns for an eqn
-              eqn_rhs  :: MatchResult } -- What to do after match
+  = EqnInfo { eqn_pats :: [Pat l Id],     -- The patterns for an eqn
+              eqn_rhs  :: MatchResult l } -- What to do after match
 
-instance Outputable EquationInfo where
+instance (ApiAnnotation l) => Outputable (EquationInfo l) where
     ppr (EqnInfo pats _) = ppr pats
 
 type DsWrapper = CoreExpr -> CoreExpr
@@ -97,10 +97,10 @@ idDsWrapper e = e
 
 
 -- A MatchResult is an expression with a hole in it
-data MatchResult
+data MatchResult l
   = MatchResult
         CanItFail       -- Tells whether the failure expression is used
-        (CoreExpr -> DsM CoreExpr)
+        (CoreExpr -> DsM l CoreExpr)
                         -- Takes a expression to plug in at the
                         -- failure point(s). The expression should
                         -- be duplicatable!
@@ -124,10 +124,10 @@ a @UniqueSupply@ and some annotations, which
 presumably include source-file location information:
 
 \begin{code}
-type DsM result = TcRnIf DsGblEnv DsLclEnv result
+type DsM l result = TcRnIf DsGblEnv (DsLclEnv l) result
 
 -- Compatibility functions
-fixDs :: (a -> DsM a) -> DsM a
+fixDs :: (a -> DsM l a) -> DsM l a
 fixDs    = fixM
 
 type DsWarning = (SrcSpan, SDoc)
@@ -172,9 +172,9 @@ data DsGblEnv
 instance ContainsModule DsGblEnv where
     extractModule = ds_mod
 
-data DsLclEnv = DsLclEnv {
-        ds_meta    :: DsMetaEnv SrcSpan, -- Template Haskell bindings
-        ds_loc     :: SrcSpan           -- to put in pattern-matching error msgs
+data DsLclEnv l = DsLclEnv {
+        ds_meta    :: DsMetaEnv l, -- Template Haskell bindings
+        ds_loc     :: SrcSpan      -- to put in pattern-matching error msgs
      }
 
 -- Inside [| |] brackets, the desugarer looks 
@@ -191,7 +191,7 @@ data DsMetaVal l
 
 initDs :: HscEnv
        -> Module -> GlobalRdrEnv -> TypeEnv -> FamInstEnv
-       -> DsM a
+       -> DsM l a
        -> IO (Messages, Maybe a)
 -- Print errors and warnings, if any arise
 
@@ -212,7 +212,7 @@ initDs hsc_env mod rdr_env type_env fam_inst_env thing_inside
         ; let final_res | errorsFound dflags msgs = Nothing
                         | otherwise = case either_res of
                                         Right res -> Just res
-                                        Left exn  -> pprPanic "initDs" (text (show exn))
+                                        Left exn  -> pprPanic "initDs" (text (show (exn::IOEnvFailure)))
                 -- The (Left exn) case happens when the thing_inside throws
                 -- a UserError exception.  Then it should have put an error
                 -- message in msg_var, so we just discard the exception
@@ -230,9 +230,9 @@ initDs hsc_env mod rdr_env type_env fam_inst_env thing_inside
            }
       where
         loadOneModule :: ModuleName           -- the module to load
-                      -> DsM Bool             -- under which condition
-                      -> MsgDoc              -- error message if module not found
-                      -> DsM GlobalRdrEnv     -- empty if condition 'False'
+                      -> DsM l Bool           -- under which condition
+                      -> MsgDoc               -- error message if module not found
+                      -> DsM l GlobalRdrEnv   -- empty if condition 'False'
         loadOneModule modname check err
           = do { doLoad <- check
                ; if not doLoad 
@@ -267,7 +267,7 @@ initDs hsc_env mod rdr_env type_env fam_inst_env thing_inside
                       -- module called 'dATA_ARRAY_PARALLEL_NAME'; see also the comments at the top
                       -- of 'base:GHC.PArr' and 'Data.Array.Parallel' in the DPH libraries
 
-initDsTc :: DsM a -> TcM a
+initDsTc :: DsM l a -> TcM l a
 initDsTc thing_inside
   = do  { this_mod <- getModule
         ; tcg_env  <- getGblEnv
@@ -280,7 +280,8 @@ initDsTc thing_inside
         ; setEnvs ds_envs thing_inside
         }
 
-mkDsEnvs :: DynFlags -> Module -> GlobalRdrEnv -> TypeEnv -> FamInstEnv -> IORef Messages -> (DsGblEnv, DsLclEnv)
+mkDsEnvs :: DynFlags -> Module -> GlobalRdrEnv -> TypeEnv -> FamInstEnv
+         -> IORef Messages -> (DsGblEnv, DsLclEnv l)
 mkDsEnvs dflags mod rdr_env type_env fam_inst_env msg_var
   = let if_genv = IfGblEnv { if_rec_types = Just (mod, return type_env) }
         if_lenv = mkIfLclEnv mod (ptext (sLit "GHC error in desugarer lookup in") <+> ppr mod)
@@ -299,7 +300,7 @@ mkDsEnvs dflags mod rdr_env type_env fam_inst_env msg_var
 
 -- Attempt to load the given module and return its exported entities if successful.
 --
-loadModule :: SDoc -> Module -> DsM GlobalRdrEnv
+loadModule :: SDoc -> Module -> DsM l GlobalRdrEnv
 loadModule doc mod
   = do { env    <- getGblEnv
        ; setEnvs (ds_if_env env) $ do
@@ -329,23 +330,23 @@ it easier to read debugging output.
 
 \begin{code}
 -- Make a new Id with the same print name, but different type, and new unique
-newUniqueId :: Id -> Type -> DsM Id
+newUniqueId :: Id -> Type -> DsM l Id
 newUniqueId id = mkSysLocalM (occNameFS (nameOccName (idName id)))
 
-duplicateLocalDs :: Id -> DsM Id
-duplicateLocalDs old_local 
+duplicateLocalDs :: Id -> DsM l Id
+duplicateLocalDs old_local
   = do  { uniq <- newUnique
         ; return (setIdUnique old_local uniq) }
 
-newPredVarDs :: PredType -> DsM Var
+newPredVarDs :: PredType -> DsM l Var
 newPredVarDs pred
  = newSysLocalDs pred
  
-newSysLocalDs, newFailLocalDs :: Type -> DsM Id
+newSysLocalDs, newFailLocalDs :: Type -> DsM l Id
 newSysLocalDs  = mkSysLocalM (fsLit "ds")
 newFailLocalDs = mkSysLocalM (fsLit "fail")
 
-newSysLocalsDs :: [Type] -> DsM [Id]
+newSysLocalsDs :: [Type] -> DsM l [Id]
 newSysLocalsDs tys = mapM newSysLocalDs tys
 \end{code}
 
@@ -353,24 +354,24 @@ We can also reach out and either set/grab location information from
 the @SrcSpan@ being carried around.
 
 \begin{code}
-getGhcModeDs :: DsM GhcMode
+getGhcModeDs :: DsM l GhcMode
 getGhcModeDs =  getDynFlags >>= return . ghcMode
 
-getSrcSpanDs :: DsM SrcSpan
+getSrcSpanDs :: DsM l SrcSpan
 getSrcSpanDs = do { env <- getLclEnv; return (ds_loc env) }
 
-putSrcSpanDs :: SrcSpan -> DsM a -> DsM a
+putSrcSpanDs :: SrcSpan -> DsM l a -> DsM l a
 putSrcSpanDs new_loc thing_inside = updLclEnv (\ env -> env {ds_loc = new_loc}) thing_inside
 
-warnDs :: SDoc -> DsM ()
+warnDs :: SDoc -> DsM l ()
 warnDs warn = do { env <- getGblEnv 
                  ; loc <- getSrcSpanDs
                  ; dflags <- getDynFlags
                  ; let msg = mkWarnMsg dflags loc (ds_unqual env)  warn
                  ; updMutVar (ds_msgs env) (\ (w,e) -> (w `snocBag` msg, e)) }
 
-failWithDs :: SDoc -> DsM a
-failWithDs err 
+failWithDs :: SDoc -> DsM l a
+failWithDs err
   = do  { env <- getGblEnv 
         ; loc <- getSrcSpanDs
         ; dflags <- getDynFlags
@@ -378,36 +379,36 @@ failWithDs err
         ; updMutVar (ds_msgs env) (\ (w,e) -> (w, e `snocBag` msg))
         ; failM }
 
-mkPrintUnqualifiedDs :: DsM PrintUnqualified
+mkPrintUnqualifiedDs :: DsM l PrintUnqualified
 mkPrintUnqualifiedDs = ds_unqual <$> getGblEnv
 \end{code}
 
 \begin{code}
-instance MonadThings (IOEnv (Env DsGblEnv DsLclEnv)) where
+instance MonadThings (IOEnv (Env DsGblEnv (DsLclEnv l))) where
     lookupThing = dsLookupGlobal
 
-dsLookupGlobal :: Name -> DsM TyThing
+dsLookupGlobal :: Name -> DsM l TyThing
 -- Very like TcEnv.tcLookupGlobal
 dsLookupGlobal name 
   = do  { env <- getGblEnv
         ; setEnvs (ds_if_env env)
                   (tcIfaceGlobal name) }
 
-dsLookupGlobalId :: Name -> DsM Id
+dsLookupGlobalId :: Name -> DsM l Id
 dsLookupGlobalId name 
   = tyThingId <$> dsLookupGlobal name
 
 -- |Get a name from "Data.Array.Parallel" for the desugarer, from the 'ds_parr_bi' component of the
 -- global desugerar environment.
 --
-dsDPHBuiltin :: (PArrBuiltin -> a) -> DsM a
+dsDPHBuiltin :: (PArrBuiltin -> a) -> DsM l a
 dsDPHBuiltin sel = (sel . ds_parr_bi) <$> getGblEnv
 
-dsLookupTyCon :: Name -> DsM TyCon
+dsLookupTyCon :: Name -> DsM l TyCon
 dsLookupTyCon name
   = tyThingTyCon <$> dsLookupGlobal name
 
-dsLookupDataCon :: Name -> DsM DataCon
+dsLookupDataCon :: Name -> DsM l DataCon
 dsLookupDataCon name
   = tyThingDataCon <$> dsLookupGlobal name
 \end{code}
@@ -417,7 +418,7 @@ dsLookupDataCon name
 
 -- |Lookup a name exported by 'Data.Array.Parallel.Prim' or 'Data.Array.Parallel.Prim'.
 --  Panic if there isn't one, or if it is defined multiple times.
-dsLookupDPHRdrEnv :: OccName -> DsM Name
+dsLookupDPHRdrEnv :: OccName -> DsM l Name
 dsLookupDPHRdrEnv occ
   = liftM (fromMaybe (pprPanic nameNotFound (ppr occ)))
   $ dsLookupDPHRdrEnv_maybe occ
@@ -425,7 +426,7 @@ dsLookupDPHRdrEnv occ
 
 -- |Lookup a name exported by 'Data.Array.Parallel.Prim' or 'Data.Array.Parallel.Prim',
 --  returning `Nothing` if it's not defined. Panic if it's defined multiple times.
-dsLookupDPHRdrEnv_maybe :: OccName -> DsM (Maybe Name)
+dsLookupDPHRdrEnv_maybe :: OccName -> DsM l (Maybe Name)
 dsLookupDPHRdrEnv_maybe occ
   = do { env <- ds_dph_env <$> getGblEnv
        ; let gres = lookupGlobalRdrEnv env occ
@@ -439,7 +440,7 @@ dsLookupDPHRdrEnv_maybe occ
 
 -- Populate 'ds_parr_bi' from 'ds_dph_env'.
 --
-dsInitPArrBuiltin :: DsM a -> DsM a
+dsInitPArrBuiltin :: DsM l a -> DsM l a
 dsInitPArrBuiltin thing_inside
   = do { lengthPVar         <- externalVar (fsLit "lengthP")
        ; replicatePVar      <- externalVar (fsLit "replicateP")
@@ -473,33 +474,33 @@ dsInitPArrBuiltin thing_inside
                    thing_inside
        }
   where
-    externalVar :: FastString -> DsM Var
+    externalVar :: FastString -> DsM l Var
     externalVar fs = dsLookupDPHRdrEnv (mkVarOccFS fs) >>= dsLookupGlobalId
 
     arithErr = panic "Arithmetic sequences have to wait until we support type classes"
 \end{code}
 
 \begin{code}
-dsGetFamInstEnvs :: DsM FamInstEnvs
+dsGetFamInstEnvs :: DsM l FamInstEnvs
 -- Gets both the external-package inst-env
 -- and the home-pkg inst env (includes module being compiled)
 dsGetFamInstEnvs
   = do { eps <- getEps; env <- getGblEnv
        ; return (eps_fam_inst_env eps, ds_fam_inst_env env) }
 
-dsGetMetaEnv :: DsM (NameEnv DsMetaVal)
+dsGetMetaEnv :: DsM l (NameEnv (DsMetaVal l))
 dsGetMetaEnv = do { env <- getLclEnv; return (ds_meta env) }
 
-dsLookupMetaEnv :: Name -> DsM (Maybe DsMetaVal)
+dsLookupMetaEnv :: Name -> DsM l (Maybe (DsMetaVal l))
 dsLookupMetaEnv name = do { env <- getLclEnv; return (lookupNameEnv (ds_meta env) name) }
 
-dsExtendMetaEnv :: DsMetaEnv -> DsM a -> DsM a
+dsExtendMetaEnv :: DsMetaEnv l -> DsM l a -> DsM l a
 dsExtendMetaEnv menv thing_inside
   = updLclEnv (\env -> env { ds_meta = ds_meta env `plusNameEnv` menv }) thing_inside
 \end{code}
 
 \begin{code}
-discardWarningsDs :: DsM a -> DsM a
+discardWarningsDs :: DsM l a -> DsM l a
 -- Ignore warnings inside the thing inside;
 -- used to ignore inaccessable cases etc. inside generated code
 discardWarningsDs thing_inside

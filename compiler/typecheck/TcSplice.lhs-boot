@@ -16,23 +16,23 @@ import Id       ( Id )
 import qualified Language.Haskell.TH as TH
 #endif
 
-tcSpliceExpr :: HsSplice Name
+tcSpliceExpr :: HsSplice l Name
              -> TcRhoType
-             -> TcM (HsExpr TcId)
+             -> TcM l (HsExpr l TcId)
 
 tcUntypedBracket :: HsBracket l Name
                  -> [PendingRnSplice l]
                  -> TcRhoType
-                 -> TcM (HsExpr l TcId)
+                 -> TcM l (HsExpr l TcId)
 tcTypedBracket :: HsBracket l Name
                -> TcRhoType
-               -> TcM (HsExpr l TcId)
+               -> TcM l (HsExpr l TcId)
 
-runQuasiQuoteDecl :: HsQuasiQuote RdrName -> TcM [LHsDecl l RdrName]
-runQuasiQuoteExpr :: HsQuasiQuote RdrName -> TcM (LHsExpr l RdrName)
-runQuasiQuoteType :: HsQuasiQuote RdrName -> TcM (LHsType l RdrName)
-runQuasiQuotePat  :: HsQuasiQuote RdrName -> TcM (LPat l RdrName)
-runAnnotation     :: CoreAnnTarget -> LHsExpr l Name -> TcM Annotation
+runQuasiQuoteDecl :: HsQuasiQuote RdrName -> TcM l [LHsDecl l RdrName]
+runQuasiQuoteExpr :: HsQuasiQuote RdrName -> TcM l (LHsExpr l RdrName)
+runQuasiQuoteType :: HsQuasiQuote RdrName -> TcM l (LHsType l RdrName)
+runQuasiQuotePat  :: HsQuasiQuote RdrName -> TcM l (LPat l RdrName)
+runAnnotation     :: CoreAnnTarget -> LHsExpr l Name -> TcM l Annotation
 
 #ifdef GHCI
 tcTopSpliceExpr :: Bool -> TcM (LHsExpr Id) -> TcM (LHsExpr Id)

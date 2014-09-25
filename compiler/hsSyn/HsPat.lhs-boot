@@ -9,7 +9,7 @@
 #endif
 
 module HsPat where
-import SrcLoc( GenLocated, SrcAnnotation )
+import SrcLoc( GenLocated, ApiAnnotation )
 
 import Data.Data hiding (Fixity)
 import Outputable
@@ -28,5 +28,5 @@ instance Typeable1 Pat
 #endif
 
 instance (DataId id, Data l) => Data (Pat l id)
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (Pat l name)
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (Pat l name)
 \end{code}

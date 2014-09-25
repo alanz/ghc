@@ -1,12 +1,20 @@
 \begin{code}
+{-# LANGUAGE CPP #-}
+#if __GLASGOW_HASKELL__ > 706
+{-# LANGUAGE RoleAnnotations #-}
+#endif
 module DsMonad (DsM) where
 
 import TcRnTypes
 
 data DsGblEnv
-data DsLclEnv
-type DsM result = TcRnIf DsGblEnv DsLclEnv result
+data DsLclEnv l
 
+type DsM l result = TcRnIf DsGblEnv (DsLclEnv l) result
+
+#if __GLASGOW_HASKELL__ > 706
+type role DsLclEnv nominal
+#endif
 \end{code}
 
 Some notes about this boot file (from Edsko):

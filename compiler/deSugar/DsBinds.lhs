@@ -428,7 +428,7 @@ dsSpecs poly_rhs (SpecPrags sps)
 dsSpec :: Maybe CoreExpr  	-- Just rhs => RULE is for a local binding
        	  			-- Nothing => RULE is for an imported Id
 				-- 	      rhs is in the Id's unfolding
-       -> Located TcSpecPrag
+       -> GenLocated l TcSpecPrag
        -> DsM (Maybe (OrdList (Id,CoreExpr), CoreRule))
 dsSpec mb_poly_rhs (L loc (SpecPrag poly_id spec_co spec_inl))
   | isJust (isClassOpId_maybe poly_id)

@@ -7,5 +7,5 @@ import TcEvidence ( TcCoercion )
 -- This boot file exists only to tie the knot between
 --              TcUnify and Inst
 
-unifyType :: TcTauType -> TcTauType -> TcM TcCoercion
+unifyType :: TcTauType -> TcTauType -> TcM l TcCoercion
 \end{code}

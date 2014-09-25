@@ -49,7 +49,7 @@ import Outputable
 initV :: HscEnv
       -> ModGuts
       -> VectInfo
-      -> VM a
+      -> VM l a
       -> IO (Maybe (VectInfo, a))
 initV hsc_env guts info thing_inside
   = do { dumpIfVtTrace "Incoming VectInfo" (ppr info)
@@ -127,17 +127,17 @@ initV hsc_env guts info thing_inside
 
 -- |Lift a desugaring computation using the `Builtins` into the vectorisation monad.
 --
-liftBuiltinDs :: (Builtins -> DsM a) -> VM a
+liftBuiltinDs :: (Builtins -> DsM l a) -> VM l a
 liftBuiltinDs p = VM $ \bi genv lenv -> do { x <- p bi; return (Yes genv lenv x)}
 
 -- |Project something from the set of builtins.
 --
-builtin :: (Builtins -> a) -> VM a
+builtin :: (Builtins -> a) -> VM l a
 builtin f = VM $ \bi genv lenv -> return (Yes genv lenv (f bi))
 
 -- |Lift a function using the `Builtins` into the vectorisation monad.
 --
-builtins :: (a -> Builtins -> b) -> VM (a -> b)
+builtins :: (a -> Builtins -> b) -> VM l (a -> b)
 builtins f = VM $ \bi genv lenv -> return (Yes genv lenv (`f` bi))
 
 
@@ -148,7 +148,7 @@ builtins f = VM $ \bi genv lenv -> return (Yes genv lenv (`f` bi))
 -- * If it's in the global environment we get the vectorised version.
 -- * If it's in the local environment we get both the vectorised and lifted version.
 --
-lookupVar :: Var -> VM (Scope Var (Var, Var))
+lookupVar :: Var -> VM l (Scope Var (Var, Var))
 lookupVar v
   = do { mb_res <- lookupVar_maybe v
        ; case mb_res of
@@ -158,7 +158,7 @@ lookupVar v
                   dumpVar dflags v
        }
 
-lookupVar_maybe :: Var -> VM (Maybe (Scope Var (Var, Var)))
+lookupVar_maybe :: Var -> VM l (Maybe (Scope Var (Var, Var)))
 lookupVar_maybe v
  = do { r <- readLEnv $ \env -> lookupVarEnv (local_vars env) v
       ; case r of
@@ -179,7 +179,7 @@ dumpVar dflags var
 -- |Mark the given variable as parallel — i.e., executing the associated code might involve
 -- parallel array computations.
 --
-addGlobalParallelVar :: Var -> VM ()
+addGlobalParallelVar :: Var -> VM l ()
 addGlobalParallelVar var
   = do { traceVt "addGlobalParallelVar" (ppr var)
        ; updGEnv $ \env -> env{global_parallel_vars = extendVarSet (global_parallel_vars env) var}
@@ -187,7 +187,7 @@ addGlobalParallelVar var
 
 -- |Mark the given type constructor as parallel — i.e., its values might embed parallel arrays.
 --
-addGlobalParallelTyCon :: TyCon -> VM ()
+addGlobalParallelTyCon :: TyCon -> VM l ()
 addGlobalParallelTyCon tycon
   = do { traceVt "addGlobalParallelTyCon" (ppr tycon)
        ; updGEnv $ \env -> 

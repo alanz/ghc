@@ -9,27 +9,27 @@ import Name     ( Name )
 
 match   :: [Id]
         -> Type
-        -> [EquationInfo]
-        -> DsM MatchResult
+        -> [EquationInfo l]
+        -> DsM l (MatchResult l)
 
 matchWrapper
         :: HsMatchContext Name
-        -> MatchGroup Id (LHsExpr Id)
-        -> DsM ([Id], CoreExpr)
+        -> MatchGroup l Id (LHsExpr l Id)
+        -> DsM l ([Id], CoreExpr)
 
 matchSimply
         :: CoreExpr
         -> HsMatchContext Name
-        -> LPat Id
+        -> LPat l Id
         -> CoreExpr
         -> CoreExpr
-        -> DsM CoreExpr
+        -> DsM l CoreExpr
 
 matchSinglePat
         :: CoreExpr
         -> HsMatchContext Name
-        -> LPat Id
+        -> LPat l Id
         -> Type
-        -> MatchResult
-        -> DsM MatchResult
+        -> MatchResult l
+        -> DsM l (MatchResult l)
 \end{code}

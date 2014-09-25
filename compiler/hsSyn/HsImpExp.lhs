@@ -44,7 +44,7 @@ data ImportDecl l name
       ideclHiding    :: Maybe (Bool, [LIE l name]) -- ^ (True => hiding, names)
     } deriving (Data, Typeable)
 
-simpleImportDecl :: (SrcAnnotation l) => ModuleName -> ImportDecl l name
+simpleImportDecl :: (ApiAnnotation l) => ModuleName -> ImportDecl l name
 simpleImportDecl mn = ImportDecl {
       ideclName      = annNoLoc mn,
       ideclPkgQual   = Nothing,

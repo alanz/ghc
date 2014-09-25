@@ -83,11 +83,11 @@ follows:
 \end{verbatim}
 
 \begin{code}
-dsCCall :: CLabelString -- C routine to invoke
-        -> [CoreExpr]   -- Arguments (desugared)
-        -> Safety       -- Safety of the call
-        -> Type         -- Type of the result: IO t
-        -> DsM CoreExpr -- Result, of type ???
+dsCCall :: CLabelString   -- C routine to invoke
+        -> [CoreExpr]     -- Arguments (desugared)
+        -> Safety         -- Safety of the call
+        -> Type           -- Type of the result: IO t
+        -> DsM l CoreExpr -- Result, of type ???
 
 dsCCall lbl args may_gc result_ty
   = do (unboxed_args, arg_wrappers) <- mapAndUnzipM unboxArg args
@@ -124,10 +124,10 @@ mkFCall dflags uniq the_fcall val_args res_ty
 \end{code}
 
 \begin{code}
-unboxArg :: CoreExpr                    -- The supplied argument
-         -> DsM (CoreExpr,              -- To pass as the actual argument
-                 CoreExpr -> CoreExpr   -- Wrapper to unbox the arg
-                )
+unboxArg :: CoreExpr                      -- The supplied argument
+         -> DsM l (CoreExpr,              -- To pass as the actual argument
+                   CoreExpr -> CoreExpr   -- Wrapper to unbox the arg
+                  )
 -- Example: if the arg is e::Int, unboxArg will return
 --      (x#::Int#, \W. case x of I# x# -> W)
 -- where W is a CoreExpr that probably mentions x#
@@ -200,7 +200,7 @@ unboxArg arg
 
 \begin{code}
 boxResult :: Type
-          -> DsM (Type, CoreExpr -> CoreExpr)
+          -> DsM l (Type, CoreExpr -> CoreExpr)
 
 -- Takes the result of the user-level ccall:
 --      either (IO t),
@@ -271,7 +271,7 @@ boxResult result_ty
 
 mk_alt :: (Expr Var -> [Expr Var] -> Expr Var)
        -> (Maybe Type, Expr Var -> Expr Var)
-       -> DsM (Type, (AltCon, [Id], Expr Var))
+       -> DsM l (Type, (AltCon, [Id], Expr Var))
 mk_alt return_result (Nothing, wrap_result)
   = do -- The ccall returns ()
        state_id <- newSysLocalDs realWorldStatePrimTy
@@ -315,8 +315,8 @@ mk_alt return_result (Just prim_res_ty, wrap_result)
 
 
 resultWrapper :: Type
-              -> DsM (Maybe Type,               -- Type of the expected result, if any
-                      CoreExpr -> CoreExpr)     -- Wrapper for the result
+              -> DsM l (Maybe Type,       -- Type of the expected result, if any
+                        CoreExpr -> CoreExpr) -- Wrapper for the result
 -- resultWrapper deals with the result *value*
 -- E.g. foreign import foo :: Int -> IO T
 -- Then resultWrapper deals with marshalling the 'T' part

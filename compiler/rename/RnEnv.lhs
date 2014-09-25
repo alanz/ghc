@@ -85,7 +85,7 @@ import Constants        ( mAX_TUPLE_SIZE )
 %*********************************************************
 
 \begin{code}
-newTopSrcBinder :: Located RdrName -> RnM Name
+newTopSrcBinder :: (ApiAnnotation l) => GenLocated l RdrName -> RnM l Name
 newTopSrcBinder (L loc rdr_name)
   | Just name <- isExact_maybe rdr_name
   =     -- This is here to catch
@@ -100,7 +100,7 @@ newTopSrcBinder (L loc rdr_name)
     if isExternalName name then
       do { this_mod <- getModule
          ; unless (this_mod == nameModule name)
-                  (addErrAt loc (badOrigBinding rdr_name))
+                  (addErrAt (annGetSpan loc) (badOrigBinding rdr_name))
          ; return name }
     else   -- See Note [Binders in Template Haskell] in Convert.hs
       do { let occ = nameOccName name
@@ -173,17 +173,17 @@ OccName.  We use OccName.isSymOcc to detect that case, which isn't
 terribly efficient, but there seems to be no better way.
 
 \begin{code}
-lookupTopBndrRn :: RdrName -> RnM Name
+lookupTopBndrRn :: RdrName -> RnM l Name
 lookupTopBndrRn n = do nopt <- lookupTopBndrRn_maybe n
                        case nopt of
                          Just n' -> return n'
                          Nothing -> do traceRn $ text "lookupTopBndrRn"
                                        unboundName WL_LocalTop n
 
-lookupLocatedTopBndrRn :: Located RdrName -> RnM (Located Name)
+lookupLocatedTopBndrRn :: (ApiAnnotation l) => GenLocated l RdrName -> RnM l (GenLocated l Name)
 lookupLocatedTopBndrRn = wrapLocM lookupTopBndrRn
 
-lookupTopBndrRn_maybe :: RdrName -> RnM (Maybe Name)
+lookupTopBndrRn_maybe :: RdrName -> RnM l (Maybe Name)
 -- Look up a top-level source-code binder.   We may be looking up an unqualified 'f',
 -- and there may be several imported 'f's too, which must not confuse us.
 -- For example, this is OK:
@@ -227,7 +227,7 @@ lookupTopBndrRn_maybe rdr_name
 
 
 -----------------------------------------------
-lookupExactOcc :: Name -> RnM Name
+lookupExactOcc :: Name -> RnM l Name
 -- See Note [Looking up Exact RdrNames]
 lookupExactOcc name
   | Just thing <- wiredInNameTyThing_maybe name
@@ -293,7 +293,7 @@ lookupExactOcc name
                               , ptext (sLit "If that's it, then -ddump-splices might be useful") ])
 
 -----------------------------------------------
-lookupInstDeclBndr :: Name -> SDoc -> RdrName -> RnM Name
+lookupInstDeclBndr :: Name -> SDoc -> RdrName -> RnM l Name
 -- This is called on the method name on the left-hand side of an
 -- instance declaration binding. eg.  instance Functor T where
 --                                       fmap = ...
@@ -324,7 +324,8 @@ lookupInstDeclBndr cls what rdr
 
 
 -----------------------------------------------
-lookupFamInstName :: Maybe Name -> Located RdrName -> RnM (Located Name)
+lookupFamInstName :: (ApiAnnotation l) => Maybe Name -> GenLocated l RdrName
+                  -> RnM l (GenLocated l Name)
 -- Used for TyData and TySynonym family instances only,
 -- See Note [Family instance binders]
 lookupFamInstName (Just cls) tc_rdr  -- Associated type; c.f RnBinds.rnMethodBind
@@ -333,7 +334,7 @@ lookupFamInstName Nothing tc_rdr     -- Family instance; tc_rdr is an *occurrenc
   = lookupLocatedOccRn tc_rdr
 
 -----------------------------------------------
-lookupConstructorFields :: Name -> RnM [Name]
+lookupConstructorFields :: Name -> RnM l [Name]
 -- Look up the fields of a given constructor
 --   *  For constructors from this module, use the record field env,
 --      which is itself gathered from the (as yet un-typechecked)
@@ -369,7 +370,7 @@ lookupSubBndrOcc :: Bool
                  -> Parent  -- NoParent   => just look it up as usual
                             -- ParentIs p => use p to disambiguate
                  -> SDoc -> RdrName
-                 -> RnM Name
+                 -> RnM l Name
 lookupSubBndrOcc warnIfDeprec parent doc rdr_name
   | Just n <- isExact_maybe rdr_name   -- This happens in derived code
   = lookupExactOcc n
@@ -551,35 +552,36 @@ we'll miss the fact that the qualified import is redundant.
 --------------------------------------------------
 
 \begin{code}
-getLookupOccRn :: RnM (Name -> Maybe Name)
+getLookupOccRn :: RnM l (Name -> Maybe Name)
 getLookupOccRn
   = do local_env <- getLocalRdrEnv
        return (lookupLocalRdrOcc local_env . nameOccName)
 
-lookupLocatedOccRn :: Located RdrName -> RnM (Located Name)
+lookupLocatedOccRn :: (ApiAnnotation l)
+                   => GenLocated l RdrName -> RnM l (GenLocated l Name)
 lookupLocatedOccRn = wrapLocM lookupOccRn
 
-lookupLocalOccRn_maybe :: RdrName -> RnM (Maybe Name)
+lookupLocalOccRn_maybe :: RdrName -> RnM l (Maybe Name)
 -- Just look in the local environment
 lookupLocalOccRn_maybe rdr_name
   = do { local_env <- getLocalRdrEnv
        ; return (lookupLocalRdrEnv local_env rdr_name) }
 
-lookupLocalOccThLvl_maybe :: Name -> RnM (Maybe (TopLevelFlag, ThLevel))
+lookupLocalOccThLvl_maybe :: Name -> RnM l (Maybe (TopLevelFlag, ThLevel))
 -- Just look in the local environment
 lookupLocalOccThLvl_maybe name
   = do { lcl_env <- getLclEnv
        ; return (lookupNameEnv (tcl_th_bndrs lcl_env) name) }
 
 -- lookupOccRn looks up an occurrence of a RdrName
-lookupOccRn :: RdrName -> RnM Name
+lookupOccRn :: RdrName -> RnM l Name
 lookupOccRn rdr_name
   = do { mb_name <- lookupOccRn_maybe rdr_name
        ; case mb_name of
            Just name -> return name
            Nothing   -> reportUnboundName rdr_name }
 
-lookupKindOccRn :: RdrName -> RnM Name
+lookupKindOccRn :: RdrName -> RnM l Name
 -- Looking up a name occurring in a kind
 lookupKindOccRn rdr_name
   = do { mb_name <- lookupOccRn_maybe rdr_name
@@ -588,7 +590,7 @@ lookupKindOccRn rdr_name
            Nothing   -> reportUnboundName rdr_name  }
 
 -- lookupPromotedOccRn looks up an optionally promoted RdrName.
-lookupTypeOccRn :: RdrName -> RnM Name
+lookupTypeOccRn :: RdrName -> RnM l Name
 -- see Note [Demotion]
 lookupTypeOccRn rdr_name
   = do { mb_name <- lookupOccRn_maybe rdr_name
@@ -596,7 +598,7 @@ lookupTypeOccRn rdr_name
              Just name -> return name ;
              Nothing   -> lookup_demoted rdr_name } }
 
-lookup_demoted :: RdrName -> RnM Name
+lookup_demoted :: RdrName -> RnM l Name
 lookup_demoted rdr_name
   | Just demoted_rdr <- demoteRdrName rdr_name
     -- Maybe it's the name of a *data* constructor
@@ -648,7 +650,7 @@ The final result (after the renamer) will be:
 --                                         , let gres' = filter isLocalGRE gres, not (null gres') ] ]
 --       ; return mb_res }
 
-lookupOccRn_maybe :: RdrName -> RnM (Maybe Name)
+lookupOccRn_maybe :: RdrName -> RnM l (Maybe Name)
 -- lookupOccRn looks up an occurrence of a RdrName
 lookupOccRn_maybe rdr_name
   = do { local_env <- getLocalRdrEnv
@@ -664,7 +666,7 @@ lookupOccRn_maybe rdr_name
                                 -- and only happens for failed lookups
        ; lookupQualifiedNameGHCi dflags is_ghci rdr_name } } } } }
 
-lookupGlobalOccRn :: RdrName -> RnM Name
+lookupGlobalOccRn :: RdrName -> RnM l Name
 -- lookupGlobalOccRn is like lookupOccRn, except that it looks in the global
 -- environment.  Adds an error message if the RdrName is not in scope.
 lookupGlobalOccRn rdr_name
@@ -674,7 +676,7 @@ lookupGlobalOccRn rdr_name
            Nothing -> do { traceRn (text "lookupGlobalOccRn" <+> ppr rdr_name)
                          ; unboundName WL_Global rdr_name } }
 
-lookupGlobalOccRn_maybe :: RdrName -> RnM (Maybe Name)
+lookupGlobalOccRn_maybe :: RdrName -> RnM l (Maybe Name)
 -- No filter function; does not report an error on failure
 
 lookupGlobalOccRn_maybe rdr_name
@@ -696,12 +698,12 @@ lookupGlobalOccRn_maybe rdr_name
 --      Lookup in the Global RdrEnv of the module
 --------------------------------------------------
 
-lookupGreRn_maybe :: RdrName -> RnM (Maybe GlobalRdrElt)
+lookupGreRn_maybe :: RdrName -> RnM l (Maybe GlobalRdrElt)
 -- Just look up the RdrName in the GlobalRdrEnv
 lookupGreRn_maybe rdr_name
   = lookupGreRn_help rdr_name (lookupGRE_RdrName rdr_name)
 
-lookupGreRn :: RdrName -> RnM GlobalRdrElt
+lookupGreRn :: RdrName -> RnM l GlobalRdrElt
 -- If not found, add error message, and return a fake GRE
 lookupGreRn rdr_name
   = do  { mb_gre <- lookupGreRn_maybe rdr_name
@@ -713,7 +715,7 @@ lookupGreRn rdr_name
         ; return (GRE { gre_name = name, gre_par = NoParent,
                         gre_prov = LocalDef }) }}}
 
-lookupGreLocalRn_maybe :: RdrName -> RnM (Maybe GlobalRdrElt)
+lookupGreLocalRn_maybe :: RdrName -> RnM l (Maybe GlobalRdrElt)
 -- Similar, but restricted to locally-defined things
 lookupGreLocalRn_maybe rdr_name
   = lookupGreRn_help rdr_name lookup_fn
@@ -722,7 +724,7 @@ lookupGreLocalRn_maybe rdr_name
 
 lookupGreRn_help :: RdrName                     -- Only used in error message
                  -> (GlobalRdrEnv -> [GlobalRdrElt])    -- Lookup function
-                 -> RnM (Maybe GlobalRdrElt)
+                 -> RnM l (Maybe GlobalRdrElt)
 -- Checks for exactly one match; reports deprecations
 -- Returns Nothing, without error, if too few
 lookupGreRn_help rdr_name lookup
@@ -758,7 +760,7 @@ Note [Handling of deprecations]
      - the things exported by a module export 'module M'
 
 \begin{code}
-addUsedRdrName :: Bool -> GlobalRdrElt -> RdrName -> RnM ()
+addUsedRdrName :: Bool -> GlobalRdrElt -> RdrName -> RnM l ()
 -- Record usage of imported RdrNames
 addUsedRdrName warnIfDeprec gre rdr
   | isLocalGRE gre = return ()  -- No call to warnIfDeprecated
@@ -768,7 +770,7 @@ addUsedRdrName warnIfDeprec gre rdr
                         ; updMutVar (tcg_used_rdrnames env)
                                     (\s -> Set.insert rdr s) }
 
-addUsedRdrNames :: [RdrName] -> RnM ()
+addUsedRdrNames :: [RdrName] -> RnM l ()
 -- Record used sub-binders
 -- We don't check for imported-ness here, because it's inconvenient
 -- and not stritly necessary.
@@ -778,7 +780,7 @@ addUsedRdrNames rdrs
        ; updMutVar (tcg_used_rdrnames env)
                    (\s -> foldr Set.insert s rdrs) }
 
-warnIfDeprecated :: GlobalRdrElt -> RnM ()
+warnIfDeprecated :: GlobalRdrElt -> RnM l ()
 warnIfDeprecated gre@(GRE { gre_name = name, gre_prov = Imported (imp_spec : _) })
   = do { dflags <- getDynFlags
        ; when (wopt Opt_WarnWarningsDeprecations dflags) $
@@ -853,7 +855,7 @@ and should instead check the qualified import but at the moment
 this requires some refactoring so leave as a TODO
 
 \begin{code}
-lookupQualifiedNameGHCi :: DynFlags -> Bool -> RdrName -> RnM (Maybe Name)
+lookupQualifiedNameGHCi :: DynFlags -> Bool -> RdrName -> RnM l (Maybe Name)
 lookupQualifiedNameGHCi dflags is_ghci rdr_name
   | Just (mod,occ) <- isQual_maybe rdr_name
   , is_ghci
@@ -933,9 +935,9 @@ data HsSigCtxt
   | InstDeclCtxt  Name       -- Intsance decl for this class
   | HsBootCtxt               -- Top level of a hs-boot file
 
-lookupSigOccRn :: HsSigCtxt
-               -> Sig RdrName
-               -> Located RdrName -> RnM (Located Name)
+lookupSigOccRn :: (ApiAnnotation l) => HsSigCtxt
+               -> Sig l RdrName
+               -> GenLocated l RdrName -> RnM l (GenLocated l Name)
 lookupSigOccRn ctxt sig
   = wrapLocM $ \ rdr_name ->
     do { mb_name <- lookupBindGroupOcc ctxt (hsSigDoc sig) rdr_name
@@ -945,7 +947,7 @@ lookupSigOccRn ctxt sig
 
 lookupBindGroupOcc :: HsSigCtxt
                    -> SDoc
-                   -> RdrName -> RnM (Either MsgDoc Name)
+                   -> RdrName -> RnM l (Either MsgDoc Name)
 -- Looks up the RdrName, expecting it to resolve to one of the
 -- bound names passed in.  If not, return an appropriate error message
 --
@@ -1016,7 +1018,7 @@ lookupBindGroupOcc ctxt what rdr_name
 
 
 ---------------
-lookupLocalTcNames :: HsSigCtxt -> SDoc -> RdrName -> RnM [Name]
+lookupLocalTcNames :: HsSigCtxt -> SDoc -> RdrName -> RnM l [Name]
 -- GHC extension: look up both the tycon and data con or variable.
 -- Used for top-level fixity signatures and deprecations.
 -- Complain if neither is in scope.
@@ -1085,7 +1087,7 @@ deprecation declarations, and lookup of names in GHCi.
 
 \begin{code}
 --------------------------------
-type MiniFixityEnv = FastStringEnv (Located Fixity)
+type MiniFixityEnv l = FastStringEnv (GenLocated l Fixity)
         -- Mini fixity env for the names we're about
         -- to bind, in a single binding group
         --
@@ -1100,7 +1102,7 @@ type MiniFixityEnv = FastStringEnv (Located Fixity)
 -- Used for nested fixity decls to bind names along with their fixities.
 -- the fixities are given as a UFM from an OccName's FastString to a fixity decl
 
-addLocalFixities :: MiniFixityEnv -> [Name] -> RnM a -> RnM a
+addLocalFixities :: MiniFixityEnv l -> [Name] -> RnM l a -> RnM l a
 addLocalFixities mini_fix_env names thing_inside
   = extendFixityEnv (mapMaybe find_fixity names) thing_inside
   where
@@ -1127,7 +1129,7 @@ lookupFixity is a bit strange.
   We put them all in the local fixity environment
 
 \begin{code}
-lookupFixityRn :: Name -> RnM Fixity
+lookupFixityRn :: Name -> RnM l Fixity
 lookupFixityRn name
   | isUnboundName name
   = return (Fixity minPrecedence InfixL) 
@@ -1173,7 +1175,7 @@ lookupFixityRn name
     doc = ptext (sLit "Checking fixity for") <+> ppr name
 
 ---------------
-lookupTyFixityRn :: Located Name -> RnM Fixity
+lookupTyFixityRn :: GenLocated l Name -> RnM l Fixity
 lookupTyFixityRn (L _ n) = lookupFixityRn n
 
 \end{code}
@@ -1218,7 +1220,7 @@ We treat the orignal (standard) names as free-vars too, because the type checker
 checks the type of the user thing against the type of the standard thing.
 
 \begin{code}
-lookupIfThenElse :: RnM (Maybe (SyntaxExpr Name), FreeVars)
+lookupIfThenElse :: RnM l (Maybe (SyntaxExpr l Name), FreeVars)
 -- Different to lookupSyntaxName because in the non-rebindable
 -- case we desugar directly rather than calling an existing function
 -- Hence the (Maybe (SyntaxExpr Name)) return type
@@ -1229,8 +1231,8 @@ lookupIfThenElse
          else do { ite <- lookupOccRn (mkVarUnqual (fsLit "ifThenElse"))
                  ; return (Just (HsVar ite), unitFV ite) } }
 
-lookupSyntaxName :: Name                                -- The standard name
-                 -> RnM (SyntaxExpr Name, FreeVars)     -- Possibly a non-standard name
+lookupSyntaxName :: Name                         -- The standard name
+         -> RnM l (SyntaxExpr l Name, FreeVars)  -- Possibly a non-standard name
 lookupSyntaxName std_name
   = do { rebindable_on <- xoptM Opt_RebindableSyntax
        ; if not rebindable_on then 
@@ -1240,8 +1242,8 @@ lookupSyntaxName std_name
            do { usr_name <- lookupOccRn (mkRdrUnqual (nameOccName std_name))
               ; return (HsVar usr_name, unitFV usr_name) } }
 
-lookupSyntaxNames :: [Name]                          -- Standard names
-                  -> RnM ([HsExpr Name], FreeVars)   -- See comments with HsExpr.ReboundNames
+lookupSyntaxNames :: [Name]             -- Standard names
+   -> RnM l ([HsExpr l Name], FreeVars) -- See comments with HsExpr.ReboundNames
 lookupSyntaxNames std_names
   = do { rebindable_on <- xoptM Opt_RebindableSyntax
        ; if not rebindable_on then 
@@ -1259,7 +1261,7 @@ lookupSyntaxNames std_names
 %*********************************************************
 
 \begin{code}
-newLocalBndrRn :: Located RdrName -> RnM Name
+newLocalBndrRn :: (ApiAnnotation l) => GenLocated l RdrName -> RnM l Name
 -- Used for non-top-level binders.  These should
 -- never be qualified.
 newLocalBndrRn (L loc rdr_name)
@@ -1268,17 +1270,17 @@ newLocalBndrRn (L loc rdr_name)
                 -- See Note [Binders in Template Haskell] in Convert.lhs
   | otherwise
   = do { unless (isUnqual rdr_name)
-                (addErrAt loc (badQualBndrErr rdr_name))
+                (addErrAt (annGetSpan loc) (badQualBndrErr rdr_name))
        ; uniq <- newUnique
-       ; return (mkInternalName uniq (rdrNameOcc rdr_name) loc) }
+       ; return (mkInternalName uniq (rdrNameOcc rdr_name) (annGetSpan loc)) }
 
-newLocalBndrsRn :: [Located RdrName] -> RnM [Name]
+newLocalBndrsRn :: (ApiAnnotation l) => [GenLocated l RdrName] -> RnM l [Name]
 newLocalBndrsRn = mapM newLocalBndrRn
 
 ---------------------
-bindLocatedLocalsRn :: [Located RdrName]
-                    -> ([Name] -> RnM a)
-                    -> RnM a
+bindLocatedLocalsRn :: (ApiAnnotation l) => [GenLocated l RdrName]
+                    -> ([Name] -> RnM l a)
+                    -> RnM l a
 bindLocatedLocalsRn rdr_names_w_loc enclosed_scope
   = do { checkDupRdrNames rdr_names_w_loc
        ; checkShadowedRdrNames rdr_names_w_loc
@@ -1287,7 +1289,7 @@ bindLocatedLocalsRn rdr_names_w_loc enclosed_scope
        ; names <- newLocalBndrsRn rdr_names_w_loc
        ; bindLocalNames names (enclosed_scope names) }
 
-bindLocalNames :: [Name] -> RnM a -> RnM a
+bindLocalNames :: [Name] -> RnM l a -> RnM l a
 bindLocalNames names enclosed_scope
   = do { lcl_env <- getLclEnv
        ; let th_level  = thLevel (tcl_th_ctxt lcl_env)
@@ -1298,7 +1300,7 @@ bindLocalNames names enclosed_scope
                             , tcl_rdr      = rdr_env' })
                     enclosed_scope }
 
-bindLocalNamesFV :: [Name] -> RnM (a, FreeVars) -> RnM (a, FreeVars)
+bindLocalNamesFV :: [Name] -> RnM l (a, FreeVars) -> RnM l (a, FreeVars)
 bindLocalNamesFV names enclosed_scope
   = do  { (result, fvs) <- bindLocalNames names enclosed_scope
         ; return (result, delFVs names fvs) }
@@ -1307,8 +1309,8 @@ bindLocalNamesFV names enclosed_scope
 -------------------------------------
         -- binLocalsFVRn is the same as bindLocalsRn
         -- except that it deals with free vars
-bindLocatedLocalsFV :: [Located RdrName]
-                    -> ([Name] -> RnM (a,FreeVars)) -> RnM (a, FreeVars)
+bindLocatedLocalsFV :: (ApiAnnotation l) => [GenLocated l RdrName]
+                    -> ([Name] -> RnM l (a,FreeVars)) -> RnM l (a, FreeVars)
 bindLocatedLocalsFV rdr_names enclosed_scope
   = bindLocatedLocalsRn rdr_names       $ \ names ->
     do (thing, fvs) <- enclosed_scope names
@@ -1316,31 +1318,31 @@ bindLocatedLocalsFV rdr_names enclosed_scope
 
 -------------------------------------
 
-extendTyVarEnvFVRn :: [Name] -> RnM (a, FreeVars) -> RnM (a, FreeVars)
+extendTyVarEnvFVRn :: [Name] -> RnM l (a, FreeVars) -> RnM l (a, FreeVars)
         -- This function is used only in rnSourceDecl on InstDecl
 extendTyVarEnvFVRn tyvars thing_inside = bindLocalNamesFV tyvars thing_inside
 
 -------------------------------------
-checkDupRdrNames :: [Located RdrName] -> RnM ()
+checkDupRdrNames :: (ApiAnnotation l) => [GenLocated l RdrName] -> RnM l ()
 -- Check for duplicated names in a binding group
 checkDupRdrNames rdr_names_w_loc
-  = mapM_ (dupNamesErr getLoc) dups
+  = mapM_ (dupNamesErr annGetLoc) dups
   where
     (_, dups) = removeDups (\n1 n2 -> unLoc n1 `compare` unLoc n2) rdr_names_w_loc
 
-checkDupNames :: [Name] -> RnM ()
+checkDupNames :: [Name] -> RnM l ()
 -- Check for duplicated names in a binding group
 checkDupNames names = check_dup_names (filterOut isSystemName names)
                 -- See Note [Binders in Template Haskell] in Convert
 
-check_dup_names :: [Name] -> RnM ()
+check_dup_names :: [Name] -> RnM l ()
 check_dup_names names
   = mapM_ (dupNamesErr nameSrcSpan) dups
   where
     (_, dups) = removeDups (\n1 n2 -> nameOccName n1 `compare` nameOccName n2) names
 
 ---------------------
-checkShadowedRdrNames :: [Located RdrName] -> RnM ()
+checkShadowedRdrNames :: [GenLocated l RdrName] -> RnM l ()
 checkShadowedRdrNames loc_rdr_names
   = do { envs <- getRdrEnvs
        ; checkShadowedOccs envs get_loc_occ filtered_rdrs }
@@ -1349,7 +1351,7 @@ checkShadowedRdrNames loc_rdr_names
                 -- See Note [Binders in Template Haskell] in Convert
     get_loc_occ (L loc rdr) = (loc,rdrNameOcc rdr)
 
-checkDupAndShadowedNames :: (GlobalRdrEnv, LocalRdrEnv) -> [Name] -> RnM ()
+checkDupAndShadowedNames :: (GlobalRdrEnv, LocalRdrEnv) -> [Name] -> RnM l ()
 checkDupAndShadowedNames envs names
   = do { check_dup_names filtered_names
        ; checkShadowedOccs envs get_loc_occ filtered_names }
@@ -1361,7 +1363,7 @@ checkDupAndShadowedNames envs names
 -------------------------------------
 checkShadowedOccs :: (GlobalRdrEnv, LocalRdrEnv)
                   -> (a -> (SrcSpan, OccName))
-                  -> [a] -> RnM ()
+                  -> [a] -> RnM l ()
 checkShadowedOccs (global_env,local_env) get_loc_occ ns
   = whenWOptM Opt_WarnNameShadowing $
     do  { traceRn (text "shadow" <+> ppr (map get_loc_occ ns))
@@ -1383,7 +1385,7 @@ checkShadowedOccs (global_env,local_env) get_loc_occ ns
           complain []      = return ()
           complain pp_locs = addWarnAt loc (shadowedNameWarn occ pp_locs)
 
-    is_shadowed_gre :: GlobalRdrElt -> RnM Bool
+    is_shadowed_gre :: GlobalRdrElt -> RnM l Bool
         -- Returns False for record selectors that are shadowed, when
         -- punning or wild-cards are on (cf Trac #2723)
     is_shadowed_gre gre@(GRE { gre_par = ParentIs _ })
@@ -1412,13 +1414,13 @@ data WhereLooking = WL_Any        -- Any binding
                   | WL_Global     -- Any top-level binding (local or imported)
                   | WL_LocalTop   -- Any top-level binding in this module
 
-reportUnboundName :: RdrName -> RnM Name
+reportUnboundName :: RdrName -> RnM l Name
 reportUnboundName rdr = unboundName WL_Any rdr
 
-unboundName :: WhereLooking -> RdrName -> RnM Name
+unboundName :: WhereLooking -> RdrName -> RnM l Name
 unboundName wl rdr = unboundNameX wl rdr Outputable.empty
 
-unboundNameX :: WhereLooking -> RdrName -> SDoc -> RnM Name
+unboundNameX :: WhereLooking -> RdrName -> SDoc -> RnM l Name
 unboundNameX where_look rdr_name extra
   = do  { show_helpful_errors <- goptM Opt_HelpfulErrors
         ; let what = pprNonVarNameSpace (occNameSpace (rdrNameOcc rdr_name))
@@ -1442,7 +1444,7 @@ type HowInScope = Either SrcSpan ImpDeclSpec
      -- Left loc    =>  locally bound at loc
      -- Right ispec =>  imported as specified by ispec
 
-unknownNameSuggestErr :: WhereLooking -> RdrName -> RnM SDoc
+unknownNameSuggestErr :: WhereLooking -> RdrName -> RnM l SDoc
 unknownNameSuggestErr where_look tried_rdr_name
   = do { local_env <- getLocalRdrEnv
        ; global_env <- getGlobalRdrEnv
@@ -1568,24 +1570,25 @@ unknownNameSuggestErr where_look tried_rdr_name
 
 \begin{code}
 -- A useful utility
-addFvRn :: FreeVars -> RnM (thing, FreeVars) -> RnM (thing, FreeVars)
+addFvRn :: FreeVars -> RnM l (thing, FreeVars) -> RnM l (thing, FreeVars)
 addFvRn fvs1 thing_inside = do { (res, fvs2) <- thing_inside
                                ; return (res, fvs1 `plusFV` fvs2) }
 
-mapFvRn :: (a -> RnM (b, FreeVars)) -> [a] -> RnM ([b], FreeVars)
+mapFvRn :: (a -> RnM l (b, FreeVars)) -> [a] -> RnM l ([b], FreeVars)
 mapFvRn f xs = do stuff <- mapM f xs
                   case unzip stuff of
                       (ys, fvs_s) -> return (ys, plusFVs fvs_s)
 
-mapMaybeFvRn :: (a -> RnM (b, FreeVars)) -> Maybe a -> RnM (Maybe b, FreeVars)
+mapMaybeFvRn :: (a -> RnM l (b, FreeVars)) -> Maybe a
+             -> RnM l (Maybe b, FreeVars)
 mapMaybeFvRn _ Nothing = return (Nothing, emptyFVs)
 mapMaybeFvRn f (Just x) = do { (y, fvs) <- f x; return (Just y, fvs) }
 
 -- because some of the rename functions are CPSed:
 -- maps the function across the list from left to right;
 -- collects all the free vars into one set
-mapFvRnCPS :: (a  -> (b   -> RnM c) -> RnM c)
-           -> [a] -> ([b] -> RnM c) -> RnM c
+mapFvRnCPS :: (a  -> (b   -> RnM l c) -> RnM l c)
+           -> [a] -> ([b] -> RnM l c) -> RnM l c
 
 mapFvRnCPS _ []     cont = cont []
 mapFvRnCPS f (x:xs) cont = f x             $ \ x' ->
@@ -1601,7 +1604,7 @@ mapFvRnCPS f (x:xs) cont = f x             $ \ x' ->
 %************************************************************************
 
 \begin{code}
-warnUnusedTopBinds :: [GlobalRdrElt] -> RnM ()
+warnUnusedTopBinds :: [GlobalRdrElt] -> RnM l ()
 warnUnusedTopBinds gres
     = whenWOptM Opt_WarnUnusedBinds
     $ do isBoot <- tcIsHsBoot
@@ -1615,25 +1618,25 @@ warnUnusedTopBinds gres
                                else                 gres
          warnUnusedGREs gres'
 
-warnUnusedLocalBinds, warnUnusedMatches :: [Name] -> FreeVars -> RnM ()
+warnUnusedLocalBinds, warnUnusedMatches :: [Name] -> FreeVars -> RnM l ()
 warnUnusedLocalBinds = check_unused Opt_WarnUnusedBinds
 warnUnusedMatches    = check_unused Opt_WarnUnusedMatches
 
-check_unused :: WarningFlag -> [Name] -> FreeVars -> RnM ()
+check_unused :: WarningFlag -> [Name] -> FreeVars -> RnM l ()
 check_unused flag bound_names used_names
  = whenWOptM flag (warnUnusedLocals (filterOut (`elemNameSet` used_names) bound_names))
 
 -------------------------
 --      Helpers
-warnUnusedGREs :: [GlobalRdrElt] -> RnM ()
+warnUnusedGREs :: [GlobalRdrElt] -> RnM l ()
 warnUnusedGREs gres
  = warnUnusedBinds [(n,p) | GRE {gre_name = n, gre_prov = p} <- gres]
 
-warnUnusedLocals :: [Name] -> RnM ()
+warnUnusedLocals :: [Name] -> RnM l ()
 warnUnusedLocals names
  = warnUnusedBinds [(n,LocalDef) | n<-names]
 
-warnUnusedBinds :: [(Name,Provenance)] -> RnM ()
+warnUnusedBinds :: [(Name,Provenance)] -> RnM l ()
 warnUnusedBinds names  = mapM_ warnUnusedName (filter reportable names)
  where reportable (name,_)
         | isWiredInName name = False    -- Don't report unused wired-in names
@@ -1643,7 +1646,7 @@ warnUnusedBinds names  = mapM_ warnUnusedName (filter reportable names)
 
 -------------------------
 
-warnUnusedName :: (Name, Provenance) -> RnM ()
+warnUnusedName :: (Name, Provenance) -> RnM l ()
 warnUnusedName (name, LocalDef)
   = addUnusedWarning name (nameSrcSpan name)
                      (ptext (sLit "Defined but not used"))
@@ -1657,7 +1660,7 @@ warnUnusedName (name, Imported is)
            pp_mod = quotes (ppr (importSpecModule spec))
            msg = ptext (sLit "Imported from") <+> pp_mod <+> ptext (sLit "but not used")
 
-addUnusedWarning :: Name -> SrcSpan -> SDoc -> RnM ()
+addUnusedWarning :: Name -> SrcSpan -> SDoc -> RnM l ()
 addUnusedWarning name span msg
   = addWarnAt span $
     sep [msg <> colon,
@@ -1666,7 +1669,7 @@ addUnusedWarning name span msg
 \end{code}
 
 \begin{code}
-addNameClashErrRn :: RdrName -> [GlobalRdrElt] -> RnM ()
+addNameClashErrRn :: RdrName -> [GlobalRdrElt] -> RnM l ()
 addNameClashErrRn rdr_name gres
   | all isLocalGRE gres  -- If there are two or more *local* defns, we'll have reported
   = return ()            -- that already, and we don't want an error cascade
@@ -1700,7 +1703,7 @@ badOrigBinding name
   = ptext (sLit "Illegal binding of built-in syntax:") <+> ppr (rdrNameOcc name)
         -- The rdrNameOcc is because we don't want to print Prelude.(,)
 
-dupNamesErr :: Outputable n => (n -> SrcSpan) -> [n] -> RnM ()
+dupNamesErr :: Outputable n => (n -> SrcSpan) -> [n] -> RnM l ()
 dupNamesErr get_loc names
   = addErrAt big_loc $
     vcat [ptext (sLit "Conflicting definitions for") <+> quotes (ppr (head names)),
@@ -1724,7 +1727,7 @@ opDeclErr n
   = hang (ptext (sLit "Illegal declaration of a type or class operator") <+> quotes (ppr n))
        2 (ptext (sLit "Use TypeOperators to declare operators in type and declarations"))
 
-checkTupSize :: Int -> RnM ()
+checkTupSize :: Int -> RnM l ()
 checkTupSize tup_size
   | tup_size <= mAX_TUPLE_SIZE
   = return ()
@@ -1743,29 +1746,29 @@ checkTupSize tup_size
 
 \begin{code}
 
-data HsDocContext
+data HsDocContext l
   = TypeSigCtx SDoc
   | PatCtx
   | SpecInstSigCtx
   | DefaultDeclCtx
-  | ForeignDeclCtx (Located RdrName)
+  | ForeignDeclCtx (GenLocated l RdrName)
   | DerivDeclCtx
   | RuleCtx FastString
-  | TyDataCtx (Located RdrName)
-  | TySynCtx (Located RdrName)
-  | TyFamilyCtx (Located RdrName)
-  | ConDeclCtx (Located RdrName)
-  | ClassDeclCtx (Located RdrName)
+  | TyDataCtx (GenLocated l RdrName)
+  | TySynCtx (GenLocated l RdrName)
+  | TyFamilyCtx (GenLocated l RdrName)
+  | ConDeclCtx (GenLocated l RdrName)
+  | ClassDeclCtx (GenLocated l RdrName)
   | ExprWithTySigCtx
   | TypBrCtx
   | HsTypeCtx
   | GHCiCtx
-  | SpliceTypeCtx (LHsType RdrName)
+  | SpliceTypeCtx (LHsType l RdrName)
   | ClassInstanceCtx
-  | VectDeclCtx (Located RdrName)
+  | VectDeclCtx (GenLocated l RdrName)
   | GenericCtx SDoc   -- Maybe we want to use this more!
 
-docOfHsDocContext :: HsDocContext -> SDoc
+docOfHsDocContext :: (ApiAnnotation l) => HsDocContext l -> SDoc
 docOfHsDocContext (GenericCtx doc) = doc
 docOfHsDocContext (TypeSigCtx doc) = text "In the type signature for" <+> doc
 docOfHsDocContext PatCtx = text "In a pattern type-signature"

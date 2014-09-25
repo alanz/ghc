@@ -88,7 +88,7 @@ data HsModule l name
 
 
 \begin{code}
-instance (OutputableBndr name, HasOccName name, SrcAnnotation l)
+instance (OutputableBndr name, HasOccName name, ApiAnnotation l)
         => Outputable (HsModule l name) where
 
     ppr (HsModule Nothing _ imports decls _ mbDoc)

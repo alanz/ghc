@@ -74,10 +74,10 @@ import Data.List( mapAccumL )
 %************************************************************************
 
 \begin{code}
-emitWanteds :: CtOrigin -> TcThetaType -> TcM [EvVar]
+emitWanteds :: CtOrigin l -> TcThetaType -> TcM l [EvVar]
 emitWanteds origin theta = mapM (emitWanted origin) theta
 
-emitWanted :: CtOrigin -> TcPredType -> TcM EvVar
+emitWanted :: CtOrigin l -> TcPredType -> TcM l EvVar
 emitWanted origin pred 
   = do { loc <- getCtLoc origin
        ; ev  <- newWantedEvVar pred
@@ -85,7 +85,7 @@ emitWanted origin pred
              CtWanted { ctev_pred = pred, ctev_evar = ev, ctev_loc = loc }
        ; return ev }
 
-newMethodFromName :: CtOrigin -> Name -> TcRhoType -> TcM (HsExpr TcId)
+newMethodFromName :: CtOrigin l -> Name -> TcRhoType -> TcM l (HsExpr l TcId)
 -- Used when Name is the wired-in name for a wired-in class method,
 -- so the caller knows its type for sure, which should be of form
 --    forall a. C a => <blah>
@@ -144,7 +144,7 @@ ToDo: this eta-abstraction plays fast and loose with termination,
 \begin{code}
 deeplySkolemise
   :: TcSigmaType
-  -> TcM (HsWrapper, [TyVar], [EvVar], TcRhoType)
+  -> TcM l (HsWrapper, [TyVar], [EvVar], TcRhoType)
 
 deeplySkolemise ty
   | Just (arg_tys, tvs, theta, ty') <- tcDeepSplitSigmaTy_maybe ty
@@ -164,7 +164,7 @@ deeplySkolemise ty
   | otherwise
   = return (idHsWrapper, [], [], ty)
 
-deeplyInstantiate :: CtOrigin -> TcSigmaType -> TcM (HsWrapper, TcRhoType)
+deeplyInstantiate :: CtOrigin l -> TcSigmaType -> TcM l (HsWrapper, TcRhoType)
 --   Int -> forall a. a -> a  ==>  (\x:Int. [] x alpha) :: Int -> alpha
 -- In general if
 -- if    deeplyInstantiate ty = (wrap, rho)
@@ -195,7 +195,7 @@ deeplyInstantiate orig ty
 
 \begin{code}
 ----------------
-instCall :: CtOrigin -> [TcType] -> TcThetaType -> TcM HsWrapper
+instCall :: CtOrigin l -> [TcType] -> TcThetaType -> TcM l HsWrapper
 -- Instantiate the constraints of a call
 --	(instCall o tys theta)
 -- (a) Makes fresh dictionaries as necessary for the constraints (theta)
@@ -207,7 +207,7 @@ instCall orig tys theta
 	; return (dict_app <.> mkWpTyApps tys) }
 
 ----------------
-instCallConstraints :: CtOrigin -> TcThetaType -> TcM HsWrapper
+instCallConstraints :: CtOrigin l -> TcThetaType -> TcM l HsWrapper
 -- Instantiates the TcTheta, puts all constraints thereby generated
 -- into the LIE, and returns a HsWrapper to enclose the call site.
 
@@ -228,7 +228,7 @@ instCallConstraints orig preds
      	  ; return (EvId ev_var) }
 
 ----------------
-instStupidTheta :: CtOrigin -> TcThetaType -> TcM ()
+instStupidTheta :: CtOrigin l -> TcThetaType -> TcM l ()
 -- Similar to instCall, but only emit the constraints in the LIE
 -- Used exclusively for the 'stupid theta' of a data constructor
 instStupidTheta orig theta
@@ -248,19 +248,19 @@ temporarily generating overloaded literals, but it won't catch all
 cases (the rest are caught in lookupInst).
 
 \begin{code}
-newOverloadedLit :: CtOrigin
-                 -> HsOverLit Name
+newOverloadedLit :: (ApiAnnotation l) => CtOrigin l
+                 -> HsOverLit l Name
                  -> TcRhoType
-                 -> TcM (HsOverLit TcId)
+                 -> TcM l (HsOverLit l TcId)
 newOverloadedLit orig lit res_ty
     = do dflags <- getDynFlags
          newOverloadedLit' dflags orig lit res_ty
 
-newOverloadedLit' :: DynFlags
-                  -> CtOrigin
-                  -> HsOverLit Name
+newOverloadedLit' :: (ApiAnnotation l) => DynFlags
+                  -> CtOrigin l
+                  -> HsOverLit l Name
                   -> TcRhoType
-                  -> TcM (HsOverLit TcId)
+                  -> TcM l (HsOverLit l TcId)
 newOverloadedLit' dflags orig
   lit@(OverLit { ol_val = val, ol_rebindable = rebindable
 	       , ol_witness = meth_name }) res_ty
@@ -282,13 +282,13 @@ newOverloadedLit' dflags orig
 	 	-- we're instantiating an overloaded function here,
 	 	-- whereas res_ty might be openTypeKind. This was a bug in 6.2.2
 		-- However this'll be picked up by tcSyntaxOp if necessary
-	; let witness = HsApp (noLoc fi') (noLoc (HsLit hs_lit))
+	; let witness = HsApp (annNoLoc fi') (annNoLoc (HsLit hs_lit))
 	; return (lit { ol_witness = witness, ol_type = res_ty
                       , ol_rebindable = rebindable }) }
 
 ------------
-mkOverLit :: OverLitVal -> TcM HsLit
-mkOverLit (HsIntegral i) 
+mkOverLit :: OverLitVal -> TcM l HsLit
+mkOverLit (HsIntegral i)
   = do	{ integer_ty <- tcMetaTy integerTyConName
 	; return (HsInteger i integer_ty) }
 
@@ -333,10 +333,10 @@ want an actual binding in the do-expression case. For literals, we can
 just use the expression inline.
 
 \begin{code}
-tcSyntaxName :: CtOrigin
-	     -> TcType			-- Type to instantiate it at
-	     -> (Name, HsExpr Name)	-- (Standard name, user name)
-	     -> TcM (Name, HsExpr TcId)	-- (Standard name, suitable expression)
+tcSyntaxName :: (ApiAnnotation l) => CtOrigin l
+             -> TcType                      -- Type to instantiate it at
+             -> (Name, HsExpr l Name)       -- (Standard name, user name)
+             -> TcM l (Name, HsExpr l TcId) -- (Standard name, suitable expression)
 -- USED ONLY FOR CmdTop (sigh) ***
 -- See Note [CmdSyntaxTable] in HsExpr
 
@@ -363,8 +363,9 @@ tcSyntaxName orig ty (std_nm, user_nm_expr) = do
      expr <- tcPolyExpr (L span user_nm_expr) sigma1
      return (std_nm, unLoc expr)
 
-syntaxNameCtxt :: HsExpr Name -> CtOrigin -> Type -> TidyEnv
-               -> TcRn (TidyEnv, SDoc)
+syntaxNameCtxt :: (ApiAnnotation l)
+               => HsExpr l Name -> CtOrigin l -> Type -> TidyEnv
+               -> TcRn l (TidyEnv, SDoc)
 syntaxNameCtxt name orig ty tidy_env
   = do { inst_loc <- getCtLoc orig
        ; let msg = vcat [ ptext (sLit "When checking that") <+> quotes (ppr name)
@@ -383,7 +384,7 @@ syntaxNameCtxt name orig ty tidy_env
 %************************************************************************
 
 \begin{code}
-getOverlapFlag :: TcM OverlapFlag
+getOverlapFlag :: TcM l OverlapFlag
 getOverlapFlag
   = do  { dflags <- getDynFlags
         ; let overlap_ok    = xopt Opt_OverlappingInstances dflags
@@ -396,17 +397,17 @@ getOverlapFlag
 
         ; return overlap_flag }
 
-tcGetInstEnvs :: TcM (InstEnv, InstEnv)
+tcGetInstEnvs :: TcM l (InstEnv, InstEnv)
 -- Gets both the external-package inst-env
 -- and the home-pkg inst env (includes module being compiled)
 tcGetInstEnvs = do { eps <- getEps; env <- getGblEnv;
 		     return (eps_inst_env eps, tcg_inst_env env) }
 
-tcGetInsts :: TcM [ClsInst]
+tcGetInsts :: TcM l [ClsInst]
 -- Gets the local class instances.
 tcGetInsts = fmap tcg_insts getGblEnv
 
-tcExtendLocalInstEnv :: [ClsInst] -> TcM a -> TcM a
+tcExtendLocalInstEnv :: [ClsInst] -> TcM l a -> TcM l a
   -- Add new locally-defined instances
 tcExtendLocalInstEnv dfuns thing_inside
  = do { traceDFuns dfuns
@@ -418,7 +419,7 @@ tcExtendLocalInstEnv dfuns thing_inside
 		       , tcg_inst_env = inst_env' }
       ; setGblEnv env' thing_inside }
 
-addLocalInst :: (InstEnv, [ClsInst]) -> ClsInst -> TcM (InstEnv, [ClsInst])
+addLocalInst :: (InstEnv, [ClsInst]) -> ClsInst -> TcM l (InstEnv, [ClsInst])
 -- Check that the proposed new instance is OK,
 -- and then add it to the home inst env
 -- If overwrite_inst, then we can overwrite a direct match
@@ -470,7 +471,7 @@ addLocalInst (home_ie, my_insts) ispec
 
          ; return (extendInstEnv home_ie' ispec, ispec:my_insts') }
 
-traceDFuns :: [ClsInst] -> TcRn ()
+traceDFuns :: [ClsInst] -> TcRn l ()
 traceDFuns ispecs
   = traceTc "Adding instances:" (vcat (map pp ispecs))
   where
@@ -478,17 +479,17 @@ traceDFuns ispecs
                   2 (ppr ispec)
 	-- Print the dfun name itself too
 
-funDepErr :: ClsInst -> [ClsInst] -> TcRn ()
+funDepErr :: (ApiAnnotation l) => ClsInst -> [ClsInst] -> TcRn l ()
 funDepErr ispec ispecs
   = addClsInstsErr (ptext (sLit "Functional dependencies conflict between instance declarations:"))
                     (ispec : ispecs)
 
-dupInstErr :: ClsInst -> ClsInst -> TcRn ()
+dupInstErr :: (ApiAnnotation l) => ClsInst -> ClsInst -> TcRn l ()
 dupInstErr ispec dup_ispec
   = addClsInstsErr (ptext (sLit "Duplicate instance declarations:"))
 	            [ispec, dup_ispec]
 
-addClsInstsErr :: SDoc -> [ClsInst] -> TcRn ()
+addClsInstsErr :: (ApiAnnotation l) => SDoc -> [ClsInst] -> TcRn l ()
 addClsInstsErr herald ispecs
   = setSrcSpan (getSrcSpan (head sorted)) $
     addErr (hang herald 2 (pprInstances sorted))
@@ -507,7 +508,7 @@ addClsInstsErr herald ispecs
 
 \begin{code}
 ---------------- Getting free tyvars -------------------------
-tyVarsOfCt :: Ct -> TcTyVarSet
+tyVarsOfCt :: Ct l -> TcTyVarSet
 -- NB: the 
 tyVarsOfCt (CTyEqCan { cc_tyvar = tv, cc_rhs = xi })    = extendVarSet (tyVarsOfType xi) tv
 tyVarsOfCt (CFunEqCan { cc_tyargs = tys, cc_rhs = xi }) = tyVarsOfTypes (xi:tys)
@@ -516,17 +517,17 @@ tyVarsOfCt (CIrredEvCan { cc_ev = ev })                 = tyVarsOfType (ctEvPred
 tyVarsOfCt (CHoleCan { cc_ev = ev })                    = tyVarsOfType (ctEvPred ev)
 tyVarsOfCt (CNonCanonical { cc_ev = ev })               = tyVarsOfType (ctEvPred ev)
 
-tyVarsOfCts :: Cts -> TcTyVarSet
+tyVarsOfCts :: Cts l -> TcTyVarSet
 tyVarsOfCts = foldrBag (unionVarSet . tyVarsOfCt) emptyVarSet
 
-tyVarsOfWC :: WantedConstraints -> TyVarSet
+tyVarsOfWC :: WantedConstraints l -> TyVarSet
 -- Only called on *zonked* things, hence no need to worry about flatten-skolems
 tyVarsOfWC (WC { wc_flat = flat, wc_impl = implic, wc_insol = insol })
   = tyVarsOfCts flat `unionVarSet`
     tyVarsOfBag tyVarsOfImplic implic `unionVarSet`
     tyVarsOfCts insol
 
-tyVarsOfImplic :: Implication -> TyVarSet
+tyVarsOfImplic :: Implication l -> TyVarSet
 -- Only called on *zonked* things, hence no need to worry about flatten-skolems
 tyVarsOfImplic (Implic { ic_skols = skols, ic_fsks = fsks
                              , ic_given = givens, ic_wanted = wanted })
@@ -538,7 +539,7 @@ tyVarsOfBag tvs_of = foldrBag (unionVarSet . tvs_of) emptyVarSet
 
 ---------------- Tidying -------------------------
 
-tidyCt :: TidyEnv -> Ct -> Ct
+tidyCt :: TidyEnv -> Ct l -> Ct l
 -- Used only in error reporting
 -- Also converts it to non-canonical
 tidyCt env ct 
@@ -547,7 +548,7 @@ tidyCt env ct
        -> ct { cc_ev = tidy_ev env ev }
      _ -> mkNonCanonical (tidy_ev env (ctEvidence ct))
   where 
-    tidy_ev :: TidyEnv -> CtEvidence -> CtEvidence
+    tidy_ev :: TidyEnv -> CtEvidence l -> CtEvidence l
      -- NB: we do not tidy the ctev_evtm/var field because we don't 
      --     show it in error messages
     tidy_ev env ctev@(CtGiven { ctev_pred = pred })

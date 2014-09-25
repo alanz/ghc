@@ -128,7 +128,7 @@ Plan A: mkBootModDetails: omit pragmas, make interfaces small
 -- We don't look at the bindings at all -- there aren't any
 -- for hs-boot files
 
-mkBootModDetailsTc :: HscEnv -> TcGblEnv -> IO ModDetails
+mkBootModDetailsTc :: HscEnv -> TcGblEnv SrcSpan -> IO ModDetails
 mkBootModDetailsTc hsc_env
         TcGblEnv{ tcg_exports   = exports,
                   tcg_type_env  = type_env, -- just for the Ids

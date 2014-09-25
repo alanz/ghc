@@ -245,7 +245,7 @@ hsRecFields rbinds = map (unLoc . hsRecFieldId) (rec_flds rbinds)
 %************************************************************************
 
 \begin{code}
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (Pat l name) where
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (Pat l name) where
     ppr = pprPat
 
 pprPatBndr :: OutputableBndr name => name -> SDoc
@@ -257,14 +257,14 @@ pprPatBndr var                  -- Print with type info if -dppr-debug is on
     else
         pprPrefixOcc var
 
-pprParendLPat :: (OutputableBndr name, SrcAnnotation l) => LPat l name -> SDoc
+pprParendLPat :: (OutputableBndr name, ApiAnnotation l) => LPat l name -> SDoc
 pprParendLPat (L _ p) = pprParendPat p
 
-pprParendPat :: (OutputableBndr name, SrcAnnotation l) => Pat l name -> SDoc
+pprParendPat :: (OutputableBndr name, ApiAnnotation l) => Pat l name -> SDoc
 pprParendPat p | hsPatNeedsParens p = parens (pprPat p)
                | otherwise          = pprPat p
 
-pprPat :: (OutputableBndr name, SrcAnnotation l) => Pat l name -> SDoc
+pprPat :: (OutputableBndr name, ApiAnnotation l) => Pat l name -> SDoc
 pprPat (VarPat var)       = pprPatBndr var
 pprPat (WildPat _)        = char '_'
 pprPat (LazyPat pat)      = char '~' <> pprParendLPat pat
@@ -298,12 +298,12 @@ pprPat (CoPat co pat _)     = pprHsWrapper (ppr pat) co
 pprPat (SigPatIn pat ty)    = ppr pat <+> dcolon <+> ppr ty
 pprPat (SigPatOut pat ty)   = ppr pat <+> dcolon <+> ppr ty
 
-pprUserCon :: (OutputableBndr con, OutputableBndr id, SrcAnnotation l)
+pprUserCon :: (OutputableBndr con, OutputableBndr id, ApiAnnotation l)
   => con -> HsConPatDetails l id -> SDoc
 pprUserCon c (InfixCon p1 p2) = ppr p1 <+> pprInfixOcc c <+> ppr p2
 pprUserCon c details          = pprPrefixOcc c <+> pprConArgs details
 
-pprConArgs :: (OutputableBndr id, SrcAnnotation l) => HsConPatDetails l id -> SDoc
+pprConArgs :: (OutputableBndr id, ApiAnnotation l) => HsConPatDetails l id -> SDoc
 pprConArgs (PrefixCon pats) = sep (map pprParendLPat pats)
 pprConArgs (InfixCon p1 p2) = sep [pprParendLPat p1, pprParendLPat p2]
 pprConArgs (RecCon rpats)   = ppr rpats
@@ -332,7 +332,7 @@ instance (OutputableBndr id, Outputable arg, Outputable l)
 %************************************************************************
 
 \begin{code}
-mkPrefixConPat :: (SrcAnnotation l)
+mkPrefixConPat :: (ApiAnnotation l)
   => DataCon -> [OutPat l id] -> [Type] -> OutPat l id
 -- Make a vanilla Prefix constructor pattern
 mkPrefixConPat dc pats tys
@@ -342,10 +342,10 @@ mkPrefixConPat dc pats tys
                            pat_args = PrefixCon pats,
                            pat_arg_tys = tys, pat_wrap = idHsWrapper }
 
-mkNilPat :: (SrcAnnotation l) => Type -> OutPat l id
+mkNilPat :: (ApiAnnotation l) => Type -> OutPat l id
 mkNilPat ty = mkPrefixConPat nilDataCon [] [ty]
 
-mkCharLitPat :: (SrcAnnotation l) => Char -> OutPat l id
+mkCharLitPat :: (ApiAnnotation l) => Char -> OutPat l id
 mkCharLitPat c = mkPrefixConPat charDataCon [annNoLoc $ LitPat (HsCharPrim c)] []
 \end{code}
 
@@ -409,7 +409,7 @@ looksLazyLPat (L _ (VarPat {}))            = False
 looksLazyLPat (L _ (WildPat {}))           = False
 looksLazyLPat _                            = True
 
-isIrrefutableHsPat :: (OutputableBndr id, SrcAnnotation l) => LPat l id -> Bool
+isIrrefutableHsPat :: (OutputableBndr id, ApiAnnotation l) => LPat l id -> Bool
 -- (isIrrefutableHsPat p) is true if matching against p cannot fail,
 -- in the sense of falling through to the next pattern.
 --      (NB: this is not quite the same as the (silly) defn

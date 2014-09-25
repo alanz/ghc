@@ -8,8 +8,8 @@ import TcRnTypes ( TcM )
 import PatSyn    ( PatSyn )
 
 tcPatSynDecl :: PatSynBind l Name Name
-             -> TcM (PatSyn, LHsBinds l Id)
+             -> TcM l (PatSyn, LHsBinds l Id)
 
 tcPatSynWrapper :: PatSynBind l Name Name
-                -> TcM (LHsBinds l Id)
+                -> TcM l (LHsBinds l Id)
 \end{code}

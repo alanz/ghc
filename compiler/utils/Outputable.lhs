@@ -223,7 +223,7 @@ defaultUserStyle = mkUserStyle neverQualify AllTheWay
 defaultDumpStyle |  opt_PprStyle_Debug = PprDebug
                  |  otherwise          = PprDump
 
-defaultErrStyle :: DynFlags -> PprStyle
+defaultErrStyle :: DynFlags l -> PprStyle
 -- Default style for error messages, when we don't know PrintUnqualified
 -- It's a bit of a hack because it doesn't take into account what's in scope
 -- Only used for desugarer warnings, and typechecker errors in interface sigs
@@ -231,7 +231,7 @@ defaultErrStyle :: DynFlags -> PprStyle
 defaultErrStyle dflags = mkErrStyle dflags neverQualify
 
 -- | Style for printing error messages
-mkErrStyle :: DynFlags -> PrintUnqualified -> PprStyle
+mkErrStyle :: DynFlags l -> PrintUnqualified -> PprStyle
 mkErrStyle dflags qual = mkUserStyle qual (PartWay (pprUserLength dflags))
 
 cmdlineParserStyle :: PprStyle
@@ -258,16 +258,16 @@ code (either C or assembly), or generating interface files.
 %************************************************************************
 
 \begin{code}
-newtype SDoc = SDoc { runSDoc :: SDocContext -> Doc }
+newtype SDoc l = SDoc { runSDoc :: SDocContext l -> Doc }
 
-data SDocContext = SDC
+data SDocContext l = SDC
   { sdocStyle      :: !PprStyle
   , sdocLastColour :: !PprColour
     -- ^ The most recently used colour.  This allows nesting colours.
-  , sdocDynFlags   :: !DynFlags
+  , sdocDynFlags   :: !(DynFlags l)
   }
 
-initSDocContext :: DynFlags -> PprStyle -> SDocContext
+initSDocContext :: DynFlags l -> PprStyle -> SDocContext
 initSDocContext dflags sty = SDC
   { sdocStyle = sty
   , sdocLastColour = colReset
@@ -277,7 +277,7 @@ initSDocContext dflags sty = SDC
 withPprStyle :: PprStyle -> SDoc -> SDoc
 withPprStyle sty d = SDoc $ \ctxt -> runSDoc d ctxt{sdocStyle=sty}
 
-withPprStyleDoc :: DynFlags -> PprStyle -> SDoc -> Doc
+withPprStyleDoc :: DynFlags l -> PprStyle -> SDoc -> Doc
 withPprStyleDoc dflags sty d = runSDoc d (initSDocContext dflags sty)
 
 pprDeeper :: SDoc -> SDoc
@@ -314,7 +314,7 @@ pprSetDepth depth doc = SDoc $ \ctx ->
 getPprStyle :: (PprStyle -> SDoc) -> SDoc
 getPprStyle df = SDoc $ \ctx -> runSDoc (df (sdocStyle ctx)) ctx
 
-sdocWithDynFlags :: (DynFlags -> SDoc) -> SDoc
+sdocWithDynFlags :: (DynFlags l -> SDoc) -> SDoc
 sdocWithDynFlags f = SDoc $ \ctx -> runSDoc (f (sdocDynFlags ctx)) ctx
 
 sdocWithPlatform :: (Platform -> SDoc) -> SDoc
@@ -368,24 +368,24 @@ ifPprDebug d = SDoc $ \ctx ->
 
 \begin{code}
 
-printForUser :: DynFlags -> Handle -> PrintUnqualified -> SDoc -> IO ()
+printForUser :: DynFlags l -> Handle -> PrintUnqualified -> SDoc -> IO ()
 printForUser dflags handle unqual doc
   = Pretty.printDoc PageMode (pprCols dflags) handle
       (runSDoc doc (initSDocContext dflags (mkUserStyle unqual AllTheWay)))
 
-printForUserPartWay :: DynFlags -> Handle -> Int -> PrintUnqualified -> SDoc
+printForUserPartWay :: DynFlags l -> Handle -> Int -> PrintUnqualified -> SDoc
                     -> IO ()
 printForUserPartWay dflags handle d unqual doc
   = Pretty.printDoc PageMode (pprCols dflags) handle
       (runSDoc doc (initSDocContext dflags (mkUserStyle unqual (PartWay d))))
 
 -- printForC, printForAsm do what they sound like
-printForC :: DynFlags -> Handle -> SDoc -> IO ()
+printForC :: DynFlags l -> Handle -> SDoc -> IO ()
 printForC dflags handle doc =
   Pretty.printDoc LeftMode (pprCols dflags) handle
     (runSDoc doc (initSDocContext dflags (PprCode CStyle)))
 
-printForAsm :: DynFlags -> Handle -> SDoc -> IO ()
+printForAsm :: DynFlags l -> Handle -> SDoc -> IO ()
 printForAsm dflags handle doc =
   Pretty.printDoc LeftMode (pprCols dflags) handle
     (runSDoc doc (initSDocContext dflags (PprCode AsmStyle)))
@@ -399,10 +399,10 @@ mkCodeStyle = PprCode
 -- Can't make SDoc an instance of Show because SDoc is just a function type
 -- However, Doc *is* an instance of Show
 -- showSDoc just blasts it out as a string
-showSDoc :: DynFlags -> SDoc -> String
+showSDoc :: DynFlags l -> SDoc -> String
 showSDoc dflags sdoc = renderWithStyle dflags sdoc defaultUserStyle
 
-renderWithStyle :: DynFlags -> SDoc -> PprStyle -> String
+renderWithStyle :: DynFlags l -> SDoc -> PprStyle -> String
 renderWithStyle dflags sdoc sty
   = Pretty.showDoc PageMode (pprCols dflags) $
     runSDoc sdoc (initSDocContext dflags sty)
@@ -410,32 +410,32 @@ renderWithStyle dflags sdoc sty
 -- This shows an SDoc, but on one line only. It's cheaper than a full
 -- showSDoc, designed for when we're getting results like "Foo.bar"
 -- and "foo{uniq strictness}" so we don't want fancy layout anyway.
-showSDocOneLine :: DynFlags -> SDoc -> String
+showSDocOneLine :: DynFlags l -> SDoc -> String
 showSDocOneLine dflags d
  = Pretty.showDoc OneLineMode (pprCols dflags) $
    runSDoc d (initSDocContext dflags defaultUserStyle)
 
-showSDocForUser :: DynFlags -> PrintUnqualified -> SDoc -> String
+showSDocForUser :: DynFlags l -> PrintUnqualified -> SDoc -> String
 showSDocForUser dflags unqual doc
  = renderWithStyle dflags doc (mkUserStyle unqual AllTheWay)
 
-showSDocUnqual :: DynFlags -> SDoc -> String
+showSDocUnqual :: DynFlags l -> SDoc -> String
 -- Only used by Haddock
 showSDocUnqual dflags doc
  = renderWithStyle dflags doc (mkUserStyle neverQualify AllTheWay)
 
-showSDocDump :: DynFlags -> SDoc -> String
+showSDocDump :: DynFlags l -> SDoc -> String
 showSDocDump dflags d = renderWithStyle dflags d defaultDumpStyle
 
-showSDocDebug :: DynFlags -> SDoc -> String
+showSDocDebug :: DynFlags l -> SDoc -> String
 showSDocDebug dflags d = renderWithStyle dflags d PprDebug
 
-showSDocDumpOneLine :: DynFlags -> SDoc -> String
+showSDocDumpOneLine :: DynFlags l -> SDoc -> String
 showSDocDumpOneLine dflags d
  = Pretty.showDoc OneLineMode irrelevantNCols $
    runSDoc d (initSDocContext dflags PprDump)
 
-showPpr :: Outputable a => DynFlags -> a -> String
+showPpr :: Outputable a => DynFlags l -> a -> String
 showPpr dflags thing = showSDoc dflags (ppr thing)
 
 irrelevantNCols :: Int
@@ -656,8 +656,8 @@ keyword = bold
 \begin{code}
 -- | Class designating that some type has an 'SDoc' representation
 class Outputable a where
-        ppr :: a -> SDoc
-        pprPrec :: Rational -> a -> SDoc
+        ppr :: a -> SDoc l
+        pprPrec :: Rational -> a -> SDoc l
                 -- 0 binds least tightly
                 -- We use Rational because there is always a
                 -- Rational between any other two Rationals
@@ -785,11 +785,11 @@ data BindingSite = LambdaBind | CaseBind | LetBind
 -- | When we print a binder, we often want to print its type too.
 -- The @OutputableBndr@ class encapsulates this idea.
 class Outputable a => OutputableBndr a where
-   pprBndr :: BindingSite -> a -> SDoc
+   pprBndr :: BindingSite -> a -> SDoc l
    pprBndr _b x = ppr x
 
-   pprPrefixOcc, pprInfixOcc :: a -> SDoc
-      -- Print an occurrence of the name, suitable either in the 
+   pprPrefixOcc, pprInfixOcc :: a -> SDoc l
+      -- Print an occurrence of the name, suitable either in the
       -- prefix position of an application, thus   (f a b) or  ((+) x)
       -- or infix position,                 thus   (a `f` b) or  (x + y)
 \end{code}
@@ -1027,7 +1027,7 @@ assertPprPanic file line msg
                      , text "line", int line ]
               , msg ]
 
-pprDebugAndThen :: DynFlags -> (String -> a) -> String -> SDoc -> a
+pprDebugAndThen :: DynFlags l -> (String -> a) -> String -> SDoc -> a
 pprDebugAndThen dflags cont heading pretty_msg
  = cont (showSDocDump dflags doc)
  where

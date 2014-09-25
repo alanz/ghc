@@ -33,6 +33,7 @@ import Annotations
 import Name
 import TcRnMonad
 import RdrName
+import SrcLoc ( ApiAnnotation )
 import TcType
 
 #ifdef GHCI
@@ -117,17 +118,22 @@ import GHC.Exts         ( unsafeCoerce# )
 %************************************************************************
 
 \begin{code}
-tcTypedBracket   :: HsBracket l Name -> TcRhoType -> TcM (HsExpr l TcId)
-tcUntypedBracket :: HsBracket l Name -> [PendingRnSplice l] -> TcRhoType -> TcM (HsExpr l TcId)
-tcSpliceExpr     :: HsSplice l Name  -> TcRhoType -> TcM (HsExpr l TcId)
+tcTypedBracket   :: (ApiAnnotation l)
+                 => HsBracket l Name -> TcRhoType -> TcM l (HsExpr l TcId)
+tcUntypedBracket :: (ApiAnnotation l)
+                 => HsBracket l Name -> [PendingRnSplice l] -> TcRhoType
+                 -> TcM l (HsExpr l TcId)
+tcSpliceExpr     :: (ApiAnnotation l)
+                 => HsSplice l Name  -> TcRhoType -> TcM l (HsExpr l TcId)
         -- None of these functions add constraints to the LIE
 
-runQuasiQuoteExpr :: HsQuasiQuote l RdrName -> RnM (LHsExpr l RdrName)
-runQuasiQuotePat  :: HsQuasiQuote l RdrName -> RnM (LPat l RdrName)
-runQuasiQuoteType :: HsQuasiQuote l RdrName -> RnM (LHsType l RdrName)
-runQuasiQuoteDecl :: HsQuasiQuote l RdrName -> RnM [LHsDecl l RdrName]
+runQuasiQuoteExpr :: HsQuasiQuote RdrName -> RnM l (LHsExpr l RdrName)
+runQuasiQuotePat  :: HsQuasiQuote RdrName -> RnM l (LPat l RdrName)
+runQuasiQuoteType :: HsQuasiQuote RdrName -> RnM l (LHsType l RdrName)
+runQuasiQuoteDecl :: HsQuasiQuote RdrName -> RnM l [LHsDecl l RdrName]
 
-runAnnotation     :: CoreAnnTarget -> LHsExpr l Name -> TcM Annotation
+runAnnotation     :: (ApiAnnotation l)
+                  => CoreAnnTarget -> LHsExpr l Name -> TcM l Annotation
 
 #ifndef GHCI
 tcTypedBracket   x _   = failTH x "Template Haskell bracket"

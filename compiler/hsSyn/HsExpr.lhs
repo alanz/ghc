@@ -439,7 +439,7 @@ whereas that would not be possible using a all to a polymorphic function
 So we use Nothing to mean "use the old built-in typing rule".
 
 \begin{code}
-instance (OutputableBndr id, SrcAnnotation l) => Outputable (HsExpr l id) where
+instance (OutputableBndr id, ApiAnnotation l) => Outputable (HsExpr l id) where
     ppr expr = pprExpr expr
 \end{code}
 
@@ -447,10 +447,10 @@ instance (OutputableBndr id, SrcAnnotation l) => Outputable (HsExpr l id) where
 -----------------------
 -- pprExpr, pprLExpr, pprBinds call pprDeeper;
 -- the underscore versions do not
-pprLExpr :: (OutputableBndr id, SrcAnnotation l) => LHsExpr l id -> SDoc
+pprLExpr :: (OutputableBndr id, ApiAnnotation l) => LHsExpr l id -> SDoc
 pprLExpr (L _ e) = pprExpr e
 
-pprExpr :: (OutputableBndr id, SrcAnnotation l) => HsExpr l id -> SDoc
+pprExpr :: (OutputableBndr id, ApiAnnotation l) => HsExpr l id -> SDoc
 pprExpr e | isAtomicHsExpr e || isQuietHsExpr e =            ppr_expr e
           | otherwise                           = pprDeeper (ppr_expr e)
 
@@ -464,15 +464,15 @@ isQuietHsExpr (HsApp _ _) = True
 isQuietHsExpr (OpApp _ _ _ _) = True
 isQuietHsExpr _ = False
 
-pprBinds :: (OutputableBndr idL, OutputableBndr idR, SrcAnnotation l)
+pprBinds :: (OutputableBndr idL, OutputableBndr idR, ApiAnnotation l)
          => HsLocalBindsLR l idL idR -> SDoc
 pprBinds b = pprDeeper (ppr b)
 
 -----------------------
-ppr_lexpr :: (OutputableBndr id, SrcAnnotation l) => LHsExpr l id -> SDoc
+ppr_lexpr :: (OutputableBndr id, ApiAnnotation l) => LHsExpr l id -> SDoc
 ppr_lexpr e = ppr_expr (unLoc e)
 
-ppr_expr :: forall id l. (OutputableBndr id, SrcAnnotation l) => HsExpr l id -> SDoc
+ppr_expr :: forall id l. (OutputableBndr id, ApiAnnotation l) => HsExpr l id -> SDoc
 ppr_expr (HsVar v)       = pprPrefixOcc v
 ppr_expr (HsIPVar v)     = ppr v
 ppr_expr (HsLit lit)     = ppr lit
@@ -667,13 +667,13 @@ fixities should do the job, except in debug mode (-dppr-debug) so we
 can see the structure of the parse tree.
 
 \begin{code}
-pprDebugParendExpr :: (OutputableBndr id, SrcAnnotation l) => LHsExpr l id -> SDoc
+pprDebugParendExpr :: (OutputableBndr id, ApiAnnotation l) => LHsExpr l id -> SDoc
 pprDebugParendExpr expr
   = getPprStyle (\sty ->
     if debugStyle sty then pprParendExpr expr
                       else pprLExpr      expr)
 
-pprParendExpr :: (OutputableBndr id, SrcAnnotation l) => LHsExpr l id -> SDoc
+pprParendExpr :: (OutputableBndr id, ApiAnnotation l) => LHsExpr l id -> SDoc
 pprParendExpr expr
   | hsExprNeedsParens (unLoc expr) = parens (pprLExpr expr)
   | otherwise                      = pprLExpr expr
@@ -794,16 +794,16 @@ deriving instance (DataId id, Data l) => Data (HsCmdTop l id)
 
 
 \begin{code}
-instance (OutputableBndr id, SrcAnnotation l) => Outputable (HsCmd l id) where
+instance (OutputableBndr id, ApiAnnotation l) => Outputable (HsCmd l id) where
     ppr cmd = pprCmd cmd
 
 -----------------------
 -- pprCmd and pprLCmd call pprDeeper;
 -- the underscore versions do not
-pprLCmd :: (OutputableBndr id, SrcAnnotation l) => LHsCmd l id -> SDoc
+pprLCmd :: (OutputableBndr id, ApiAnnotation l) => LHsCmd l id -> SDoc
 pprLCmd (L _ c) = pprCmd c
 
-pprCmd :: (OutputableBndr id, SrcAnnotation l) => HsCmd l id -> SDoc
+pprCmd :: (OutputableBndr id, ApiAnnotation l) => HsCmd l id -> SDoc
 pprCmd c | isQuietHsCmd c =            ppr_cmd c
          | otherwise      = pprDeeper (ppr_cmd c)
 
@@ -817,10 +817,10 @@ isQuietHsCmd (HsCmdApp _ _) = True
 isQuietHsCmd _ = False
 
 -----------------------
-ppr_lcmd :: (OutputableBndr id, SrcAnnotation l) => LHsCmd l id -> SDoc
+ppr_lcmd :: (OutputableBndr id, ApiAnnotation l) => LHsCmd l id -> SDoc
 ppr_lcmd c = ppr_cmd (unLoc c)
 
-ppr_cmd :: forall id l. (OutputableBndr id, SrcAnnotation l) => HsCmd l id -> SDoc
+ppr_cmd :: forall id l. (OutputableBndr id, ApiAnnotation l) => HsCmd l id -> SDoc
 ppr_cmd (HsCmdPar c) = parens (ppr_lcmd c)
 
 ppr_cmd (HsCmdApp c e)
@@ -872,13 +872,13 @@ ppr_cmd (HsCmdArrForm op _ args)
   = hang (ptext (sLit "(|") <> ppr_lexpr op)
          4 (sep (map (pprCmdArg.unLoc) args) <> ptext (sLit "|)"))
 
-pprCmdArg :: (OutputableBndr id, SrcAnnotation l) => HsCmdTop l id -> SDoc
+pprCmdArg :: (OutputableBndr id, ApiAnnotation l) => HsCmdTop l id -> SDoc
 pprCmdArg (HsCmdTop cmd@(L _ (HsCmdArrForm _ Nothing [])) _ _ _)
   = ppr_lcmd cmd
 pprCmdArg (HsCmdTop cmd _ _ _)
   = parens (ppr_lcmd cmd)
 
-instance (OutputableBndr id, SrcAnnotation l) => Outputable (HsCmdTop l id) where
+instance (OutputableBndr id, ApiAnnotation l) => Outputable (HsCmdTop l id) where
     ppr = pprCmdArg
 
 \end{code}
@@ -971,7 +971,7 @@ We know the list must have at least one @Match@ in it.
 
 \begin{code}
 pprMatches :: (OutputableBndr idL, OutputableBndr idR, Outputable body,
-               SrcAnnotation l)
+               ApiAnnotation l)
            => HsMatchContext idL -> MatchGroup l idR body -> SDoc
 pprMatches ctxt (MG { mg_alts = matches })
     = vcat (map (pprMatch ctxt) (map unLoc matches))
@@ -979,19 +979,19 @@ pprMatches ctxt (MG { mg_alts = matches })
 
 -- Exported to HsBinds, which can't see the defn of HsMatchContext
 pprFunBind :: (OutputableBndr idL, OutputableBndr idR, Outputable body,
-               SrcAnnotation l)
+               ApiAnnotation l)
            => idL -> Bool -> MatchGroup l idR body -> SDoc
 pprFunBind fun inf matches = pprMatches (FunRhs fun inf) matches
 
 -- Exported to HsBinds, which can't see the defn of HsMatchContext
 pprPatBind :: forall bndr id body l. (OutputableBndr bndr, OutputableBndr id,
-                                    Outputable body, SrcAnnotation l)
+                                    Outputable body, ApiAnnotation l)
            => LPat l bndr -> GRHSs l id body -> SDoc
 pprPatBind pat (grhss)
  = sep [ppr pat, nest 2 (pprGRHSs (PatBindRhs :: HsMatchContext id) grhss)]
 
 pprMatch :: (OutputableBndr idL, OutputableBndr idR, Outputable body,
-             SrcAnnotation l)
+             ApiAnnotation l)
          => HsMatchContext idL -> Match l idR body -> SDoc
 pprMatch ctxt (Match pats maybe_ty grhss)
   = sep [ sep (herald : map (nest 2 . pprParendLPat) other_pats)
@@ -1027,7 +1027,7 @@ pprMatch ctxt (Match pats maybe_ty grhss)
 
 
 pprGRHSs :: (OutputableBndr idL, OutputableBndr idR, Outputable body,
-             SrcAnnotation l)
+             ApiAnnotation l)
          => HsMatchContext idL -> GRHSs l idR body -> SDoc
 pprGRHSs ctxt (GRHSs grhss binds)
   = vcat (map (pprGRHS ctxt . unLoc) grhss)
@@ -1035,7 +1035,7 @@ pprGRHSs ctxt (GRHSs grhss binds)
       (text "where" $$ nest 4 (pprBinds binds))
 
 pprGRHS :: (OutputableBndr idL, OutputableBndr idR, Outputable body,
-            SrcAnnotation l)
+            ApiAnnotation l)
         => HsMatchContext idL -> GRHS l idR body -> SDoc
 pprGRHS ctxt (GRHS [] body)
  =  pp_rhs ctxt body
@@ -1313,17 +1313,17 @@ In any other context than 'MonadComp', the fields for most of these
 
 
 \begin{code}
-instance (OutputableBndr idL, OutputableBndr idR, SrcAnnotation l)
+instance (OutputableBndr idL, OutputableBndr idR, ApiAnnotation l)
     => Outputable (ParStmtBlock l idL idR) where
   ppr (ParStmtBlock stmts _ _) = interpp'SP stmts
 
 instance (OutputableBndr idL, OutputableBndr idR, Outputable body,
-          SrcAnnotation l)
+          ApiAnnotation l)
          => Outputable (StmtLR l idL idR body) where
     ppr stmt = pprStmt stmt
 
 pprStmt :: (OutputableBndr idL, OutputableBndr idR, Outputable body,
-            SrcAnnotation l)
+            ApiAnnotation l)
         => (StmtLR l idL idR body) -> SDoc
 pprStmt (LastStmt expr _)         = ifPprDebug (ptext (sLit "[last]")) <+> ppr expr
 pprStmt (BindStmt pat expr _ _)   = hsep [ppr pat, larrow, ppr expr]
@@ -1341,7 +1341,7 @@ pprStmt (RecStmt { recS_stmts = segment, recS_rec_ids = rec_ids
          , ifPprDebug (vcat [ ptext (sLit "rec_ids=") <> ppr rec_ids
                             , ptext (sLit "later_ids=") <> ppr later_ids])]
 
-pprTransformStmt :: (OutputableBndr id, SrcAnnotation l)
+pprTransformStmt :: (OutputableBndr id, ApiAnnotation l)
   => [id] -> LHsExpr l id -> Maybe (LHsExpr l id) -> SDoc
 pprTransformStmt bndrs using by
   = sep [ ptext (sLit "then") <+> ifPprDebug (braces (ppr bndrs))
@@ -1358,7 +1358,7 @@ pprBy :: Outputable body => Maybe body -> SDoc
 pprBy Nothing  = empty
 pprBy (Just e) = ptext (sLit "by") <+> ppr e
 
-pprDo :: (OutputableBndr id, Outputable body, SrcAnnotation l)
+pprDo :: (OutputableBndr id, Outputable body, ApiAnnotation l)
       => HsStmtContext any -> [LStmt l id body] -> SDoc
 pprDo DoExpr        stmts = ptext (sLit "do")  <+> ppr_do_stmts stmts
 pprDo GhciStmtCtxt  stmts = ptext (sLit "do")  <+> ppr_do_stmts stmts
@@ -1370,7 +1370,7 @@ pprDo MonadComp     stmts = brackets    $ pprComp stmts
 pprDo _             _     = panic "pprDo" -- PatGuard, ParStmtCxt
 
 ppr_do_stmts :: (OutputableBndr idL, OutputableBndr idR,
-                 Outputable body, SrcAnnotation l)
+                 Outputable body, ApiAnnotation l)
              => [LStmtLR l idL idR body] -> SDoc
 -- Print a bunch of do stmts, with explicit braces and semicolons,
 -- so that we are not vulnerable to layout bugs
@@ -1378,7 +1378,7 @@ ppr_do_stmts stmts
   = lbrace <+> pprDeeperList vcat (punctuate semi (map ppr stmts))
            <+> rbrace
 
-pprComp :: (OutputableBndr id, Outputable body, SrcAnnotation l)
+pprComp :: (OutputableBndr id, Outputable body, ApiAnnotation l)
         => [LStmt l id body] -> SDoc
 pprComp quals     -- Prints:  body | qual1, ..., qualn
   | not (null quals)
@@ -1387,7 +1387,7 @@ pprComp quals     -- Prints:  body | qual1, ..., qualn
   | otherwise
   = pprPanic "pprComp" (pprQuals quals)
 
-pprQuals :: (OutputableBndr id, Outputable body, SrcAnnotation l)
+pprQuals :: (OutputableBndr id, Outputable body, ApiAnnotation l)
         => [LStmt l id body] -> SDoc
 -- Show list comprehension qualifiers separated by commas
 pprQuals quals = interpp'SP quals
@@ -1406,16 +1406,16 @@ data HsSplice l id  = HsSplice          --  $z  or $(f 4)
   deriving (Typeable)
 deriving instance (DataId id, Data l) => Data (HsSplice l id)
 
-instance (OutputableBndr id, SrcAnnotation l) => Outputable (HsSplice l id) where
+instance (OutputableBndr id, ApiAnnotation l) => Outputable (HsSplice l id) where
   ppr (HsSplice n e) = angleBrackets (ppr n <> comma <+> ppr e)
 
-pprUntypedSplice :: (OutputableBndr id, SrcAnnotation l) => HsSplice l id -> SDoc
+pprUntypedSplice :: (OutputableBndr id, ApiAnnotation l) => HsSplice l id -> SDoc
 pprUntypedSplice = pprSplice False
 
-pprTypedSplice :: (OutputableBndr id, SrcAnnotation l) => HsSplice l id -> SDoc
+pprTypedSplice :: (OutputableBndr id, ApiAnnotation l) => HsSplice l id -> SDoc
 pprTypedSplice = pprSplice True
 
-pprSplice :: (OutputableBndr id, SrcAnnotation l) => Bool -> HsSplice l id -> SDoc
+pprSplice :: (OutputableBndr id, ApiAnnotation l) => Bool -> HsSplice l id -> SDoc
 pprSplice is_typed (HsSplice n e)
     = (if is_typed then ptext (sLit "$$") else char '$')
       <> ifPprDebug (brackets (ppr n)) <> eDoc
@@ -1445,11 +1445,11 @@ isTypedBracket :: HsBracket l id -> Bool
 isTypedBracket (TExpBr {}) = True
 isTypedBracket _           = False
 
-instance (OutputableBndr id, SrcAnnotation l) => Outputable (HsBracket l id) where
+instance (OutputableBndr id, ApiAnnotation l) => Outputable (HsBracket l id) where
   ppr = pprHsBracket
 
 
-pprHsBracket :: (OutputableBndr id, SrcAnnotation l) => HsBracket l id -> SDoc
+pprHsBracket :: (OutputableBndr id, ApiAnnotation l) => HsBracket l id -> SDoc
 pprHsBracket (ExpBr e)   = thBrackets empty (ppr e)
 pprHsBracket (PatBr p)   = thBrackets (char 'p') (ppr p)
 pprHsBracket (DecBrG gp) = thBrackets (char 'd') (ppr gp)
@@ -1466,7 +1466,7 @@ thBrackets pp_kind pp_body = char '[' <> pp_kind <> char '|' <+>
 thTyBrackets :: SDoc -> SDoc
 thTyBrackets pp_body = ptext (sLit "[||") <+> pp_body <+> ptext (sLit "||]")
 
-instance (SrcAnnotation l) => Outputable (PendingRnSplice l) where
+instance (ApiAnnotation l) => Outputable (PendingRnSplice l) where
   ppr (PendingRnExpSplice s)   = ppr s
   ppr (PendingRnPatSplice s)   = ppr s
   ppr (PendingRnTypeSplice s)  = ppr s
@@ -1495,7 +1495,7 @@ deriving instance (DataId id, Data l) => Data (ArithSeqInfo l id)
 \end{code}
 
 \begin{code}
-instance (OutputableBndr id, SrcAnnotation l)
+instance (OutputableBndr id, ApiAnnotation l)
   => Outputable (ArithSeqInfo l id) where
     ppr (From e1)             = hcat [ppr e1, pp_dotdot]
     ppr (FromThen e1 e2)      = hcat [ppr e1, comma, space, ppr e2, pp_dotdot]
@@ -1670,13 +1670,13 @@ matchContextErrString (StmtCtxt PArrComp)          = ptext (sLit "array comprehe
 
 \begin{code}
 pprMatchInCtxt :: (OutputableBndr idL, OutputableBndr idR, Outputable body,
-                   SrcAnnotation l)
+                   ApiAnnotation l)
                => HsMatchContext idL -> Match l idR body -> SDoc
 pprMatchInCtxt ctxt match  = hang (ptext (sLit "In") <+> pprMatchContext ctxt <> colon)
                              4 (pprMatch ctxt match)
 
 pprStmtInCtxt :: (OutputableBndr idL, OutputableBndr idR,
-                  Outputable body, SrcAnnotation l)
+                  Outputable body, ApiAnnotation l)
                => HsStmtContext idL -> StmtLR l idL idR body -> SDoc
 pprStmtInCtxt ctxt (LastStmt e _)
   | isListCompExpr ctxt      -- For [ e | .. ], do not mutter about "stmts"

@@ -930,7 +930,7 @@ addTickArithSeqInfo (FromThenTo e1 e2 e3) =
                 (addTickLHsExpr e2)
                 (addTickLHsExpr e3)
 
-liftL :: (Monad m) => (a -> m a) -> Located a -> m (Located a)
+liftL :: (Monad m) => (a -> m a) -> GenLocated l a -> m (GenLocated l a)
 liftL f (L loc a) = do
   a' <- f a
   return $ L loc a'

@@ -121,7 +121,7 @@ where the code that e1 expands to might import some defns that
 also turn out to be needed by the code that e2 expands to.
 
 \begin{code}
-tcLookupImported_maybe :: Name -> TcM (MaybeErr MsgDoc TyThing)
+tcLookupImported_maybe :: Name -> TcM l (MaybeErr MsgDoc TyThing)
 -- Returns (Failed err) if we can't find the interface file for the thing
 tcLookupImported_maybe name
   = do  { hsc_env <- getTopEnv
@@ -130,7 +130,7 @@ tcLookupImported_maybe name
             Just thing -> return (Succeeded thing)
             Nothing    -> tcImportDecl_maybe name }
 
-tcImportDecl_maybe :: Name -> TcM (MaybeErr MsgDoc TyThing)
+tcImportDecl_maybe :: Name -> TcM l (MaybeErr MsgDoc TyThing)
 -- Entry point for *source-code* uses of importDecl
 tcImportDecl_maybe name
   | Just thing <- wiredInNameTyThing_maybe name
@@ -203,7 +203,7 @@ All of this is done by the type checker. The renamer plays no role.
 
 
 \begin{code}
-checkWiredInTyCon :: TyCon -> TcM ()
+checkWiredInTyCon :: TyCon -> TcM l ()
 -- Ensure that the home module of the TyCon (and hence its instances)
 -- are loaded. See Note [Loading instances for wired-in things]
 -- It might not be a wired-in tycon (see the calls in TcUnify),
@@ -316,7 +316,7 @@ typecheckIface iface
 %************************************************************************
 
 \begin{code}
-tcHiBootIface :: HscSource -> Module -> TcRn ModDetails
+tcHiBootIface :: HscSource -> Module -> TcRn l ModDetails
 -- Load the hi-boot iface for the module being compiled,
 -- if it indeed exists in the transitive closure of imports
 -- Return the ModDetails, empty if no hi-boot iface

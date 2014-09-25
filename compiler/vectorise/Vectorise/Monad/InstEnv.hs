@@ -26,7 +26,7 @@ import Util
 
 -- Check whether a unique class instance for a given class and type arguments exists.
 --
-existsInst :: Class -> [Type] -> VM Bool
+existsInst :: Class -> [Type] -> VM l Bool
 existsInst cls tys
   = do { instEnv <- readGEnv global_inst_env
        ; return $ either (const False) (const True) (lookupUniqueInstEnv instEnv cls tys)
@@ -41,7 +41,7 @@ existsInst cls tys
 -- instances head (i.e., no flexi vars); for details for what this means,
 -- see the docs at InstEnv.lookupInstEnv.
 --
-lookupInst :: Class -> [Type] -> VM (DFunId, [Type])
+lookupInst :: Class -> [Type] -> VM l (DFunId, [Type])
 lookupInst cls tys
   = do { instEnv <- readGEnv global_inst_env
        ; case lookupUniqueInstEnv instEnv cls tys of
@@ -67,7 +67,7 @@ lookupInst cls tys
 --
 -- which implies that :R42T was declared as 'data instance T [a]'.
 --
-lookupFamInst :: TyCon -> [Type] -> VM FamInstMatch
+lookupFamInst :: TyCon -> [Type] -> VM l FamInstMatch
 lookupFamInst tycon tys
   = ASSERT( isOpenFamilyTyCon tycon )
     do { instEnv <- readGEnv global_fam_inst_env

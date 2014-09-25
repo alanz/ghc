@@ -318,13 +318,13 @@ Specifically,
     it's just an error thunk
 
 \begin{code}
-instance (OutputableBndr idL, OutputableBndr idR, SrcAnnotation l)
+instance (OutputableBndr idL, OutputableBndr idR, ApiAnnotation l)
    => Outputable (HsLocalBindsLR l idL idR) where
   ppr (HsValBinds bs) = ppr bs
   ppr (HsIPBinds bs)  = ppr bs
   ppr EmptyLocalBinds = empty
 
-instance (OutputableBndr idL, OutputableBndr idR, SrcAnnotation l)
+instance (OutputableBndr idL, OutputableBndr idR, ApiAnnotation l)
    => Outputable (HsValBindsLR l idL idR) where
   ppr (ValBindsIn binds sigs)
    = pprDeclList (pprLHsBindsForUser binds sigs)
@@ -340,14 +340,14 @@ instance (OutputableBndr idL, OutputableBndr idR, SrcAnnotation l)
      pp_rec Recursive    = ptext (sLit "rec")
      pp_rec NonRecursive = ptext (sLit "nonrec")
 
-pprLHsBinds :: (OutputableBndr idL, OutputableBndr idR, SrcAnnotation l)
+pprLHsBinds :: (OutputableBndr idL, OutputableBndr idR, ApiAnnotation l)
   => LHsBindsLR l idL idR -> SDoc
 pprLHsBinds binds
   | isEmptyLHsBinds binds = empty
   | otherwise = pprDeclList (map ppr (bagToList binds))
 
 pprLHsBindsForUser :: (OutputableBndr idL, OutputableBndr idR,
-                       OutputableBndr id2, SrcAnnotation l)
+                       OutputableBndr id2, ApiAnnotation l)
                    => LHsBindsLR l idL idR -> [LSig l id2] -> [SDoc]
 --  pprLHsBindsForUser is different to pprLHsBinds because
 --  a) No braces: 'let' and 'where' include a list of HsBindGroups
@@ -441,11 +441,11 @@ So the desugarer tries to do a better job:
                                       in (fm,gm)
 
 \begin{code}
-instance (OutputableBndr idL, OutputableBndr idR, SrcAnnotation l)
+instance (OutputableBndr idL, OutputableBndr idR, ApiAnnotation l)
    => Outputable (HsBindLR l idL idR) where
     ppr mbind = ppr_monobind mbind
 
-ppr_monobind :: (OutputableBndr idL, OutputableBndr idR, SrcAnnotation l)
+ppr_monobind :: (OutputableBndr idL, OutputableBndr idR, ApiAnnotation l)
    => HsBindLR l idL idR -> SDoc
 
 ppr_monobind (PatBind { pat_lhs = pat, pat_rhs = grhss })
@@ -480,7 +480,7 @@ instance (OutputableBndr id, Outputable l) => Outputable (ABExport l id) where
            , nest 2 (pprTcSpecPrags prags)
            , nest 2 (ppr wrap)]
 
-instance (OutputableBndr idL, OutputableBndr idR, SrcAnnotation l)
+instance (OutputableBndr idL, OutputableBndr idR, ApiAnnotation l)
    => Outputable (PatSynBind l idL idR) where
   ppr (PSB{ psb_id = L _ psyn, psb_args = details, psb_def = pat, psb_dir = dir })
       = ppr_lhs <+> ppr_rhs
@@ -542,11 +542,11 @@ data IPBind l id
   deriving (Typeable)
 deriving instance (DataId name, Data l) => Data (IPBind l name)
 
-instance (OutputableBndr id, SrcAnnotation l) => Outputable (HsIPBinds l id) where
+instance (OutputableBndr id, ApiAnnotation l) => Outputable (HsIPBinds l id) where
   ppr (IPBinds bs ds) = pprDeeperList vcat (map ppr bs)
                         $$ ifPprDebug (ppr ds)
 
-instance (OutputableBndr id, SrcAnnotation l) => Outputable (IPBind l id) where
+instance (OutputableBndr id, ApiAnnotation l) => Outputable (IPBind l id) where
   ppr (IPBind lr rhs) = name <+> equals <+> pprExpr (unLoc rhs)
     where name = case lr of
                    Left ip  -> pprBndr LetBind ip
@@ -725,10 +725,10 @@ signatures. Since some of the signatures contain a list of names, testing for
 equality is not enough -- we have to check if they overlap.
 
 \begin{code}
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (Sig l name) where
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (Sig l name) where
     ppr sig = ppr_sig sig
 
-ppr_sig :: (OutputableBndr name, SrcAnnotation l) => Sig l name -> SDoc
+ppr_sig :: (OutputableBndr name, ApiAnnotation l) => Sig l name -> SDoc
 ppr_sig (TypeSig vars ty)         = pprVarSig (map unLoc vars) (ppr ty)
 ppr_sig (GenericSig vars ty)      = ptext (sLit "default") <+> pprVarSig (map unLoc vars) (ppr ty)
 ppr_sig (IdSig id)                = pprVarSig [id] (ppr (varType id))

@@ -79,12 +79,12 @@ so we reuse the desugaring code in @DsCCall@ to deal with these.
 type Binding = (Id, CoreExpr)   -- No rec/nonrec structure;
                                 -- the occurrence analyser will sort it all out
 
-dsForeigns :: [LForeignDecl Id]
-           -> DsM (ForeignStubs, OrdList Binding)
+dsForeigns :: [LForeignDecl l Id]
+           -> DsM l (ForeignStubs, OrdList Binding)
 dsForeigns fos = getHooked dsForeignsHook dsForeigns' >>= ($ fos)
 
-dsForeigns' :: [LForeignDecl Id]
-            -> DsM (ForeignStubs, OrdList Binding)
+dsForeigns' :: (ApiAnnotation l) => [LForeignDecl l Id]
+            -> DsM l (ForeignStubs, OrdList Binding)
 dsForeigns' []
   = return (NoStubs, nilOL)
 dsForeigns' fos = do
@@ -99,7 +99,7 @@ dsForeigns' fos = do
              (vcat cs $$ vcat fe_init_code),
             foldr (appOL . toOL) nilOL bindss)
   where
-   do_ldecl (L loc decl) = putSrcSpanDs loc (do_decl decl)
+   do_ldecl (L loc decl) = putSrcSpanDs (annGetSpan loc) (do_decl decl)
 
    do_decl (ForeignImport id _ co spec) = do
       traceIf (text "fi start" <+> ppr id)
@@ -141,7 +141,7 @@ because it exposes the boxing to the call site.
 dsFImport :: Id
           -> Coercion
           -> ForeignImport
-          -> DsM ([Binding], SDoc, SDoc)
+          -> DsM l ([Binding], SDoc, SDoc)
 dsFImport id co (CImport cconv safety mHeader spec) = do
     (ids, h, c) <- dsCImport id co spec cconv safety mHeader
     return (ids, h, c)
@@ -152,7 +152,7 @@ dsCImport :: Id
           -> CCallConv
           -> Safety
           -> Maybe Header
-          -> DsM ([Binding], SDoc, SDoc)
+          -> DsM l ([Binding], SDoc, SDoc)
 dsCImport id co (CLabel cid) cconv _ _ = do
    dflags <- getDynFlags
    let ty = pFst $ coercionKind co
@@ -201,7 +201,7 @@ fun_type_arg_stdcall_info _ _other_conv _
 
 \begin{code}
 dsFCall :: Id -> Coercion -> ForeignCall -> Maybe Header
-        -> DsM ([(Id, Expr TyVar)], SDoc, SDoc)
+        -> DsM l ([(Id, Expr TyVar)], SDoc, SDoc)
 dsFCall fn_id co fcall mDeclHeader = do
     let
         ty                   = pFst $ coercionKind co
@@ -297,7 +297,7 @@ for calling convention they are really prim ops.
 
 \begin{code}
 dsPrimCall :: Id -> Coercion -> ForeignCall
-           -> DsM ([(Id, Expr TyVar)], SDoc, SDoc)
+           -> DsM l ([(Id, Expr TyVar)], SDoc, SDoc)
 dsPrimCall fn_id co fcall = do
     let
         ty                   = pFst $ coercionKind co
@@ -345,11 +345,11 @@ dsFExport :: Id                 -- Either the exported Id,
           -> Bool               -- True => foreign export dynamic
                                 --         so invoke IO action that's hanging off
                                 --         the first argument's stable pointer
-          -> DsM ( SDoc         -- contents of Module_stub.h
-                 , SDoc         -- contents of Module_stub.c
-                 , String       -- string describing type to pass to createAdj.
-                 , Int          -- size of args to stub function
-                 )
+          -> DsM l ( SDoc       -- contents of Module_stub.h
+                   , SDoc       -- contents of Module_stub.c
+                   , String     -- string describing type to pass to createAdj.
+                   , Int        -- size of args to stub function
+                   )
 
 dsFExport fn_id co ext_name cconv isDyn = do
     let
@@ -411,7 +411,7 @@ f_helper(StablePtr s, HsBool b, HsInt i)
 dsFExportDynamic :: Id
                  -> Coercion
                  -> CCallConv
-                 -> DsM ([Binding], SDoc, SDoc)
+                 -> DsM l ([Binding], SDoc, SDoc)
 dsFExportDynamic id co0 cconv = do
     fe_id <-  newSysLocalDs ty
     mod <- getModule

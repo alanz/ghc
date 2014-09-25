@@ -9,10 +9,10 @@ import TcRnTypes( TcM, TcId )
 
 tcGRHSsPat    :: GRHSs l Name (LHsExpr l Name)
               -> TcRhoType
-              -> TcM (GRHSs l TcId (LHsExpr l TcId))
+              -> TcM l (GRHSs l TcId (LHsExpr l TcId))
 
 tcMatchesFun :: Name -> Bool
              -> MatchGroup l Name (LHsExpr l Name)
              -> TcRhoType
-             -> TcM (HsWrapper, MatchGroup l TcId (LHsExpr l TcId))
+             -> TcM l (HsWrapper, MatchGroup l TcId (LHsExpr l TcId))
 \end{code}

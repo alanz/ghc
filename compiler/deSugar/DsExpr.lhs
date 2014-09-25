@@ -817,7 +817,7 @@ handle_failure pat match fail_op
   | otherwise
   = extractMatchResult match (error "It can't fail")
 
-mk_fail_msg :: DynFlags -> Located e -> String
+mk_fail_msg :: DynFlags -> GenLocated l e -> String
 mk_fail_msg dflags pat = "Pattern match failure in do expression at " ++ 
                          showPpr dflags (getLoc pat)
 \end{code}

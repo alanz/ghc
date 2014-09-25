@@ -1,9 +1,10 @@
 \begin{code}
+{-# LANGUAGE KindSignatures #-}
 module Hooks where
 
-data Hooks
+data Hooks (l :: *)
 
-emptyHooks :: Hooks
+emptyHooks :: Hooks l
 
 \end{code}
 

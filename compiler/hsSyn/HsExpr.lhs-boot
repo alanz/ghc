@@ -11,7 +11,7 @@
 
 module HsExpr where
 
-import SrcLoc     ( GenLocated, SrcAnnotation )
+import SrcLoc     ( GenLocated, ApiAnnotation )
 import Outputable ( SDoc, OutputableBndr, Outputable )
 import {-# SOURCE #-} HsPat  ( LPat )
 import PlaceHolder ( DataId )
@@ -50,26 +50,26 @@ instance (DataId id, Data l) => Data (HsCmd l id)
 instance (Data body,DataId id, Data l) => Data (MatchGroup l id body)
 instance (Data body,DataId id, Data l) => Data (GRHSs l id body)
 
-instance (OutputableBndr id, SrcAnnotation l) => Outputable (HsExpr l id)
-instance (OutputableBndr id, SrcAnnotation l) => Outputable (HsCmd l id)
+instance (OutputableBndr id, ApiAnnotation l) => Outputable (HsExpr l id)
+instance (OutputableBndr id, ApiAnnotation l) => Outputable (HsCmd l id)
 
 type LHsExpr l a = GenLocated l (HsExpr l a)
 type SyntaxExpr l a = HsExpr l a
 
-pprLExpr :: (OutputableBndr i, SrcAnnotation l) =>
+pprLExpr :: (OutputableBndr i, ApiAnnotation l) =>
         LHsExpr l i -> SDoc
 
-pprExpr :: (OutputableBndr i, SrcAnnotation l) =>
+pprExpr :: (OutputableBndr i, ApiAnnotation l) =>
         HsExpr l i -> SDoc
 
-pprUntypedSplice :: (OutputableBndr i, SrcAnnotation l) =>
+pprUntypedSplice :: (OutputableBndr i, ApiAnnotation l) =>
                     HsSplice l i -> SDoc
 
 pprPatBind :: forall bndr id body l. (OutputableBndr bndr, OutputableBndr id,
-               Outputable body,  SrcAnnotation l)
+               Outputable body,  ApiAnnotation l)
            => LPat l bndr -> GRHSs l id body -> SDoc
 
 pprFunBind :: (OutputableBndr idL, OutputableBndr idR, Outputable body,
-               SrcAnnotation l)
+               ApiAnnotation l)
            => idL -> Bool -> MatchGroup l idR body -> SDoc
 \end{code}

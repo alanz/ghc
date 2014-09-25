@@ -37,7 +37,7 @@ import Control.Monad
 -- If the name external, encode the orignal name's module into the new 'OccName'.  The result is
 -- always an internal system name.
 --
-mkLocalisedName :: (Maybe String -> OccName -> OccName) -> Name -> VM Name
+mkLocalisedName :: (Maybe String -> OccName -> OccName) -> Name -> VM l Name
 mkLocalisedName mk_occ name
   = do { mod <- liftDs getModule
        ; u   <- liftDs newUnique
@@ -48,7 +48,7 @@ mkLocalisedName mk_occ name
 
        ; return new_name }
 
-mkDerivedName :: (OccName -> OccName) -> Name -> VM Name
+mkDerivedName :: (OccName -> OccName) -> Name -> VM l Name
 -- Similar to mkLocalisedName, but assumes the
 -- incoming name is from this module.  
 -- Works on External names only
@@ -64,7 +64,7 @@ mkDerivedName mk_occ name
 -- Force the new name to be a system name and, if the original was an external name, disambiguate
 -- the new name with the module name of the original.
 --
-mkVectId :: Id -> Type -> VM Id
+mkVectId :: Id -> Type -> VM l Id
 mkVectId id ty
   = do { name <- mkLocalisedName mkVectOcc (getName id)
        ; let id' | isDFunId id     = MkId.mkDictFunId name tvs theta cls tys
@@ -81,12 +81,12 @@ mkVectId id ty
 
 -- |Make a fresh instance of this var, with a new unique.
 --
-cloneVar :: Var -> VM Var
+cloneVar :: Var -> VM l Var
 cloneVar var = liftM (setIdUnique var) (liftDs newUnique)
 
 -- |Make a fresh exported variable with the given type.
 --
-newExportedVar :: OccName -> Type -> VM Var
+newExportedVar :: OccName -> Type -> VM l Var
 newExportedVar occ_name ty 
  = do mod <- liftDs getModule
       u   <- liftDs newUnique
@@ -98,7 +98,7 @@ newExportedVar occ_name ty
 -- |Make a fresh local variable with the given type.
 -- The variable's name is formed using the given string as the prefix.
 --
-newLocalVar :: FastString -> Type -> VM Var
+newLocalVar :: FastString -> Type -> VM l Var
 newLocalVar fs ty
  = do u <- liftDs newUnique
       return $ mkSysLocal fs u ty
@@ -106,18 +106,18 @@ newLocalVar fs ty
 -- |Make several fresh local variables with the given types.
 -- The variable's names are formed using the given string as the prefix.
 --
-newLocalVars :: FastString -> [Type] -> VM [Var]
+newLocalVars :: FastString -> [Type] -> VM l [Var]
 newLocalVars fs = mapM (newLocalVar fs)
 
 -- |Make a new local dummy variable.
 --
-newDummyVar :: Type -> VM Var
+newDummyVar :: Type -> VM l Var
 newDummyVar = newLocalVar (fsLit "vv")
 
 -- |Make a fresh type variable with the given kind.
 -- The variable's name is formed using the given string as the prefix.
 --
-newTyVar :: FastString -> Kind -> VM Var
+newTyVar :: FastString -> Kind -> VM l Var
 newTyVar fs k
  = do u <- liftDs newUnique
       return $ mkTyVar (mkSysTvName u fs) k

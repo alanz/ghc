@@ -55,17 +55,17 @@ import Outputable
 
 -- |Project something from the global environment.
 --
-readGEnv :: (GlobalEnv -> a) -> VM a
+readGEnv :: (GlobalEnv -> a) -> VM l a
 readGEnv f  = VM $ \_ genv lenv -> return (Yes genv lenv (f genv))
 
 -- |Set the value of the global environment.
 --
-setGEnv :: GlobalEnv -> VM ()
+setGEnv :: GlobalEnv -> VM l ()
 setGEnv genv  = VM $ \_ _ lenv -> return (Yes genv lenv ())
 
 -- |Update the global environment using the provided function.
 --
-updGEnv :: (GlobalEnv -> GlobalEnv) -> VM ()
+updGEnv :: (GlobalEnv -> GlobalEnv) -> VM l ()
 updGEnv f = VM $ \_ genv lenv -> return (Yes (f genv) lenv ())
 
 
@@ -75,7 +75,7 @@ updGEnv f = VM $ \_ genv lenv -> return (Yes (f genv) lenv ())
 --
 -- Set by '-f[no]-vectorisation-avoidance'
 --
-isVectAvoidanceAggressive :: VM Bool
+isVectAvoidanceAggressive :: VM l Bool
 isVectAvoidanceAggressive = readGEnv global_vect_avoid
 
 
@@ -83,7 +83,7 @@ isVectAvoidanceAggressive = readGEnv global_vect_avoid
 
 -- |Add a mapping between a global var and its vectorised version to the state.
 --
-defGlobalVar :: Var -> Var -> VM ()
+defGlobalVar :: Var -> Var -> VM l ()
 defGlobalVar v v'
   = do { traceVt "add global var mapping:" (ppr v <+> text "-->" <+> ppr v') 
 
@@ -108,7 +108,7 @@ defGlobalVar v v'
 
 -- |Remove the mapping of a variable in the vectorisation map.
 --
-undefGlobalVar :: Var -> VM ()
+undefGlobalVar :: Var -> VM l ()
 undefGlobalVar v
   = do 
     { traceVt "REMOVING global var mapping:" (ppr v)
@@ -123,7 +123,7 @@ undefGlobalVar v
 -- The first component of the result indicates whether the variable has a 'NOVECTORISE' declaration.
 -- The second component contains the given type and expression in case of a 'VECTORISE' declaration.
 --
-lookupVectDecl :: Var -> VM (Bool, Maybe (Type, CoreExpr))
+lookupVectDecl :: Var -> VM l (Bool, Maybe (Type, CoreExpr))
 lookupVectDecl var 
   = readGEnv $ \env -> 
       case lookupVarEnv (global_vect_decls env) var of
@@ -136,14 +136,14 @@ lookupVectDecl var
 
 -- |Get the set of global parallel variables.
 --
-globalParallelVars :: VM VarSet
+globalParallelVars :: VM l VarSet
 globalParallelVars = readGEnv global_parallel_vars
 
 -- |Get the set of all parallel type constructors (those that may embed parallelism) including both
 -- both those parallel type constructors declared in an imported module and those declared in the
 -- current module.
 --
-globalParallelTyCons :: VM NameSet
+globalParallelTyCons :: VM l NameSet
 globalParallelTyCons = readGEnv global_parallel_tycons
 
 
@@ -152,7 +152,7 @@ globalParallelTyCons = readGEnv global_parallel_tycons
 -- |Determine the vectorised version of a `TyCon`. The vectorisation map in the global environment
 -- contains a vectorised version if the original `TyCon` embeds any parallel arrays.
 --
-lookupTyCon :: TyCon -> VM (Maybe TyCon)
+lookupTyCon :: TyCon -> VM l (Maybe TyCon)
 lookupTyCon tc
   = readGEnv $ \env -> lookupNameEnv (global_tycons env) (tyConName tc)
 
@@ -162,7 +162,7 @@ lookupTyCon tc
 -- constructors, where we /must not/ pull at the vectorised type constructors (because that would
 -- pull too early at the recursive knot).
 --
-defTyConName :: TyCon -> Name -> TyCon -> VM ()
+defTyConName :: TyCon -> Name -> TyCon -> VM l ()
 defTyConName tc nameOfTc' tc'
   = do { traceVt "add global tycon mapping:" (ppr tc <+> text "-->" <+> ppr nameOfTc') 
 
@@ -188,12 +188,12 @@ defTyConName tc nameOfTc' tc'
 
 -- |Add a mapping between plain and vectorised `TyCon`s to the global environment.
 --
-defTyCon :: TyCon -> TyCon -> VM ()
+defTyCon :: TyCon -> TyCon -> VM l ()
 defTyCon tc tc' = defTyConName tc (tyConName tc') tc'
 
 -- |Get the set of all vectorised type constructors.
 --
-globalVectTyCons :: VM (NameEnv TyCon)
+globalVectTyCons :: VM l (NameEnv TyCon)
 globalVectTyCons = readGEnv global_tycons
 
 
@@ -201,7 +201,7 @@ globalVectTyCons = readGEnv global_tycons
 
 -- |Lookup the vectorised version of a `DataCon` from the global environment.
 --
-lookupDataCon :: DataCon -> VM (Maybe DataCon)
+lookupDataCon :: DataCon -> VM l (Maybe DataCon)
 lookupDataCon dc
   | isTupleTyCon (dataConTyCon dc) 
   = return (Just dc)
@@ -210,7 +210,7 @@ lookupDataCon dc
 
 -- |Add the mapping between plain and vectorised `DataCon`s to the global environment.
 --
-defDataCon :: DataCon -> DataCon -> VM ()
+defDataCon :: DataCon -> DataCon -> VM l ()
 defDataCon dc dc' = updGEnv $ \env ->
   env { global_datacons = extendNameEnv (global_datacons env) (dataConName dc) dc' }
 
@@ -219,14 +219,14 @@ defDataCon dc dc' = updGEnv $ \env ->
 
 -- |Lookup the 'PA' dfun of a vectorised type constructor in the global environment.
 --
-lookupTyConPA :: TyCon -> VM (Maybe Var)
+lookupTyConPA :: TyCon -> VM l (Maybe Var)
 lookupTyConPA tc
   = readGEnv $ \env -> lookupNameEnv (global_pa_funs env) (tyConName tc)
 
 -- |Associate vectorised type constructors with the dfun of their 'PA' instances in the global
 -- environment.
 --
-defTyConPAs :: [(TyCon, Var)] -> VM ()
+defTyConPAs :: [(TyCon, Var)] -> VM l ()
 defTyConPAs ps = updGEnv $ \env ->
   env { global_pa_funs = extendNameEnvList (global_pa_funs env)
                                            [(tyConName tc, pa) | (tc, pa) <- ps] }
@@ -234,5 +234,5 @@ defTyConPAs ps = updGEnv $ \env ->
 
 -- PR Dictionaries ------------------------------------------------------------
 
-lookupTyConPR :: TyCon -> VM (Maybe Var)
+lookupTyConPR :: TyCon -> VM l (Maybe Var)
 lookupTyConPR tc = readGEnv $ \env -> lookupNameEnv (global_pr_funs env) (tyConName tc)

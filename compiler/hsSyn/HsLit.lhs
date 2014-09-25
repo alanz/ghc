@@ -20,7 +20,7 @@ module HsLit where
 
 import {-# SOURCE #-} HsExpr( SyntaxExpr, pprExpr )
 import BasicTypes ( FractionalLit(..) )
-import SrcLoc ( SrcAnnotation )
+import SrcLoc ( ApiAnnotation )
 import Type       ( Type )
 import Outputable
 import FastString
@@ -171,7 +171,7 @@ instance Outputable HsLit where
     ppr (HsWord64Prim w) = integer w  <> text "L##"
 
 -- in debug mode, print the expression that it's resolved to, too
-instance (OutputableBndr id, SrcAnnotation l) => Outputable (HsOverLit l id) where
+instance (OutputableBndr id, ApiAnnotation l) => Outputable (HsOverLit l id) where
   ppr (OverLit {ol_val=val, ol_witness=witness})
         = ppr val <+> (ifPprDebug (parens (pprExpr witness)))
 

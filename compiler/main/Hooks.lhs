@@ -54,29 +54,50 @@ import Data.Maybe
 --   the compiler pipeline. If a hook is not installed, GHC
 --   uses the default built-in behaviour
 
-emptyHooks :: Hooks
+emptyHooks :: Hooks l
 emptyHooks = Hooks Nothing Nothing Nothing Nothing Nothing Nothing
                    Nothing Nothing Nothing Nothing Nothing Nothing
 
-data Hooks = Hooks
-  { dsForeignsHook         :: Maybe ([LForeignDecl SrcSpan Id] -> DsM (ForeignStubs, OrdList (Id, CoreExpr)))
-  , tcForeignImportsHook   :: Maybe ([LForeignDecl SrcSpan Name] -> TcM ([Id], [LForeignDecl SrcSpan Id], Bag GlobalRdrElt))
-  , tcForeignExportsHook   :: Maybe ([LForeignDecl SrcSpan Name] -> TcM (LHsBinds SrcSpan TcId, [LForeignDecl SrcSpan TcId], Bag GlobalRdrElt))
-  , hscFrontendHook        :: Maybe (ModSummary -> Hsc TcGblEnv)
-  , hscCompileOneShotHook  :: Maybe (HscEnv -> ModSummary -> SourceModified -> IO HscStatus)
-  , hscCompileCoreExprHook :: Maybe (HscEnv -> SrcSpan -> CoreExpr -> IO HValue)
+data Hooks l = Hooks
+  { dsForeignsHook         :: Maybe ([LForeignDecl l Id]
+                           -> DsM l (ForeignStubs, OrdList (Id, CoreExpr)))
+
+  , tcForeignImportsHook   :: Maybe ([LForeignDecl l Name]
+                         -> TcM l ([Id], [LForeignDecl l Id], Bag GlobalRdrElt))
+
+  , tcForeignExportsHook   :: Maybe ([LForeignDecl l Name]
+                           -> TcM l (LHsBinds l TcId, [LForeignDecl l TcId],
+                                    Bag GlobalRdrElt))
+
+  , hscFrontendHook        :: Maybe (ModSummary -> Hsc (TcGblEnv l))
+
+  , hscCompileOneShotHook  :: Maybe (HscEnv -> ModSummary -> SourceModified
+                           -> IO HscStatus)
+
+  , hscCompileCoreExprHook :: Maybe (HscEnv -> l -> CoreExpr -> IO HValue)
+
   , ghcPrimIfaceHook       :: Maybe ModIface
-  , runPhaseHook           :: Maybe (PhasePlus -> FilePath -> DynFlags -> CompPipeline (PhasePlus, FilePath))
-  , linkHook               :: Maybe (GhcLink -> DynFlags -> Bool -> HomePackageTable -> IO SuccessFlag)
-  , runQuasiQuoteHook      :: Maybe (HsQuasiQuote Name -> RnM (HsQuasiQuote Name))
-  , runRnSpliceHook        :: Maybe (LHsExpr SrcSpan Name -> RnM (LHsExpr SrcSpan Name))
-  , getValueSafelyHook     :: Maybe (HscEnv -> Name -> Type -> IO (Maybe HValue))
+
+  , runPhaseHook           :: Maybe (PhasePlus -> FilePath -> DynFlags
+                           -> CompPipeline (PhasePlus, FilePath))
+
+  , linkHook               :: Maybe (GhcLink -> DynFlags -> Bool
+                           -> HomePackageTable -> IO SuccessFlag)
+
+  , runQuasiQuoteHook      :: Maybe (HsQuasiQuote Name
+                           -> RnM l (HsQuasiQuote Name))
+
+  , runRnSpliceHook        :: Maybe (LHsExpr l Name
+                           -> RnM l (LHsExpr l Name))
+
+  , getValueSafelyHook     :: Maybe (HscEnv -> Name -> Type
+                           -> IO (Maybe HValue))
   }
 
-getHooked :: (Functor f, HasDynFlags f) => (Hooks -> Maybe a) -> a -> f a
+getHooked :: (Functor f, HasDynFlags f) => (Hooks l -> Maybe a) -> a -> f a
 getHooked hook def = fmap (lookupHook hook def) getDynFlags
 
-lookupHook :: (Hooks -> Maybe a) -> a -> DynFlags -> a
+lookupHook :: (Hooks l -> Maybe a) -> a -> DynFlags l -> a
 lookupHook hook def = fromMaybe def . hook . hooks
 
 \end{code}

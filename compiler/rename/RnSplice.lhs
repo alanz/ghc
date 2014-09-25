@@ -13,6 +13,7 @@ import Name
 import NameSet
 import HsSyn
 import RdrName
+import SrcLoc           ( ApiAnnotation )
 import TcRnMonad
 import Kind
 
@@ -41,24 +42,29 @@ import {-# SOURCE #-} TcSplice ( runMetaD, runMetaE, runMetaP, runMetaT, tcTopSp
 
 \begin{code}
 #ifndef GHCI
-rnBracket :: HsExpr l RdrName -> HsBracket l RdrName
-          -> RnM (HsExpr l Name, FreeVars)
+rnBracket :: (ApiAnnotation l)
+          => HsExpr l RdrName -> HsBracket l RdrName
+          -> RnM l (HsExpr l Name, FreeVars)
 rnBracket e _ = failTH e "Template Haskell bracket"
 
-rnTopSpliceDecls :: HsSplice l RdrName -> RnM ([LHsDecl l RdrName], FreeVars)
+rnTopSpliceDecls :: (ApiAnnotation l) => HsSplice l RdrName
+                 -> RnM l ([LHsDecl l RdrName], FreeVars)
 rnTopSpliceDecls e = failTH e "Template Haskell top splice"
 
-rnSpliceType :: HsSplice l RdrName -> PostTc Name Kind
-             -> RnM (HsType l Name, FreeVars)
+rnSpliceType :: (ApiAnnotation l) => HsSplice l RdrName -> PostTc Name Kind
+             -> RnM l (HsType l Name, FreeVars)
 rnSpliceType e _ = failTH e "Template Haskell type splice"
 
-rnSpliceExpr :: Bool -> HsSplice l RdrName -> RnM (HsExprl  Name, FreeVars)
+rnSpliceExpr :: (ApiAnnotation l)
+             => Bool -> HsSplice l RdrName -> RnM l (HsExpr l Name, FreeVars)
 rnSpliceExpr _ e = failTH e "Template Haskell splice"
 
-rnSplicePat :: HsSplice l RdrName -> RnM (Pat l Name, FreeVars)
+rnSplicePat :: (ApiAnnotation l)
+            => HsSplice l RdrName -> RnM l (Pat l Name, FreeVars)
 rnSplicePat e = failTH e "Template Haskell pattern splice"
 
-rnSpliceDecl :: SpliceDecl l RdrName -> RnM (SpliceDecl l Name, FreeVars)
+rnSpliceDecl :: (ApiAnnotation l)
+             => SpliceDecl l RdrName -> RnM l (SpliceDecl l Name, FreeVars)
 rnSpliceDecl e = failTH e "Template Haskell declaration splice"
 #else
 \end{code}
@@ -423,7 +429,7 @@ quotationCtxtDoc br_body
 \end{code}
 
 \begin{code}
-checkThLocalName :: Name -> RnM ()
+checkThLocalName :: Name -> RnM l ()
 #ifndef GHCI  /* GHCI and TH is off */
 --------------------------------------
 -- Check for cross-stage lifting

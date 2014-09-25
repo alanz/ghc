@@ -75,7 +75,9 @@ module SrcLoc (
         spans, isSubspanOf, sortLocated,
 
         -- ** GHC API annotations
-        SrcAnnotation(..)
+        ApiAnnotation(..),
+        annGetLoc, annSetLoc
+
     ) where
 
 import Util
@@ -158,18 +160,26 @@ advanceSrcLoc (SrcLoc f l c) _    = SrcLoc f  l (c + 1)
 
 %************************************************************************
 %*                                                                      *
-\subsection[SrcAnnotations]{Annotations for use in GHC API}
+\subsection[ApiAnnotations]{Annotations for use in GHC API}
 %*                                                                      *
 %************************************************************************
 
 \begin{code}
 
-class (Outputable l, OutputableBndr l) => SrcAnnotation l where
-    annGetLoc :: GenLocated l e -> SrcSpan
-    annNoLoc :: e -> GenLocated l e
+class (Outputable l, OutputableBndr l) => ApiAnnotation l where
+    annGetSpan :: l -> SrcSpan
+    annSetSpan :: l -> SrcSpan -> l
+    annNoLoc   :: e -> GenLocated l e
 
-instance SrcAnnotation SrcSpan where
-  annGetLoc (L l _) = l
+annGetLoc :: (ApiAnnotation l) => GenLocated l e -> SrcSpan
+annGetLoc (L l _) = annGetSpan l
+
+annSetLoc :: (ApiAnnotation l) => GenLocated l e -> SrcSpan -> GenLocated l e
+annSetLoc (L l e) ss = L (annSetSpan l ss) e
+
+instance ApiAnnotation SrcSpan where
+  annGetSpan l = l
+  annSetSpan _ ss = ss
   annNoLoc = noLoc
 
 instance OutputableBndr SrcSpan where

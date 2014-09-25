@@ -171,7 +171,7 @@ mkIfaceTc :: HscEnv
           -> Maybe Fingerprint  -- The old fingerprint, if we have it
           -> SafeHaskellMode    -- The safe haskell mode
           -> ModDetails         -- gotten from mkBootModDetails, probably
-          -> TcGblEnv           -- Usages, deprecations, etc
+          -> TcGblEnv l         -- Usages, deprecations, etc
           -> IO (Messages, Maybe (ModIface, Bool))
 mkIfaceTc hsc_env maybe_old_fingerprint safe_mode mod_details
   tc_result@TcGblEnv{ tcg_mod = this_mod,
@@ -196,12 +196,12 @@ mkIfaceTc hsc_env maybe_old_fingerprint safe_mode mod_details
                    (imp_trust_own_pkg imports) dep_files safe_mode mod_details
 
 
-mkUsedNames :: TcGblEnv -> NameSet
+mkUsedNames :: TcGblEnv l -> NameSet
 mkUsedNames TcGblEnv{ tcg_dus = dus } = allUses dus
 
 -- | Extract information from the rename and typecheck phases to produce
 -- a dependencies information for the module being compiled.
-mkDependencies :: TcGblEnv -> IO Dependencies
+mkDependencies :: TcGblEnv l -> IO Dependencies
 mkDependencies
           TcGblEnv{ tcg_mod = mod,
                     tcg_imports = imports,

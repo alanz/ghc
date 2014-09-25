@@ -28,7 +28,7 @@ import Data.Array
 
 -- |Create the initial map of builtin types and functions.
 --
-initBuiltins :: DsM Builtins
+initBuiltins :: DsM l Builtins
 initBuiltins
  = do {   -- 'PArray: representation type for parallel arrays
       ; parrayTyCon <- externalTyCon (fsLit "PArray")
@@ -171,7 +171,7 @@ initBuiltins
     numbered_hash :: String -> Int -> Int -> [FastString]
     numbered_hash pfx m n = [mkFastString (pfx ++ show i ++ "#") | i <- [m..n]]
 
-    mk_elements :: (Int, Int) -> DsM ((Int, Int), CoreExpr)
+    mk_elements :: (Int, Int) -> DsM l ((Int, Int), CoreExpr)
     mk_elements (i,j)
       = do { v <- externalVar $ mkFastString ("elementsSel" ++ show i ++ "_" ++ show j ++ "#")
            ; return ((i, j), Var v)
@@ -179,7 +179,7 @@ initBuiltins
 
 -- |Get the mapping of names in the Prelude to names in the DPH library.
 --
-initBuiltinVars :: Builtins -> DsM [(Var, Var)]
+initBuiltinVars :: Builtins -> DsM l [(Var, Var)]
 -- FIXME: must be replaced by VECTORISE pragmas!!!
 initBuiltinVars (Builtins { })
   = do
@@ -198,30 +198,30 @@ initBuiltinVars (Builtins { })
 -- Auxilliary look up functions -----------------------------------------------
 
 -- |Lookup a variable given its name and the module that contains it.
-externalVar :: FastString -> DsM Var
+externalVar :: FastString -> DsM l Var
 externalVar fs = dsLookupDPHRdrEnv (mkVarOccFS fs) >>= dsLookupGlobalId
 
 
 -- |Like `externalVar` but wrap the `Var` in a `CoreExpr`.
-externalFun :: FastString -> DsM CoreExpr
+externalFun :: FastString -> DsM l CoreExpr
 externalFun fs = Var <$> externalVar fs
 
 
 -- |Lookup a 'TyCon' in 'Data.Array.Parallel.Prim', given its name.
 --  Panic if there isn't one.
-externalTyCon :: FastString -> DsM TyCon
+externalTyCon :: FastString -> DsM l TyCon
 externalTyCon fs = dsLookupDPHRdrEnv (mkTcOccFS fs) >>= dsLookupTyCon
 
 
 -- |Lookup some `Type` in 'Data.Array.Parallel.Prim', given its name.
-externalType :: FastString -> DsM Type
+externalType :: FastString -> DsM l Type
 externalType fs
  = do  tycon <- externalTyCon fs
        return $ mkTyConApp tycon []
 
 
 -- |Lookup a 'Class' in 'Data.Array.Parallel.Prim', given its name.
-externalClass :: FastString -> DsM Class
+externalClass :: FastString -> DsM l Class
 externalClass fs 
   = do { tycon <- dsLookupDPHRdrEnv (mkClsOccFS fs) >>= dsLookupTyCon
        ; case tyConClass_maybe tycon of

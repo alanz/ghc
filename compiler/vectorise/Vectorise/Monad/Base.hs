@@ -47,10 +47,10 @@ data VResult a
   = Yes GlobalEnv LocalEnv a 
   | No  SDoc
 
-newtype VM a 
-  = VM { runVM :: Builtins -> GlobalEnv -> LocalEnv -> DsM (VResult a) }
+newtype VM l a
+  = VM { runVM :: Builtins -> GlobalEnv -> LocalEnv -> DsM l (VResult a) }
 
-instance Monad VM where
+instance Monad (VM l) where
   return x   = VM $ \_  genv lenv -> return (Yes genv lenv x)
   VM p >>= f = VM $ \bi genv lenv -> do
                                        r <- p bi genv lenv
@@ -58,24 +58,24 @@ instance Monad VM where
                                          Yes genv' lenv' x -> runVM (f x) bi genv' lenv'
                                          No reason         -> return $ No reason
 
-instance Applicative VM where
+instance Applicative (VM l) where
   pure  = return
   (<*>) = ap
   
-instance Functor VM where
+instance Functor (VM l) where
   fmap = liftM
   
-instance MonadIO VM where
+instance MonadIO (VM l) where
   liftIO = liftDs . liftIO
 
-instance HasDynFlags VM where
+instance HasDynFlags (VM l) where
     getDynFlags = liftDs getDynFlags
 
 -- Lifting --------------------------------------------------------------------
 
 -- |Lift a desugaring computation into the vectorisation monad.
 --
-liftDs :: DsM a -> VM a
+liftDs :: DsM l a -> VM l a
 liftDs p = VM $ \_ genv lenv -> do { x <- p; return (Yes genv lenv x) }
 
 
@@ -113,7 +113,7 @@ maybeCantVectoriseM s d p
 
 -- |Output a trace message if -ddump-vt-trace is active.
 --
-emitVt :: String -> SDoc -> VM () 
+emitVt :: String -> SDoc -> VM l ()
 emitVt herald doc
   = liftDs $ do
       dflags <- getDynFlags
@@ -122,7 +122,7 @@ emitVt herald doc
 
 -- |Output a trace message if -ddump-vt-trace is active.
 --
-traceVt :: String -> SDoc -> VM () 
+traceVt :: String -> SDoc -> VM l ()
 traceVt herald doc
   = do dflags <- getDynFlags
        when (1 <= traceLevel dflags) $
@@ -130,7 +130,7 @@ traceVt herald doc
 
 -- |Dump the given program conditionally.
 --
-dumpOptVt :: DumpFlag -> String -> SDoc -> VM ()
+dumpOptVt :: DumpFlag -> String -> SDoc -> VM l ()
 dumpOptVt flag header doc 
   = do { b <- liftDs $ doptM flag
        ; if b 
@@ -140,7 +140,7 @@ dumpOptVt flag header doc
 
 -- |Dump the given program unconditionally.
 --
-dumpVt :: String -> SDoc -> VM ()
+dumpVt :: String -> SDoc -> VM l ()
 dumpVt header doc 
   = do { unqual <- liftDs mkPrintUnqualifiedDs
        ; dflags <- liftDs getDynFlags
@@ -152,29 +152,29 @@ dumpVt header doc
 
 -- |Return some result saying we've failed.
 --
-noV :: SDoc -> VM a
+noV :: SDoc -> VM l a
 noV reason = VM $ \_ _ _ -> return $ No reason
 
 -- |Like `traceNoV` but also emit some trace message to stderr.
 --
-traceNoV :: String -> SDoc -> VM a
+traceNoV :: String -> SDoc -> VM l a
 traceNoV s d = pprTrace s d $ noV d
 
 -- |If `True` then carry on, otherwise fail.
 --
-ensureV :: SDoc -> Bool -> VM ()
+ensureV :: SDoc -> Bool -> VM l ()
 ensureV reason  False = noV reason
 ensureV _reason True  = return ()
 
 -- |Like `ensureV` but if we fail then emit some trace message to stderr.
 --
-traceEnsureV :: String -> SDoc -> Bool -> VM ()
+traceEnsureV :: String -> SDoc -> Bool -> VM l ()
 traceEnsureV s d False = traceNoV s d
 traceEnsureV _ _ True  = return ()
 
 -- |If `True` then return the first argument, otherwise fail.
 --
-onlyIfV :: SDoc -> Bool -> VM a -> VM a
+onlyIfV :: SDoc -> Bool -> VM l a -> VM l a
 onlyIfV reason b p = ensureV reason b >> p
 
 -- |Try some vectorisation computaton.
@@ -182,7 +182,7 @@ onlyIfV reason b p = ensureV reason b >> p
 -- If it succeeds then return `Just` the result; otherwise, return `Nothing` after emitting a
 -- failure message.
 --
-tryErrV :: VM a -> VM (Maybe a)
+tryErrV :: VM l a -> VM l (Maybe a)
 tryErrV (VM p) = VM $ \bi genv lenv ->
   do
     r <- p bi genv lenv
@@ -201,7 +201,7 @@ tryErrV (VM p) = VM $ \bi genv lenv ->
 -- If it succeeds then return `Just` the result; otherwise, return `Nothing` without emitting a
 -- failure message.
 --
-tryV :: VM a -> VM (Maybe a)
+tryV :: VM l a -> VM l (Maybe a)
 tryV (VM p) = VM $ \bi genv lenv ->
   do
     r <- p bi genv lenv
@@ -211,12 +211,12 @@ tryV (VM p) = VM $ \bi genv lenv ->
 
 -- |If `Just` then return the value, otherwise fail.
 --
-maybeV :: SDoc -> VM (Maybe a) -> VM a
+maybeV :: SDoc -> VM l (Maybe a) -> VM l a
 maybeV reason p = maybe (noV reason) return =<< p
 
 -- |Like `maybeV` but emit a message to stderr if we fail.
 --
-traceMaybeV :: String -> SDoc -> VM (Maybe a) -> VM a
+traceMaybeV :: String -> SDoc -> VM l (Maybe a) -> VM l a
 traceMaybeV s d p = maybe (traceNoV s d) return =<< p
 
 -- |Try the first computation,
@@ -224,7 +224,7 @@ traceMaybeV s d p = maybe (traceNoV s d) return =<< p
 --   * if it succeeds then take the returned value,
 --   * if it fails then run the second computation instead while emitting a failure message.
 --
-orElseErrV :: VM a -> VM a -> VM a
+orElseErrV :: VM l a -> VM l a -> VM l a
 orElseErrV p q = maybe q return =<< tryErrV p
 
 -- |Try the first computation,
@@ -232,12 +232,12 @@ orElseErrV p q = maybe q return =<< tryErrV p
 --   * if it succeeds then take the returned value,
 --   * if it fails then run the second computation instead without emitting a failure message.
 --
-orElseV :: VM a -> VM a -> VM a
+orElseV :: VM l a -> VM l a -> VM l a
 orElseV p q = maybe q return =<< tryV p
 
 -- |Fixpoint in the vectorisation monad.
 --
-fixV :: (a -> VM a) -> VM a
+fixV :: (a -> VM l a) -> VM l a
 fixV f = VM (\bi genv lenv -> fixDs $ \r -> runVM (f (unYes r)) bi genv lenv )
   where
     -- NOTE: It is essential that we are lazy in r above so do not replace

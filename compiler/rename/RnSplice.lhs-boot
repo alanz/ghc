@@ -10,7 +10,7 @@ import Kind
 
 
 rnSpliceType :: HsSplice l RdrName   -> PostTc Name Kind
-             -> RnM (HsType l Name, FreeVars)
-rnSplicePat  :: HsSplice l RdrName   -> RnM (Pat l Name, FreeVars)
-rnSpliceDecl :: SpliceDecl l RdrName -> RnM (SpliceDecl l Name, FreeVars)
+             -> RnM l (HsType l Name, FreeVars)
+rnSplicePat  :: HsSplice l RdrName   -> RnM l (Pat l Name, FreeVars)
+rnSpliceDecl :: SpliceDecl l RdrName -> RnM l (SpliceDecl l Name, FreeVars)
 \end{code}

@@ -31,6 +31,7 @@ import CoAxiom
 import DynFlags
 import Module
 import Outputable
+import SrcLoc( ApiAnnotation )
 import UniqFM
 import FastString
 import Util
@@ -135,7 +136,7 @@ type ModulePairSet = Map ModulePair ()
 listToSet :: [ModulePair] -> ModulePairSet
 listToSet l = Map.fromList (zip l (repeat ()))
 
-checkFamInstConsistency :: [Module] -> [Module] -> TcM ()
+checkFamInstConsistency :: (ApiAnnotation l) => [Module] -> [Module] -> TcM l ()
 checkFamInstConsistency famInstMods directlyImpMods
   = do { dflags     <- getDynFlags
        ; (eps, hpt) <- getEpsAndHpt
@@ -174,7 +175,7 @@ checkFamInstConsistency famInstMods directlyImpMods
            ; mapM_ (checkForConflicts (emptyFamInstEnv, env2))   
                    (famInstEnvElts env1) }
 
-getFamInsts :: ModuleEnv FamInstEnv -> Module -> TcM FamInstEnv
+getFamInsts :: ModuleEnv FamInstEnv -> Module -> TcM l FamInstEnv
 getFamInsts hpt_fam_insts mod
   | Just env <- lookupModuleEnv hpt_fam_insts mod = return env
   | otherwise = do { _ <- initIfaceTcRn (loadSysInterface doc mod)
@@ -277,7 +278,7 @@ tcInstNewTyConTF_maybe fam_envs ty
 
 \begin{code}
 -- Add new locally-defined family instances
-tcExtendLocalFamInstEnv :: [FamInst] -> TcM a -> TcM a
+tcExtendLocalFamInstEnv :: (ApiAnnotation l) => [FamInst] -> TcM l a -> TcM l a
 tcExtendLocalFamInstEnv fam_insts thing_inside
  = do { env <- getGblEnv
       ; (inst_env', fam_insts') <- foldlM addLocalFamInst  
@@ -292,7 +293,8 @@ tcExtendLocalFamInstEnv fam_insts thing_inside
 -- and then add it to the home inst env
 -- This must be lazy in the fam_inst arguments, see Note [Lazy axiom match]
 -- in FamInstEnv.lhs
-addLocalFamInst :: (FamInstEnv,[FamInst]) -> FamInst -> TcM (FamInstEnv, [FamInst])
+addLocalFamInst :: (ApiAnnotation l) => (FamInstEnv,[FamInst]) -> FamInst
+                -> TcM l (FamInstEnv, [FamInst])
 addLocalFamInst (home_fie, my_fis) fam_inst
         -- home_fie includes home package and this module
         -- my_fies is just the ones from this module
@@ -334,7 +336,7 @@ Check whether a single family instance conflicts with those in two instance
 environments (one for the EPS and one for the HPT).
 
 \begin{code}
-checkForConflicts :: FamInstEnvs -> FamInst -> TcM Bool
+checkForConflicts :: (ApiAnnotation l) => FamInstEnvs -> FamInst -> TcM l Bool
 checkForConflicts inst_envs fam_inst
   = do { let conflicts = lookupFamInstEnvConflicts inst_envs fam_inst
              no_conflicts = null conflicts
@@ -346,7 +348,7 @@ checkForConflicts inst_envs fam_inst
        ; unless no_conflicts $ conflictInstErr fam_inst conflicts
        ; return no_conflicts }
 
-conflictInstErr :: FamInst -> [FamInstMatch] -> TcRn ()
+conflictInstErr :: (ApiAnnotation l) => FamInst -> [FamInstMatch] -> TcRn l ()
 conflictInstErr fam_inst conflictingMatch
   | (FamInstMatch { fim_instance = confInst }) : _ <- conflictingMatch
   = addFamInstsErr (ptext (sLit "Conflicting family instance declarations:"))
@@ -354,7 +356,7 @@ conflictInstErr fam_inst conflictingMatch
   | otherwise 
   = panic "conflictInstErr"
 
-addFamInstsErr :: SDoc -> [FamInst] -> TcRn ()
+addFamInstsErr :: (ApiAnnotation l) => SDoc -> [FamInst] -> TcRn l ()
 addFamInstsErr herald insts
   = ASSERT( not (null insts) )
     setSrcSpan srcSpan $ addErr $
@@ -370,7 +372,7 @@ addFamInstsErr herald insts
    -- of source location, which reduced wobbling in error messages,
    -- and is better for users
 
-tcGetFamInstEnvs :: TcM FamInstEnvs
+tcGetFamInstEnvs :: TcM l FamInstEnvs
 -- Gets both the external-package inst-env
 -- and the home-pkg inst env (includes module being compiled)
 tcGetFamInstEnvs 

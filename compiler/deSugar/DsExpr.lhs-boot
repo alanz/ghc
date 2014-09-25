@@ -5,7 +5,7 @@ import Var      ( Id )
 import DsMonad  ( DsM )
 import CoreSyn  ( CoreExpr )
 
-dsExpr  :: HsExpr  Id -> DsM CoreExpr
-dsLExpr :: LHsExpr Id -> DsM CoreExpr
-dsLocalBinds :: HsLocalBinds Id -> CoreExpr -> DsM CoreExpr
+dsExpr  :: HsExpr  l Id -> DsM l CoreExpr
+dsLExpr :: LHsExpr l Id -> DsM l CoreExpr
+dsLocalBinds :: HsLocalBinds l Id -> CoreExpr -> DsM l CoreExpr
 \end{code}

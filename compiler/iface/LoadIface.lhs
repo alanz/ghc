@@ -84,7 +84,7 @@ loadSrcInterface :: SDoc
                  -> ModuleName
                  -> IsBootInterface     -- {-# SOURCE #-} ?
                  -> Maybe FastString    -- "package", if any
-                 -> RnM ModIface
+                 -> RnM l ModIface
 
 loadSrcInterface doc mod want_boot maybe_pkg
   = do { res <- loadSrcInterface_maybe doc mod want_boot maybe_pkg
@@ -97,7 +97,7 @@ loadSrcInterface_maybe :: SDoc
                        -> ModuleName
                        -> IsBootInterface     -- {-# SOURCE #-} ?
                        -> Maybe FastString    -- "package", if any
-                       -> RnM (MaybeErr MsgDoc ModIface)
+                       -> RnM l (MaybeErr MsgDoc ModIface)
 
 loadSrcInterface_maybe doc mod want_boot maybe_pkg
   -- We must first find which Module this import refers to.  This involves
@@ -112,11 +112,11 @@ loadSrcInterface_maybe doc mod want_boot maybe_pkg
            err         -> return (Failed (cannotFindInterface (hsc_dflags hsc_env) mod err)) }
 
 -- | Load interface for a module.
-loadModuleInterface :: SDoc -> Module -> TcM ModIface
+loadModuleInterface :: SDoc -> Module -> TcM l ModIface
 loadModuleInterface doc mod = initIfaceTcRn (loadSysInterface doc mod)
 
 -- | Load interfaces for a collection of modules.
-loadModuleInterfaces :: SDoc -> [Module] -> TcM ()
+loadModuleInterfaces :: SDoc -> [Module] -> TcM l ()
 loadModuleInterfaces doc mods
   | null mods = return ()
   | otherwise = initIfaceTcRn (mapM_ load mods)
@@ -124,7 +124,7 @@ loadModuleInterfaces doc mods
     load mod = loadSysInterface (doc <+> parens (ppr mod)) mod
 
 -- | Loads the interface for a given Name.
-loadInterfaceForName :: SDoc -> Name -> TcRn ModIface
+loadInterfaceForName :: SDoc -> Name -> TcRn l ModIface
 loadInterfaceForName doc name
   = do { 
     when debugIsOn $ do
@@ -137,7 +137,7 @@ loadInterfaceForName doc name
   }
 
 -- | Loads the interface for a given Module.
-loadInterfaceForModule :: SDoc -> Module -> TcRn ModIface
+loadInterfaceForModule :: SDoc -> Module -> TcRn l ModIface
 loadInterfaceForModule doc m
   = do
     -- Should not be called with this module

@@ -1065,7 +1065,8 @@ matchSimplys _ _ _ _ _ = panic "matchSimplys"
 List of leaf expressions, with set of variables bound in each
 
 \begin{code}
-leavesMatch :: LMatch Id (Located (body Id)) -> [(Located (body Id), IdSet)]
+leavesMatch :: LMatch l Id (GenLocated l (body Id))
+            -> [(GenLocated l (body Id), IdSet)]
 leavesMatch (L _ (Match pats _ (GRHSs grhss binds)))
   = let
 	defined_vars = mkVarSet (collectPatsBinders pats)
@@ -1083,10 +1084,10 @@ Replace the leaf commands in a match
 \begin{code}
 replaceLeavesMatch
         :: Type                                 -- new result type
-        -> [Located (body' Id)]                 -- replacement leaf expressions of that type
-        -> LMatch Id (Located (body Id))        -- the matches of a case command
-        -> ([Located (body' Id)],               -- remaining leaf expressions
-            LMatch Id (Located (body' Id)))     -- updated match
+        -> [GenLocated l (body' Id)]            -- replacement leaf expressions of that type
+        -> LMatch l Id (GenLocated l (body Id)) -- the matches of a case command
+        -> ([GenLocated l (body' Id)],          -- remaining leaf expressions
+            LMatch l Id (GenLocated l (body' Id))) -- updated match
 replaceLeavesMatch _res_ty leaves (L loc (Match pat mt (GRHSs grhss binds)))
   = let
 	(leaves', grhss') = mapAccumL replaceLeavesGRHS leaves grhss
@@ -1094,10 +1095,10 @@ replaceLeavesMatch _res_ty leaves (L loc (Match pat mt (GRHSs grhss binds)))
     (leaves', L loc (Match pat mt (GRHSs grhss' binds)))
 
 replaceLeavesGRHS
-        :: [Located (body' Id)]                 -- replacement leaf expressions of that type
-        -> LGRHS Id (Located (body Id))         -- rhss of a case command
-        -> ([Located (body' Id)],               -- remaining leaf expressions
-            LGRHS Id (Located (body' Id)))      -- updated GRHS
+        :: [GenLocated l (body' Id)]            -- replacement leaf expressions of that type
+        -> LGRHS l Id (GenLocated l (body Id))  -- rhss of a case command
+        -> ([GenLocated l (body' Id)],          -- remaining leaf expressions
+            LGRHS l Id (GenLocated l (body' Id))) -- updated GRHS
 replaceLeavesGRHS (leaf:leaves) (L loc (GRHS stmts _))
   = (leaves, L loc (GRHS stmts leaf))
 replaceLeavesGRHS [] _ = panic "replaceLeavesGRHS []"

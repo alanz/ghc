@@ -152,9 +152,9 @@ type IfM lcl  = TcRnIf IfGblEnv lcl         -- Iface stuff
 
 type IfG  = IfM ()                          -- Top level
 type IfL  = IfM IfLclEnv                    -- Nested
-type TcRn = TcRnIf TcGblEnv TcLclEnv
-type RnM  = TcRn            -- Historical
-type TcM  = TcRn            -- Historical
+type TcRn l = TcRnIf (TcGblEnv l) (TcLclEnv l)
+type RnM  l = TcRn l           -- Historical
+type TcM  l = TcRn l           -- Historical
 \end{code}
 
 Representation of type bindings to uninstantiated meta variables used during
@@ -208,7 +208,7 @@ instance ContainsModule gbl => ContainsModule (Env gbl lcl) where
 -- For state that needs to be updated during the typechecking
 -- phase and returned at end, use a TcRef (= IORef).
 
-data TcGblEnv
+data TcGblEnv l
   = TcGblEnv {
         tcg_mod     :: Module,         -- ^ Module being compiled
         tcg_src     :: HscSource,
@@ -300,18 +300,18 @@ data TcGblEnv
         -- initially in un-zonked form and are finally zonked in tcRnSrcDecls
 
         tcg_rn_exports :: Maybe [Located (IE Name)],
-        tcg_rn_imports :: [LImportDecl SrcSpan Name],
+        tcg_rn_imports :: [LImportDecl l Name],
                 -- Keep the renamed imports regardless.  They are not
                 -- voluminous and are needed if you want to report unused imports
 
-        tcg_rn_decls :: Maybe (HsGroup SrcSpan Name),
+        tcg_rn_decls :: Maybe (HsGroup l Name),
           -- ^ Renamed decls, maybe.  @Nothing@ <=> Don't retain renamed
           -- decls.
 
         tcg_dependent_files :: TcRef [FilePath], -- ^ dependencies from addDependentFile
 
 #ifdef GHCI
-        tcg_th_topdecls :: TcRef [LHsDecl RdrName],
+        tcg_th_topdecls :: TcRef [LHsDecl l RdrName],
         -- ^ Top-level declarations from addTopDecls
 
         tcg_th_topnames :: TcRef NameSet,
@@ -328,20 +328,20 @@ data TcGblEnv
 
         -- Things defined in this module, or (in GHCi) in the interactive package
         --   For the latter, see Note [The interactive package] in HscTypes
-        tcg_binds     :: LHsBinds SrcSpan Id, -- Value bindings in this module
+        tcg_binds     :: LHsBinds l Id, -- Value bindings in this module
         tcg_sigs      :: NameSet,           -- ...Top-level names that *lack* a signature
-        tcg_imp_specs :: [LTcSpecPrag SrcSpan], -- ...SPECIALISE prags for imported Ids
+        tcg_imp_specs :: [LTcSpecPrag l],   -- ...SPECIALISE prags for imported Ids
         tcg_warns     :: Warnings,          -- ...Warnings and deprecations
         tcg_anns      :: [Annotation],      -- ...Annotations
         tcg_tcs       :: [TyCon],           -- ...TyCons and Classes
         tcg_insts     :: [ClsInst],         -- ...Instances
         tcg_fam_insts :: [FamInst],         -- ...Family instances
-        tcg_rules     :: [LRuleDecl SrcSpan Id], -- ...Rules
-        tcg_fords     :: [LForeignDecl SrcSpan Id], -- ...Foreign import & exports
-        tcg_vects     :: [LVectDecl SrcSpan Id],    -- ...Vectorisation declarations
+        tcg_rules     :: [LRuleDecl l Id],  -- ...Rules
+        tcg_fords     :: [LForeignDecl l Id], -- ...Foreign import & exports
+        tcg_vects     :: [LVectDecl l Id],    -- ...Vectorisation declarations
         tcg_patsyns   :: [PatSyn],          -- ...Pattern synonyms
 
-        tcg_doc_hdr   :: Maybe (LHsDocString SrcSpan), -- ^ Maybe Haddock header docs
+        tcg_doc_hdr   :: Maybe (LHsDocString l), -- ^ Maybe Haddock header docs
         tcg_hpc       :: AnyHpcUsage,        -- ^ @True@ if any part of the
                                              --  prog uses hpc instrumentation.
 
@@ -353,7 +353,7 @@ data TcGblEnv
                                              -- as -XSafe (Safe Haskell)
     }
 
-instance ContainsModule TcGblEnv where
+instance ContainsModule (TcGblEnv l) where
     extractModule env = tcg_mod env
 
 data RecFieldEnv
@@ -457,18 +457,18 @@ Why?  Because they are now Ids not TcIds.  This final GlobalEnv is
         b) used in the ModDetails of this module
 
 \begin{code}
-data TcLclEnv           -- Changes as we move inside an expression
+data TcLclEnv l         -- Changes as we move inside an expression
                         -- Discarded after typecheck/rename; not passed on to desugarer
   = TcLclEnv {
         tcl_loc        :: SrcSpan,         -- Source span
-        tcl_ctxt       :: [ErrCtxt],       -- Error context, innermost on top
+        tcl_ctxt       :: [ErrCtxt l],     -- Error context, innermost on top
         tcl_untch      :: Untouchables,    -- Birthplace for new unification variables
 
-        tcl_th_ctxt    :: ThStage SrcSpan, -- Template Haskell context
+        tcl_th_ctxt    :: ThStage l,       -- Template Haskell context
         tcl_th_bndrs   :: ThBindEnv,       -- Binding level of in-scope Names
                                            -- defined in this module (not imported)
 
-        tcl_arrow_ctxt :: ArrowCtxt,       -- Arrow-notation context
+        tcl_arrow_ctxt :: ArrowCtxt l,     -- Arrow-notation context
 
         tcl_rdr :: LocalRdrEnv,         -- Local name envt
                 -- Maintained during renaming, of course, but also during
@@ -497,7 +497,7 @@ data TcLclEnv           -- Changes as we move inside an expression
                         -- in tcl_lenv.
                         -- Why mutable? see notes with tcGetGlobalTyVars
 
-        tcl_lie  :: TcRef (WantedConstraints SrcSpan), -- Place to accumulate type constraints
+        tcl_lie  :: TcRef (WantedConstraints l), -- Place to accumulate type constraints
         tcl_errs :: TcRef Messages              -- Place to accumulate errors
     }
 
@@ -616,18 +616,18 @@ All this can be dealt with by the *renamer*; by the time we get to
 the *type checker* we have sorted out the scopes
 -}
 
-data ArrowCtxt
+data ArrowCtxt l
   = NoArrowCtxt
-  | ArrowCtxt (Env TcGblEnv TcLclEnv)
+  | ArrowCtxt (Env (TcGblEnv l) (TcLclEnv l))
 
 -- Record the current environment (outside a proc)
-newArrowScope :: TcM a -> TcM a
+newArrowScope :: TcM l a -> TcM l a
 newArrowScope
   = updEnv $ \env ->
         env { env_lcl = (env_lcl env) { tcl_arrow_ctxt = ArrowCtxt env } }
 
 -- Return to the stored environment (from the enclosing proc)
-escapeArrowScope :: TcM a -> TcM a
+escapeArrowScope :: TcM l a -> TcM l a
 escapeArrowScope
   = updEnv $ \ env -> case tcl_arrow_ctxt (env_lcl env) of
         NoArrowCtxt -> env
@@ -740,7 +740,7 @@ Note that:
 
 
 \begin{code}
-type ErrCtxt = (Bool, TidyEnv -> TcM (TidyEnv, MsgDoc))
+type ErrCtxt l = (Bool, TidyEnv -> TcM l (TidyEnv, MsgDoc))
         -- Monadic so that we have a chance
         -- to deal with bound type variables just before error
         -- message construction
@@ -1207,7 +1207,7 @@ v%************************************************************************
 
 data WantedConstraints l
   = WC { wc_flat  :: (Cts l)           -- Unsolved constraints, all wanted
-       , wc_impl  :: Bag Implication
+       , wc_impl  :: Bag (Implication l)
        , wc_insol :: (Cts l)           -- Insoluble constraints, can be
                                        -- wanted, given, or derived
                                        -- See Note [Insoluble constraints]
@@ -1243,7 +1243,7 @@ addFlats :: WantedConstraints l -> Bag (Ct l) -> WantedConstraints l
 addFlats wc cts
   = wc { wc_flat = wc_flat wc `unionBags` cts }
 
-addImplics :: WantedConstraints l -> Bag Implication -> WantedConstraints l
+addImplics :: WantedConstraints l -> Bag (Implication l) -> WantedConstraints l
 addImplics wc implic = wc { wc_impl = wc_impl wc `unionBags` implic }
 
 addInsols :: WantedConstraints l -> Bag (Ct l) -> WantedConstraints l
@@ -1272,7 +1272,7 @@ pprBag pp b = foldrBag (($$) . pp) empty b
 %************************************************************************
 
 \begin{code}
-data Implication
+data Implication l
   = Implic {
       ic_untch :: Untouchables, -- Untouchables: unification variables
                                 -- free in the environment
@@ -1292,18 +1292,18 @@ data Implication
       ic_no_eqs :: Bool,         -- True  <=> ic_givens have no equalities, for sure
                                  -- False <=> ic_givens might have equalities
 
-      ic_env   :: TcLclEnv,      -- Gives the source location and error context
+      ic_env   :: TcLclEnv l,    -- Gives the source location and error context
                                  -- for the implicatdion, and hence for all the
                                  -- given evidence variables
 
-      ic_wanted :: WantedConstraints SrcSpan, -- The wanted
+      ic_wanted :: WantedConstraints l, -- The wanted
       ic_insol  :: Bool,               -- True iff insolubleWC ic_wanted is true
 
       ic_binds  :: EvBindsVar   -- Points to the place to fill in the
                                 -- abstraction and bindings
     }
 
-instance Outputable Implication where
+instance Outputable (Implication l) where
   ppr (Implic { ic_untch = untch, ic_skols = skols, ic_fsks = fsks
               , ic_given = given, ic_no_eqs = no_eqs
               , ic_wanted = wanted
@@ -1624,19 +1624,19 @@ type will evolve...
 
 \begin{code}
 data CtLoc l = CtLoc { ctl_origin :: CtOrigin l
-                     , ctl_env    :: TcLclEnv
+                     , ctl_env    :: TcLclEnv l
                      , ctl_depth  :: !SubGoalDepth }
   -- The TcLclEnv includes particularly
   --    source location:  tcl_loc   :: SrcSpan
   --    context:          tcl_ctxt  :: [ErrCtxt]
   --    binder stack:     tcl_bndrs :: [TcIdBinders]
 
-mkGivenLoc :: SkolemInfo -> TcLclEnv -> CtLoc l
+mkGivenLoc :: SkolemInfo -> TcLclEnv l -> CtLoc l
 mkGivenLoc skol_info env = CtLoc { ctl_origin = GivenOrigin skol_info
                                  , ctl_env = env
                                  , ctl_depth = initialSubGoalDepth }
 
-ctLocEnv :: CtLoc l -> TcLclEnv
+ctLocEnv :: CtLoc l -> TcLclEnv l
 ctLocEnv = ctl_env
 
 ctLocDepth :: CtLoc l -> SubGoalDepth
@@ -1654,26 +1654,26 @@ bumpCtLocDepth cnt loc@(CtLoc { ctl_depth = d }) = loc { ctl_depth = bumpSubGoal
 setCtLocOrigin :: CtLoc l -> CtOrigin l -> CtLoc l
 setCtLocOrigin ctl orig = ctl { ctl_origin = orig }
 
-setCtLocEnv :: CtLoc l -> TcLclEnv -> CtLoc l
+setCtLocEnv :: CtLoc l -> TcLclEnv l -> CtLoc l
 setCtLocEnv ctl env = ctl { ctl_env = env }
 
-pushErrCtxt :: CtOrigin l -> ErrCtxt -> CtLoc l -> CtLoc l
+pushErrCtxt :: CtOrigin l -> ErrCtxt l -> CtLoc l -> CtLoc l
 pushErrCtxt o err loc@(CtLoc { ctl_env = lcl })
   = loc { ctl_origin = o, ctl_env = lcl { tcl_ctxt = err : tcl_ctxt lcl } }
 
-pushErrCtxtSameOrigin :: ErrCtxt -> CtLoc l -> CtLoc l
+pushErrCtxtSameOrigin :: ErrCtxt l -> CtLoc l -> CtLoc l
 -- Just add information w/o updating the origin!
 pushErrCtxtSameOrigin err loc@(CtLoc { ctl_env = lcl })
   = loc { ctl_env = lcl { tcl_ctxt = err : tcl_ctxt lcl } }
 
-pprArising :: (SrcAnnotation l) => CtOrigin l -> SDoc
+pprArising :: (ApiAnnotation l) => CtOrigin l -> SDoc
 -- Used for the main, top-level error message
 -- We've done special processing for TypeEq and FunDep origins
 pprArising (TypeEqOrigin {}) = empty
 pprArising FunDepOrigin      = empty
 pprArising orig              = text "arising from" <+> ppr orig
 
-pprArisingAt :: (SrcAnnotation l) => CtLoc l -> SDoc
+pprArisingAt :: (ApiAnnotation l) => CtLoc l -> SDoc
 pprArisingAt (CtLoc { ctl_origin = o, ctl_env = lcl})
   = sep [ text "arising from" <+> ppr o
         , text "at" <+> ppr (tcl_loc lcl)]
@@ -1829,7 +1829,7 @@ data CtOrigin l
   | UnboundOccurrenceOf RdrName
   | ListOrigin          -- An overloaded list
 
-pprO :: (SrcAnnotation l) => CtOrigin l -> SDoc
+pprO :: (ApiAnnotation l) => CtOrigin l -> SDoc
 pprO (GivenOrigin sk)      = ppr sk
 pprO FlatSkolOrigin        = ptext (sLit "a given flatten-skolem")
 pprO (OccurrenceOf name)   = hsep [ptext (sLit "a use of"), quotes (ppr name)]
@@ -1876,6 +1876,6 @@ pprO HoleOrigin            = ptext (sLit "a use of") <+> quotes (ptext $ sLit "_
 pprO (UnboundOccurrenceOf name) = hsep [ptext (sLit "an undeclared identifier"), quotes (ppr name)]
 pprO ListOrigin            = ptext (sLit "an overloaded list")
 
-instance (SrcAnnotation l) => Outputable (CtOrigin l) where
+instance (ApiAnnotation l) => Outputable (CtOrigin l) where
   ppr = pprO
 \end{code}

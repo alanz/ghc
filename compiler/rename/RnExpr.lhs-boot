@@ -9,13 +9,13 @@ import SrcLoc     ( Located, GenLocated )
 import Outputable ( Outputable )
 
 rnLExpr :: LHsExpr l RdrName
-        -> RnM (LHsExpr l Name, FreeVars)
+        -> RnM l (LHsExpr l Name, FreeVars)
 
 rnStmts :: --forall thing body.
            Outputable (body RdrName) => HsStmtContext Name 
-        -> (Located (body RdrName) -> RnM (GenLocated l (body Name), FreeVars))
+        -> (Located (body RdrName) -> RnM l (GenLocated l (body Name),FreeVars))
         -> [LStmt l RdrName (GenLocated l (body RdrName))]
-        -> ([Name] -> RnM (thing, FreeVars))
-        -> RnM (([LStmt l Name (GenLocated l (body Name))], thing), FreeVars)   
+        -> ([Name] -> RnM l (thing, FreeVars))
+        -> RnM l (([LStmt l Name (GenLocated l (body Name))], thing), FreeVars)
 \end{code}
 

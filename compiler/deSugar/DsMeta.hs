@@ -303,8 +303,8 @@ repFamilyDecls :: [LFamilyDecl Name] -> DsM [Core TH.DecQ]
 repFamilyDecls fds = liftM de_loc (mapM repFamilyDecl fds)
 
 -------------------------
-mk_extra_tvs :: Located Name -> LHsTyVarBndrs Name
-             -> HsDataDefn Name -> DsM (LHsTyVarBndrs Name)
+mk_extra_tvs :: GenLocated l Name -> LHsTyVarBndrs l Name
+             -> HsDataDefn Name -> DsM l (LHsTyVarBndrs l Name)
 -- If there is a kind signature it must be of form
 --    k1 -> .. -> kn -> *
 -- Return type variables [tv1:k1, tv2:k2, .., tvn:kn]
@@ -333,10 +333,10 @@ mk_extra_tvs tc tvs defn
 -------------------------
 -- represent fundeps
 --
-repLFunDeps :: [Located (FunDep Name)] -> DsM (Core [TH.FunDep])
+repLFunDeps :: [GenLocated l (FunDep Name)] -> DsM l (Core [TH.FunDep])
 repLFunDeps fds = repList funDepTyConName repLFunDep fds
 
-repLFunDep :: Located (FunDep Name) -> DsM (Core TH.FunDep)
+repLFunDep :: GenLocated l (FunDep Name) -> DsM l (Core TH.FunDep)
 repLFunDep (L _ (xs, ys)) = do xs' <- repList nameTyConName lookupBinder xs
                                ys' <- repList nameTyConName lookupBinder ys
                                repFunDep xs' ys'
@@ -419,7 +419,7 @@ repDataFamInstD (DataFamInstDecl { dfid_tycon = tc_name
          do { tys1 <- repList typeQTyConName repLTy tys
             ; repDataDefn tc bndrs (Just tys1) tv_names defn } }
 
-repForD :: Located (ForeignDecl Name) -> DsM (SrcSpan, Core TH.DecQ)
+repForD :: GenLocated l (ForeignDecl l Name) -> DsM l (l, Core TH.DecQ)
 repForD (L loc (ForeignImport name typ _ (CImport cc s mch cis)))
  = do MkC name' <- lookupLOcc name
       MkC typ' <- repLTy typ
@@ -623,8 +623,8 @@ rep_sig (L loc (SpecSig nm ty ispec)) = rep_specialise nm ty ispec loc
 rep_sig (L loc (SpecInstSig ty))      = rep_specialiseInst ty loc
 rep_sig _                             = return []
 
-rep_ty_sig :: SrcSpan -> LHsType Name -> Located Name
-           -> DsM (SrcSpan, Core TH.DecQ)
+rep_ty_sig :: SrcSpan -> LHsType l Name -> GenLocated l Name
+           -> DsM l (SrcSpan, Core TH.DecQ)
 rep_ty_sig loc (L _ ty) nm
   = do { nm1 <- lookupLOcc nm
        ; ty1 <- rep_ty ty
@@ -644,10 +644,10 @@ rep_ty_sig loc (L _ ty) nm
     rep_ty ty = repTy ty
 
 
-rep_inline :: Located Name
+rep_inline :: GenLocated l Name
            -> InlinePragma      -- Never defaultInlinePragma
            -> SrcSpan
-           -> DsM [(SrcSpan, Core TH.DecQ)]
+           -> DsM l [(SrcSpan, Core TH.DecQ)]
 rep_inline nm ispec loc
   = do { nm1    <- lookupLOcc nm
        ; inline <- repInline $ inl_inline ispec
@@ -657,8 +657,8 @@ rep_inline nm ispec loc
        ; return [(loc, pragma)]
        }
 
-rep_specialise :: Located Name -> LHsType Name -> InlinePragma -> SrcSpan
-               -> DsM [(SrcSpan, Core TH.DecQ)]
+rep_specialise :: GenLocated l Name -> LHsType l Name -> InlinePragma -> SrcSpan
+               -> DsM l [(SrcSpan, Core TH.DecQ)]
 rep_specialise nm ty ispec loc
   = do { nm1 <- lookupLOcc nm
        ; ty1 <- repLTy ty
@@ -880,7 +880,7 @@ repNonArrowKind (HsTupleTy _ ks)    = do  { ks' <- mapM repLKind ks
                                           }
 repNonArrowKind k                   = notHandled "Exotic form of kind" (ppr k)
 
-repRole :: Located (Maybe Role) -> DsM (Core TH.Role)
+repRole :: GenLocated l (Maybe Role) -> DsM l (Core TH.Role)
 repRole (L _ (Just Nominal))          = rep2 nominalRName []
 repRole (L _ (Just Representational)) = rep2 representationalRName []
 repRole (L _ (Just Phantom))          = rep2 phantomRName []
@@ -1369,7 +1369,7 @@ dupBinder (new, old)
 
 -- Look up a locally bound name
 --
-lookupLBinder :: Located Name -> DsM (Core TH.Name)
+lookupLBinder :: GenLocated l Name -> DsM l (Core TH.Name)
 lookupLBinder (L _ n) = lookupBinder n
 
 lookupBinder :: Name -> DsM (Core TH.Name)
@@ -1384,7 +1384,7 @@ lookupBinder = lookupOcc
 --  * If it is a global name, generate the "original name" representation (ie,
 --   the <module>:<name> form) for the associated entity
 --
-lookupLOcc :: Located Name -> DsM (Core TH.Name)
+lookupLOcc :: GenLocated l Name -> DsM l (Core TH.Name)
 -- Lookup an occurrence; it can't be a splice.
 -- Use the in-scope bindings if they exist
 lookupLOcc (L _ n) = lookupOcc n

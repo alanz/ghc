@@ -413,25 +413,25 @@ deriving instance (DataId name, Data l) => Data (ConDeclField l name)
 --
 -- A valid type must have one for-all at the top of the type, or of the fn arg types
 
-mkImplicitHsForAllTy  :: (SrcAnnotation l) =>
+mkImplicitHsForAllTy  :: (ApiAnnotation l) =>
                    LHsContext l RdrName -> LHsType l RdrName -> HsType l RdrName
-mkExplicitHsForAllTy  :: (SrcAnnotation l) =>
+mkExplicitHsForAllTy  :: (ApiAnnotation l) =>
                 [LHsTyVarBndr l RdrName] -> LHsContext l RdrName
                 -> LHsType l RdrName -> HsType l RdrName
-mkQualifiedHsForAllTy :: (SrcAnnotation l) =>
+mkQualifiedHsForAllTy :: (ApiAnnotation l) =>
                   LHsContext l RdrName -> LHsType l RdrName -> HsType l RdrName
 mkImplicitHsForAllTy      ctxt ty = mkHsForAllTy Implicit  []  ctxt ty
 mkExplicitHsForAllTy  tvs ctxt ty = mkHsForAllTy Explicit  tvs ctxt ty
 mkQualifiedHsForAllTy     ctxt ty = mkHsForAllTy Qualified []  ctxt ty
 
-mkHsForAllTy :: (SrcAnnotation l) => HsExplicitFlag -> [LHsTyVarBndr l RdrName]
+mkHsForAllTy :: (ApiAnnotation l) => HsExplicitFlag -> [LHsTyVarBndr l RdrName]
              -> LHsContext l RdrName -> LHsType l RdrName -> HsType l RdrName
 -- Smart constructor for HsForAllTy
 mkHsForAllTy exp tvs (L _ []) ty = mk_forall_ty exp tvs ty
 mkHsForAllTy exp tvs ctxt     ty = HsForAllTy exp (mkHsQTvs tvs) ctxt ty
 
 -- mk_forall_ty makes a pure for-all type (no context)
-mk_forall_ty :: (SrcAnnotation l) => HsExplicitFlag -> [LHsTyVarBndr l RdrName] -> LHsType l RdrName -> HsType l RdrName
+mk_forall_ty :: (ApiAnnotation l) => HsExplicitFlag -> [LHsTyVarBndr l RdrName] -> LHsType l RdrName -> HsType l RdrName
 mk_forall_ty exp  tvs  (L _ (HsParTy ty))                    = mk_forall_ty exp tvs ty
 mk_forall_ty exp1 tvs1 (L _ (HsForAllTy exp2 qtvs2 ctxt ty)) = mkHsForAllTy (exp1 `plus` exp2) (tvs1 ++ hsq_tvs qtvs2) ctxt ty
 mk_forall_ty exp  tvs  ty                                    = HsForAllTy exp (mkHsQTvs tvs) (annNoLoc []) ty
@@ -497,7 +497,7 @@ hsTyGetAppHead_maybe = go []
     go tys (L _ (HsKindSig t _))         = go tys t
     go _   _                             = Nothing
 
-mkHsAppTys :: (OutputableBndr n, Outputable l,SrcAnnotation l) => LHsType l n -> [LHsType l n] -> HsType l n
+mkHsAppTys :: (OutputableBndr n, Outputable l,ApiAnnotation l) => LHsType l n -> [LHsType l n] -> HsType l n
 mkHsAppTys fun_ty [] = pprPanic "mkHsAppTys" (ppr fun_ty)
 mkHsAppTys fun_ty (arg_ty:arg_tys)
   = foldl mk_app (HsAppTy fun_ty arg_ty) arg_tys
@@ -525,7 +525,7 @@ splitLHsForAllTy poly_ty
         _                       -> (emptyHsQTvs, [], poly_ty)
         -- The type vars should have been computed by now, even if they were implicit
 
-splitHsClassTy_maybe :: (SrcAnnotation l) => HsType l name -> Maybe (name, [LHsType l name])
+splitHsClassTy_maybe :: (ApiAnnotation l) => HsType l name -> Maybe (name, [LHsType l name])
 splitHsClassTy_maybe ty = fmap (\(L _ n, tys) -> (n, tys)) $ splitLHsClassTy_maybe (annNoLoc ty)
 
 splitLHsClassTy_maybe :: LHsType l name -> Maybe (GenLocated l name, [LHsType l name])
@@ -581,24 +581,24 @@ splitHsFunType other = ([], other)
 %************************************************************************
 
 \begin{code}
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (HsType l name) where
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (HsType l name) where
     ppr ty = pprHsType ty
 
 instance Outputable HsTyLit where
     ppr = ppr_tylit
 
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (LHsTyVarBndrs l name) where
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (LHsTyVarBndrs l name) where
     ppr (HsQTvs { hsq_kvs = kvs, hsq_tvs = tvs }) 
       = sep [ ifPprDebug $ braces (interppSP kvs), interppSP tvs ]
 
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (HsTyVarBndr l name) where
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (HsTyVarBndr l name) where
     ppr (UserTyVar n)     = ppr n
     ppr (KindedTyVar n k) = parens $ hsep [ppr n, dcolon, ppr k]
 
 instance (Outputable thing) => Outputable (HsWithBndrs name thing) where
     ppr (HsWB { hswb_cts = ty }) = ppr ty
 
-pprHsForAll :: (OutputableBndr name, SrcAnnotation l)
+pprHsForAll :: (OutputableBndr name, ApiAnnotation l)
   => HsExplicitFlag -> LHsTyVarBndrs l name ->  LHsContext l name -> SDoc
 pprHsForAll exp qtvs cxt 
   | show_forall = forall_part <+> pprHsContext (unLoc cxt)
@@ -609,16 +609,16 @@ pprHsForAll exp qtvs cxt
     is_explicit = case exp of {Explicit -> True; Implicit -> False; Qualified -> False}
     forall_part = forAllLit <+> ppr qtvs <> dot
 
-pprHsContext :: (OutputableBndr name, SrcAnnotation l) => HsContext l name -> SDoc
+pprHsContext :: (OutputableBndr name, ApiAnnotation l) => HsContext l name -> SDoc
 pprHsContext []  = empty
 pprHsContext cxt = pprHsContextNoArrow cxt <+> darrow
 
-pprHsContextNoArrow :: (OutputableBndr name, SrcAnnotation l) => HsContext l name -> SDoc
+pprHsContextNoArrow :: (OutputableBndr name, ApiAnnotation l) => HsContext l name -> SDoc
 pprHsContextNoArrow []         = empty
 pprHsContextNoArrow [L _ pred] = ppr_mono_ty FunPrec pred
 pprHsContextNoArrow cxt        = parens (interpp'SP cxt)
 
-pprConDeclFields :: (OutputableBndr name, SrcAnnotation l) => [ConDeclField l name] -> SDoc
+pprConDeclFields :: (OutputableBndr name, ApiAnnotation l) => [ConDeclField l name] -> SDoc
 pprConDeclFields fields = braces (sep (punctuate comma (map ppr_fld fields)))
   where
     ppr_fld (ConDeclField { cd_fld_name = n, cd_fld_type = ty, 
@@ -640,7 +640,7 @@ seems like the Right Thing anyway.)
 \begin{code}
 -- Printing works more-or-less as for Types
 
-pprHsType, pprParendHsType :: (OutputableBndr name, SrcAnnotation l) => HsType l name -> SDoc
+pprHsType, pprParendHsType :: (OutputableBndr name, ApiAnnotation l) => HsType l name -> SDoc
 
 pprHsType ty       = getPprStyle $ \sty -> ppr_mono_ty TopPrec (prepare sty ty)
 pprParendHsType ty = ppr_mono_ty TyConPrec ty
@@ -653,10 +653,10 @@ prepare :: PprStyle -> HsType l name -> HsType l name
 prepare sty (HsParTy ty)          = prepare sty (unLoc ty)
 prepare _   ty                    = ty
 
-ppr_mono_lty :: (OutputableBndr name, SrcAnnotation l) => TyPrec -> LHsType l name -> SDoc
+ppr_mono_lty :: (OutputableBndr name, ApiAnnotation l) => TyPrec -> LHsType l name -> SDoc
 ppr_mono_lty ctxt_prec ty = ppr_mono_ty ctxt_prec (unLoc ty)
 
-ppr_mono_ty :: (OutputableBndr name, SrcAnnotation l) => TyPrec -> HsType l name -> SDoc
+ppr_mono_ty :: (OutputableBndr name, ApiAnnotation l) => TyPrec -> HsType l name -> SDoc
 ppr_mono_ty ctxt_prec (HsForAllTy exp tvs ctxt ty)
   = maybeParen ctxt_prec FunPrec $
     sep [pprHsForAll exp tvs ctxt, ppr_mono_lty TopPrec ty]
@@ -722,7 +722,7 @@ ppr_mono_ty ctxt_prec (HsDocTy ty doc)
   -- postfix operators
 
 --------------------------
-ppr_fun_ty :: (OutputableBndr name, SrcAnnotation l) => TyPrec -> LHsType l name -> LHsType l name -> SDoc
+ppr_fun_ty :: (OutputableBndr name, ApiAnnotation l) => TyPrec -> LHsType l name -> LHsType l name -> SDoc
 ppr_fun_ty ctxt_prec ty1 ty2
   = let p1 = ppr_mono_lty FunPrec ty1
         p2 = ppr_mono_lty TopPrec ty2

@@ -243,7 +243,7 @@ appendGroups
 \end{code}
 
 \begin{code}
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (HsDecl l name) where
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (HsDecl l name) where
     ppr (TyClD dcl)             = ppr dcl
     ppr (ValD binds)            = ppr binds
     ppr (DefD def)              = ppr def
@@ -260,7 +260,7 @@ instance (OutputableBndr name, SrcAnnotation l) => Outputable (HsDecl l name) wh
     ppr (QuasiQuoteD qq)        = ppr qq
     ppr (RoleAnnotD ra)         = ppr ra
 
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (HsGroup l name) where
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (HsGroup l name) where
     ppr (HsGroup { hs_valds  = val_decls,
                    hs_tyclds = tycl_decls,
                    hs_instds = inst_decls,
@@ -307,7 +307,7 @@ data SpliceDecl l id
     deriving (Typeable)
 deriving instance (DataId id, Data l) => Data (SpliceDecl l id)
 
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (SpliceDecl l name) where
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (SpliceDecl l name) where
    ppr (SpliceDecl (L _ e) _) = pprUntypedSplice e
 \end{code}
 
@@ -605,7 +605,7 @@ tyClDeclLName decl = tcdLName decl
 tcdName :: TyClDecl l name -> name
 tcdName = unLoc . tyClDeclLName
 
-tyClDeclTyVars :: (OutputableBndr name, SrcAnnotation l)
+tyClDeclTyVars :: (OutputableBndr name, ApiAnnotation l)
   => TyClDecl l name -> LHsTyVarBndrs l name
 tyClDeclTyVars decl@(ForeignType {}) = pprPanic "tyClDeclTyVars" (ppr decl)
 tyClDeclTyVars (FamDecl { tcdFam = FamilyDecl { fdTyVars = tvs } }) = tvs
@@ -676,7 +676,7 @@ variables and its return type are annotated.
  - An open type family always has a CUSK -- unannotated type variables (and return type) default to *.
 
 \begin{code}
-instance (OutputableBndr name, SrcAnnotation l)
+instance (OutputableBndr name, ApiAnnotation l)
               => Outputable (TyClDecl l name) where
 
     ppr (ForeignType {tcdLName = ltycon})
@@ -708,13 +708,13 @@ instance (OutputableBndr name, SrcAnnotation l)
                      <+> pp_vanilla_decl_head lclas tyvars (unLoc context)
                      <+> pprFundeps (map unLoc fds)
 
-instance (OutputableBndr name, SrcAnnotation l)
+instance (OutputableBndr name, ApiAnnotation l)
     => Outputable (TyClGroup l name) where
   ppr (TyClGroup { group_tyclds = tyclds, group_roles = roles })
     = ppr tyclds $$
       ppr roles
 
-instance (OutputableBndr name, SrcAnnotation l)
+instance (OutputableBndr name, ApiAnnotation l)
   => Outputable (FamilyDecl l name) where
   ppr (FamilyDecl { fdInfo = info, fdLName = ltycon, 
                     fdTyVars = tyvars, fdKindSig = mb_kind})
@@ -739,7 +739,7 @@ pprFlavour (ClosedTypeFamily {}) = ptext (sLit "type family")
 instance Outputable (FamilyInfo l name) where
   ppr = pprFlavour
 
-pp_vanilla_decl_head :: (OutputableBndr name, SrcAnnotation l)
+pp_vanilla_decl_head :: (OutputableBndr name, ApiAnnotation l)
    => GenLocated l name
    -> LHsTyVarBndrs l name
    -> HsContext l name
@@ -747,7 +747,7 @@ pp_vanilla_decl_head :: (OutputableBndr name, SrcAnnotation l)
 pp_vanilla_decl_head thing tyvars context
  = hsep [pprHsContext context, pprPrefixOcc (unLoc thing), ppr tyvars]
 
-pp_fam_inst_lhs :: (OutputableBndr name, SrcAnnotation l)
+pp_fam_inst_lhs :: (OutputableBndr name, ApiAnnotation l)
    => GenLocated l name
    -> HsTyPats l name
    -> HsContext l name
@@ -896,7 +896,7 @@ instance Outputable ty => Outputable (ResType ty) where
 
 
 \begin{code}
-pp_data_defn :: (OutputableBndr name, SrcAnnotation l)
+pp_data_defn :: (OutputableBndr name, ApiAnnotation l)
                   => (HsContext l name -> SDoc)   -- Printing the header
                   -> HsDataDefn l name
                   -> SDoc 
@@ -917,24 +917,24 @@ pp_data_defn pp_hdr (HsDataDefn { dd_ND = new_or_data, dd_ctxt = L _ context
                      Nothing -> empty
                      Just ds -> hsep [ptext (sLit "deriving"), parens (interpp'SP ds)]
 
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (HsDataDefn l name) where
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (HsDataDefn l name) where
    ppr d = pp_data_defn (\_ -> ptext (sLit "Naked HsDataDefn")) d
 
 instance Outputable NewOrData where
   ppr NewType  = ptext (sLit "newtype")
   ppr DataType = ptext (sLit "data")
 
-pp_condecls :: (OutputableBndr name, SrcAnnotation l)
+pp_condecls :: (OutputableBndr name, ApiAnnotation l)
   => [LConDecl l name] -> SDoc
 pp_condecls cs@(L _ ConDecl{ con_res = ResTyGADT _ } : _) -- In GADT syntax
   = hang (ptext (sLit "where")) 2 (vcat (map ppr cs))
 pp_condecls cs                    -- In H98 syntax
   = equals <+> sep (punctuate (ptext (sLit " |")) (map ppr cs))
 
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (ConDecl l name) where
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (ConDecl l name) where
     ppr = pprConDecl
 
-pprConDecl :: (OutputableBndr name, SrcAnnotation l) => ConDecl l name -> SDoc
+pprConDecl :: (OutputableBndr name, ApiAnnotation l) => ConDecl l name -> SDoc
 pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
                     , con_cxt = cxt, con_details = details
                     , con_res = ResTyH98, con_doc = doc })
@@ -1084,11 +1084,11 @@ tvs are fv(pat_tys), *including* ones that are already in scope
    in the associated 'type' decl
 
 \begin{code}
-instance (OutputableBndr name, SrcAnnotation l)
+instance (OutputableBndr name, ApiAnnotation l)
   => Outputable (TyFamInstDecl l name) where
   ppr = pprTyFamInstDecl TopLevel
 
-pprTyFamInstDecl :: (OutputableBndr name, SrcAnnotation l)
+pprTyFamInstDecl :: (OutputableBndr name, ApiAnnotation l)
   => TopLevelFlag -> TyFamInstDecl l name -> SDoc
 pprTyFamInstDecl top_lvl (TyFamInstDecl { tfid_eqn = eqn })
    = ptext (sLit "type") <+> ppr_instance_keyword top_lvl <+> ppr_fam_inst_eqn eqn
@@ -1097,24 +1097,24 @@ ppr_instance_keyword :: TopLevelFlag -> SDoc
 ppr_instance_keyword TopLevel    = ptext (sLit "instance")
 ppr_instance_keyword NotTopLevel = empty
 
-ppr_fam_inst_eqn :: (OutputableBndr name, SrcAnnotation l)
+ppr_fam_inst_eqn :: (OutputableBndr name, ApiAnnotation l)
   => LTyFamInstEqn l name -> SDoc
 ppr_fam_inst_eqn (L _ (TyFamEqn { tfe_tycon = tycon
                                 , tfe_pats  = pats
                                 , tfe_rhs   = rhs }))
     = pp_fam_inst_lhs tycon pats [] <+> equals <+> ppr rhs
 
-ppr_fam_deflt_eqn :: (OutputableBndr name, SrcAnnotation l)
+ppr_fam_deflt_eqn :: (OutputableBndr name, ApiAnnotation l)
   => LTyFamDefltEqn l name -> SDoc
 ppr_fam_deflt_eqn (L _ (TyFamEqn { tfe_tycon = tycon
                                  , tfe_pats  = tvs
                                  , tfe_rhs   = rhs }))
     = pp_vanilla_decl_head tycon tvs [] <+> equals <+> ppr rhs
 
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (DataFamInstDecl l name) where
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (DataFamInstDecl l name) where
   ppr = pprDataFamInstDecl TopLevel
 
-pprDataFamInstDecl :: (OutputableBndr name, SrcAnnotation l)
+pprDataFamInstDecl :: (OutputableBndr name, ApiAnnotation l)
    => TopLevelFlag -> DataFamInstDecl l name -> SDoc
 pprDataFamInstDecl top_lvl (DataFamInstDecl { dfid_tycon = tycon
                                             , dfid_pats  = pats  
@@ -1127,7 +1127,7 @@ pprDataFamInstFlavour :: DataFamInstDecl l name -> SDoc
 pprDataFamInstFlavour (DataFamInstDecl { dfid_defn = (HsDataDefn { dd_ND = nd }) })
   = ppr nd
 
-instance (OutputableBndr name, SrcAnnotation l)
+instance (OutputableBndr name, ApiAnnotation l)
   => Outputable (ClsInstDecl l name) where
     ppr (ClsInstDecl { cid_poly_ty = inst_ty, cid_binds = binds
                      , cid_sigs = sigs, cid_tyfam_insts = ats
@@ -1159,7 +1159,7 @@ ppOverlapPragma mb =
 
 
 
-instance (OutputableBndr name, SrcAnnotation l)
+instance (OutputableBndr name, ApiAnnotation l)
   => Outputable (InstDecl l name) where
     ppr (ClsInstD     { cid_inst  = decl }) = ppr decl
     ppr (TyFamInstD   { tfid_inst = decl }) = ppr decl
@@ -1192,7 +1192,7 @@ data DerivDecl l name = DerivDecl { deriv_type :: LHsType l name
   deriving (Typeable)
 deriving instance (DataId name, Data l) => Data (DerivDecl l name)
 
-instance (OutputableBndr name, SrcAnnotation l)
+instance (OutputableBndr name, ApiAnnotation l)
    => Outputable (DerivDecl l name) where
     ppr (DerivDecl ty o)
         = hsep [ptext (sLit "deriving instance"), ppOverlapPragma o, ppr ty]
@@ -1216,7 +1216,7 @@ data DefaultDecl l name
   deriving (Typeable)
 deriving instance (DataId name, Data l) => Data (DefaultDecl l name)
 
-instance (OutputableBndr name, SrcAnnotation l)
+instance (OutputableBndr name, ApiAnnotation l)
               => Outputable (DefaultDecl l name) where
 
     ppr (DefaultDecl tys)
@@ -1305,7 +1305,7 @@ data ForeignExport = CExport  CExportSpec    -- contains the calling convention
 -- pretty printing of foreign declarations
 --
 
-instance (OutputableBndr name, SrcAnnotation l)
+instance (OutputableBndr name, ApiAnnotation l)
   => Outputable (ForeignDecl l name) where
   ppr (ForeignImport n ty _ fimport) =
     hang (ptext (sLit "foreign import") <+> ppr fimport <+> ppr n)
@@ -1370,7 +1370,7 @@ deriving instance (DataId name, Data l) => Data (RuleBndr l name)
 collectRuleBndrSigTys :: [RuleBndr l name] -> [HsWithBndrs name (LHsType l name)]
 collectRuleBndrSigTys bndrs = [ty | RuleBndrSig _ ty <- bndrs]
 
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (RuleDecl l name) where
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (RuleDecl l name) where
   ppr (HsRule name act ns lhs _fv_lhs rhs _fv_rhs)
         = sep [text "{-# RULES" <+> doubleQuotes (ftext name) <+> ppr act,
                nest 4 (pp_forall <+> pprExpr (unLoc lhs)), 
@@ -1379,7 +1379,7 @@ instance (OutputableBndr name, SrcAnnotation l) => Outputable (RuleDecl l name) 
           pp_forall | null ns   = empty
                     | otherwise = forAllLit <+> fsep (map ppr ns) <> dot
 
-instance (OutputableBndr name, SrcAnnotation l)
+instance (OutputableBndr name, ApiAnnotation l)
   => Outputable (RuleBndr l name) where
    ppr (RuleBndr name) = ppr name
    ppr (RuleBndrSig name ty) = ppr name <> dcolon <> ppr ty
@@ -1444,7 +1444,7 @@ lvectInstDecl (L _ (HsVectInstIn _))  = True
 lvectInstDecl (L _ (HsVectInstOut _)) = True
 lvectInstDecl _                       = False
 
-instance (OutputableBndr name, SrcAnnotation l) => Outputable (VectDecl l name) where
+instance (OutputableBndr name, ApiAnnotation l) => Outputable (VectDecl l name) where
   ppr (HsVect v rhs)
     = sep [text "{-# VECTORISE" <+> ppr v,
            nest 4 $ 
@@ -1539,7 +1539,7 @@ data AnnDecl l name = HsAnnotation (AnnProvenance name)
   deriving (Typeable)
 deriving instance (DataId name, Data l) => Data (AnnDecl l name)
 
-instance (OutputableBndr name, SrcAnnotation l)
+instance (OutputableBndr name, ApiAnnotation l)
   => Outputable (AnnDecl l name) where
     ppr (HsAnnotation provenance expr)
       = hsep [text "{-#", pprAnnProvenance provenance, pprExpr (unLoc expr), text "#-}"]
