@@ -9,6 +9,7 @@ This module exports some utility functions of no great interest.
 
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 -- The above warning supression flag is a temporary kludge.
 -- While working on this module you are encouraged to remove it and
@@ -96,7 +97,7 @@ hand, which should indeed be bound to the pattern as a whole, then use it;
 otherwise, make one up.
 
 \begin{code}
-selectSimpleMatchVarL :: LPat l Id -> DsM l Id
+selectSimpleMatchVarL :: (ApiAnnotation l) => LPat l Id -> DsM l Id
 selectSimpleMatchVarL pat = selectMatchVar (unLoc pat)
 
 -- (selectMatchVars ps tys) chooses variables of type tys
@@ -115,10 +116,10 @@ selectSimpleMatchVarL pat = selectMatchVar (unLoc pat)
 --    Then we must not choose (x::Int) as the matching variable!
 -- And nowadays we won't, because the (x::Int) will be wrapped in a CoPat
 
-selectMatchVars :: [Pat l Id] -> DsM l [Id]
+selectMatchVars :: (ApiAnnotation l) => [Pat l Id] -> DsM l [Id]
 selectMatchVars ps = mapM selectMatchVar ps
 
-selectMatchVar :: Pat l Id -> DsM l Id
+selectMatchVar :: (ApiAnnotation l) => Pat l Id -> DsM l Id
 selectMatchVar (BangPat pat) = selectMatchVar (unLoc pat)
 selectMatchVar (LazyPat pat) = selectMatchVar (unLoc pat)
 selectMatchVar (ParPat pat)  = selectMatchVar (unLoc pat)
@@ -256,15 +257,15 @@ mkEvalMatchResult :: Id -> Type -> MatchResult l -> MatchResult l
 mkEvalMatchResult var ty
   = adjustMatchResult (\e -> Case (Var var) var ty [(DEFAULT, [], e)]) 
 
-mkGuardedMatchResult :: CoreExpr -> MatchResult -> MatchResult
+mkGuardedMatchResult :: CoreExpr -> MatchResult l -> MatchResult l
 mkGuardedMatchResult pred_expr (MatchResult _ body_fn)
   = MatchResult CanFail (\fail -> do body <- body_fn fail
                                      return (mkIfThenElse pred_expr body fail))
 
-mkCoPrimCaseMatchResult :: Id				-- Scrutinee
+mkCoPrimCaseMatchResult :: Id                           -- Scrutinee
                     -> Type                             -- Type of the case
-		    -> [(Literal, MatchResult)]		-- Alternatives
-		    -> MatchResult			-- Literals are all unlifted
+                    -> [(Literal, MatchResult l)]       -- Alternatives
+                    -> MatchResult l                    -- Literals are all unlifted
 mkCoPrimCaseMatchResult var ty match_alts
   = MatchResult CanFail mk_case
   where
@@ -285,11 +286,11 @@ data CaseAlt l a = MkCaseAlt{ alt_pat :: a,
 
 mkCoAlgCaseMatchResult 
   :: DynFlags
-  -> Id                 -- Scrutinee
-  -> Type               -- Type of exp
-  -> [CaseAlt DataCon]  -- Alternatives (bndrs *include* tyvars, dicts)
-  -> MatchResult
-mkCoAlgCaseMatchResult dflags var ty match_alts 
+  -> Id                  -- Scrutinee
+  -> Type                -- Type of exp
+  -> [CaseAlt l DataCon] -- Alternatives (bndrs *include* tyvars, dicts)
+  -> MatchResult l
+mkCoAlgCaseMatchResult dflags var ty match_alts
   | isNewtype  -- Newtype case; use a let
   = ASSERT( null (tail match_alts) && null (tail arg_ids1) )
     mkCoLetMatchResult (NonRec arg_id1 newtype_rhs) match_result1
@@ -332,7 +333,7 @@ mkCoAlgCaseMatchResult dflags var ty match_alts
 	--	  only happen in `PrelPArr' anyway.
 	--
 
-    isPArrFakeAlts :: [CaseAlt DataCon] -> Bool
+    isPArrFakeAlts :: [CaseAlt l DataCon] -> Bool
     isPArrFakeAlts [alt] = isPArrFakeCon (alt_pat alt)
     isPArrFakeAlts (alt:alts) =
       case (isPArrFakeCon (alt_pat alt), isPArrFakeAlts alts) of
@@ -341,16 +342,17 @@ mkCoAlgCaseMatchResult dflags var ty match_alts
         _              -> panic "DsUtils: you may not mix `[:...:]' with `PArr' patterns"
     isPArrFakeAlts [] = panic "DsUtils: unexpectedly found an empty list of PArr fake alternatives"
 
-mkCoSynCaseMatchResult :: Id -> Type -> CaseAlt PatSyn -> MatchResult
+mkCoSynCaseMatchResult :: (ApiAnnotation l)
+                       => Id -> Type -> CaseAlt l PatSyn -> MatchResult l
 mkCoSynCaseMatchResult var ty alt = MatchResult CanFail $ mkPatSynCase var ty alt
 
 \end{code}
 
 \begin{code}
-sort_alts :: [CaseAlt DataCon] -> [CaseAlt DataCon]
+sort_alts :: [CaseAlt l DataCon] -> [CaseAlt l DataCon]
 sort_alts = sortWith (dataConTag . alt_pat)
 
-mkPatSynCase :: Id -> Type -> CaseAlt PatSyn -> CoreExpr -> DsM CoreExpr
+mkPatSynCase :: (ApiAnnotation l) => Id -> Type -> CaseAlt l PatSyn -> CoreExpr -> DsM l CoreExpr
 mkPatSynCase var ty alt fail = do
     matcher <- dsLExpr $ mkLHsWrap wrapper $ nlHsTyApp matcher [ty]
     let MatchResult _ mkCont = match_result
@@ -363,7 +365,7 @@ mkPatSynCase var ty alt fail = do
                alt_result = match_result} = alt
     matcher = patSynMatcher psyn
 
-mkDataConCase :: Id -> Type -> [CaseAlt DataCon] -> MatchResult
+mkDataConCase :: forall l. Id -> Type -> [CaseAlt l DataCon] -> MatchResult l
 mkDataConCase _   _  []            = panic "mkDataConCase: no alternatives"
 mkDataConCase var ty alts@(alt1:_) = MatchResult fail_flag mk_case
   where
@@ -372,19 +374,19 @@ mkDataConCase var ty alts@(alt1:_) = MatchResult fail_flag mk_case
     data_cons     = tyConDataCons tycon
     match_results = map alt_result alts
 
-    sorted_alts :: [CaseAlt DataCon]
+    sorted_alts :: [CaseAlt l DataCon]
     sorted_alts  = sort_alts alts
 
     var_ty       = idType var
     (_, ty_args) = tcSplitTyConApp var_ty -- Don't look through newtypes
                                           -- (not that splitTyConApp does, these days)
 
-    mk_case :: CoreExpr -> DsM CoreExpr
+    mk_case :: CoreExpr -> DsM l CoreExpr
     mk_case fail = do
         alts <- mapM (mk_alt fail) sorted_alts
         return $ mkWildCase (Var var) (idType var) ty (mk_default fail ++ alts)
 
-    mk_alt :: CoreExpr -> CaseAlt DataCon -> DsM CoreAlt
+    mk_alt :: CoreExpr -> CaseAlt l DataCon -> DsM l CoreAlt
     mk_alt fail MkCaseAlt{ alt_pat = con,
                            alt_bndrs = args,
                            alt_result = MatchResult _ body_fn }
@@ -417,7 +419,8 @@ mkDataConCase var ty alts@(alt1:_) = MatchResult fail_flag mk_case
 --   parallel arrays, which are introduced by `tidy1' in the `PArrPat'
 --   case
 --
-mkPArrCase :: DynFlags -> Id -> Type -> [CaseAlt DataCon] -> CoreExpr -> DsM CoreExpr
+mkPArrCase :: DynFlags -> Id -> Type -> [CaseAlt l DataCon] -> CoreExpr
+           -> DsM l CoreExpr
 mkPArrCase dflags var ty sorted_alts fail = do
     lengthP <- dsDPHBuiltin lengthPVar
     alt <- unboxAlt
@@ -464,7 +467,7 @@ mkPArrCase dflags var ty sorted_alts fail = do
 mkErrorAppDs :: Id 		-- The error function
 	     -> Type		-- Type to which it should be applied
 	     -> SDoc		-- The error message string to pass
-	     -> DsM CoreExpr
+	     -> DsM l CoreExpr
 
 mkErrorAppDs err_id ty msg = do
     src_loc <- getSrcSpanDs
@@ -608,10 +611,11 @@ cases like
      (p,q) = e
 
 \begin{code}
-mkSelectorBinds :: [Maybe (Tickish Id)]  -- ticks to add, possibly
-                -> LPat Id      -- The pattern
-		-> CoreExpr	-- Expression to which the pattern is bound
-		-> DsM [(Id,CoreExpr)]
+mkSelectorBinds :: (ApiAnnotation l)
+                => [Maybe (Tickish Id)]  -- ticks to add, possibly
+                -> LPat l Id    -- The pattern
+                -> CoreExpr     -- Expression to which the pattern is bound
+                -> DsM l [(Id,CoreExpr)]
 
 mkSelectorBinds ticks (L _ (VarPat v)) val_expr
   = return [(v, case ticks of
@@ -699,31 +703,31 @@ They work over *Ids*, and create tuples replete with their types,
 which is whey they are not in HsUtils.
 
 \begin{code}
-mkLHsPatTup :: [LPat Id] -> LPat Id
-mkLHsPatTup []     = noLoc $ mkVanillaTuplePat [] Boxed
+mkLHsPatTup :: (ApiAnnotation l) => [LPat l Id] -> LPat l Id
+mkLHsPatTup []     = annNoLoc $ mkVanillaTuplePat [] Boxed
 mkLHsPatTup [lpat] = lpat
 mkLHsPatTup lpats  = L (getLoc (head lpats)) $ 
 		     mkVanillaTuplePat lpats Boxed
 
-mkLHsVarPatTup :: [Id] -> LPat Id
+mkLHsVarPatTup :: (ApiAnnotation l) => [Id] -> LPat l Id
 mkLHsVarPatTup bs  = mkLHsPatTup (map nlVarPat bs)
 
-mkVanillaTuplePat :: [OutPat Id] -> Boxity -> Pat Id
+mkVanillaTuplePat :: (ApiAnnotation l) => [OutPat l Id] -> Boxity -> Pat l Id
 -- A vanilla tuple pattern simply gets its type from its sub-patterns
 mkVanillaTuplePat pats box = TuplePat pats box (map hsLPatType pats)
 
 -- The Big equivalents for the source tuple expressions
-mkBigLHsVarTup :: [Id] -> LHsExpr Id
+mkBigLHsVarTup :: (ApiAnnotation l) => [Id] -> LHsExpr l Id
 mkBigLHsVarTup ids = mkBigLHsTup (map nlHsVar ids)
 
-mkBigLHsTup :: [LHsExpr Id] -> LHsExpr Id
+mkBigLHsTup :: (ApiAnnotation l) => [LHsExpr l Id] -> LHsExpr l Id
 mkBigLHsTup = mkChunkified mkLHsTupleExpr
 
 -- The Big equivalents for the source tuple patterns
-mkBigLHsVarPatTup :: [Id] -> LPat Id
+mkBigLHsVarPatTup :: (ApiAnnotation l) => [Id] -> LPat l Id
 mkBigLHsVarPatTup bs = mkBigLHsPatTup (map nlVarPat bs)
 
-mkBigLHsPatTup :: [LPat Id] -> LPat Id
+mkBigLHsPatTup :: (ApiAnnotation l) => [LPat l Id] -> LPat l Id
 mkBigLHsPatTup = mkChunkified mkLHsPatTup
 \end{code}
 
@@ -782,10 +786,10 @@ for the primitive case:
 Now @fail.33@ is a function, so it can be let-bound.
 
 \begin{code}
-mkFailurePair :: CoreExpr	-- Result type of the whole case expression
-	      -> DsM (CoreBind,	-- Binds the newly-created fail variable
-				-- to \ _ -> expression
-		      CoreExpr)	-- Fail variable applied to realWorld#
+mkFailurePair :: CoreExpr         -- Result type of the whole case expression
+              -> DsM l (CoreBind, -- Binds the newly-created fail variable
+                                  -- to \ _ -> expression
+                        CoreExpr) -- Fail variable applied to realWorld#
 -- See Note [Failure thunks and CPR]
 mkFailurePair expr
   = do { fail_fun_var <- newFailLocalDs (voidPrimTy `mkFunTy` ty)
@@ -820,7 +824,7 @@ mkOptTickBox :: Maybe (Tickish Id) -> CoreExpr -> CoreExpr
 mkOptTickBox Nothing e        = e
 mkOptTickBox (Just tickish) e = Tick tickish e
 
-mkBinaryTickBox :: Int -> Int -> CoreExpr -> DsM CoreExpr
+mkBinaryTickBox :: Int -> Int -> CoreExpr -> DsM l CoreExpr
 mkBinaryTickBox ixT ixF e = do
        uq <- newUnique 	
        this_mod <- getModule

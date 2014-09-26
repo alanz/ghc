@@ -33,7 +33,7 @@ import Control.Monad
 import Outputable
 
 
-buildPReprTyCon :: TyCon -> TyCon -> SumRepr -> VM FamInst
+buildPReprTyCon :: TyCon -> TyCon -> SumRepr -> VM l FamInst
 buildPReprTyCon orig_tc vect_tc repr
  = do name      <- mkLocalisedName mkPReprTyConOcc (tyConName orig_tc)
       rhs_ty    <- sumReprType repr
@@ -61,17 +61,17 @@ buildPReprTyCon orig_tc vect_tc repr
 --      fromArrPReprs :: PDatas (PRepr a) -> PDatas a
 --   @
 --
-type PAInstanceBuilder
-        =  TyCon        -- ^ Vectorised TyCon 
+type PAInstanceBuilder l
+        =  TyCon         -- ^ Vectorised TyCon
         -> CoAxiom Unbranched
-                        -- ^ Coercion to the representation TyCon
-        -> TyCon        -- ^ 'PData'  TyCon
-        -> TyCon        -- ^ 'PDatas' TyCon
-        -> SumRepr      -- ^ Description of generic representation.
-        -> VM CoreExpr  -- ^ Instance function.
+                         -- ^ Coercion to the representation TyCon
+        -> TyCon         -- ^ 'PData'  TyCon
+        -> TyCon         -- ^ 'PDatas' TyCon
+        -> SumRepr       -- ^ Description of generic representation.
+        -> VM l CoreExpr -- ^ Instance function.
 
 
-buildPAScAndMethods :: VM [(String, PAInstanceBuilder)]
+buildPAScAndMethods :: VM l [(String, PAInstanceBuilder l)]
 buildPAScAndMethods
  = return [ ("toPRepr",       buildToPRepr)
           , ("fromPRepr",     buildFromPRepr)
@@ -83,7 +83,7 @@ buildPAScAndMethods
 
 -- buildToPRepr ---------------------------------------------------------------
 -- | Build the 'toRepr' method of the PA class.
-buildToPRepr :: PAInstanceBuilder
+buildToPRepr :: PAInstanceBuilder l
 buildToPRepr vect_tc repr_ax _ _ repr
  = do let arg_ty = mkTyConApp vect_tc ty_args
 
@@ -104,7 +104,7 @@ buildToPRepr vect_tc repr_ax _ _ repr
 
     -- CoreExp to convert the given argument to the generic representation.
     -- We start by doing a case branch on the possible data constructors.
-    to_sum :: CoreExpr -> Type -> Type -> SumRepr -> VM CoreExpr
+    to_sum :: CoreExpr -> Type -> Type -> SumRepr -> VM l CoreExpr
     to_sum _ _ _ EmptySum
      = do void <- builtin voidVar
           return $ wrap_repr_inst $ Var void
@@ -129,7 +129,7 @@ buildToPRepr vect_tc repr_ax _ _ repr
           return (DataAlt con, vars, body)
 
     -- CoreExp to convert data constructor fields to the generic representation.
-    to_prod :: ProdRepr -> VM ([Var], CoreExpr)
+    to_prod :: ProdRepr -> VM l ([Var], CoreExpr)
     to_prod EmptyProd
      = do void <- builtin voidVar
           return ([], Var void)
@@ -148,7 +148,7 @@ buildToPRepr vect_tc repr_ax _ _ repr
           return (vars, mkConApp tup_con (map Type tys ++ exprs))
 
     -- CoreExp to convert a data constructor component to the generic representation.
-    to_comp :: CoreExpr -> CompRepr -> VM CoreExpr
+    to_comp :: CoreExpr -> CompRepr -> VM l CoreExpr
     to_comp expr (Keep _ _) = return expr
     to_comp expr (Wrap ty)  = wrapNewTypeBodyOfWrap expr ty
 
@@ -157,7 +157,7 @@ buildToPRepr vect_tc repr_ax _ _ repr
 
 -- |Build the 'fromPRepr' method of the PA class.
 --
-buildFromPRepr :: PAInstanceBuilder
+buildFromPRepr :: PAInstanceBuilder l
 buildFromPRepr vect_tc repr_ax _ _ repr
   = do
       arg_ty <- mkPReprType res_ty
@@ -210,7 +210,7 @@ buildFromPRepr vect_tc repr_ax _ _ repr
 
 -- |Build the 'toArrRepr' method of the PA class.
 --
-buildToArrPRepr :: PAInstanceBuilder
+buildToArrPRepr :: PAInstanceBuilder l
 buildToArrPRepr vect_tc repr_co pdata_tc _ r
  = do arg_ty <- mkPDataType el_ty
       res_ty <- mkPDataType =<< mkPReprType el_ty
@@ -275,7 +275,7 @@ buildToArrPRepr vect_tc repr_co pdata_tc _ r
 
 -- |Build the 'fromArrPRepr' method for the PA class.
 --
-buildFromArrPRepr :: PAInstanceBuilder
+buildFromArrPRepr :: PAInstanceBuilder l
 buildFromArrPRepr vect_tc repr_co pdata_tc _ r
  = do arg_ty <- mkPDataType =<< mkPReprType el_ty
       res_ty <- mkPDataType el_ty
@@ -350,7 +350,7 @@ buildFromArrPRepr vect_tc repr_co pdata_tc _ r
 -- buildToArrPReprs -----------------------------------------------------------
 -- | Build the 'toArrPReprs' instance for the PA class.
 --   This converts a PData of elements into the generic representation.
-buildToArrPReprs :: PAInstanceBuilder
+buildToArrPReprs :: PAInstanceBuilder l
 buildToArrPReprs vect_tc repr_co _ pdatas_tc r
  = do
     -- The argument type of the instance.
@@ -445,7 +445,7 @@ buildToArrPReprs vect_tc repr_co _ pdatas_tc r
 
 
 -- buildFromArrPReprs ---------------------------------------------------------
-buildFromArrPReprs :: PAInstanceBuilder
+buildFromArrPReprs :: PAInstanceBuilder l
 buildFromArrPReprs vect_tc repr_co _ pdatas_tc r
  = do   
     -- The argument type of the instance.

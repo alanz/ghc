@@ -114,14 +114,14 @@ data CompRepr
 
 -- |Determine the generic representation of a data type, given its tycon.
 --
-tyConRepr :: TyCon -> VM SumRepr
-tyConRepr tc 
+tyConRepr :: TyCon -> VM l SumRepr
+tyConRepr tc
   = sum_repr (tyConDataCons tc)
   where
     -- Build the representation type for a data type with the given constructors.
     -- The representation types for each individual constructor are bundled
     -- together into a generic sum type.
-    sum_repr :: [DataCon] -> VM SumRepr
+    sum_repr :: [DataCon] -> VM l SumRepr
     sum_repr []    = return EmptySum
     sum_repr [con] = liftM UnarySum (con_repr con)
     sum_repr cons  
@@ -156,7 +156,7 @@ tyConRepr tc
     -- Build the representation type for the fields of a data constructor.
     -- The representation types for each individual field are bundled
     -- together into a generic product type.
-    prod_repr :: [Type] -> VM ProdRepr
+    prod_repr :: [Type] -> VM l ProdRepr
     prod_repr []   = return EmptyProd
     prod_repr [ty] = liftM UnaryProd (comp_repr ty)
     prod_repr tys  
@@ -185,7 +185,7 @@ tyConRepr tc
 
 -- |Yield the type of this sum representation.
 --
-sumReprType :: SumRepr -> VM Type
+sumReprType :: SumRepr -> VM l Type
 sumReprType EmptySum     = voidType
 sumReprType (UnarySum r) = conReprType r
 sumReprType (Sum { repr_sum_tc  = sum_tc, repr_con_tys = tys })
@@ -193,12 +193,12 @@ sumReprType (Sum { repr_sum_tc  = sum_tc, repr_con_tys = tys })
 
 -- Yield the type of this constructor representation.
 --
-conReprType :: ConRepr -> VM Type
+conReprType :: ConRepr -> VM l Type
 conReprType (ConRepr _ r) = prodReprType r
 
 -- Yield the type of of this product representation.
 --
-prodReprType :: ProdRepr -> VM Type
+prodReprType :: ProdRepr -> VM l Type
 prodReprType EmptyProd     = voidType
 prodReprType (UnaryProd r) = compReprType r
 prodReprType (Prod { repr_tup_tc = tup_tc, repr_comp_tys = tys })
@@ -206,7 +206,7 @@ prodReprType (Prod { repr_tup_tc = tup_tc, repr_comp_tys = tys })
 
 -- Yield the type of this data constructor field \/ component representation.
 --
-compReprType :: CompRepr -> VM Type
+compReprType :: CompRepr -> VM l Type
 compReprType (Keep ty _) = return ty
 compReprType (Wrap ty)   = mkWrapType ty
 

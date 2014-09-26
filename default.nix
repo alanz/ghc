@@ -1,0 +1,1 @@
+/home/alanz/mysrc/github/alanz/nix-project-defaults/ghc/default.nix

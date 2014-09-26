@@ -56,7 +56,7 @@ vectoriseIO hsc_env guts
 
 -- Vectorise a single module, in the VM monad.
 --
-vectModule :: ModGuts -> VM ModGuts
+vectModule :: ModGuts -> VM l ModGuts
 vectModule guts@(ModGuts { mg_tcs        = tycons
                          , mg_binds      = binds
                          , mg_fam_insts  = fam_insts
@@ -138,7 +138,7 @@ vectModule guts@(ModGuts { mg_tcs        = tycons
 -- FIXME: Once we support partial vectorisation, we may be able to vectorise parts of a group, or
 --   we may emit a warning and refrain from vectorising the entire group.
 --
-vectTopBind :: CoreBind -> VM CoreBind
+vectTopBind :: CoreBind -> VM l CoreBind
 vectTopBind b@(NonRec var expr)
   = do
     { traceVt "= Vectorise non-recursive top-level variable" (ppr var)
@@ -277,7 +277,7 @@ vectTopBind b@(Rec binds)
 --
 -- RESTIRCTION: Currently, we cannot use the pragma for mutually recursive definitions.
 --
-vectImpBind :: (Id, CoreExpr) -> VM CoreBind
+vectImpBind :: (Id, CoreExpr) -> VM l CoreBind
 vectImpBind (var, expr)
   = do 
     { traceVt "= Add vectorised binding to imported variable" (ppr var)
@@ -295,7 +295,7 @@ vectImpBind (var, expr)
 vectTopBinder :: Var      -- ^ Name of the binding.
               -> Inline   -- ^ Whether it should be inlined, used to annotate it.
               -> CoreExpr -- ^ RHS of binding, used to set the 'Unfolding' of the returned 'Var'.
-              -> VM Var   -- ^ Name of the vectorised binding.
+              -> VM l Var -- ^ Name of the vectorised binding.
 vectTopBinder var inline expr
  = do {   -- Vectorise the type attached to the var.
       ; vty  <- vectType (idType var)
@@ -346,7 +346,7 @@ vectTopBinder var inline expr
 tryConvert :: Var       -- ^Name of the original binding (eg @foo@)
            -> Var       -- ^Name of vectorised version of binding (eg @$vfoo@)
            -> CoreExpr  -- ^The original body of the binding.
-           -> VM CoreExpr
+           -> VM l CoreExpr
 tryConvert var vect_var rhs
   = fromVect (idType var) (Var vect_var) 
     `orElseErrV` 

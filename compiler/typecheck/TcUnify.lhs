@@ -7,6 +7,8 @@ Type subsumption and unification
 
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 -- The above warning supression flag is a temporary kludge.
 -- While working on this module you are encouraged to remove it and
@@ -59,6 +61,7 @@ import Maybes ( isJust )
 import Util
 import Outputable
 import FastString
+import SrcLoc ( ApiAnnotation(..) )
 
 import Control.Monad
 \end{code}
@@ -110,10 +113,11 @@ expected type, because it expects that to have been done already
 
 
 \begin{code}
-matchExpectedFunTys :: SDoc 	-- See Note [Herald for matchExpectedFunTys]
-            	    -> Arity
-            	    -> TcRhoType 
-                    -> TcM (TcCoercion, [TcSigmaType], TcRhoType)
+matchExpectedFunTys :: (ApiAnnotation l)
+                     => SDoc    -- See Note [Herald for matchExpectedFunTys]
+                    -> Arity
+                    -> TcRhoType
+                    -> TcM l (TcCoercion, [TcSigmaType], TcRhoType)
 
 -- If    matchExpectFunTys n ty = (co, [t1,..,tn], ty_r)
 -- then  co : ty ~ (t1 -> ... -> tn -> ty_r)
@@ -165,7 +169,7 @@ matchExpectedFunTys herald arity orig_ty
            ; return (co, arg_tys, res_ty) }
 
     ------------
-    mk_ctxt :: TidyEnv -> TcM (TidyEnv, MsgDoc)
+    mk_ctxt :: TidyEnv -> TcM l (TidyEnv, MsgDoc)
     mk_ctxt env = do { orig_ty1 <- zonkTcType orig_ty
                      ; let (env', orig_ty2) = tidyOpenType env orig_ty1
                            (args, _) = tcSplitFunTys orig_ty2
@@ -190,24 +194,27 @@ we are ok.
 
 \begin{code}
 ----------------------
-matchExpectedListTy :: TcRhoType -> TcM (TcCoercion, TcRhoType)
+matchExpectedListTy :: (ApiAnnotation l)
+                    => TcRhoType -> TcM l (TcCoercion, TcRhoType)
 -- Special case for lists
 matchExpectedListTy exp_ty
  = do { (co, [elt_ty]) <- matchExpectedTyConApp listTyCon exp_ty
       ; return (co, elt_ty) }
 
 ----------------------
-matchExpectedPArrTy :: TcRhoType -> TcM (TcCoercion, TcRhoType)
+matchExpectedPArrTy :: (ApiAnnotation l)
+                    => TcRhoType -> TcM l (TcCoercion, TcRhoType)
 -- Special case for parrs
 matchExpectedPArrTy exp_ty
   = do { (co, [elt_ty]) <- matchExpectedTyConApp parrTyCon exp_ty
        ; return (co, elt_ty) }
 
 ----------------------
-matchExpectedTyConApp :: TyCon                -- T :: forall kv1 ... kvm. k1 -> ... -> kn -> *
-                      -> TcRhoType 	      -- orig_ty
-                      -> TcM (TcCoercion,     -- T k1 k2 k3 a b c ~ orig_ty
-                              [TcSigmaType])  -- Element types, k1 k2 k3 a b c
+matchExpectedTyConApp :: (ApiAnnotation l)
+                      => TyCon  -- T :: forall kv1 ... kvm. k1 -> ... -> kn -> *
+                      -> TcRhoType             -- orig_ty
+                      -> TcM l (TcCoercion,    -- T k1 k2 k3 a b c ~ orig_ty
+                               [TcSigmaType])  -- Element types, k1 k2 k3 a b c
 
 -- It's used for wired-in tycons, so we call checkWiredInTyCon
 -- Precondition: never called with FunTyCon
@@ -255,9 +262,10 @@ matchExpectedTyConApp tc orig_ty
     (arg_kinds, res_kind) = splitKindFunTys body
 
 ----------------------
-matchExpectedAppTy :: TcRhoType                         -- orig_ty
-                   -> TcM (TcCoercion,                   -- m a ~ orig_ty
-                           (TcSigmaType, TcSigmaType))  -- Returns m, a
+matchExpectedAppTy :: (ApiAnnotation l)
+                   => TcRhoType                          -- orig_ty
+                   -> TcM l (TcCoercion,                 -- m a ~ orig_ty
+                            (TcSigmaType, TcSigmaType))  -- Returns m, a
 -- If the incoming type is a mutable type variable of kind k, then
 -- matchExpectedAppTy returns a new type variable (m: * -> k); note the *.
 
@@ -316,7 +324,9 @@ which takes an HsExpr of type actual_ty into one of type
 expected_ty.
 
 \begin{code}
-tcSubType :: CtOrigin -> UserTypeCtxt -> TcSigmaType -> TcSigmaType -> TcM HsWrapper
+tcSubType :: (ApiAnnotation l)
+          => CtOrigin l -> UserTypeCtxt -> TcSigmaType -> TcSigmaType
+          -> TcM l HsWrapper
 -- Check that ty_actual is more polymorphic than ty_expected
 -- Both arguments might be polytypes, so we must instantiate and skolemise
 -- Returns a wrapper of shape   ty_actual ~ ty_expected
@@ -344,13 +354,14 @@ tcSubType origin ctxt ty_actual ty_expected
                       PatSigOrigin -> TypeEqOrigin { uo_actual = ty2, uo_expected = ty1 }
                       _other       -> TypeEqOrigin { uo_actual = ty1, uo_expected = ty2 }
   
-tcInfer :: (TcType -> TcM a) -> TcM (a, TcType)
+tcInfer :: (TcType -> TcM l a) -> TcM l (a, TcType)
 tcInfer tc_infer = do { ty  <- newFlexiTyVarTy openTypeKind
                       ; res <- tc_infer ty
 		      ; return (res, ty) }
 
 -----------------
-tcWrapResult :: HsExpr TcId -> TcRhoType -> TcRhoType -> TcM (HsExpr TcId)
+tcWrapResult :: (ApiAnnotation l)
+             => HsExpr l TcId -> TcRhoType -> TcRhoType -> TcM l (HsExpr l TcId)
 tcWrapResult expr actual_ty res_ty
   = do { cow <- unifyType actual_ty res_ty
        	        -- Both types are deeply skolemised
@@ -360,7 +371,7 @@ tcWrapResult expr actual_ty res_ty
 wrapFunResCoercion
         :: [TcType]     -- Type of args
         -> HsWrapper    -- HsExpr a -> HsExpr b
-        -> TcM HsWrapper        -- HsExpr (arg_tys -> a) -> HsExpr (arg_tys -> b)
+        -> TcM l HsWrapper -- HsExpr (arg_tys -> a) -> HsExpr (arg_tys -> b)
 wrapFunResCoercion arg_tys co_fn_res
   | isIdHsWrapper co_fn_res
   = return idHsWrapper
@@ -381,8 +392,8 @@ wrapFunResCoercion arg_tys co_fn_res
 
 \begin{code}
 tcGen :: UserTypeCtxt -> TcType
-      -> ([TcTyVar] -> TcRhoType -> TcM result)
-      -> TcM (HsWrapper, result)
+      -> ([TcTyVar] -> TcRhoType -> TcM l result)
+      -> TcM l (HsWrapper, result)
         -- The expression has type: spec_ty -> expected_ty
 
 tcGen ctxt expected_ty thing_inside
@@ -421,10 +432,10 @@ tcGen ctxt expected_ty thing_inside
 	  -- often empty, in which case mkWpLet is a no-op
 
 checkConstraints :: SkolemInfo
-		 -> [TcTyVar]		-- Skolems
-		 -> [EvVar]             -- Given
-		 -> TcM result
-		 -> TcM (TcEvBinds, result)
+                 -> [TcTyVar]           -- Skolems
+                 -> [EvVar]             -- Given
+                 -> TcM l result
+                 -> TcM l (TcEvBinds, result)
 
 checkConstraints skol_info skol_tvs given thing_inside
   | null skol_tvs && null given
@@ -436,8 +447,8 @@ checkConstraints skol_info skol_tvs given thing_inside
   = newImplication skol_info skol_tvs given thing_inside
 
 newImplication :: SkolemInfo -> [TcTyVar]
-	       -> [EvVar] -> TcM result
-               -> TcM (TcEvBinds, result)
+               -> [EvVar] -> TcM l result
+               -> TcM l (TcEvBinds, result)
 newImplication skol_info skol_tvs given thing_inside
   = ASSERT2( all isTcTyVar skol_tvs, ppr skol_tvs )
     ASSERT2( all isSkolemTyVar skol_tvs, ppr skol_tvs )
@@ -479,7 +490,7 @@ The exported functions are all defined as versions of some
 non-exported generic functions.
 
 \begin{code}
-unifyType :: TcTauType -> TcTauType -> TcM TcCoercion
+unifyType :: (ApiAnnotation l) => TcTauType -> TcTauType -> TcM l TcCoercion
 -- Actual and expected types
 -- Returns a coercion : ty1 ~ ty2
 unifyType ty1 ty2 = uType origin ty1 ty2
@@ -487,12 +498,13 @@ unifyType ty1 ty2 = uType origin ty1 ty2
     origin = TypeEqOrigin { uo_actual = ty1, uo_expected = ty2 }
 
 ---------------
-unifyPred :: PredType -> PredType -> TcM TcCoercion
+unifyPred :: (ApiAnnotation l) => PredType -> PredType -> TcM l TcCoercion
 -- Actual and expected types
 unifyPred = unifyType
 
 ---------------
-unifyTheta :: TcThetaType -> TcThetaType -> TcM [TcCoercion]
+unifyTheta :: (ApiAnnotation l)
+           => TcThetaType -> TcThetaType -> TcM l [TcCoercion]
 -- Actual and expected types
 unifyTheta theta1 theta2
   = do  { checkTc (equalLength theta1 theta2)
@@ -506,7 +518,7 @@ all together.  It is used, for example, when typechecking explicit
 lists, when all the elts should be of the same type.
 
 \begin{code}
-unifyTypeList :: [TcTauType] -> TcM ()
+unifyTypeList :: (ApiAnnotation l) => [TcTauType] -> TcM l ()
 unifyTypeList []                 = return ()
 unifyTypeList [_]                = return ()
 unifyTypeList (ty1:tys@(ty2:_)) = do { _ <- unifyType ty1 ty2
@@ -528,10 +540,10 @@ de-synonym'd version.  This way we get better error messages.
 \begin{code}
 ------------
 uType, uType_defer
-  :: CtOrigin
+  :: forall l. (ApiAnnotation l) => CtOrigin l
   -> TcType    -- ty1 is the *actual* type
   -> TcType    -- ty2 is the *expected* type
-  -> TcM TcCoercion
+  -> TcM l TcCoercion
 
 --------------
 -- It is always safe to defer unification to the main constraint solver
@@ -569,7 +581,7 @@ uType origin orig_ty1 orig_ty2
             else traceTc "u_tys yields coercion:" (ppr co)
        ; return co }
   where
-    go :: TcType -> TcType -> TcM TcCoercion
+    go :: TcType -> TcType -> TcM l TcCoercion
 	-- The arguments to 'go' are always semantically identical 
 	-- to orig_ty{1,2} except for looking through type synonyms
 
@@ -652,7 +664,8 @@ uType origin orig_ty1 orig_ty2
            ; co_t <- uType origin t1 t2        
            ; return $ mkTcAppCo co_s co_t }
 
-unifySigmaTy :: CtOrigin -> TcType -> TcType -> TcM TcCoercion
+unifySigmaTy :: (ApiAnnotation l)
+             => CtOrigin l -> TcType -> TcType -> TcM l TcCoercion
 unifySigmaTy origin ty1 ty2
   = do { let (tvs1, body1) = tcSplitForAllTys ty1
              (tvs2, body2) = tcSplitForAllTys ty2
@@ -759,11 +772,11 @@ of the substitution; rather, notice that @uVar@ (defined below) nips
 back into @uTys@ if it turns out that the variable is already bound.
 
 \begin{code}
-uUnfilledVar :: CtOrigin
+uUnfilledVar :: (ApiAnnotation l) => CtOrigin l
              -> SwapFlag
              -> TcTyVar -> TcTyVarDetails       -- Tyvar 1
-             -> TcTauType  			-- Type 2
-             -> TcM TcCoercion
+             -> TcTauType                       -- Type 2
+             -> TcM l TcCoercion
 -- "Unfilled" means that the variable is definitely not a filled-in meta tyvar
 --            It might be a skolem, or untouchable, or meta
 
@@ -799,11 +812,11 @@ uUnfilledVar origin swapped tv1 details1 non_var_ty2  -- ty2 is not a type varia
 	       --     eg tv1 occured in type family parameter
 
 ----------------
-uUnfilledVars :: CtOrigin
+uUnfilledVars :: (ApiAnnotation l) => CtOrigin l
               -> SwapFlag
               -> TcTyVar -> TcTyVarDetails      -- Tyvar 1
               -> TcTyVar -> TcTyVarDetails      -- Tyvar 2
-              -> TcM TcCoercion
+              -> TcM l TcCoercion
 -- Invarant: The type variables are distinct,
 --           Neither is filled in yet
 
@@ -849,7 +862,7 @@ nicer_to_update_tv1 tv1 _     _     = isSystemName (Var.varName tv1)
         -- type sig
 
 ----------------
-checkTauTvUpdate :: DynFlags -> TcTyVar -> TcType -> TcM (Maybe TcType)
+checkTauTvUpdate :: DynFlags -> TcTyVar -> TcType -> TcM l (Maybe TcType)
 --    (checkTauTvUpdate tv ty)
 -- We are about to update the TauTv/PolyTv tv with ty.
 -- Check (a) that tv doesn't occur in ty (occurs check)
@@ -1024,7 +1037,7 @@ data LookupTyVarResult	-- The result of a lookupTcTyVar call
   = Unfilled TcTyVarDetails	-- SkolemTv or virgin MetaTv
   | Filled   TcType
 
-lookupTcTyVar :: TcTyVar -> TcM LookupTyVarResult
+lookupTcTyVar :: TcTyVar -> TcM l LookupTyVarResult
 lookupTcTyVar tyvar 
   | MetaTv { mtv_ref = ref } <- details
   = do { meta_details <- readMutVar ref
@@ -1042,7 +1055,7 @@ lookupTcTyVar tyvar
     details = ASSERT2( isTcTyVar tyvar, ppr tyvar )
               tcTyVarDetails tyvar
 
-updateMeta :: TcTyVar -> TcRef MetaDetails -> TcType -> TcM TcCoercion
+updateMeta :: TcTyVar -> TcRef MetaDetails -> TcType -> TcM l TcCoercion
 updateMeta tv1 ref1 ty2
   = do { writeMetaTyVarRef tv1 ref1 ty2
        ; return (mkTcNomReflCo ty2) }
@@ -1097,7 +1110,7 @@ Hence the isTcTyVar tests before calling lookupTcTyVar.
 
 
 \begin{code}
-matchExpectedFunKind :: TcKind -> TcM (Maybe (TcKind, TcKind))
+matchExpectedFunKind :: TcKind -> TcM l (Maybe (TcKind, TcKind))
 -- Like unifyFunTy, but does not fail; instead just returns Nothing
 
 matchExpectedFunKind (FunTy arg_kind res_kind) 
@@ -1119,7 +1132,7 @@ matchExpectedFunKind _ = return Nothing
 -----------------  
 unifyKindX :: TcKind           -- k1 (actual)
            -> TcKind           -- k2 (expected)
-           -> TcM (Maybe Ordering)     
+           -> TcM l (Maybe Ordering)
                               -- Returns the relation between the kinds
                               -- Just LT <=> k1 is a sub-kind of k2
                               -- Nothing <=> incomparable
@@ -1145,8 +1158,8 @@ unifyKindX k1 k2 = unifyKindEq k1 k2
   -- In all other cases, let unifyKindEq do the work
 
 -------------------
-uKVar :: SwapFlag -> (TcKind -> TcKind -> TcM (Maybe Ordering))
-      -> MetaKindVar -> TcKind -> TcM (Maybe Ordering)
+uKVar :: SwapFlag -> (TcKind -> TcKind -> TcM l (Maybe Ordering))
+      -> MetaKindVar -> TcKind -> TcM l (Maybe Ordering)
 uKVar swapped unify_kind kv1 k2
   | isTcTyVar kv1
   = do { lookup_res <- lookupTcTyVar kv1  -- See Note [Kind variables can be untouchable]
@@ -1158,7 +1171,7 @@ uKVar swapped unify_kind kv1 k2
   = uUnfilledKVar kv1 vanillaSkolemTv k2
 
 -------------------
-uUnfilledKVar :: MetaKindVar -> TcTyVarDetails -> TcKind -> TcM (Maybe Ordering)
+uUnfilledKVar :: MetaKindVar -> TcTyVarDetails -> TcKind -> TcM l (Maybe Ordering)
 uUnfilledKVar kv1 ds1 (TyVarTy kv2)
   | kv1 == kv2
   = return (Just EQ)
@@ -1190,7 +1203,7 @@ uUnfilledKVar kv1 ds1 non_var_k2
 -------------------
 uUnfilledKVars :: MetaKindVar -> TcTyVarDetails
                -> MetaKindVar -> TcTyVarDetails
-               -> TcM (Maybe Ordering)
+               -> TcM l (Maybe Ordering)
 -- kv1 /= kv2
 uUnfilledKVars kv1 ds1 kv2 ds2
   = case (ds1, ds2) of
@@ -1206,7 +1219,7 @@ uUnfilledKVars kv1 ds1 kv2 ds2
       = do { writeMetaTyVarRef kv1 r1 (mkTyVarTy kv2); return (Just EQ) }
 
 ---------------------------
-unifyKindEq :: TcKind -> TcKind -> TcM (Maybe Ordering)
+unifyKindEq :: TcKind -> TcKind -> TcM l (Maybe Ordering)
 -- Unify two kinds looking for equality not sub-kinding
 -- So it returns Nothing or (Just EQ) only
 unifyKindEq (TyVarTy kv1) k2 = uKVar NotSwapped unifyKindEq kv1 k2

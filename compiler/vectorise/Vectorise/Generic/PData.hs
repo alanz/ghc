@@ -30,8 +30,8 @@ import Control.Monad
 
 -- buildPDataTyCon ------------------------------------------------------------
 -- | Build the PData instance tycon for a given type constructor.
-buildPDataTyCon :: TyCon -> TyCon -> SumRepr -> VM FamInst
-buildPDataTyCon orig_tc vect_tc repr 
+buildPDataTyCon :: TyCon -> TyCon -> SumRepr -> VM l FamInst
+buildPDataTyCon orig_tc vect_tc repr
  = fixV $ \fam_inst ->
    do let repr_tc = dataFamInstRepTyCon fam_inst
       name' <- mkLocalisedName mkPDataTyConOcc orig_name
@@ -41,7 +41,7 @@ buildPDataTyCon orig_tc vect_tc repr
  where
     orig_name = tyConName orig_tc
 
-buildDataFamInst :: Name -> TyCon -> TyCon -> AlgTyConRhs -> VM FamInst
+buildDataFamInst :: Name -> TyCon -> TyCon -> AlgTyConRhs -> VM l FamInst
 buildDataFamInst name' fam_tc vect_tc rhs
  = do { axiom_name <- mkDerivedName mkInstTyCoOcc name'
 
@@ -65,13 +65,13 @@ buildDataFamInst name' fam_tc vect_tc rhs
     tyvars    = tyConTyVars vect_tc
     rec_flag  = boolToRecFlag (isRecursiveTyCon vect_tc)
 
-buildPDataTyConRhs :: Name -> TyCon -> TyCon -> SumRepr -> VM AlgTyConRhs
+buildPDataTyConRhs :: Name -> TyCon -> TyCon -> SumRepr -> VM l AlgTyConRhs
 buildPDataTyConRhs orig_name vect_tc repr_tc repr
  = do data_con <- buildPDataDataCon orig_name vect_tc repr_tc repr
       return $ DataTyCon { data_cons = [data_con], is_enum = False }
 
 
-buildPDataDataCon :: Name -> TyCon -> TyCon -> SumRepr -> VM DataCon
+buildPDataDataCon :: Name -> TyCon -> TyCon -> SumRepr -> VM l DataCon
 buildPDataDataCon orig_name vect_tc repr_tc repr
  = do let tvs   = tyConTyVars vect_tc
       dc_name   <- mkLocalisedName mkPDataDataConOcc orig_name
@@ -92,8 +92,8 @@ buildPDataDataCon orig_name vect_tc repr_tc repr
 
 -- buildPDatasTyCon -----------------------------------------------------------
 -- | Build the PDatas instance tycon for a given type constructor.
-buildPDatasTyCon :: TyCon -> TyCon -> SumRepr -> VM FamInst
-buildPDatasTyCon orig_tc vect_tc repr 
+buildPDatasTyCon :: TyCon -> TyCon -> SumRepr -> VM l FamInst
+buildPDatasTyCon orig_tc vect_tc repr
  = fixV $ \fam_inst ->
    do let repr_tc = dataFamInstRepTyCon fam_inst
       name'       <- mkLocalisedName mkPDatasTyConOcc orig_name
@@ -103,13 +103,13 @@ buildPDatasTyCon orig_tc vect_tc repr
  where
     orig_name = tyConName orig_tc
 
-buildPDatasTyConRhs :: Name -> TyCon -> TyCon -> SumRepr -> VM AlgTyConRhs
+buildPDatasTyConRhs :: Name -> TyCon -> TyCon -> SumRepr -> VM l AlgTyConRhs
 buildPDatasTyConRhs orig_name vect_tc repr_tc repr
  = do data_con <- buildPDatasDataCon orig_name vect_tc repr_tc repr
       return $ DataTyCon { data_cons = [data_con], is_enum = False }
 
 
-buildPDatasDataCon :: Name -> TyCon -> TyCon -> SumRepr -> VM DataCon
+buildPDatasDataCon :: Name -> TyCon -> TyCon -> SumRepr -> VM l DataCon
 buildPDatasDataCon orig_name vect_tc repr_tc repr
  = do let tvs   = tyConTyVars vect_tc
       dc_name        <- mkLocalisedName mkPDatasDataConOcc orig_name
@@ -133,9 +133,9 @@ buildPDatasDataCon orig_name vect_tc repr_tc repr
 -- | Flatten a SumRepr into a list of data constructor types.
 mkSumTys 
         :: (SumRepr -> Type)
-        -> (Type -> VM Type)
+        -> (Type -> VM l Type)
         -> SumRepr
-        -> VM [Type]
+        -> VM l [Type]
 
 mkSumTys repr_selX_ty mkTc repr
  = sum_tys repr

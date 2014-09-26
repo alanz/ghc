@@ -6,27 +6,29 @@ import DsMonad  ( DsM, EquationInfo, MatchResult )
 import CoreSyn  ( CoreExpr )
 import HsSyn    ( LPat, HsMatchContext, MatchGroup, LHsExpr )
 import Name     ( Name )
+import SrcLoc   ( ApiAnnotation )
 
-match   :: [Id]
+match   :: (ApiAnnotation l)
+        => [Id]
         -> Type
         -> [EquationInfo l]
         -> DsM l (MatchResult l)
 
-matchWrapper
-        :: HsMatchContext Name
+matchWrapper :: (ApiAnnotation l)
+        => HsMatchContext Name
         -> MatchGroup l Id (LHsExpr l Id)
         -> DsM l ([Id], CoreExpr)
 
-matchSimply
-        :: CoreExpr
+matchSimply :: (ApiAnnotation l)
+        => CoreExpr
         -> HsMatchContext Name
         -> LPat l Id
         -> CoreExpr
         -> CoreExpr
         -> DsM l CoreExpr
 
-matchSinglePat
-        :: CoreExpr
+matchSinglePat :: (ApiAnnotation l)
+        => CoreExpr
         -> HsMatchContext Name
         -> LPat l Id
         -> Type

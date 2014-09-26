@@ -62,7 +62,7 @@ import Data.List
 -- We have got the non-recursive case as a special case as it doesn't require to compute
 -- vectorisation information twice.
 --
-vectTopExpr :: Var -> CoreExpr -> VM (Maybe (Bool, Inline, CoreExpr))
+vectTopExpr :: Var -> CoreExpr -> VM l (Maybe (Bool, Inline, CoreExpr))
 vectTopExpr var expr
   = do
     { exprVI <- encapsulateScalars <=< vectAvoidInfo emptyVarSet . freeVars $ expr
@@ -80,7 +80,7 @@ vectTopExpr var expr
 
 -- Compute the inlining hint for the right-hand side of a top-level binding.
 --
-computeInline :: CoreExprWithVectInfo -> VM Inline
+computeInline :: CoreExprWithVectInfo -> VM l Inline
 computeInline ((_, VIDict), _)     = return $ DontInline
 computeInline (_, AnnTick _ expr)  = computeInline expr
 computeInline expr@(_, AnnLam _ _) = Inline <$> polyArity tvs
@@ -94,7 +94,7 @@ computeInline _expr                = return $ DontInline
 -- (which is of type 'Bool') indicates whether the expressions are parallel (i.e., whether they are
 -- tagged as 'VIParr').
 --
-vectTopExprs :: [(Var, CoreExpr)] -> VM (Maybe (Bool, [(Inline, CoreExpr)]))
+vectTopExprs :: [(Var, CoreExpr)] -> VM l (Maybe (Bool, [(Inline, CoreExpr)]))
 vectTopExprs binds
   = do
     { exprVIs <- mapM (vectAvoidAndEncapsulate emptyVarSet) exprs
@@ -133,7 +133,7 @@ vectTopExprs binds
 -- The special case of dictionary functions is currently handled separately. (Would be neater to
 -- integrate them, though!)
 --
-vectAnnPolyExpr :: Bool -> CoreExprWithVectInfo -> VM VExpr
+vectAnnPolyExpr :: Bool -> CoreExprWithVectInfo -> VM l VExpr
 vectAnnPolyExpr loop_breaker (_, AnnTick tickish expr)
     -- traverse through ticks
   = vTick tickish <$> vectAnnPolyExpr loop_breaker expr
@@ -163,7 +163,7 @@ vectAnnPolyExpr loop_breaker expr
 -- minimal vectorisation avoidance, we only encapsulate individual scalar operations. With
 -- aggressive vectorisation avoidance, we encapsulate subexpression that are as big as possible.
 --
-encapsulateScalars :: CoreExprWithVectInfo -> VM CoreExprWithVectInfo
+encapsulateScalars :: CoreExprWithVectInfo -> VM l CoreExprWithVectInfo
 encapsulateScalars ce@(_, AnnType _ty)
   = return ce
 encapsulateScalars ce@((_, VISimple), AnnVar _v)
@@ -275,7 +275,7 @@ encapsulateScalars _
 -- If the expression is a case expression scrutinising anything, but a scalar type, then lift
 -- each alternative individually.
 --
-liftSimpleAndCase :: CoreExprWithVectInfo -> VM CoreExprWithVectInfo
+liftSimpleAndCase :: CoreExprWithVectInfo -> VM l CoreExprWithVectInfo
 liftSimpleAndCase aexpr@((fvs, _vi), AnnCase expr bndr t alts)
   = do
     { vi <- vectAvoidInfoTypeOf expr
@@ -289,7 +289,7 @@ liftSimpleAndCase aexpr@((fvs, _vi), AnnCase expr bndr t alts)
     }
 liftSimpleAndCase aexpr = liftSimple aexpr
 
-liftSimple :: CoreExprWithVectInfo -> VM CoreExprWithVectInfo
+liftSimple :: CoreExprWithVectInfo -> VM l CoreExprWithVectInfo
 liftSimple ((fvs, vi), AnnVar v)
   | v `elemVarSet` fvs                -- special case to avoid producing: (\v -> v) v
   && not (isToplevel v)               --   NB: if 'v' not free or is toplevel, we must get the 'VIEncaps'
@@ -331,7 +331,7 @@ isToplevel v | isId v    = case realIdUnfolding v of
 
 -- |Vectorise an expression.
 --
-vectExpr :: CoreExprWithVectInfo -> VM VExpr
+vectExpr :: CoreExprWithVectInfo -> VM l VExpr
 
 vectExpr aexpr
     -- encapsulated expression of functional type => try to vectorise as a scalar subcomputation
@@ -466,7 +466,7 @@ vectFnExpr :: Bool                  -- ^If we process the RHS of a binding, whet
                                     --  should be inlined
            -> Bool                  -- ^Whether the binding is a loop breaker
            -> CoreExprWithVectInfo  -- ^Expression to vectorise; must have an outer `AnnLam`
-           -> VM VExpr
+           -> VM l VExpr
 vectFnExpr inline loop_breaker aexpr@(_ann, AnnLam bndr body)
     -- predicate abstraction: leave as a normal abstraction, but vectorise the predicate type
   | isId bndr
@@ -507,7 +507,7 @@ vectFnExpr _ _ aexpr
 --
 -- The type of 'm' is 'm :: forall a. C a => forall b. D b => b -> a'.
 --
-vectPolyApp :: CoreExprWithVectInfo -> VM VExpr
+vectPolyApp :: CoreExprWithVectInfo -> VM l VExpr
 vectPolyApp e0
   = case e4 of
       (_, AnnVar var)
@@ -571,7 +571,7 @@ vectPolyApp e0
 --     computation.  Consequently, the variable case needs to deal with cases where binders are
 --     in the vectoriser environments and where that is not the case.
 --
-vectDictExpr :: CoreExpr -> VM CoreExpr
+vectDictExpr :: CoreExpr -> VM l CoreExpr
 vectDictExpr (Var var)
   = do { mb_scope <- lookupVar_maybe var
        ; case mb_scope of
@@ -619,7 +619,7 @@ vectDictExpr (Coercion coe)
 -- instead they become dictionaries of vectorised methods).  We treat them differently, though see
 -- "Note [Scalar dfuns]" in 'Vectorise'.
 --
-vectScalarFun :: CoreExpr -> VM VExpr
+vectScalarFun :: CoreExpr -> VM l VExpr
 vectScalarFun expr 
   = do 
     { traceVt "vectScalarFun:" (ppr expr) 
@@ -630,7 +630,7 @@ vectScalarFun expr
 -- Generate code for a scalar function by generating a scalar closure.  If the function is a
 -- dictionary function, vectorise it as dictionary code.
 -- 
-mkScalarFun :: [Type] -> Type -> CoreExpr -> VM VExpr
+mkScalarFun :: [Type] -> Type -> CoreExpr -> VM l VExpr
 mkScalarFun arg_tys res_ty expr
   | isPredTy res_ty
   = do { vExpr <- vectDictExpr expr
@@ -682,7 +682,7 @@ mkScalarFun arg_tys res_ty expr
 --   the application of the unvectorised dfun, to enable the dictionary selection rules to fire.
 --
 vectScalarDFun :: Var        -- ^ Original dfun
-               -> VM CoreExpr
+               -> VM l CoreExpr
 vectScalarDFun var
   = do {   -- bring the type variables into scope
        ; mapM_ defLocalTyVar tvs
@@ -727,7 +727,7 @@ vectScalarDFun var
 --
 -- where 'opTyi' is the type of the i-th superclass or op of the unvectorised dictionary.
 --
-unVectDict :: Type -> CoreExpr -> VM CoreExpr
+unVectDict :: Type -> CoreExpr -> VM l CoreExpr
 unVectDict ty e 
   = do { vTys <- mapM vectType tys
        ; let meths = map (\sel -> Var sel `mkTyApps` vTys `mkApps` [e]) selIds
@@ -750,7 +750,7 @@ unVectDict ty e
 vectLam :: Bool                 -- ^ Should the RHS of a binding be inlined?
         -> Bool                 -- ^ Whether the binding is a loop breaker.
         -> CoreExprWithVectInfo -- ^ Body of abstraction.
-        -> VM VExpr
+        -> VM l VExpr
 vectLam inline loop_breaker expr@((fvs, _vi), AnnLam _ _)
  = do { traceVt "fully vectorise a lambda expression" (ppr . deAnnotate $ expr)
  
@@ -827,7 +827,7 @@ vectLam _ _ _ = panic "Vectorise.Exp.vectLam: not a lambda"
 -- FIXME: this is too lazy...is it?
 vectAlgCase :: TyCon -> [Type] -> CoreExprWithVectInfo -> Var -> Type  
             -> [(AltCon, [Var], CoreExprWithVectInfo)]
-            -> VM VExpr
+            -> VM l VExpr
 vectAlgCase _tycon _ty_args scrut bndr ty [(DEFAULT, [], body)]
   = do
     { traceVt "scrutinee (DEFAULT only)" Outputable.empty
@@ -1035,7 +1035,7 @@ unlessVIParrExpr e1 e2 = e1 `unlessVIParr` vectAvoidInfoOf e2
 --
 -- * The first argument is the set of free, local variables whose evaluation may entail parallelism.
 --
-vectAvoidInfo :: VarSet -> CoreExprWithFVs -> VM CoreExprWithVectInfo
+vectAvoidInfo :: VarSet -> CoreExprWithFVs -> VM l CoreExprWithVectInfo
 vectAvoidInfo pvs ce@(fvs, AnnVar v)
   = do 
     { gpvs <- globalParallelVars
@@ -1163,7 +1163,7 @@ vectAvoidInfo _pvs (fvs, AnnCoercion coe)
 
 -- Compute vectorisation avoidance information for a type.
 --
-vectAvoidInfoType :: Type -> VM VectAvoidInfo   
+vectAvoidInfoType :: Type -> VM l VectAvoidInfo
 vectAvoidInfoType ty
   | isPredTy ty
   = return VIDict
@@ -1190,12 +1190,12 @@ vectAvoidInfoType ty
 
 -- Compute vectorisation avoidance information for the type of a Core expression (with FVs).
 --
-vectAvoidInfoTypeOf :: AnnExpr Var ann -> VM VectAvoidInfo
+vectAvoidInfoTypeOf :: AnnExpr Var ann -> VM l VectAvoidInfo
 vectAvoidInfoTypeOf = vectAvoidInfoType . annExprType
 
 -- Checks whether the type might be a parallel array type.
 --
-maybeParrTy :: Type -> VM Bool
+maybeParrTy :: Type -> VM l Bool
 maybeParrTy ty 
     -- looking through newtypes
   | Just ty'      <- coreView ty
@@ -1215,7 +1215,7 @@ maybeParrTy _               = return False
 --
 -- NB: 'liftSimple' does not abstract over toplevel variables.
 --
-allScalarVarType :: [Var] -> VM Bool
+allScalarVarType :: [Var] -> VM l Bool
 allScalarVarType vs = and <$> mapM isScalarOrToplevel vs
   where
     isScalarOrToplevel v | isToplevel v = return True
@@ -1223,12 +1223,12 @@ allScalarVarType vs = and <$> mapM isScalarOrToplevel vs
 
 -- Are the types of all variables in the set in the 'Scalar' class or toplevel variables?
 --
-allScalarVarTypeSet :: VarSet -> VM Bool
+allScalarVarTypeSet :: VarSet -> VM l Bool
 allScalarVarTypeSet = allScalarVarType . varSetElems
 
 -- Debugging support
 --
-viTrace :: CoreExprWithFVs -> VectAvoidInfo -> [CoreExprWithVectInfo] -> VM ()
+viTrace :: CoreExprWithFVs -> VectAvoidInfo -> [CoreExprWithVectInfo] -> VM l ()
 viTrace ce vi vTs
   = traceVt ("vect info: " ++ show vi ++ "[" ++ 
              (concat $ map ((++ " ") . show . vectAvoidInfoOf) vTs) ++ "]")

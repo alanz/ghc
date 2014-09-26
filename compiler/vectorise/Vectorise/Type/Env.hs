@@ -163,9 +163,9 @@ import Data.List
 vectTypeEnv :: [TyCon]                   -- Type constructors defined in this module
             -> [CoreVect]                -- All 'VECTORISE [SCALAR] type' declarations in this module
             -> [CoreVect]                -- All 'VECTORISE class' declarations in this module
-            -> VM ( [TyCon]              -- old TyCons ++ new TyCons
-                  , [FamInst]            -- New type family instances.
-                  , [(Var, CoreExpr)])   -- New top level bindings.
+            -> VM l ( [TyCon]            -- old TyCons ++ new TyCons
+                    , [FamInst]          -- New type family instances.
+                    , [(Var, CoreExpr)]) -- New top level bindings.
 vectTypeEnv tycons vectTypeDecls vectClassDecls
   = do { traceVt "** vectTypeEnv" $ ppr tycons
 
@@ -368,7 +368,7 @@ vectTypeEnv tycons vectTypeDecls vectClassDecls
 
 -- Helpers --------------------------------------------------------------------
 
-buildTyConPADict :: TyCon -> CoAxiom Unbranched -> TyCon -> TyCon -> VM Var
+buildTyConPADict :: TyCon -> CoAxiom Unbranched -> TyCon -> TyCon -> VM l Var
 buildTyConPADict vect_tc prepr_ax pdata_tc pdatas_tc
  = tyConRepr vect_tc >>= buildPADict vect_tc prepr_ax pdata_tc pdatas_tc
 
@@ -380,7 +380,7 @@ buildTyConPADict vect_tc prepr_ax pdata_tc pdatas_tc
 -- FIXME: It's not nice that we need create a special worker after the data constructors has
 --   already been constructed.  Also, I don't think the worker is properly added to the data
 --   constructor.  Seems messy.
-vectDataConWorkers :: TyCon -> TyCon -> TyCon -> VM ()
+vectDataConWorkers :: TyCon -> TyCon -> TyCon -> VM l ()
 vectDataConWorkers orig_tc vect_tc arr_tc
   = do { traceVt "Building vectorised worker for datatype" (ppr orig_tc)
   

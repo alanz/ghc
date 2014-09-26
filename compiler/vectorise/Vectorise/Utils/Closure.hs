@@ -33,7 +33,7 @@ mkClosure :: Type       -- ^ Type of the argument.
           -> Type       -- ^ Type of the environment.
           -> VExpr      -- ^ The function to apply.
           -> VExpr      -- ^ The environment to use.
-          -> VM VExpr
+          -> VM l VExpr
 mkClosure arg_ty res_ty env_ty (vfn,lfn) (venv,lenv)
  = do dict <- paDictOfType env_ty
       mkv  <- builtin closureVar
@@ -47,7 +47,7 @@ mkClosureApp :: Type      -- ^ Type of the argument.
              -> Type      -- ^ Type of the result.
              -> VExpr     -- ^ Closure to apply.
              -> VExpr     -- ^ Argument to use.
-             -> VM VExpr
+             -> VM l VExpr
 mkClosureApp arg_ty res_ty (vclo, lclo) (varg, larg)
  = do vapply <- builtin applyVar
       lapply <- builtin liftedApplyVar
@@ -67,8 +67,8 @@ buildClosures :: [TyVar]    -- ^ Type variables passed during closure constructi
               -> [VVar]     -- ^ Variables in the environment.
               -> [Type]     -- ^ Type of the arguments.
               -> Type       -- ^ Type of result.
-              -> VM VExpr
-              -> VM VExpr
+              -> VM l VExpr
+              -> VM l VExpr
 buildClosures _tvs _vars _env [] _res_ty mk_body
  = mk_body
 buildClosures tvs vars env [arg_ty] res_ty mk_body
@@ -100,8 +100,8 @@ buildClosure :: [TyVar]         -- ^Type variables passed during closure constru
              -> [VVar]          -- ^Variables in the environment.
              -> Type            -- ^Type of the closure argument.
              -> Type            -- ^Type of the result.
-             -> VM VExpr 
-             -> VM VExpr
+             -> VM l VExpr
+             -> VM l VExpr
 buildClosure tvs vars vvars arg_ty res_ty mk_body
   = do { (env_ty, env, bind) <- buildEnv vvars
        ; env_bndr <- newLocalVVar (fsLit "env") env_ty
@@ -121,8 +121,8 @@ buildClosure tvs vars vvars arg_ty res_ty mk_body
 
 -- Build the environment for a single closure.
 --
-buildEnv :: [VVar] -> VM (Type, VExpr, VExpr -> VExpr -> VExpr)
-buildEnv [] 
+buildEnv :: [VVar] -> VM l (Type, VExpr, VExpr -> VExpr -> VExpr)
+buildEnv []
  = do
       ty    <- voidType
       void  <- builtin voidVar

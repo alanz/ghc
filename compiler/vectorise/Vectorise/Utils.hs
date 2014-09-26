@@ -84,14 +84,14 @@ isAnnTypeArg _              = False
 
 -- |An empty array of the given type.
 --
-emptyPD :: Type -> VM CoreExpr
+emptyPD :: Type -> VM l CoreExpr
 emptyPD = paMethod emptyPDVar emptyPD_PrimVar
 
 -- |Produce an array containing copies of a given element.
 --
 replicatePD :: CoreExpr     -- ^ Number of copies in the resulting array.
             -> CoreExpr     -- ^ Value to replicate.
-            -> VM CoreExpr
+            -> VM l CoreExpr
 replicatePD len x 
   = liftM (`mkApps` [len,x])
         $ paMethod replicatePDVar replicatePD_PrimVar (exprType x)
@@ -107,7 +107,7 @@ packByTagPD :: Type       -- ^ Element type.
             -> CoreExpr   -- ^ Length of resulting array.
             -> CoreExpr   -- ^ Tag values of elements in source array.
             -> CoreExpr   -- ^ The tag value for the elements to select.
-            -> VM CoreExpr
+            -> VM l CoreExpr
 packByTagPD ty xs len tags t
   = liftM (`mkApps` [xs, len, tags, t])
           (paMethod packByTagPDVar packByTagPD_PrimVar ty)
@@ -119,7 +119,7 @@ combinePD :: Type         -- ^ Element type
           -> CoreExpr     -- ^ Length of resulting array
           -> CoreExpr     -- ^ Selector.
           -> [CoreExpr]   -- ^ Arrays to combine.
-          -> VM CoreExpr
+          -> VM l CoreExpr
 combinePD ty len sel xs
   = liftM (`mkApps` (len : sel : xs))
           (paMethod (combinePDVar n) (combinePD_PrimVar n) ty)
@@ -128,7 +128,7 @@ combinePD ty len sel xs
 
 -- |Like `replicatePD` but use the lifting context in the vectoriser state.
 --
-liftPD :: CoreExpr -> VM CoreExpr
+liftPD :: CoreExpr -> VM l CoreExpr
 liftPD x
   = do
       lc <- builtin liftingContext
@@ -137,14 +137,14 @@ liftPD x
 
 -- Scalars --------------------------------------------------------------------
 
-isScalar :: Type -> VM Bool
+isScalar :: Type -> VM l Bool
 isScalar ty
   = do
     { scalar <- builtin scalarClass
     ; existsInst scalar [ty]
     }
 
-zipScalars :: [Type] -> Type -> VM CoreExpr
+zipScalars :: [Type] -> Type -> VM l CoreExpr
 zipScalars arg_tys res_ty
   = do 
     { scalar <- builtin scalarClass
@@ -155,7 +155,7 @@ zipScalars arg_tys res_ty
     where
       ty_args = arg_tys ++ [res_ty]
 
-scalarClosure :: [Type] -> Type -> CoreExpr -> CoreExpr -> VM CoreExpr
+scalarClosure :: [Type] -> Type -> CoreExpr -> CoreExpr -> VM l CoreExpr
 scalarClosure arg_tys res_ty scalar_fun array_fun
   = do
     { ctr <- builtin (closureCtrFun $ length arg_tys)

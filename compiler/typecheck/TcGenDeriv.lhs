@@ -99,8 +99,9 @@ data DerivStuff l   -- Please add this auxiliary stuff
 %************************************************************************
 
 \begin{code}
-genDerivedBinds :: DynFlags -> FixityEnv -> Class -> SrcSpan -> TyCon
-                -> (LHsBinds RdrName, BagDerivStuff)
+genDerivedBinds :: forall l. (ApiAnnotation l)
+                => DynFlags -> FixityEnv -> Class -> l -> TyCon
+                -> (LHsBinds l RdrName, BagDerivStuff l)
 genDerivedBinds dflags fix_env clas loc tycon
   | className clas `elem` oldTypeableClassNames
   = gen_old_Typeable_binds dflags loc tycon
@@ -111,7 +112,8 @@ genDerivedBinds dflags fix_env clas loc tycon
   | otherwise
   = pprPanic "genDerivStuff: bad derived class" (ppr clas)
   where
-    gen_list :: [(Unique, SrcSpan -> TyCon -> (LHsBinds RdrName, BagDerivStuff))]
+    gen_list :: (ApiAnnotation l)
+             => [(Unique, l -> TyCon -> (LHsBinds l RdrName, BagDerivStuff l))]
     gen_list = [ (eqClassKey,          gen_Eq_binds)
                , (typeableClassKey,    gen_Typeable_binds dflags)
                , (ordClassKey,         gen_Ord_binds)
@@ -184,7 +186,8 @@ for the instance decl, which it probably wasn't, so the decls
 produced don't get through the typechecker.
 
 \begin{code}
-gen_Eq_binds :: SrcSpan -> TyCon -> (LHsBinds RdrName, BagDerivStuff)
+gen_Eq_binds :: (ApiAnnotation l)
+             => l -> TyCon -> (LHsBinds l RdrName, BagDerivStuff l)
 gen_Eq_binds loc tycon
   = (method_binds, aux_binds)
   where
@@ -326,7 +329,7 @@ ordMethRdr op
        OrdGT      -> gt_RDR
 
 ------------
-ltResult :: OrdOp -> LHsExpr RdrName
+ltResult :: (ApiAnnotation l) => OrdOp -> LHsExpr l RdrName
 -- Knowing a<b, what is the result for a `op` b?
 ltResult OrdCompare = ltTag_Expr
 ltResult OrdLT      = true_Expr
@@ -335,7 +338,7 @@ ltResult OrdGE      = false_Expr
 ltResult OrdGT      = false_Expr
 
 ------------
-eqResult :: OrdOp -> LHsExpr RdrName
+eqResult :: (ApiAnnotation l) => OrdOp -> LHsExpr l RdrName
 -- Knowing a=b, what is the result for a `op` b?
 eqResult OrdCompare = eqTag_Expr
 eqResult OrdLT      = false_Expr
@@ -344,7 +347,7 @@ eqResult OrdGE      = true_Expr
 eqResult OrdGT      = false_Expr
 
 ------------
-gtResult :: OrdOp -> LHsExpr RdrName
+gtResult :: (ApiAnnotation l) => OrdOp -> LHsExpr l RdrName
 -- Knowing a>b, what is the result for a `op` b?
 gtResult OrdCompare = gtTag_Expr
 gtResult OrdLT      = false_Expr
@@ -353,7 +356,8 @@ gtResult OrdGE      = true_Expr
 gtResult OrdGT      = true_Expr
 
 ------------
-gen_Ord_binds :: SrcSpan -> TyCon -> (LHsBinds RdrName, BagDerivStuff)
+gen_Ord_binds :: forall l. (ApiAnnotation l)
+              => l -> TyCon -> (LHsBinds l RdrName, BagDerivStuff l)
 gen_Ord_binds loc tycon
   | null tycon_data_cons        -- No data-cons => invoke bale-out case
   = (unitBag $ mk_FunBind loc compare_RDR [], emptyBag)
@@ -384,11 +388,11 @@ gen_Ord_binds loc tycon
     (nullary_cons, non_nullary_cons) = partition isNullarySrcDataCon tycon_data_cons
 
 
-    mkOrdOp :: OrdOp -> LHsBind RdrName
+    mkOrdOp :: OrdOp -> LHsBind l RdrName
     -- Returns a binding   op a b = ... compares a and b according to op ....
     mkOrdOp op = mk_easy_FunBind loc (ordMethRdr op) [a_Pat, b_Pat] (mkOrdOpRhs op)
 
-    mkOrdOpRhs :: OrdOp -> LHsExpr RdrName
+    mkOrdOpRhs :: OrdOp -> LHsExpr l RdrName
     mkOrdOpRhs op       -- RHS for comparing 'a' and 'b' according to op
       | length nullary_cons <= 2  -- Two nullary or fewer, so use cases
       = nlHsCase (nlHsVar a_RDR) $
@@ -405,7 +409,8 @@ gen_Ord_binds loc tycon
          ++ [mkSimpleHsAlt nlWildPat (mkTagCmp op)])
 
 
-    mkOrdOpAlt :: OrdOp -> DataCon -> LMatch RdrName (LHsExpr RdrName)
+    mkOrdOpAlt :: (ApiAnnotation l)
+               => OrdOp -> DataCon -> LMatch l RdrName (LHsExpr l RdrName)
     -- Make the alternative  (Ki a1 a2 .. av ->
     mkOrdOpAlt op data_con
       = mkSimpleHsAlt (nlConVarPat data_con_RDR as_needed) (mkInnerRhs op data_con)
@@ -448,9 +453,10 @@ gen_Ord_binds loc tycon
                                  , mkSimpleHsAlt nlWildPat (gtResult op) ]
       where
         tag     = get_tag data_con
-        tag_lit = noLoc (HsLit (HsIntPrim (toInteger tag)))
+        tag_lit :: (ApiAnnotation l) => GenLocated l (HsExpr l id)
+        tag_lit = annNoLoc (HsLit (HsIntPrim (toInteger tag)))
 
-    mkInnerEqAlt :: OrdOp -> DataCon -> LMatch RdrName (LHsExpr RdrName)
+    mkInnerEqAlt :: OrdOp -> DataCon -> LMatch l RdrName (LHsExpr l RdrName)
     -- First argument 'a' known to be built with K
     -- Returns a case alternative  Ki b1 b2 ... bv -> compare (a1,a2,...) with (b1,b2,...)
     mkInnerEqAlt op data_con
@@ -460,13 +466,13 @@ gen_Ord_binds loc tycon
         data_con_RDR = getRdrName data_con
         bs_needed    = take (dataConSourceArity data_con) bs_RDRs
 
-    mkTagCmp :: OrdOp -> LHsExpr RdrName
+    mkTagCmp :: OrdOp -> LHsExpr l RdrName
     -- Both constructors known to be nullary
     -- genreates (case data2Tag a of a# -> case data2Tag b of b# -> a# `op` b#
     mkTagCmp op = untag_Expr tycon [(a_RDR, ah_RDR),(b_RDR, bh_RDR)] $
                   unliftedOrdOp tycon intPrimTy op ah_RDR bh_RDR
 
-mkCompareFields :: TyCon -> OrdOp -> [Type] -> LHsExpr RdrName
+mkCompareFields :: (ApiAnnotation l) => TyCon -> OrdOp -> [Type] -> LHsExpr l RdrName
 -- Generates nested comparisons for (a1,a2...) against (b1,b2,...)
 -- where the ai,bi have the given types
 mkCompareFields tycon op tys
@@ -498,7 +504,9 @@ mkCompareFields tycon op tys
         b_expr = nlHsVar b
         (lt_op, _, eq_op, _, _) = primOrdOps "Ord" tycon ty
 
-unliftedOrdOp :: TyCon -> Type -> OrdOp -> RdrName -> RdrName -> LHsExpr RdrName
+unliftedOrdOp :: (ApiAnnotation l)
+              => TyCon -> Type -> OrdOp -> RdrName -> RdrName
+              -> LHsExpr l RdrName
 unliftedOrdOp tycon ty op a b
   = case op of
        OrdCompare -> unliftedCompare lt_op eq_op a_expr b_expr
@@ -513,10 +521,11 @@ unliftedOrdOp tycon ty op a b
    a_expr = nlHsVar a
    b_expr = nlHsVar b
 
-unliftedCompare :: RdrName -> RdrName
-                -> LHsExpr RdrName -> LHsExpr RdrName   -- What to cmpare
-                -> LHsExpr RdrName -> LHsExpr RdrName -> LHsExpr RdrName  -- Three results
-                -> LHsExpr RdrName
+unliftedCompare :: (ApiAnnotation l) => RdrName -> RdrName
+                -> LHsExpr l RdrName -> LHsExpr l RdrName   -- What to cmpare
+                -> LHsExpr l RdrName -> LHsExpr l RdrName -> LHsExpr l RdrName
+                                                              -- Three results
+                -> LHsExpr l RdrName
 -- Return (if a < b then lt else if a == b then eq else gt)
 unliftedCompare lt_op eq_op a_expr b_expr lt eq gt
   = nlHsIf (genPrimOpApp a_expr lt_op b_expr) lt $
@@ -525,11 +534,11 @@ unliftedCompare lt_op eq_op a_expr b_expr lt eq gt
                         -- mean more tests (dynamically)
         nlHsIf (genPrimOpApp a_expr eq_op b_expr) eq gt
 
-nlConWildPat :: DataCon -> LPat RdrName
+nlConWildPat :: (ApiAnnotation l) => DataCon -> LPat l RdrName
 -- The pattern (K {})
-nlConWildPat con = noLoc (ConPatIn (noLoc (getRdrName con))
-                                   (RecCon (HsRecFields { rec_flds = []
-                                                        , rec_dotdot = Nothing })))
+nlConWildPat con = annNoLoc (ConPatIn (annNoLoc (getRdrName con))
+                                      (RecCon (HsRecFields { rec_flds = []
+                                                           , rec_dotdot = Nothing })))
 \end{code}
 
 
@@ -576,7 +585,8 @@ instance ... Enum (Foo ...) where
 For @enumFromTo@ and @enumFromThenTo@, we use the default methods.
 
 \begin{code}
-gen_Enum_binds :: SrcSpan -> TyCon -> (LHsBinds RdrName, BagDerivStuff)
+gen_Enum_binds :: (ApiAnnotation l)
+               => l -> TyCon -> (LHsBinds l RdrName, BagDerivStuff l)
 gen_Enum_binds loc tycon
   = (method_binds, aux_binds)
   where
@@ -656,7 +666,8 @@ gen_Enum_binds loc tycon
 %************************************************************************
 
 \begin{code}
-gen_Bounded_binds :: SrcSpan -> TyCon -> (LHsBinds RdrName, BagDerivStuff)
+gen_Bounded_binds :: (ApiAnnotation l)
+                  => l -> TyCon -> (LHsBinds l RdrName, BagDerivStuff l)
 gen_Bounded_binds loc tycon
   | isEnumerationTyCon tycon
   = (listToBag [ min_bound_enum, max_bound_enum ], emptyBag)
@@ -743,7 +754,8 @@ we follow the scheme given in Figure~19 of the Haskell~1.2 report
 (p.~147).
 
 \begin{code}
-gen_Ix_binds :: SrcSpan -> TyCon -> (LHsBinds RdrName, BagDerivStuff)
+gen_Ix_binds :: (ApiAnnotation l)
+             => l -> TyCon -> (LHsBinds l RdrName, BagDerivStuff l)
 
 gen_Ix_binds loc tycon
   | isEnumerationTyCon tycon
@@ -767,7 +779,7 @@ gen_Ix_binds loc tycon
 
     enum_index
       = mk_easy_FunBind loc unsafeIndex_RDR
-                [noLoc (AsPat (noLoc c_RDR)
+                [annNoLoc (AsPat (annNoLoc c_RDR)
                            (nlTuplePat [a_Pat, nlWildPat] Boxed)),
                                 d_Pat] (
            untag_Expr tycon [(a_RDR, ah_RDR)] (
@@ -815,13 +827,13 @@ gen_Ix_binds loc tycon
     single_con_range
       = mk_easy_FunBind loc range_RDR
           [nlTuplePat [con_pat as_needed, con_pat bs_needed] Boxed] $
-        noLoc (mkHsComp ListComp stmts con_expr)
+        annNoLoc (mkHsComp ListComp stmts con_expr)
       where
         stmts = zipWith3Equal "single_con_range" mk_qual as_needed bs_needed cs_needed
 
-        mk_qual a b c = noLoc $ mkBindStmt (nlVarPat c)
-                                 (nlHsApp (nlHsVar range_RDR)
-                                          (mkLHsVarTuple [a,b]))
+        mk_qual a b c = annNoLoc $ mkBindStmt (nlVarPat c)
+                                    (nlHsApp (nlHsVar range_RDR)
+                                             (mkLHsVarTuple [a,b]))
 
     ----------------
     single_con_index
@@ -932,7 +944,8 @@ These instances are also useful for Read (Either Int Emp), where
 we want to be able to parse (Left 3) just fine.
 
 \begin{code}
-gen_Read_binds :: FixityEnv -> SrcSpan -> TyCon -> (LHsBinds RdrName, BagDerivStuff)
+gen_Read_binds :: (ApiAnnotation l) => FixityEnv -> l -> TyCon
+               -> (LHsBinds l RdrName, BagDerivStuff l)
 
 gen_Read_binds get_fixity loc tycon
   = (listToBag [read_prec, default_readlist, default_readlistprec], emptyBag)
@@ -958,7 +971,7 @@ gen_Read_binds get_fixity loc tycon
     read_nullary_cons
       = case nullary_cons of
             []    -> []
-            [con] -> [nlHsDo DoExpr (match_con con ++ [noLoc $ mkLastStmt (result_expr con [])])]
+            [con] -> [nlHsDo DoExpr (match_con con ++ [annNoLoc $ mkLastStmt (result_expr con [])])]
             _     -> [nlHsApp (nlHsVar choose_RDR)
                               (nlList (map mk_pair nullary_cons))]
         -- NB For operators the parens around (:=:) are matched by the
@@ -1032,7 +1045,7 @@ gen_Read_binds get_fixity loc tycon
     ------------------------------------------------------------------------
     mk_alt e1 e2       = genOpApp e1 alt_RDR e2                         -- e1 +++ e2
     mk_parser p ss b   = nlHsApps prec_RDR [nlHsIntLit p                -- prec p (do { ss ; b })
-                                           , nlHsDo DoExpr (ss ++ [noLoc $ mkLastStmt b])]
+                                           , nlHsDo DoExpr (ss ++ [annNoLoc $ mkLastStmt b])]
     con_app con as     = nlHsVarApps (getRdrName con) as                -- con as
     result_expr con as = nlHsApp (nlHsVar returnM_RDR) (con_app con as) -- return (con as)
 
@@ -1042,7 +1055,7 @@ gen_Read_binds get_fixity loc tycon
     ident_h_pat s | Just (ss, '#') <- snocView s = [ ident_pat ss, symbol_pat "#" ]
                   | otherwise                    = [ ident_pat s ]
 
-    bindLex pat  = noLoc (mkBodyStmt (nlHsApp (nlHsVar expectP_RDR) pat))  -- expectP p
+    bindLex pat  = annNoLoc (mkBodyStmt (nlHsApp (nlHsVar expectP_RDR) pat))  -- expectP p
                    -- See Note [Use expectP]
     ident_pat  s = bindLex $ nlHsApps ident_RDR  [nlHsLit (mkHsString s)]  -- expectP (Ident "foo")
     symbol_pat s = bindLex $ nlHsApps symbol_RDR [nlHsLit (mkHsString s)]  -- expectP (Symbol ">>")
@@ -1051,11 +1064,11 @@ gen_Read_binds get_fixity loc tycon
     data_con_str con = occNameString (getOccName con)
 
     read_arg a ty = ASSERT( not (isUnLiftedType ty) )
-                    noLoc (mkBindStmt (nlVarPat a) (nlHsVarApps step_RDR [readPrec_RDR]))
+                    annNoLoc (mkBindStmt (nlVarPat a) (nlHsVarApps step_RDR [readPrec_RDR]))
 
     read_field lbl a = read_lbl lbl ++
                        [read_punc "=",
-                        noLoc (mkBindStmt (nlVarPat a) (nlHsVarApps reset_RDR [readPrec_RDR]))]
+                        annNoLoc (mkBindStmt (nlVarPat a) (nlHsVarApps reset_RDR [readPrec_RDR]))]
 
         -- When reading field labels we might encounter
         --      a  = 3
@@ -1101,7 +1114,8 @@ Example
                     -- the most tightly-binding operator
 
 \begin{code}
-gen_Show_binds :: FixityEnv -> SrcSpan -> TyCon -> (LHsBinds RdrName, BagDerivStuff)
+gen_Show_binds :: forall l. (ApiAnnotation l) => FixityEnv -> l -> TyCon
+               -> (LHsBinds l RdrName, BagDerivStuff l)
 
 gen_Show_binds get_fixity loc tycon
   = (listToBag [shows_prec, show_list], emptyBag)
@@ -1190,7 +1204,7 @@ isSym :: String -> Bool
 isSym ""      = False
 isSym (c : _) = startsVarSym c || startsConSym c
 
-mk_showString_app :: String -> LHsExpr RdrName
+mk_showString_app :: (ApiAnnotation l) => String -> LHsExpr l RdrName
 mk_showString_app str = nlHsApp (nlHsVar showString_RDR) (nlHsLit (mkHsString str))
 \end{code}
 
@@ -1234,8 +1248,8 @@ we generate
 We are passed the Typeable2 class as well as T
 
 \begin{code}
-gen_old_Typeable_binds :: DynFlags -> SrcSpan -> TyCon 
-                       -> (LHsBinds RdrName, BagDerivStuff)
+gen_old_Typeable_binds :: (ApiAnnotation l) => DynFlags -> l -> TyCon
+                       -> (LHsBinds l RdrName, BagDerivStuff l)
 gen_old_Typeable_binds dflags loc tycon
   = ( unitBag $
         mk_easy_FunBind loc
@@ -1296,8 +1310,8 @@ we generate
 We are passed the Typeable2 class as well as T
 
 \begin{code}
-gen_Typeable_binds :: DynFlags -> SrcSpan -> TyCon 
-                   -> (LHsBinds RdrName, BagDerivStuff)
+gen_Typeable_binds :: (ApiAnnotation l) => DynFlags -> l -> TyCon
+                   -> (LHsBinds l RdrName, BagDerivStuff l)
 gen_Typeable_binds dflags loc tycon
   = ( unitBag $ mk_easy_FunBind loc typeRep_RDR [nlWildPat]
                 (nlHsApps mkTyConApp_RDR [tycon_rep, nlList []])
@@ -1364,11 +1378,11 @@ we generate
 
 
 \begin{code}
-gen_Data_binds :: DynFlags
-                -> SrcSpan
+gen_Data_binds :: forall l. (ApiAnnotation l) => DynFlags
+                -> l
                -> TyCon
-               -> (LHsBinds RdrName,    -- The method bindings
-                   BagDerivStuff)       -- Auxiliary bindings
+               -> (LHsBinds l RdrName,  -- The method bindings
+                   BagDerivStuff l)     -- Auxiliary bindings
 gen_Data_binds dflags loc tycon
   = (listToBag [gfoldl_bind, gunfold_bind, toCon_bind, dataTypeOf_bind]
      `unionBags` gcast_binds,
@@ -1380,7 +1394,7 @@ gen_Data_binds dflags loc tycon
     n_cons     = length data_cons
     one_constr = n_cons == 1
 
-    genDataTyCon :: (LHsBind RdrName, LSig RdrName)
+    genDataTyCon :: (LHsBind l RdrName, LSig l RdrName)
     genDataTyCon        --  $dT
       = (mkHsVarBind loc rdr_name rhs,
          L loc (TypeSig [L loc rdr_name] sig_ty))
@@ -1392,7 +1406,8 @@ gen_Data_binds dflags loc tycon
               `nlHsApp` nlHsLit (mkHsString (showSDocOneLine dflags (ppr tycon)))
               `nlHsApp` nlList constrs
 
-    genDataDataCon :: DataCon -> (LHsBind RdrName, LSig RdrName)
+    genDataDataCon :: (ApiAnnotation l)
+                   => DataCon -> (LHsBind l RdrName, LSig l RdrName)
     genDataDataCon dc       --  $cT1 etc
       = (mkHsVarBind loc rdr_name rhs,
          L loc (TypeSig [L loc rdr_name] sig_ty))
@@ -1626,7 +1641,8 @@ so it was eta expanded to `\x -> [| f $x |]`. This resulted in too much eta expa
 It is better to produce too many lambdas than to eta expand, see ticket #7436.
 
 \begin{code}
-gen_Functor_binds :: SrcSpan -> TyCon -> (LHsBinds RdrName, BagDerivStuff)
+gen_Functor_binds :: (ApiAnnotation l)
+                  => l -> TyCon -> (LHsBinds l RdrName, BagDerivStuff l)
 gen_Functor_binds loc tycon
   = (unitBag fmap_bind, emptyBag)
   where
@@ -1641,7 +1657,8 @@ gen_Functor_binds loc tycon
                                            (error_Expr "Void fmap")]
          | otherwise      = map fmap_eqn data_cons
 
-    ft_fmap :: FFoldType (State [RdrName] (LHsExpr RdrName))
+    ft_fmap :: (ApiAnnotation l)
+            => FFoldType (State [RdrName] (LHsExpr l RdrName))
     ft_fmap = FT { ft_triv = mkSimpleLam $ \x -> return x    -- fmap f = \x -> x
                  , ft_var  = return f_Expr                   -- fmap f = f
                  , ft_fun  = \g h -> do                      -- fmap f = \x b -> h (x (g b))
@@ -1657,8 +1674,9 @@ gen_Functor_binds loc tycon
                  , ft_co_var = panic "contravariant" }
 
     -- Con a1 a2 ... -> Con (f1 a1) (f2 a2) ...
-    match_for_con :: [LPat RdrName] -> DataCon -> [LHsExpr RdrName]
-                  -> State [RdrName] (LMatch RdrName (LHsExpr RdrName))
+    match_for_con :: (ApiAnnotation l)
+                  => [LPat l RdrName] -> DataCon -> [LHsExpr l RdrName]
+                  -> State [RdrName] (LMatch l RdrName (LHsExpr l RdrName))
     match_for_con = mkSimpleConMatch $
         \con_name xs -> return $ nlHsApps con_name xs  -- Con x1 x2 ..
 \end{code}
@@ -1748,8 +1766,9 @@ foldDataConArgs ft con
         -- the Just will match and a::*
 
 -- Make a HsLam using a fresh variable from a State monad
-mkSimpleLam :: (LHsExpr RdrName -> State [RdrName] (LHsExpr RdrName))
-            -> State [RdrName] (LHsExpr RdrName)
+mkSimpleLam :: (ApiAnnotation l)
+            => (LHsExpr l RdrName -> State [RdrName] (LHsExpr l RdrName))
+            -> State [RdrName] (LHsExpr l RdrName)
 -- (mkSimpleLam fn) returns (\x. fn(x))
 mkSimpleLam lam = do
     (n:names) <- get
@@ -1757,9 +1776,10 @@ mkSimpleLam lam = do
     body <- lam (nlHsVar n)
     return (mkHsLam [nlVarPat n] body)
 
-mkSimpleLam2 :: (LHsExpr RdrName -> LHsExpr RdrName
-             -> State [RdrName] (LHsExpr RdrName))
-             -> State [RdrName] (LHsExpr RdrName)
+mkSimpleLam2 :: (ApiAnnotation l)
+             => (LHsExpr l RdrName -> LHsExpr l RdrName
+             -> State [RdrName] (LHsExpr l RdrName))
+             -> State [RdrName] (LHsExpr l RdrName)
 mkSimpleLam2 lam = do
     (n1:n2:names) <- get
     put names
@@ -1767,11 +1787,13 @@ mkSimpleLam2 lam = do
     return (mkHsLam [nlVarPat n1,nlVarPat n2] body)
 
 -- "Con a1 a2 a3 -> fold [x1 a1, x2 a2, x3 a3]"
-mkSimpleConMatch :: Monad m => (RdrName -> [LHsExpr RdrName] -> m (LHsExpr RdrName))
-                 -> [LPat RdrName]
+mkSimpleConMatch :: (ApiAnnotation l)
+                 => Monad m => (RdrName -> [LHsExpr l RdrName]
+                                      -> m (LHsExpr l RdrName))
+                 -> [LPat l RdrName]
                  -> DataCon
-                 -> [LHsExpr RdrName]
-                 -> m (LMatch RdrName (LHsExpr RdrName))
+                 -> [LHsExpr l RdrName]
+                 -> m (LMatch l RdrName (LHsExpr l RdrName))
 mkSimpleConMatch fold extra_pats con insides = do
     let con_name = getRdrName con
     let vars_needed = takeList insides as_RDRs
@@ -1780,9 +1802,11 @@ mkSimpleConMatch fold extra_pats con insides = do
     return $ mkMatch (extra_pats ++ [pat]) rhs emptyLocalBinds
 
 -- "case x of (a1,a2,a3) -> fold [x1 a1, x2 a2, x3 a3]"
-mkSimpleTupleCase :: Monad m => ([LPat RdrName] -> DataCon -> [a]
-                                 -> m (LMatch RdrName (LHsExpr RdrName)))
-                  -> TupleSort -> [a] -> LHsExpr RdrName -> m (LHsExpr RdrName)
+mkSimpleTupleCase :: (ApiAnnotation l)
+                  => Monad m => ([LPat l RdrName] -> DataCon -> [a]
+                                 -> m (LMatch l RdrName (LHsExpr l RdrName)))
+                  -> TupleSort -> [a] -> LHsExpr l RdrName
+                  -> m (LHsExpr l RdrName)
 mkSimpleTupleCase match_for_con sort insides x = do
     let con = tupleCon sort (length insides)
     match <- match_for_con [] con insides
@@ -1817,7 +1841,8 @@ Note that the arguments to the real foldr function are the wrong way around,
 since (f :: a -> b -> b), while (foldr f :: b -> t a -> b).
 
 \begin{code}
-gen_Foldable_binds :: SrcSpan -> TyCon -> (LHsBinds RdrName, BagDerivStuff)
+gen_Foldable_binds :: forall l. (ApiAnnotation l)
+                   => l -> TyCon -> (LHsBinds l RdrName, BagDerivStuff l)
 gen_Foldable_binds loc tycon
   = (listToBag [foldr_bind, foldMap_bind], emptyBag)
   where
@@ -1834,7 +1859,8 @@ gen_Foldable_binds loc tycon
       where
         parts = sequence $ foldDataConArgs ft_foldMap con
 
-    ft_foldr :: FFoldType (State [RdrName] (LHsExpr RdrName))
+    ft_foldr :: (ApiAnnotation l)
+             => FFoldType (State [RdrName] (LHsExpr l RdrName))
     ft_foldr = FT { ft_triv    = mkSimpleLam2 $ \_ z -> return z       -- foldr f = \x z -> z
                   , ft_var     = return f_Expr                         -- foldr f = f
                   , ft_tup     = \t g -> do gg <- sequence g           -- foldr f = (\x z -> case x of ...)
@@ -1848,7 +1874,8 @@ gen_Foldable_binds loc tycon
 
     match_foldr z = mkSimpleConMatch $ \_con_name xs -> return $ foldr nlHsApp z xs -- g1 v1 (g2 v2 (.. z))
 
-    ft_foldMap :: FFoldType (State [RdrName] (LHsExpr RdrName))
+    ft_foldMap :: (ApiAnnotation l)
+               => FFoldType (State [RdrName] (LHsExpr l RdrName))
     ft_foldMap = FT { ft_triv = mkSimpleLam $ \_ -> return mempty_Expr  -- foldMap f = \x -> mempty
                     , ft_var  = return f_Expr                           -- foldMap f = f
                     , ft_tup  = \t g -> do gg <- sequence g             -- foldMap f = \x -> case x of (..,)
@@ -1892,7 +1919,8 @@ gives the function: traverse f (T x y) = T <$> pure x <*> f y
 instead of:         traverse f (T x y) = T x <$> f y
 
 \begin{code}
-gen_Traversable_binds :: SrcSpan -> TyCon -> (LHsBinds RdrName, BagDerivStuff)
+gen_Traversable_binds :: forall l. (ApiAnnotation l)
+                      => l -> TyCon -> (LHsBinds l RdrName, BagDerivStuff l)
 gen_Traversable_binds loc tycon
   = (unitBag traverse_bind, emptyBag)
   where
@@ -1905,7 +1933,7 @@ gen_Traversable_binds loc tycon
         parts = sequence $ foldDataConArgs ft_trav con
 
 
-    ft_trav :: FFoldType (State [RdrName] (LHsExpr RdrName))
+    ft_trav :: FFoldType (State [RdrName] (LHsExpr l RdrName))
     ft_trav = FT { ft_triv    = return pure_Expr                  -- traverse f = pure x
                  , ft_var     = return f_Expr                     -- traverse f = f x
                  , ft_tup     = \t gs -> do                       -- traverse f = \x -> case x of (a1,a2,..) ->
@@ -1962,21 +1990,22 @@ mkCoerceClassMethEqn cls inst_tvs cls_tys rhs_ty id
     changeLast (x:xs) x' = x : changeLast xs x'
 
 
-gen_Newtype_binds :: SrcSpan
+gen_Newtype_binds :: forall l. (ApiAnnotation l) => SrcSpan
                   -> Class   -- the class being derived
                   -> [TyVar] -- the tvs in the instance head
                   -> [Type]  -- instance head parameters (incl. newtype)
                   -> Type    -- the representation type (already eta-reduced)
-                  -> LHsBinds RdrName
+                  -> LHsBinds l RdrName
 gen_Newtype_binds loc cls inst_tvs cls_tys rhs_ty
   = listToBag $ zipWith mk_bind
         (classMethods cls)
         (map (mkCoerceClassMethEqn cls inst_tvs cls_tys rhs_ty) (classMethods cls))
   where
+    loc' = annFromSpan loc
     coerce_RDR = getRdrName coerceId
-    mk_bind :: Id -> Pair Type -> LHsBind RdrName
+    mk_bind :: Id -> Pair Type -> LHsBind l RdrName
     mk_bind id (Pair tau_ty user_ty)
-      = mkRdrFunBind (L loc meth_RDR) [mkSimpleMatch [] rhs_expr]
+      = mkRdrFunBind (L loc' meth_RDR) [mkSimpleMatch [] rhs_expr]
       where
         meth_RDR = getRdrName id
         rhs_expr
@@ -1988,7 +2017,7 @@ gen_Newtype_binds loc cls inst_tvs cls_tys rhs_ty
         -- variables refer to the ones bound in the user_ty
         (_, _, tau_ty')  = tcSplitSigmaTy tau_ty
 
-    nlExprWithTySig e s = noLoc (ExprWithTySig e s)
+    nlExprWithTySig e s = annNoLoc (ExprWithTySig e s)
 \end{code}
 
 %************************************************************************
@@ -2009,7 +2038,8 @@ The `tags' here start at zero, hence the @fIRST_TAG@ (currently one)
 fiddling around.
 
 \begin{code}
-genAuxBindSpec :: SrcSpan -> AuxBindSpec -> (LHsBind RdrName, LSig RdrName)
+genAuxBindSpec :: forall l. (ApiAnnotation l)
+               => l -> AuxBindSpec l -> (LHsBind l RdrName, LSig l RdrName)
 genAuxBindSpec loc (DerivCon2Tag tycon)
   = (mk_FunBind loc rdr_name eqns,
      L loc (TypeSig [L loc rdr_name] (L loc sig_ty)))
@@ -2029,7 +2059,8 @@ genAuxBindSpec loc (DerivCon2Tag tycon)
 
     get_tag_eqn = ([nlVarPat a_RDR], nlHsApp (nlHsVar getTag_RDR) a_Expr)
 
-    mk_eqn :: DataCon -> ([LPat RdrName], LHsExpr RdrName)
+    mk_eqn :: (ApiAnnotation l)
+           => DataCon -> ([LPat l RdrName], LHsExpr l RdrName)
     mk_eqn con = ([nlWildConPat con],
                   nlHsLit (HsIntPrim (toInteger ((dataConTag con) - fIRST_TAG))))
 
@@ -2057,11 +2088,12 @@ genAuxBindSpec loc (DerivMaxTag tycon)
 type SeparateBagsDerivStuff l = -- AuxBinds and SYB bindings
                               ( Bag (LHsBind l RdrName, LSig l RdrName)
                                 -- Extra bindings (used by Generic only)
-                              , Bag TyCon   -- Extra top-level datatypes
-                              , Bag (FamInst)           -- Extra family instances
-                              , Bag (InstInfo RdrName)) -- Extra instances
+                              , Bag TyCon           -- Extra top-level datatypes
+                              , Bag (FamInst)       -- Extra family instances
+                              , Bag (InstInfo l RdrName)) -- Extra instances
 
-genAuxBinds :: SrcSpan -> BagDerivStuff -> SeparateBagsDerivStuff
+genAuxBinds :: forall l. (ApiAnnotation l)
+            => l -> BagDerivStuff l -> SeparateBagsDerivStuff l
 genAuxBinds loc b = genAuxBinds' b2 where
   (b1,b2) = partitionBagWith splitDerivAuxBind b
   splitDerivAuxBind (DerivAuxBind x) = Left x
@@ -2070,10 +2102,10 @@ genAuxBinds loc b = genAuxBinds' b2 where
   rm_dups = foldrBag dup_check emptyBag
   dup_check a b = if anyBag (== a) b then b else consBag a b
 
-  genAuxBinds' :: BagDerivStuff -> SeparateBagsDerivStuff
+  genAuxBinds' :: BagDerivStuff l -> SeparateBagsDerivStuff l
   genAuxBinds' = foldrBag f ( mapBag (genAuxBindSpec loc) (rm_dups b1)
                             , emptyBag, emptyBag, emptyBag)
-  f :: DerivStuff -> SeparateBagsDerivStuff -> SeparateBagsDerivStuff
+  f :: DerivStuff l -> SeparateBagsDerivStuff l -> SeparateBagsDerivStuff l
   f (DerivAuxBind _) = panic "genAuxBinds'" -- We have removed these before
   f (DerivHsBind  b) = add1 b
   f (DerivTyCon   t) = add2 t
@@ -2108,15 +2140,17 @@ mkParentType tc
 
 
 \begin{code}
-mk_FunBind :: SrcSpan -> RdrName
-           -> [([LPat RdrName], LHsExpr RdrName)]
-           -> LHsBind RdrName
+mk_FunBind :: (ApiAnnotation l) => l -> RdrName
+           -> [([LPat l RdrName], LHsExpr l RdrName)]
+           -> LHsBind l RdrName
 mk_FunBind loc fun pats_and_exprs
   = mkRdrFunBind (L loc fun) matches
   where
     matches = [mkMatch p e emptyLocalBinds | (p,e) <-pats_and_exprs]
 
-mkRdrFunBind :: Located RdrName -> [LMatch RdrName (LHsExpr RdrName)] -> LHsBind RdrName
+mkRdrFunBind :: (ApiAnnotation l)
+             => GenLocated l RdrName -> [LMatch l RdrName (LHsExpr l RdrName)]
+             -> LHsBind l RdrName
 mkRdrFunBind fun@(L loc fun_rdr) matches = L loc (mkFunBind fun matches')
  where
    -- Catch-all eqn looks like
@@ -2131,11 +2165,12 @@ mkRdrFunBind fun@(L loc fun_rdr) matches = L loc (mkFunBind fun matches')
 \end{code}
 
 \begin{code}
-box_if_necy :: String           -- The class involved
-            -> TyCon            -- The tycon involved
-            -> LHsExpr RdrName  -- The argument
-            -> Type             -- The argument type
-            -> LHsExpr RdrName  -- Boxed version of the arg
+box_if_necy :: (ApiAnnotation l)
+            => String            -- The class involved
+            -> TyCon             -- The tycon involved
+            -> LHsExpr l RdrName -- The argument
+            -> Type              -- The argument type
+            -> LHsExpr l RdrName -- Boxed version of the arg
 -- See Note [Deriving and unboxed types]
 box_if_necy cls_str tycon arg arg_ty
   | isUnLiftedType arg_ty = nlHsApp (nlHsVar box_con) arg
@@ -2183,12 +2218,15 @@ assoc_ty_id cls_str _ tbl ty
 
 -----------------------------------------------------------------------
 
-and_Expr :: LHsExpr RdrName -> LHsExpr RdrName -> LHsExpr RdrName
+and_Expr :: (ApiAnnotation l)
+         => LHsExpr l RdrName -> LHsExpr l RdrName -> LHsExpr l RdrName
 and_Expr a b = genOpApp a and_RDR    b
 
 -----------------------------------------------------------------------
 
-eq_Expr :: TyCon -> Type -> LHsExpr RdrName -> LHsExpr RdrName -> LHsExpr RdrName
+eq_Expr :: (ApiAnnotation l)
+        => TyCon -> Type -> LHsExpr l RdrName -> LHsExpr l RdrName
+        -> LHsExpr l RdrName
 eq_Expr tycon ty a b
     | not (isUnLiftedType ty) = genOpApp a eq_RDR b
     | otherwise               = genPrimOpApp a prim_eq b
@@ -2197,29 +2235,32 @@ eq_Expr tycon ty a b
 \end{code}
 
 \begin{code}
-untag_Expr :: TyCon -> [( RdrName,  RdrName)] -> LHsExpr RdrName -> LHsExpr RdrName
+untag_Expr :: (ApiAnnotation l)
+           => TyCon -> [( RdrName,  RdrName)] -> LHsExpr l RdrName
+           -> LHsExpr l RdrName
 untag_Expr _ [] expr = expr
 untag_Expr tycon ((untag_this, put_tag_here) : more) expr
   = nlHsCase (nlHsPar (nlHsVarApps (con2tag_RDR tycon) [untag_this])) {-of-}
       [mkSimpleHsAlt (nlVarPat put_tag_here) (untag_Expr tycon more expr)]
 
-enum_from_to_Expr
-        :: LHsExpr RdrName -> LHsExpr RdrName
-        -> LHsExpr RdrName
-enum_from_then_to_Expr
-        :: LHsExpr RdrName -> LHsExpr RdrName -> LHsExpr RdrName
-        -> LHsExpr RdrName
+enum_from_to_Expr :: (ApiAnnotation l)
+        => LHsExpr l RdrName -> LHsExpr l RdrName
+        -> LHsExpr l RdrName
+enum_from_then_to_Expr :: (ApiAnnotation l)
+        => LHsExpr l RdrName -> LHsExpr l RdrName -> LHsExpr l RdrName
+        -> LHsExpr l RdrName
 
 enum_from_to_Expr      f   t2 = nlHsApp (nlHsApp (nlHsVar enumFromTo_RDR) f) t2
 enum_from_then_to_Expr f t t2 = nlHsApp (nlHsApp (nlHsApp (nlHsVar enumFromThenTo_RDR) f) t) t2
 
-showParen_Expr
-        :: LHsExpr RdrName -> LHsExpr RdrName
-        -> LHsExpr RdrName
+showParen_Expr :: (ApiAnnotation l)
+        => LHsExpr l RdrName -> LHsExpr l RdrName
+        -> LHsExpr l RdrName
 
 showParen_Expr e1 e2 = nlHsApp (nlHsApp (nlHsVar showParen_RDR) e1) e2
 
-nested_compose_Expr :: [LHsExpr RdrName] -> LHsExpr RdrName
+nested_compose_Expr :: (ApiAnnotation l)
+                    => [LHsExpr l RdrName] -> LHsExpr l RdrName
 
 nested_compose_Expr []  = panic "nested_compose_expr"   -- Arg is always non-empty
 nested_compose_Expr [e] = parenify e
@@ -2228,18 +2269,20 @@ nested_compose_Expr (e:es)
 
 -- impossible_Expr is used in case RHSs that should never happen.
 -- We generate these to keep the desugarer from complaining that they *might* happen!
-error_Expr :: String -> LHsExpr RdrName
+error_Expr :: (ApiAnnotation l) => String -> LHsExpr l RdrName
 error_Expr string = nlHsApp (nlHsVar error_RDR) (nlHsLit (mkHsString string))
 
 -- illegal_Expr is used when signalling error conditions in the RHS of a derived
 -- method. It is currently only used by Enum.{succ,pred}
-illegal_Expr :: String -> String -> String -> LHsExpr RdrName
+illegal_Expr :: (ApiAnnotation l)
+             => String -> String -> String -> LHsExpr l RdrName
 illegal_Expr meth tp msg =
    nlHsApp (nlHsVar error_RDR) (nlHsLit (mkHsString (meth ++ '{':tp ++ "}: " ++ msg)))
 
 -- illegal_toEnum_tag is an extended version of illegal_Expr, which also allows you
 -- to include the value of a_RDR in the error string.
-illegal_toEnum_tag :: String -> RdrName -> LHsExpr RdrName
+illegal_toEnum_tag :: (ApiAnnotation l)
+                   => String -> RdrName -> LHsExpr l RdrName
 illegal_toEnum_tag tp maxtag =
    nlHsApp (nlHsVar error_RDR)
            (nlHsApp (nlHsApp (nlHsVar append_RDR)
@@ -2257,16 +2300,20 @@ illegal_toEnum_tag tp maxtag =
                                         (nlHsVar maxtag))
                                         (nlHsLit (mkHsString ")"))))))
 
-parenify :: LHsExpr RdrName -> LHsExpr RdrName
+parenify :: LHsExpr l RdrName -> LHsExpr l RdrName
 parenify e@(L _ (HsVar _)) = e
 parenify e                 = mkHsPar e
 
 -- genOpApp wraps brackets round the operator application, so that the
 -- renamer won't subsequently try to re-associate it.
-genOpApp :: LHsExpr RdrName -> RdrName -> LHsExpr RdrName -> LHsExpr RdrName
+genOpApp :: (ApiAnnotation l)
+         => LHsExpr l RdrName -> RdrName -> LHsExpr l RdrName
+         -> LHsExpr l RdrName
 genOpApp e1 op e2 = nlHsPar (nlHsOpApp e1 op e2)
 
-genPrimOpApp :: LHsExpr RdrName -> RdrName -> LHsExpr RdrName -> LHsExpr RdrName
+genPrimOpApp :: (ApiAnnotation l)
+             => LHsExpr l RdrName -> RdrName -> LHsExpr l RdrName
+             -> LHsExpr l RdrName
 genPrimOpApp e1 op e2 = nlHsPar (nlHsApp (nlHsVar tagToEnum_RDR) (nlHsOpApp e1 op e2))
 \end{code}
 
@@ -2291,7 +2338,8 @@ bs_RDRs         = [ mkVarUnqual (mkFastString ("b"++show i)) | i <- [(1::Int) ..
 cs_RDRs         = [ mkVarUnqual (mkFastString ("c"++show i)) | i <- [(1::Int) .. ] ]
 
 a_Expr, c_Expr, f_Expr, z_Expr, ltTag_Expr, eqTag_Expr, gtTag_Expr,
-    false_Expr, true_Expr, fmap_Expr, pure_Expr, mempty_Expr, foldMap_Expr, traverse_Expr :: LHsExpr RdrName
+    false_Expr, true_Expr, fmap_Expr, pure_Expr, mempty_Expr, foldMap_Expr,
+    traverse_Expr :: (ApiAnnotation l) => LHsExpr l RdrName
 a_Expr          = nlHsVar a_RDR
 -- b_Expr       = nlHsVar b_RDR
 c_Expr          = nlHsVar c_RDR
@@ -2308,7 +2356,8 @@ mempty_Expr     = nlHsVar mempty_RDR
 foldMap_Expr    = nlHsVar foldMap_RDR
 traverse_Expr   = nlHsVar traverse_RDR
 
-a_Pat, b_Pat, c_Pat, d_Pat, f_Pat, k_Pat, z_Pat :: LPat RdrName
+a_Pat, b_Pat, c_Pat, d_Pat, f_Pat, k_Pat, z_Pat :: (ApiAnnotation l)
+                                                => LPat l RdrName
 a_Pat           = nlVarPat a_RDR
 b_Pat           = nlVarPat b_RDR
 c_Pat           = nlVarPat c_RDR

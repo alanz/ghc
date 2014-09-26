@@ -44,9 +44,9 @@ turned on'' (if you read Gill {\em et al.}'s paper on the subject).
 There will be at least one ``qualifier'' in the input.
 
 \begin{code}
-dsListComp :: [ExprLStmt Id]
+dsListComp :: (ApiAnnotation l) => [ExprLStmt l Id]
            -> Type              -- Type of entire list
-           -> DsM CoreExpr
+           -> DsM l CoreExpr
 dsListComp lquals res_ty = do
     dflags <- getDynFlags
     let quals = map unLoc lquals
@@ -79,9 +79,10 @@ dsListComp lquals res_ty = do
 -- This function lets you desugar a inner list comprehension and a list of the binders
 -- of that comprehension that we need in the outer comprehension into such an expression
 -- and the type of the elements that it outputs (tuples of binders)
-dsInnerListComp :: (ParStmtBlock Id Id) -> DsM (CoreExpr, Type)
+dsInnerListComp :: (ApiAnnotation l)
+                => (ParStmtBlock l Id Id) -> DsM l (CoreExpr, Type)
 dsInnerListComp (ParStmtBlock stmts bndrs _)
-  = do { expr <- dsListComp (stmts ++ [noLoc $ mkLastStmt (mkBigLHsVarTup bndrs)])
+  = do { expr <- dsListComp (stmts ++ [annNoLoc $ mkLastStmt (mkBigLHsVarTup bndrs)])
                             (mkListTy bndrs_tuple_type)
        ; return (expr, bndrs_tuple_type) }
   where
@@ -90,7 +91,7 @@ dsInnerListComp (ParStmtBlock stmts bndrs _)
 -- This function factors out commonality between the desugaring strategies for GroupStmt.
 -- Given such a statement it gives you back an expression representing how to compute the transformed
 -- list and the tuple that you need to bind from that list in order to proceed with your desugaring
-dsTransStmt :: ExprStmt Id -> DsM (CoreExpr, LPat Id)
+dsTransStmt :: (ApiAnnotation l) => ExprStmt l Id -> DsM l (CoreExpr, LPat l Id)
 dsTransStmt (TransStmt { trS_form = form, trS_stmts = stmts, trS_bndrs = binderMap
                        , trS_by = by, trS_using = using }) = do
     let (from_bndrs, to_bndrs) = unzip binderMap
@@ -205,7 +206,7 @@ with the Unboxed variety.
 
 \begin{code}
 
-deListComp :: [ExprStmt Id] -> CoreExpr -> DsM CoreExpr
+deListComp :: (ApiAnnotation l) => [ExprStmt l Id] -> CoreExpr -> DsM l CoreExpr
 
 deListComp [] _ = panic "deListComp"
 
@@ -255,11 +256,11 @@ deListComp (RecStmt {} : _) _ = panic "deListComp RecStmt"
 
 
 \begin{code}
-deBindComp :: OutPat Id
+deBindComp :: (ApiAnnotation l) => OutPat l Id
            -> CoreExpr
-           -> [ExprStmt Id]
+           -> [ExprStmt l Id]
            -> CoreExpr
-           -> DsM (Expr Id)
+           -> DsM l (Expr Id)
 deBindComp pat core_list1 quals core_list2 = do
     let
         u3_ty@u1_ty = exprType core_list1       -- two names, same thing
@@ -310,9 +311,10 @@ TE[ e | p <- l , q ] c n = let
 \end{verbatim}
 
 \begin{code}
-dfListComp :: Id -> Id      -- 'c' and 'n'
-        -> [ExprStmt Id]    -- the rest of the qual's
-        -> DsM CoreExpr
+dfListComp :: (ApiAnnotation l)
+        => Id -> Id         -- 'c' and 'n'
+        -> [ExprStmt l Id]  -- the rest of the qual's
+        -> DsM l CoreExpr
 
 dfListComp _ _ [] = panic "dfListComp"
 
@@ -347,10 +349,11 @@ dfListComp c_id n_id (BindStmt pat list1 _ _ : quals) = do
 dfListComp _ _ (ParStmt {} : _) = panic "dfListComp ParStmt"
 dfListComp _ _ (RecStmt {} : _) = panic "dfListComp RecStmt"
 
-dfBindComp :: Id -> Id          -- 'c' and 'n'
-           -> (LPat Id, CoreExpr)
-           -> [ExprStmt Id]     -- the rest of the qual's
-           -> DsM CoreExpr
+dfBindComp :: (ApiAnnotation l)
+           => Id -> Id          -- 'c' and 'n'
+           -> (LPat l Id, CoreExpr)
+           -> [ExprStmt l Id]   -- the rest of the qual's
+           -> DsM l CoreExpr
 dfBindComp c_id n_id (pat, core_list1) quals = do
     -- find the required type
     let x_ty   = hsLPatType pat
@@ -378,7 +381,7 @@ dfBindComp c_id n_id (pat, core_list1) quals = do
 
 \begin{code}
 
-mkZipBind :: [Type] -> DsM (Id, CoreExpr)
+mkZipBind :: [Type] -> DsM l (Id, CoreExpr)
 -- mkZipBind [t1, t2]
 -- = (zip, \as1:[t1] as2:[t2]
 --         -> case as1 of
@@ -414,7 +417,7 @@ mkZipBind elt_tys = do
                         -- Increasing order of tag
 
 
-mkUnzipBind :: TransForm -> [Type] -> DsM (Maybe (Id, CoreExpr))
+mkUnzipBind :: TransForm -> [Type] -> DsM l (Maybe (Id, CoreExpr))
 -- mkUnzipBind [t1, t2]
 -- = (unzip, \ys :: [(t1, t2)] -> foldr (\ax :: (t1, t2) axs :: ([t1], [t2])
 --     -> case ax of
@@ -470,8 +473,8 @@ mkUnzipBind _ elt_tys
 --
 --   [:e | qss:] = <<[:e | qss:]>> () [:():]
 --
-dsPArrComp :: [ExprStmt Id]
-            -> DsM CoreExpr
+dsPArrComp :: (ApiAnnotation l) => [ExprStmt l Id]
+            -> DsM l CoreExpr
 
 -- Special case for parallel comprehension
 dsPArrComp (ParStmt qss _ _ : quals) = dePArrParComp qss quals
@@ -500,16 +503,16 @@ dsPArrComp (BindStmt p e _ _ : qs) = do
 dsPArrComp qs = do -- no ParStmt in `qs'
     sglP <- dsDPHBuiltin singletonPVar
     let unitArray = mkApps (Var sglP) [Type unitTy, mkCoreTup []]
-    dePArrComp qs (noLoc $ WildPat unitTy) unitArray
+    dePArrComp qs (annNoLoc $ WildPat unitTy) unitArray
 
 
 
 -- the work horse
 --
-dePArrComp :: [ExprStmt Id]
-           -> LPat Id           -- the current generator pattern
+dePArrComp :: (ApiAnnotation l) => [ExprStmt l Id]
+           -> LPat l Id         -- the current generator pattern
            -> CoreExpr          -- the current generator expression
-           -> DsM CoreExpr
+           -> DsM l CoreExpr
 
 dePArrComp [] _ _ = panic "dePArrComp"
 
@@ -602,7 +605,8 @@ dePArrComp (RecStmt   {} : _) _ _ = panic "DsListComp.dePArrComp: RecStmt"
 --    where
 --      {x_1, ..., x_n} = DV (qs)
 --
-dePArrParComp :: [ParStmtBlock Id Id] -> [ExprStmt Id] -> DsM CoreExpr
+dePArrParComp :: (ApiAnnotation l)
+              => [ParStmtBlock l Id Id] -> [ExprStmt l Id] -> DsM l CoreExpr
 dePArrParComp qss quals = do
     (pQss, ceQss) <- deParStmt qss
     dePArrComp quals pQss ceQss
@@ -628,19 +632,21 @@ dePArrParComp qss quals = do
 
 -- generate Core corresponding to `\p -> e'
 --
-deLambda :: Type                        -- type of the argument
-          -> LPat Id                    -- argument pattern
-          -> LHsExpr Id                 -- body
-          -> DsM (CoreExpr, Type)
+deLambda :: (ApiAnnotation l)
+          => Type                        -- type of the argument
+          -> LPat l Id                  -- argument pattern
+          -> LHsExpr l Id               -- body
+          -> DsM l (CoreExpr, Type)
 deLambda ty p e =
     mkLambda ty p =<< dsLExpr e
 
 -- generate Core for a lambda pattern match, where the body is already in Core
 --
-mkLambda :: Type                        -- type of the argument
-         -> LPat Id                     -- argument pattern
+mkLambda :: (ApiAnnotation l)
+         => Type                        -- type of the argument
+         -> LPat l Id                   -- argument pattern
          -> CoreExpr                    -- desugared body
-         -> DsM (CoreExpr, Type)
+         -> DsM l (CoreExpr, Type)
 mkLambda ty p ce = do
     v <- newSysLocalDs ty
     let errMsg = ptext (sLit "DsListComp.deLambda: internal error!")
@@ -664,15 +670,16 @@ Translation for monad comprehensions
 
 \begin{code}
 -- Entry point for monad comprehension desugaring
-dsMonadComp :: [ExprLStmt Id] -> DsM CoreExpr
+dsMonadComp :: (ApiAnnotation l) => [ExprLStmt l Id] -> DsM l CoreExpr
 dsMonadComp stmts = dsMcStmts stmts
 
-dsMcStmts :: [ExprLStmt Id] -> DsM CoreExpr
+dsMcStmts :: (ApiAnnotation l) => [ExprLStmt l Id] -> DsM l CoreExpr
 dsMcStmts []                    = panic "dsMcStmts"
-dsMcStmts (L loc stmt : lstmts) = putSrcSpanDs loc (dsMcStmt stmt lstmts)
+dsMcStmts (L loc stmt : lstmts) = putSrcSpanDs (annGetSpan loc) (dsMcStmt stmt lstmts)
 
 ---------------
-dsMcStmt :: ExprStmt Id -> [ExprLStmt Id] -> DsM CoreExpr
+dsMcStmt :: (ApiAnnotation l)
+         => ExprStmt l Id -> [ExprLStmt l Id] -> DsM l CoreExpr
 
 dsMcStmt (LastStmt body ret_op) stmts
   = ASSERT( null stmts )
@@ -787,7 +794,7 @@ dsMcStmt (ParStmt blocks mzip_op bind_op) stmts_rest
 dsMcStmt stmt _ = pprPanic "dsMcStmt: unexpected stmt" (ppr stmt)
 
 
-matchTuple :: [Id] -> CoreExpr -> DsM CoreExpr
+matchTuple :: [Id] -> CoreExpr -> DsM l CoreExpr
 -- (matchTuple [a,b,c] body)
 --       returns the Core term
 --  \x. case x of (a,b,c) -> body
@@ -798,12 +805,12 @@ matchTuple ids body
 
 -- general `rhs' >>= \pat -> stmts` desugaring where `rhs'` is already a
 -- desugared `CoreExpr`
-dsMcBindStmt :: LPat Id
+dsMcBindStmt :: (ApiAnnotation l) => LPat l Id
              -> CoreExpr        -- ^ the desugared rhs of the bind statement
-             -> SyntaxExpr Id
-             -> SyntaxExpr Id
-             -> [ExprLStmt Id]
-             -> DsM CoreExpr
+             -> SyntaxExpr l Id
+             -> SyntaxExpr l Id
+             -> [ExprLStmt l Id]
+             -> DsM l CoreExpr
 dsMcBindStmt pat rhs' bind_op fail_op stmts
   = do  { body     <- dsMcStmts stmts
         ; bind_op' <- dsExpr bind_op
@@ -827,7 +834,7 @@ dsMcBindStmt pat rhs' bind_op fail_op stmts
       | otherwise
         = extractMatchResult match (error "It can't fail")
 
-    mk_fail_msg :: DynFlags -> GenLocated l e -> String
+    mk_fail_msg :: (ApiAnnotation l) => DynFlags -> GenLocated l e -> String
     mk_fail_msg dflags pat
         = "Pattern match failure in monad comprehension at " ++
           showPpr dflags (getLoc pat)
@@ -837,12 +844,12 @@ dsMcBindStmt pat rhs' bind_op fail_op stmts
 -- returns the desugaring of
 --       [ (a,b,c) | quals ]
 
-dsInnerMonadComp :: [ExprLStmt Id]
+dsInnerMonadComp :: (ApiAnnotation l) => [ExprLStmt l Id]
                  -> [Id]        -- Return a tuple of these variables
-                 -> HsExpr Id   -- The monomorphic "return" operator
-                 -> DsM CoreExpr
+                 -> HsExpr l Id -- The monomorphic "return" operator
+                 -> DsM l CoreExpr
 dsInnerMonadComp stmts bndrs ret_op
-  = dsMcStmts (stmts ++ [noLoc (LastStmt (mkBigLHsVarTup bndrs) ret_op)])
+  = dsMcStmts (stmts ++ [annNoLoc (LastStmt (mkBigLHsVarTup bndrs) ret_op)])
 
 -- The `unzip` function for `GroupStmt` in a monad comprehensions
 --
@@ -856,10 +863,10 @@ dsInnerMonadComp stmts bndrs ret_op
 --       , fmap (selN2 :: (t1, t2) -> t2) ys )
 
 mkMcUnzipM :: TransForm
-           -> SyntaxExpr TcId   -- fmap
+           -> SyntaxExpr l TcId -- fmap
            -> Id                -- Of type n (a,b,c)
            -> [Type]            -- [a,b,c]
-           -> DsM CoreExpr      -- Of type (n a, n b, n c)
+           -> DsM l CoreExpr    -- Of type (n a, n b, n c)
 mkMcUnzipM ThenForm _ ys _
   = return (Var ys) -- No unzipping to do
 

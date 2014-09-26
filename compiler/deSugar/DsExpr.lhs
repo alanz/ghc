@@ -71,18 +71,19 @@ import Control.Monad
 %************************************************************************
 
 \begin{code}
-dsLocalBinds :: HsLocalBinds Id -> CoreExpr -> DsM CoreExpr
+dsLocalBinds :: (ApiAnnotation l)
+             => HsLocalBinds l Id -> CoreExpr -> DsM l CoreExpr
 dsLocalBinds EmptyLocalBinds    body = return body
 dsLocalBinds (HsValBinds binds) body = dsValBinds binds body
 dsLocalBinds (HsIPBinds binds)  body = dsIPBinds  binds body
 
 -------------------------
-dsValBinds :: HsValBinds Id -> CoreExpr -> DsM CoreExpr
+dsValBinds :: (ApiAnnotation l) => HsValBinds l Id -> CoreExpr -> DsM l CoreExpr
 dsValBinds (ValBindsOut binds _) body = foldrM ds_val_bind body binds
 dsValBinds (ValBindsIn  _     _) _    = panic "dsValBinds ValBindsIn"
 
 -------------------------
-dsIPBinds :: HsIPBinds Id -> CoreExpr -> DsM CoreExpr
+dsIPBinds :: (ApiAnnotation l) => HsIPBinds l Id -> CoreExpr -> DsM l CoreExpr
 dsIPBinds (IPBinds ip_binds ev_binds) body
   = do  { ds_binds <- dsTcEvBinds ev_binds
         ; let inner = mkCoreLets ds_binds body
@@ -95,7 +96,8 @@ dsIPBinds (IPBinds ip_binds ev_binds) body
            return (Let (NonRec n e') body)
 
 -------------------------
-ds_val_bind :: (RecFlag, LHsBinds Id) -> CoreExpr -> DsM CoreExpr
+ds_val_bind :: (ApiAnnotation l)
+            => (RecFlag, LHsBinds l Id) -> CoreExpr -> DsM l CoreExpr
 -- Special case for bindings which bind unlifted variables
 -- We need to do a case right away, rather than building
 -- a tuple and doing selections.
@@ -107,7 +109,7 @@ ds_val_bind (NonRecursive, hsbinds) body
         --       could be dict binds in the 'binds'.  (See the notes
         --       below.  Then pattern-match would fail.  Urk.)
     strictMatchOnly bind
-  = putSrcSpanDs loc (dsStrictBind bind body)
+  = putSrcSpanDs (annGetSpan loc) (dsStrictBind bind body)
 
 -- Ordinary case for bindings; none should be unlifted
 ds_val_bind (_is_rec, binds) body
@@ -128,7 +130,8 @@ ds_val_bind (_is_rec, binds) body
         --    only have to deal with lifted ones now; so Rec is ok
 
 ------------------
-dsStrictBind :: HsBind Id -> CoreExpr -> DsM CoreExpr
+dsStrictBind :: (ApiAnnotation l)
+             => HsBind l Id -> CoreExpr -> DsM l CoreExpr
 dsStrictBind (AbsBinds { abs_tvs = [], abs_ev_vars = []
                , abs_exports = exports
                , abs_ev_binds = ev_binds
@@ -164,7 +167,7 @@ dsStrictBind (PatBind {pat_lhs = pat, pat_rhs = grhss, pat_rhs_ty = ty }) body
 dsStrictBind bind body = pprPanic "dsLet: unlifted" (ppr bind $$ ppr body)
 
 ----------------------
-strictMatchOnly :: HsBind Id -> Bool
+strictMatchOnly :: HsBind l Id -> Bool
 strictMatchOnly (AbsBinds { abs_binds = lbinds })
   = anyBag (strictMatchOnly . unLoc) lbinds
 strictMatchOnly (PatBind { pat_lhs = lpat, pat_rhs_ty = rhs_ty })
@@ -184,11 +187,11 @@ strictMatchOnly _ = False -- I hope!  Checked immediately by caller in fact
 %************************************************************************
 
 \begin{code}
-dsLExpr :: LHsExpr Id -> DsM CoreExpr
+dsLExpr :: (ApiAnnotation l) => LHsExpr l Id -> DsM l CoreExpr
 
-dsLExpr (L loc e) = putSrcSpanDs loc $ dsExpr e
+dsLExpr (L loc e) = putSrcSpanDs (annGetSpan loc) $ dsExpr e
 
-dsExpr :: HsExpr Id -> DsM CoreExpr
+dsExpr :: HsExpr l Id -> DsM l CoreExpr
 dsExpr (HsPar e)              = dsLExpr e
 dsExpr (ExprWithTySigOut e _) = dsLExpr e
 dsExpr (HsVar var)            = return (varToCoreExpr var)   -- See Note [Desugaring vars]
@@ -495,7 +498,7 @@ dsExpr expr@(RecordUpd record_expr (HsRecFields { rec_flds = fields })
         ; return (add_field_binds field_binds' $
                   bindNonRec discrim_var record_expr' matching_code) }
   where
-    ds_field :: HsRecField Id (LHsExpr Id) -> DsM (Name, Id, CoreExpr)
+    ds_field :: HsRecField l Id (LHsExpr l Id) -> DsM l (Name, Id, CoreExpr)
       -- Clone the Id in the HsRecField, because its Name is that
       -- of the record selector, and we must not make that a lcoal binder
       -- else we shadow other uses of the record selector
@@ -527,7 +530,7 @@ dsExpr expr@(RecordUpd record_expr (HsRecFields { rec_flds = fields })
                                          (dataConFieldLabels con) arg_ids
                  mk_val_arg field_name pat_arg_id 
                      = nlHsVar (lookupNameEnv upd_fld_env field_name `orElse` pat_arg_id)
-                 inst_con = noLoc $ HsWrap wrap (HsVar (dataConWrapId con))
+                 inst_con = annNoLoc $ HsWrap wrap (HsVar (dataConWrapId con))
                         -- Reconstruct with the WrapId so that unpacking happens
                  wrap = mkWpEvVarApps theta_vars          <.>
                         mkWpTyApps    (mkTyVarTys ex_tvs) <.>
@@ -545,7 +548,7 @@ dsExpr expr@(RecordUpd record_expr (HsRecFields { rec_flds = fields })
                  wrap_subst = mkVarEnv [ (tv, mkTcSymCo (mkTcCoVarCo eq_var))
                                        | ((tv,_),eq_var) <- eq_spec `zip` eqs_vars ]
 
-                 pat = noLoc $ ConPatOut { pat_con = noLoc (RealDataCon con)
+                 pat = annNoLoc $ ConPatOut { pat_con = annNoLoc (RealDataCon con)
                                          , pat_tvs = ex_tvs
                                          , pat_dicts = eqs_vars ++ theta_vars
                                          , pat_binds = emptyTcEvBinds
@@ -613,8 +616,8 @@ dsExpr (HsType        {})  = panic "dsExpr:HsType"
 dsExpr (HsDo          {})  = panic "dsExpr:HsDo"
 
 
-findField :: [HsRecField Id arg] -> Name -> [arg]
-findField rbinds lbl 
+findField :: [HsRecField l Id arg] -> Name -> [arg]
+findField rbinds lbl
   = [rhs | HsRecField { hsRecFieldId = id, hsRecFieldArg = rhs } <- rbinds 
          , lbl == idName (unLoc id) ]
 \end{code}
@@ -676,8 +679,9 @@ makes all list literals be generated via the simple route.
 
 
 \begin{code}
-dsExplicitList :: PostTc Id Type -> Maybe (SyntaxExpr Id) -> [LHsExpr Id]
-               -> DsM CoreExpr
+dsExplicitList :: (ApiAnnotation l)
+               => PostTc Id Type -> Maybe (SyntaxExpr l Id) -> [LHsExpr l Id]
+               -> DsM l CoreExpr
 -- See Note [Desugaring explicit lists]
 dsExplicitList elt_ty Nothing xs
   = do { dflags <- getDynFlags
@@ -714,7 +718,8 @@ spanTail :: (a -> Bool) -> [a] -> ([a], [a])
 spanTail f xs = (reverse rejected, reverse satisfying)
     where (satisfying, rejected) = span f $ reverse xs
     
-dsArithSeq :: PostTcExpr -> (ArithSeqInfo Id) -> DsM CoreExpr
+dsArithSeq :: (ApiAnnotation l)
+           => PostTcExpr l -> (ArithSeqInfo l Id) -> DsM l CoreExpr
 dsArithSeq expr (From from)
   = App <$> dsExpr expr <*> dsLExpr from
 dsArithSeq expr (FromTo from to)
@@ -741,12 +746,12 @@ handled in DsListComp).  Basically does the translation given in the
 Haskell 98 report:
 
 \begin{code}
-dsDo :: [ExprLStmt Id] -> DsM CoreExpr
+dsDo :: [ExprLStmt l Id] -> DsM l CoreExpr
 dsDo stmts
   = goL stmts
   where
     goL [] = panic "dsDo"
-    goL (L loc stmt:lstmts) = putSrcSpanDs loc (go loc stmt lstmts)
+    goL (L loc stmt:lstmts) = putSrcSpanDs (annGetSpan loc) (go loc stmt lstmts)
   
     go _ (LastStmt body _) stmts
       = ASSERT( null stmts ) dsLExpr body
@@ -789,15 +794,15 @@ dsDo stmts
         tup_ty       = mkBigCoreTupTy (map idType tup_ids) -- Deals with singleton case
         rec_tup_pats = map nlVarPat tup_ids
         later_pats   = rec_tup_pats
-        rets         = map noLoc rec_rets
-        mfix_app     = nlHsApp (noLoc mfix_op) mfix_arg
-        mfix_arg     = noLoc $ HsLam (MG { mg_alts = [mkSimpleMatch [mfix_pat] body]
+        rets         = map annNoLoc rec_rets
+        mfix_app     = nlHsApp (annNoLoc mfix_op) mfix_arg
+        mfix_arg     = annNoLoc $ HsLam (MG { mg_alts = [mkSimpleMatch [mfix_pat] body]
                                          , mg_arg_tys = [tup_ty], mg_res_ty = body_ty
                                          , mg_origin = Generated })
-        mfix_pat     = noLoc $ LazyPat $ mkBigLHsPatTup rec_tup_pats
-        body         = noLoc $ HsDo DoExpr (rec_stmts ++ [ret_stmt]) body_ty
+        mfix_pat     = annNoLoc $ LazyPat $ mkBigLHsPatTup rec_tup_pats
+        body         = annNoLoc $ HsDo DoExpr (rec_stmts ++ [ret_stmt]) body_ty
         ret_app      = nlHsApp (noLoc return_op) (mkBigLHsTup rets)
-        ret_stmt     = noLoc $ mkLastStmt ret_app
+        ret_stmt     = annNoLoc $ mkLastStmt ret_app
                      -- This LastStmt will be desugared with dsDo, 
                      -- which ignores the return_op in the LastStmt,
                      -- so we must apply the return_op explicitly 
@@ -805,7 +810,8 @@ dsDo stmts
     go _ (ParStmt   {}) _ = panic "dsDo ParStmt"
     go _ (TransStmt {}) _ = panic "dsDo TransStmt"
 
-handle_failure :: LPat Id -> MatchResult -> SyntaxExpr Id -> DsM CoreExpr
+handle_failure :: LPat l Id -> MatchResult l -> SyntaxExpr l Id
+               -> DsM l CoreExpr
     -- In a do expression, pattern-match failure just calls
     -- the monadic 'fail' rather than throwing an exception
 handle_failure pat match fail_op
@@ -817,7 +823,7 @@ handle_failure pat match fail_op
   | otherwise
   = extractMatchResult match (error "It can't fail")
 
-mk_fail_msg :: DynFlags -> GenLocated l e -> String
+mk_fail_msg :: (ApiAnnotation l) => DynFlags -> GenLocated l e -> String
 mk_fail_msg dflags pat = "Pattern match failure in do expression at " ++ 
                          showPpr dflags (getLoc pat)
 \end{code}
@@ -831,7 +837,7 @@ mk_fail_msg dflags pat = "Pattern match failure in do expression at " ++
 
 \begin{code}
 -- Warn about certain types of values discarded in monadic bindings (#3263)
-warnDiscardedDoBindings :: LHsExpr Id -> Type -> DsM ()
+warnDiscardedDoBindings :: LHsExpr l Id -> Type -> DsM l ()
 warnDiscardedDoBindings rhs rhs_ty
   | Just (m_ty, elt_ty) <- tcSplitAppTy_maybe rhs_ty
   = do { warn_unused <- woptM Opt_WarnUnusedDoBind
@@ -859,7 +865,7 @@ warnDiscardedDoBindings rhs rhs_ty
   | otherwise   -- RHS does have type of form (m ty), which is weird
   = return ()   -- but at lesat this warning is irrelevant
 
-badMonadBind :: LHsExpr Id -> Type -> SDoc -> SDoc
+badMonadBind :: (ApiAnnotation l) => LHsExpr l Id -> Type -> SDoc -> SDoc
 badMonadBind rhs elt_ty flag_doc
   = vcat [ hang (ptext (sLit "A do-notation statement discarded a result of type"))
               2 (quotes (ppr elt_ty))

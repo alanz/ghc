@@ -22,7 +22,7 @@ import Control.Monad
 
 -- |Vectorise some (possibly recursively defined) type constructors.
 --
-vectTyConDecls :: [TyCon] -> VM [TyCon]
+vectTyConDecls :: [TyCon] -> VM l [TyCon]
 vectTyConDecls tcs = fixV $ \tcs' ->
   do { names' <- mapM (mkLocalisedName mkVectTyConOcc . tyConName) tcs
      ; mapM_ (uncurry (uncurry defTyConName)) (tcs `zip` names' `zipLazy` tcs')
@@ -31,7 +31,7 @@ vectTyConDecls tcs = fixV $ \tcs' ->
 
 -- |Vectorise a single type constructor.
 --
-vectTyConDecl :: TyCon -> Name -> VM TyCon
+vectTyConDecl :: TyCon -> Name -> VM l TyCon
 vectTyConDecl tycon name'
 
       -- Type constructor representing a type class
@@ -118,7 +118,7 @@ vectTyConDecl tycon name'
 
 -- |Vectorise a class method.  (Don't enter it into the vectorisation map yet.)
 --
-vectMethod :: Id -> DefMeth -> Type -> VM (Name, DefMethSpec, Type)
+vectMethod :: Id -> DefMeth -> Type -> VM l (Name, DefMethSpec, Type)
 vectMethod id defMeth ty
  = do {   -- Vectorise the method type.
       ; ty' <- vectType ty
@@ -131,7 +131,7 @@ vectMethod id defMeth ty
 
 -- |Vectorise the RHS of an algebraic type.
 --
-vectAlgTyConRhs :: TyCon -> AlgTyConRhs -> VM AlgTyConRhs
+vectAlgTyConRhs :: TyCon -> AlgTyConRhs -> VM l AlgTyConRhs
 vectAlgTyConRhs tc (AbstractTyCon {})
   = do dflags <- getDynFlags
        cantVectorise dflags "Can't vectorise imported abstract type" (ppr tc)
@@ -154,7 +154,7 @@ vectAlgTyConRhs tc (NewTyCon {})
 
 -- |Vectorise a data constructor by vectorising its argument and return types..
 --
-vectDataCon :: DataCon -> VM DataCon
+vectDataCon :: DataCon -> VM l DataCon
 vectDataCon dc
   | not . null $ ex_tvs
   = do dflags <- getDynFlags

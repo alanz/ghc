@@ -120,15 +120,15 @@ just attach noSrcSpan to everything.
 mkHsPar :: LHsExpr l id -> LHsExpr l id
 mkHsPar e@(L l _) = L l (HsPar e)
 
-mkSimpleMatch :: [LPat SrcSpan id] -> GenLocated SrcSpan (body id)
-              -> LMatch SrcSpan id (GenLocated SrcSpan (body id))
+mkSimpleMatch :: (ApiAnnotation l) => [LPat l id] -> GenLocated l (body id)
+              -> LMatch l id (GenLocated l (body id))
 mkSimpleMatch pats rhs
-  = L loc $
+  = L (annFromSpan loc) $
     Match pats Nothing (unguardedGRHSs rhs)
   where
     loc = case pats of
-                []      -> getLoc rhs
-                (pat:_) -> combineSrcSpans (getLoc pat) (getLoc rhs)
+                []      -> annGetLoc rhs
+                (pat:_) -> combineSrcSpans (annGetLoc pat) (annGetLoc rhs)
 
 unguardedGRHSs :: GenLocated l (body id) -> GRHSs l id (GenLocated l (body id))
 unguardedGRHSs rhs = GRHSs (unguardedRHS rhs) emptyLocalBinds
@@ -155,8 +155,8 @@ mkHsAppTy t1 t2 = addCLoc t1 t2 (HsAppTy t1 t2)
 mkHsApp :: LHsExpr SrcSpan name -> LHsExpr SrcSpan name -> LHsExpr SrcSpan name
 mkHsApp e1 e2 = addCLoc e1 e2 (HsApp e1 e2)
 
-mkHsLam :: [LPat SrcSpan RdrName] -> LHsExpr SrcSpan RdrName
-        -> LHsExpr SrcSpan RdrName
+mkHsLam :: (ApiAnnotation l) => [LPat l RdrName] -> LHsExpr l RdrName
+        -> LHsExpr l RdrName
 mkHsLam pats body = mkHsPar (L (getLoc body) (HsLam matches))
         where
           matches = mkMatchGroup Generated [mkSimpleMatch pats body]
@@ -172,14 +172,15 @@ mkHsConApp data_con tys args
   where
     mk_app f a = noLoc (HsApp f (noLoc a))
 
-mkSimpleHsAlt :: LPat SrcSpan id -> (GenLocated SrcSpan (body SrcSpan id))
-              -> LMatch SrcSpan id (GenLocated SrcSpan (body SrcSpan id))
+mkSimpleHsAlt :: (ApiAnnotation l)
+              => LPat l id -> (GenLocated l (body l id))
+              -> LMatch l id (GenLocated l (body l id))
 -- A simple lambda with a single pattern, no binds, no guards; pre-typechecking
 mkSimpleHsAlt pat expr
   = mkSimpleMatch [pat] expr
 
-nlHsTyApp :: name -> [Type] -> LHsExpr SrcSpan name
-nlHsTyApp fun_id tys = noLoc (HsWrap (mkWpTyApps tys) (HsVar fun_id))
+nlHsTyApp :: (ApiAnnotation l) => name -> [Type] -> LHsExpr l name
+nlHsTyApp fun_id tys = annNoLoc (HsWrap (mkWpTyApps tys) (HsVar fun_id))
 
 --------- Adding parens ---------
 mkLHsPar :: LHsExpr l name -> LHsExpr l name

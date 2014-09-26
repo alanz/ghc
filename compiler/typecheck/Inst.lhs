@@ -85,7 +85,8 @@ emitWanted origin pred
              CtWanted { ctev_pred = pred, ctev_evar = ev, ctev_loc = loc }
        ; return ev }
 
-newMethodFromName :: CtOrigin l -> Name -> TcRhoType -> TcM l (HsExpr l TcId)
+newMethodFromName :: (ApiAnnotation l)
+                  => CtOrigin l -> Name -> TcRhoType -> TcM l (HsExpr l TcId)
 -- Used when Name is the wired-in name for a wired-in class method,
 -- so the caller knows its type for sure, which should be of form
 --    forall a. C a => <blah>
@@ -164,7 +165,8 @@ deeplySkolemise ty
   | otherwise
   = return (idHsWrapper, [], [], ty)
 
-deeplyInstantiate :: CtOrigin l -> TcSigmaType -> TcM l (HsWrapper, TcRhoType)
+deeplyInstantiate :: (ApiAnnotation l)
+                  => CtOrigin l -> TcSigmaType -> TcM l (HsWrapper, TcRhoType)
 --   Int -> forall a. a -> a  ==>  (\x:Int. [] x alpha) :: Int -> alpha
 -- In general if
 -- if    deeplyInstantiate ty = (wrap, rho)
@@ -195,7 +197,8 @@ deeplyInstantiate orig ty
 
 \begin{code}
 ----------------
-instCall :: CtOrigin l -> [TcType] -> TcThetaType -> TcM l HsWrapper
+instCall :: (ApiAnnotation l)
+         => CtOrigin l -> [TcType] -> TcThetaType -> TcM l HsWrapper
 -- Instantiate the constraints of a call
 --	(instCall o tys theta)
 -- (a) Makes fresh dictionaries as necessary for the constraints (theta)
@@ -207,7 +210,8 @@ instCall orig tys theta
 	; return (dict_app <.> mkWpTyApps tys) }
 
 ----------------
-instCallConstraints :: CtOrigin l -> TcThetaType -> TcM l HsWrapper
+instCallConstraints :: (ApiAnnotation l)
+                    => CtOrigin l -> TcThetaType -> TcM l HsWrapper
 -- Instantiates the TcTheta, puts all constraints thereby generated
 -- into the LIE, and returns a HsWrapper to enclose the call site.
 
@@ -228,7 +232,7 @@ instCallConstraints orig preds
      	  ; return (EvId ev_var) }
 
 ----------------
-instStupidTheta :: CtOrigin l -> TcThetaType -> TcM l ()
+instStupidTheta :: (ApiAnnotation l) => CtOrigin l -> TcThetaType -> TcM l ()
 -- Similar to instCall, but only emit the constraints in the LIE
 -- Used exclusively for the 'stupid theta' of a data constructor
 instStupidTheta orig theta
@@ -360,7 +364,7 @@ tcSyntaxName orig ty (std_nm, user_nm_expr) = do
 	-- same type as the standard one.
 	-- Tiresome jiggling because tcCheckSigma takes a located expression
      span <- getSrcSpanM
-     expr <- tcPolyExpr (L span user_nm_expr) sigma1
+     expr <- tcPolyExpr (L (annFromSpan span) user_nm_expr) sigma1
      return (std_nm, unLoc expr)
 
 syntaxNameCtxt :: (ApiAnnotation l)
@@ -407,7 +411,7 @@ tcGetInsts :: TcM l [ClsInst]
 -- Gets the local class instances.
 tcGetInsts = fmap tcg_insts getGblEnv
 
-tcExtendLocalInstEnv :: [ClsInst] -> TcM l a -> TcM l a
+tcExtendLocalInstEnv :: (ApiAnnotation l) => [ClsInst] -> TcM l a -> TcM l a
   -- Add new locally-defined instances
 tcExtendLocalInstEnv dfuns thing_inside
  = do { traceDFuns dfuns

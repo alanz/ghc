@@ -30,7 +30,7 @@ import Control.Applicative
 
 -- |Vectorise a binder variable, along with its attached type.
 --
-vectBndr :: Var -> VM VVar
+vectBndr :: Var -> VM l VVar
 vectBndr v
  = do (vty, lty) <- vectAndLiftType (idType v)
       let vv = v `Id.setIdType` vty
@@ -44,7 +44,7 @@ vectBndr v
 
 -- |Vectorise a binder variable, along with its attached type, but give the result a new name.
 --
-vectBndrNew :: Var -> FastString -> VM VVar
+vectBndrNew :: Var -> FastString -> VM l VVar
 vectBndrNew v fs
  = do vty <- vectType (idType v)
       vv  <- newLocalVVar fs vty
@@ -55,7 +55,7 @@ vectBndrNew v fs
 
 -- |Vectorise a binder then run a computation with that binder in scope.
 --
-vectBndrIn :: Var -> VM a -> VM (VVar, a)
+vectBndrIn :: Var -> VM l a -> VM l (VVar, a)
 vectBndrIn v p
  = localV
  $ do vv <- vectBndr v
@@ -64,7 +64,7 @@ vectBndrIn v p
 
 -- |Vectorise a binder, give it a new name, then run a computation with that binder in scope.
 --
-vectBndrNewIn :: Var -> FastString -> VM a -> VM (VVar, a)
+vectBndrNewIn :: Var -> FastString -> VM l a -> VM l (VVar, a)
 vectBndrNewIn v fs p
  = localV
  $ do vv <- vectBndrNew v fs
@@ -73,7 +73,7 @@ vectBndrNewIn v fs p
 
 -- |Vectorise some binders, then run a computation with them in scope.
 --
-vectBndrsIn :: [Var] -> VM a -> VM ([VVar], a)
+vectBndrsIn :: [Var] -> VM l a -> VM l ([VVar], a)
 vectBndrsIn vs p
  = localV
  $ do vvs <- mapM vectBndr vs
@@ -85,7 +85,7 @@ vectBndrsIn vs p
 
 -- |Vectorise a variable, producing the vectorised and lifted versions.
 --
-vectVar :: Var -> VM VExpr
+vectVar :: Var -> VM l VExpr
 vectVar var
   = do { vVar <- lookupVar var
        ; case vVar of
@@ -99,5 +99,5 @@ vectVar var
 -- |Constants are lifted by replication along the integer context in the `VM` state for the number
 -- of elements in the result array.
 --
-vectConst :: CoreExpr -> VM VExpr
+vectConst :: CoreExpr -> VM l VExpr
 vectConst c = (c,) <$> liftPD c

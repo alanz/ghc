@@ -84,23 +84,25 @@ import Control.Monad(liftM)
 %************************************************************************
 
 \begin{code}
-dsTopLHsBinds :: LHsBinds Id -> DsM (OrdList (Id,CoreExpr))
+dsTopLHsBinds :: (ApiAnnotation l)
+              => LHsBinds l Id -> DsM l (OrdList (Id,CoreExpr))
 dsTopLHsBinds binds = ds_lhs_binds binds
 
-dsLHsBinds :: LHsBinds Id -> DsM [(Id,CoreExpr)]
+dsLHsBinds :: (ApiAnnotation l) => LHsBinds l Id -> DsM l [(Id,CoreExpr)]
 dsLHsBinds binds = do { binds' <- ds_lhs_binds binds
                       ; return (fromOL binds') }
 
 ------------------------
-ds_lhs_binds :: LHsBinds Id -> DsM (OrdList (Id,CoreExpr))
+ds_lhs_binds :: (ApiAnnotation l)
+             => LHsBinds l Id -> DsM l (OrdList (Id,CoreExpr))
 
 ds_lhs_binds binds = do { ds_bs <- mapBagM dsLHsBind binds
                         ; return (foldBag appOL id nilOL ds_bs) }
 
-dsLHsBind :: LHsBind Id -> DsM (OrdList (Id,CoreExpr))
-dsLHsBind (L loc bind) = putSrcSpanDs loc $ dsHsBind bind
+dsLHsBind :: (ApiAnnotation l) => LHsBind l Id -> DsM l (OrdList (Id,CoreExpr))
+dsLHsBind (L loc bind) = putSrcSpanDs (annGetSpan loc) $ dsHsBind bind
 
-dsHsBind :: HsBind Id -> DsM (OrdList (Id,CoreExpr))
+dsHsBind :: (ApiAnnotation l) => HsBind l Id -> DsM l (OrdList (Id,CoreExpr))
 
 dsHsBind (VarBind { var_id = var, var_rhs = expr, var_inline = inline_regardless })
   = do  { dflags <- getDynFlags
@@ -414,10 +416,10 @@ Note that
 
 \begin{code}
 ------------------------
-dsSpecs :: CoreExpr     -- Its rhs
-        -> TcSpecPrags
-        -> DsM ( OrdList (Id,CoreExpr) 	-- Binding for specialised Ids
-	       , [CoreRule] )		-- Rules for the Global Ids
+dsSpecs :: (ApiAnnotation l) => CoreExpr -- Its rhs
+        -> TcSpecPrags l
+        -> DsM l ( OrdList (Id,CoreExpr) -- Binding for specialised Ids
+                , [CoreRule] )           -- Rules for the Global Ids
 -- See Note [Implementing SPECIALISE pragmas]
 dsSpecs _ IsDefaultMethod = return (nilOL, [])
 dsSpecs poly_rhs (SpecPrags sps)
@@ -425,29 +427,30 @@ dsSpecs poly_rhs (SpecPrags sps)
        ; let (spec_binds_s, rules) = unzip pairs
        ; return (concatOL spec_binds_s, rules) }
 
-dsSpec :: Maybe CoreExpr  	-- Just rhs => RULE is for a local binding
-       	  			-- Nothing => RULE is for an imported Id
-				-- 	      rhs is in the Id's unfolding
+dsSpec :: (ApiAnnotation l)
+       => Maybe CoreExpr        -- Just rhs => RULE is for a local binding
+                                -- Nothing => RULE is for an imported Id
+                                --            rhs is in the Id's unfolding
        -> GenLocated l TcSpecPrag
-       -> DsM (Maybe (OrdList (Id,CoreExpr), CoreRule))
+       -> DsM l (Maybe (OrdList (Id,CoreExpr), CoreRule))
 dsSpec mb_poly_rhs (L loc (SpecPrag poly_id spec_co spec_inl))
   | isJust (isClassOpId_maybe poly_id)
-  = putSrcSpanDs loc $ 
+  = putSrcSpanDs (annGetSpan loc) $
     do { warnDs (ptext (sLit "Ignoring useless SPECIALISE pragma for class method selector") 
                  <+> quotes (ppr poly_id))
        ; return Nothing  }  -- There is no point in trying to specialise a class op
        	 		    -- Moreover, classops don't (currently) have an inl_sat arity set
 			    -- (it would be Just 0) and that in turn makes makeCorePair bleat
 
-  | no_act_spec && isNeverActive rule_act 
-  = putSrcSpanDs loc $ 
+  | no_act_spec && isNeverActive rule_act
+  = putSrcSpanDs (annGetSpan loc) $
     do { warnDs (ptext (sLit "Ignoring useless SPECIALISE pragma for NOINLINE function:")
                  <+> quotes (ppr poly_id))
        ; return Nothing  }  -- Function is NOINLINE, and the specialiation inherits that
        	 		    -- See Note [Activation pragmas for SPECIALISE]
 
   | otherwise
-  = putSrcSpanDs loc $ 
+  = putSrcSpanDs (annGetSpan loc) $
     do { uniq <- newUnique
        ; let poly_name = idName poly_id
              spec_occ  = mkSpecOcc (getOccName poly_name)
@@ -801,7 +804,7 @@ as the old one, but with an Internal name and no IdInfo.
 
 
 \begin{code}
-dsHsWrapper :: HsWrapper -> CoreExpr -> DsM CoreExpr
+dsHsWrapper :: HsWrapper -> CoreExpr -> DsM l CoreExpr
 dsHsWrapper WpHole 	      e = return e
 dsHsWrapper (WpTyApp ty)      e = return $ App e (Type ty)
 dsHsWrapper (WpLet ev_binds)  e = do bs <- dsTcEvBinds ev_binds
@@ -814,11 +817,11 @@ dsHsWrapper (WpTyLam tv)      e = return $ Lam tv e
 dsHsWrapper (WpEvApp evtrm)   e = liftM (App e) (dsEvTerm evtrm)
 
 --------------------------------------
-dsTcEvBinds :: TcEvBinds -> DsM [CoreBind]
+dsTcEvBinds :: TcEvBinds -> DsM l [CoreBind]
 dsTcEvBinds (TcEvBinds {}) = panic "dsEvBinds"    -- Zonker has got rid of this
 dsTcEvBinds (EvBinds bs)   = dsEvBinds bs
 
-dsEvBinds :: Bag EvBind -> DsM [CoreBind]
+dsEvBinds :: Bag EvBind -> DsM l [CoreBind]
 dsEvBinds bs = mapM ds_scc (sccEvBinds bs)
   where
     ds_scc (AcyclicSCC (EvBind v r)) = liftM (NonRec v) (dsEvTerm r)
@@ -837,7 +840,7 @@ sccEvBinds bs = stronglyConnCompFromEdgedVertices edges
 
 
 ---------------------------------------
-dsEvTerm :: EvTerm -> DsM CoreExpr
+dsEvTerm :: EvTerm -> DsM l CoreExpr
 dsEvTerm (EvId v) = return (Var v)
 
 dsEvTerm (EvCast tm co) 
@@ -888,7 +891,7 @@ dsEvTerm (EvLit l) =
     EvStr s -> mkStringExprFS s
 
 ---------------------------------------
-dsTcCoercion :: TcCoercion -> (Coercion -> CoreExpr) -> DsM CoreExpr
+dsTcCoercion :: TcCoercion -> (Coercion -> CoreExpr) -> DsM l CoreExpr
 -- This is the crucial function that moves 
 -- from TcCoercions to Coercions; see Note [TcCoercions] in Coercion
 -- e.g.  dsTcCoercion (trans g1 g2) k

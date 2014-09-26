@@ -54,7 +54,7 @@ buildPADict
         -> TyCon        -- ^ PData  instance tycon
         -> TyCon        -- ^ PDatas instance tycon
         -> SumRepr      -- ^ representation used for the type being vectorised.
-        -> VM Var       -- ^ name of the top-level dictionary function.
+        -> VM l Var     -- ^ name of the top-level dictionary function.
 
 buildPADict vect_tc prepr_ax pdata_tc pdatas_tc repr
  = polyAbstract tvs $ \args ->    -- The args are the dictionaries we lambda abstract over; and they

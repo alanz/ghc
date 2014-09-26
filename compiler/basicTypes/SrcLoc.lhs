@@ -76,7 +76,7 @@ module SrcLoc (
 
         -- ** GHC API annotations
         ApiAnnotation(..),
-        annGetLoc, annSetLoc
+        annNoLoc, annGetLoc, annSetLoc, annFromSpan
 
     ) where
 
@@ -169,7 +169,10 @@ advanceSrcLoc (SrcLoc f l c) _    = SrcLoc f  l (c + 1)
 class (Outputable l, OutputableBndr l) => ApiAnnotation l where
     annGetSpan :: l -> SrcSpan
     annSetSpan :: l -> SrcSpan -> l
-    annNoLoc   :: e -> GenLocated l e
+    annNoSpan  :: l
+
+annNoLoc :: (ApiAnnotation l) => e -> GenLocated l e
+annNoLoc e = L annNoSpan e
 
 annGetLoc :: (ApiAnnotation l) => GenLocated l e -> SrcSpan
 annGetLoc (L l _) = annGetSpan l
@@ -177,10 +180,13 @@ annGetLoc (L l _) = annGetSpan l
 annSetLoc :: (ApiAnnotation l) => GenLocated l e -> SrcSpan -> GenLocated l e
 annSetLoc (L l e) ss = L (annSetSpan l ss) e
 
+annFromSpan :: (ApiAnnotation l) => SrcSpan -> l
+annFromSpan s = annSetSpan annNoSpan s
+
 instance ApiAnnotation SrcSpan where
   annGetSpan l = l
   annSetSpan _ ss = ss
-  annNoLoc = noLoc
+  annNoSpan = noSrcSpan
 
 instance OutputableBndr SrcSpan where
   pprPrefixOcc = ppr

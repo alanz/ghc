@@ -74,7 +74,7 @@ For numeric literals, we try to detect there use at a standard type
 See also below where we look for @DictApps@ for \tr{plusInt}, etc.
 
 \begin{code}
-dsLit :: HsLit -> DsM CoreExpr
+dsLit :: HsLit -> DsM l CoreExpr
 dsLit (HsStringPrim s) = return (Lit (MachStr s))
 dsLit (HsCharPrim   c) = return (Lit (MachChar c))
 dsLit (HsIntPrim    i) = return (Lit (MachInt i))
@@ -101,12 +101,12 @@ dsLit (HsRat r ty) = do
                                    (head (tyConDataCons tycon), i_ty)
                 x -> pprPanic "dsLit" (ppr x)
 
-dsOverLit :: HsOverLit Id -> DsM CoreExpr
+dsOverLit :: (ApiAnnotation l) => HsOverLit l Id -> DsM l CoreExpr
 dsOverLit lit = do { dflags <- getDynFlags
                    ; warnAboutOverflowedLiterals dflags lit
                    ; dsOverLit' dflags lit }
 
-dsOverLit' :: DynFlags -> HsOverLit Id -> DsM CoreExpr
+dsOverLit' :: (ApiAnnotation l) => DynFlags -> HsOverLit l Id -> DsM l CoreExpr
 -- Post-typechecker, the SyntaxExpr field of an OverLit contains
 -- (an expression for) the literal value itself
 dsOverLit' dflags (OverLit { ol_val = val, ol_rebindable = rebindable
@@ -135,7 +135,7 @@ between one type and another when the to- and from- types are the
 same.  Then it's probably (albeit not definitely) the identity
 
 \begin{code}
-warnAboutIdentities :: DynFlags -> CoreExpr -> Type -> DsM ()
+warnAboutIdentities :: DynFlags -> CoreExpr -> Type -> DsM l ()
 warnAboutIdentities dflags (Var conv_fn) type_of_conv
   | wopt Opt_WarnIdentities dflags
   , idName conv_fn `elem` conversionNames
@@ -156,7 +156,7 @@ conversionNames
 \end{code}
 
 \begin{code}
-warnAboutOverflowedLiterals :: DynFlags -> HsOverLit Id -> DsM ()
+warnAboutOverflowedLiterals :: DynFlags -> HsOverLit l Id -> DsM l ()
 warnAboutOverflowedLiterals dflags lit
  | wopt Opt_WarnOverflowedLiterals dflags
  , Just (i, tc) <- getIntegralLit lit
@@ -174,7 +174,7 @@ warnAboutOverflowedLiterals dflags lit
 
   | otherwise = return ()
   where
-    check :: forall a. (Bounded a, Integral a) => Integer -> Name -> a -> DsM ()
+    check :: forall a l. (Bounded a, Integral a) => Integer -> Name -> a -> DsM l ()
     check i tc _proxy
       = when (i < minB || i > maxB) $ do
         warnDs (vcat [ ptext (sLit "Literal") <+> integer i
@@ -202,7 +202,8 @@ We get an erroneous suggestion for
 but perhaps that does not matter too much.
 
 \begin{code}
-warnAboutEmptyEnumerations :: DynFlags -> LHsExpr Id -> Maybe (LHsExpr Id) -> LHsExpr Id -> DsM ()
+warnAboutEmptyEnumerations :: DynFlags -> LHsExpr l Id -> Maybe (LHsExpr l Id)
+                           -> LHsExpr l Id -> DsM l ()
 -- Warns about [2,3 .. 1] which returns the empty list
 -- Only works for integral types, not floating point
 warnAboutEmptyEnumerations dflags fromExpr mThnExpr toExpr
@@ -210,7 +211,7 @@ warnAboutEmptyEnumerations dflags fromExpr mThnExpr toExpr
   , Just (from,tc) <- getLHsIntegralLit fromExpr
   , Just mThn      <- traverse getLHsIntegralLit mThnExpr
   , Just (to,_)    <- getLHsIntegralLit toExpr
-  , let check :: forall a. (Enum a, Num a) => a -> DsM ()
+  , let check :: forall a l. (Enum a, Num a) => a -> DsM l ()
         check _proxy
           = when (null enumeration) $
             warnDs (ptext (sLit "Enumeration is empty"))
@@ -234,7 +235,7 @@ warnAboutEmptyEnumerations dflags fromExpr mThnExpr toExpr
 
   | otherwise = return ()
 
-getLHsIntegralLit :: LHsExpr Id -> Maybe (Integer, Name)
+getLHsIntegralLit :: LHsExpr l Id -> Maybe (Integer, Name)
 -- See if the expression is an Integral literal
 -- Remember to look through automatically-added tick-boxes! (Trac #8384)
 getLHsIntegralLit (L _ (HsPar e))            = getLHsIntegralLit e
@@ -243,7 +244,7 @@ getLHsIntegralLit (L _ (HsBinTick _ _ e))    = getLHsIntegralLit e
 getLHsIntegralLit (L _ (HsOverLit over_lit)) = getIntegralLit over_lit
 getLHsIntegralLit _ = Nothing
 
-getIntegralLit :: HsOverLit Id -> Maybe (Integer, Name)
+getIntegralLit :: HsOverLit l Id -> Maybe (Integer, Name)
 getIntegralLit (OverLit { ol_val = HsIntegral i, ol_type = ty })
   | Just tc <- tyConAppTyCon_maybe ty
   = Just (i, tyConName tc)
@@ -258,7 +259,7 @@ getIntegralLit _ = Nothing
 %************************************************************************
 
 \begin{code}
-tidyLitPat :: HsLit -> Pat Id
+tidyLitPat :: (ApiAnnotation l) => HsLit -> Pat l Id
 -- Result has only the following HsLits:
 --      HsIntPrim, HsWordPrim, HsCharPrim, HsFloatPrim
 --      HsDoublePrim, HsStringPrim, HsString
@@ -274,13 +275,13 @@ tidyLitPat (HsString s)
 tidyLitPat lit = LitPat lit
 
 ----------------
-tidyNPat :: (HsLit -> Pat Id)   -- How to tidy a LitPat
+tidyNPat :: (ApiAnnotation l) => (HsLit -> Pat l Id)   -- How to tidy a LitPat
                  -- We need this argument because tidyNPat is called
                  -- both by Match and by Check, but they tidy LitPats
                  -- slightly differently; and we must desugar
                  -- literals consistently (see Trac #5117)
-         -> HsOverLit Id -> Maybe (SyntaxExpr Id) -> SyntaxExpr Id
-         -> Pat Id
+         -> HsOverLit l Id -> Maybe (SyntaxExpr l Id) -> SyntaxExpr l Id
+         -> Pat l Id
 tidyNPat tidy_lit_pat (OverLit val False _ ty) mb_neg _
         -- False: Take short cuts only if the literal is not using rebindable syntax
         --
@@ -299,8 +300,8 @@ tidyNPat tidy_lit_pat (OverLit val False _ ty) mb_neg _
   | isDoubleTy ty, Just rat_lit <- mb_rat_lit = mk_con_pat doubleDataCon (HsDoublePrim rat_lit)
   | isStringTy ty, Just str_lit <- mb_str_lit = tidy_lit_pat (HsString str_lit)
   where
-    mk_con_pat :: DataCon -> HsLit -> Pat Id
-    mk_con_pat con lit = unLoc (mkPrefixConPat con [noLoc $ LitPat lit] [])
+    mk_con_pat :: (ApiAnnotation l) => DataCon -> HsLit -> Pat l Id
+    mk_con_pat con lit = unLoc (mkPrefixConPat con [annNoLoc $ LitPat lit] [])
 
     mb_int_lit :: Maybe Integer
     mb_int_lit = case (mb_neg, val) of
@@ -333,10 +334,10 @@ tidyNPat _ over_lit mb_neg eq
 %************************************************************************
 
 \begin{code}
-matchLiterals :: [Id]
+matchLiterals :: (ApiAnnotation l) => [Id]
               -> Type                   -- Type of the whole case expression
-              -> [[EquationInfo]]       -- All PgLits
-              -> DsM MatchResult
+              -> [[EquationInfo l]]     -- All PgLits
+              -> DsM l (MatchResult l)
 
 matchLiterals (var:vars) ty sub_groups
   = ASSERT( notNull sub_groups && all notNull sub_groups )
@@ -354,14 +355,15 @@ matchLiterals (var:vars) ty sub_groups
             return (mkCoPrimCaseMatchResult var ty alts)
         }
   where
-    match_group :: [EquationInfo] -> DsM (Literal, MatchResult)
+    match_group :: (ApiAnnotation l)
+                => [EquationInfo l] -> DsM l (Literal, MatchResult l)
     match_group eqns
         = do dflags <- getDynFlags
              let LitPat hs_lit = firstPat (head eqns)
              match_result <- match vars ty (shiftEqns eqns)
              return (hsLitKey dflags hs_lit, match_result)
 
-    wrap_str_guard :: Id -> (Literal,MatchResult) -> DsM MatchResult
+    wrap_str_guard :: Id -> (Literal,MatchResult l) -> DsM l (MatchResult l)
         -- Equality check for string literals
     wrap_str_guard eq_str (MachStr s, mr)
         = do { -- We now have to convert back to FastString. Perhaps there
@@ -393,7 +395,7 @@ hsLitKey _      (HsString s)      = MachStr    (fastStringToByteString s)
 hsLitKey _      l                 = pprPanic "hsLitKey" (ppr l)
 
 ---------------------------
-hsOverLitKey :: OutputableBndr a => HsOverLit a -> Bool -> Literal
+hsOverLitKey :: OutputableBndr a => HsOverLit l a -> Bool -> Literal
 -- Ditto for HsOverLit; the boolean indicates to negate
 hsOverLitKey (OverLit { ol_val = l }) neg = litValKey l neg
 
@@ -413,7 +415,8 @@ litValKey (HsIsString s)   neg   = ASSERT( not neg) MachStr (fastStringToByteStr
 %************************************************************************
 
 \begin{code}
-matchNPats :: [Id] -> Type -> [EquationInfo] -> DsM MatchResult
+matchNPats :: (ApiAnnotation l)
+           => [Id] -> Type -> [EquationInfo l] -> DsM l (MatchResult l)
 matchNPats (var:vars) ty (eqn1:eqns)    -- All for the same literal
   = do  { let NPat lit mb_neg eq_chk = firstPat eqn1
         ; lit_expr <- dsOverLit lit
@@ -447,7 +450,8 @@ We generate:
 
 
 \begin{code}
-matchNPlusKPats :: [Id] -> Type -> [EquationInfo] -> DsM MatchResult
+matchNPlusKPats :: (ApiAnnotation l)
+                => [Id] -> Type -> [EquationInfo l] -> DsM l (MatchResult l)
 -- All NPlusKPats, for the *same* literal k
 matchNPlusKPats (var:vars) ty (eqn1:eqns)
   = do  { let NPlusKPat (L _ n1) lit ge minus = firstPat eqn1

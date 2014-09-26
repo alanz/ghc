@@ -49,11 +49,11 @@ inlineMe = Inline 0
 
 -- Hoisting --------------------------------------------------------------------
 
-hoistBinding :: Var -> CoreExpr -> VM ()
+hoistBinding :: Var -> CoreExpr -> VM l ()
 hoistBinding v e = updGEnv $ \env ->
   env { global_bindings = (v,e) : global_bindings env }
 
-hoistExpr :: FastString -> CoreExpr -> Inline -> VM Var
+hoistExpr :: FastString -> CoreExpr -> Inline -> VM l Var
 hoistExpr fs expr inl
   = do
       var <- mk_inline `liftM` newLocalVar fs (exprType expr)
@@ -65,7 +65,7 @@ hoistExpr fs expr inl
                                       mkInlineUnfolding (Just arity) expr
                       DontInline   -> var
 
-hoistVExpr :: VExpr -> Inline -> VM VVar
+hoistVExpr :: VExpr -> Inline -> VM l VVar
 hoistVExpr (ve, le) inl
   = do
       fs <- getBindName
@@ -80,7 +80,7 @@ hoistVExpr (ve, le) inl
 -- variables that are passed as conventional type and value arguments.  The latter is implicitly
 -- extended by the set of 'PA' dictionaries required for the type variables.
 --
-hoistPolyVExpr :: [TyVar] -> [Var] -> Inline -> VM VExpr -> VM VExpr
+hoistPolyVExpr :: [TyVar] -> [Var] -> Inline -> VM l VExpr -> VM l VExpr
 hoistPolyVExpr tvs vars inline p
   = do { inline' <- addInlineArity inline . (+ length vars) <$> polyArity tvs
        ; expr <- closedV . polyAbstract tvs $ \args ->
@@ -90,7 +90,7 @@ hoistPolyVExpr tvs vars inline p
        ; mapVect (\e -> e `mkApps` varArgs) <$> polyVApply (vVar fn) (mkTyVarTys tvs)
        }
 
-takeHoisted :: VM [(Var, CoreExpr)]
+takeHoisted :: VM l [(Var, CoreExpr)]
 takeHoisted
   = do
       env <- readGEnv id

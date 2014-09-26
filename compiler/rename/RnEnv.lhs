@@ -5,6 +5,7 @@
 
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module RnEnv (
         newTopSrcBinder,
@@ -107,14 +108,14 @@ newTopSrcBinder (L loc rdr_name)
          ; occ `seq` return ()  -- c.f. seq in newGlobalBinder
          ; this_mod <- getModule
          ; updNameCache $ \ ns ->
-           let name' = mkExternalName (nameUnique name) this_mod occ (annGetLoc loc)
+           let name' = mkExternalName (nameUnique name) this_mod occ (annGetSpan loc)
                ns'   = ns { nsNames = extendNameCache (nsNames ns) this_mod occ name' }
            in (ns', name') }
 
   | Just (rdr_mod, rdr_occ) <- isOrig_maybe rdr_name
   = do  { this_mod <- getModule
         ; unless (rdr_mod == this_mod || rdr_mod == rOOT_MAIN)
-                 (addErrAt loc (badOrigBinding rdr_name))
+                 (addErrAt (annGetSpan loc) (badOrigBinding rdr_name))
         -- When reading External Core we get Orig names as binders,
         -- but they should agree with the module gotten from the monad
         --
@@ -132,11 +133,11 @@ newTopSrcBinder (L loc rdr_name)
         -- the RdrName, not from the environment.  In principle, it'd be fine to
         -- have an arbitrary mixture of external core definitions in a single module,
         -- (apart from module-initialisation issues, perhaps).
-        ; newGlobalBinder rdr_mod rdr_occ loc }
+        ; newGlobalBinder rdr_mod rdr_occ (annGetSpan loc) }
 
   | otherwise
   = do  { unless (not (isQual rdr_name))
-                 (addErrAt loc (badQualBndrErr rdr_name))
+                 (addErrAt (annGetSpan loc) (badQualBndrErr rdr_name))
                 -- Binders should not be qualified; if they are, and with a different
                 -- module name, we we get a confusing "M.T is not in scope" error later
 
@@ -145,11 +146,11 @@ newTopSrcBinder (L loc rdr_name)
                 -- We are inside a TH bracket, so make an *Internal* name
                 -- See Note [Top-level Names in Template Haskell decl quotes] in RnNames
              do { uniq <- newUnique
-                ; return (mkInternalName uniq (rdrNameOcc rdr_name) loc) }
+                ; return (mkInternalName uniq (rdrNameOcc rdr_name) (annGetSpan loc)) }
           else
                 -- Normal case
              do { this_mod <- getModule
-                ; newGlobalBinder this_mod (rdrNameOcc rdr_name) loc } }
+                ; newGlobalBinder this_mod (rdrNameOcc rdr_name) (annGetSpan loc) } }
 \end{code}
 
 %*********************************************************
@@ -1342,27 +1343,30 @@ check_dup_names names
     (_, dups) = removeDups (\n1 n2 -> nameOccName n1 `compare` nameOccName n2) names
 
 ---------------------
-checkShadowedRdrNames :: (ApiAnnotation l) => [GenLocated l RdrName] -> RnM l ()
+checkShadowedRdrNames :: forall l. (ApiAnnotation l)
+                      => [GenLocated l RdrName] -> RnM l ()
 checkShadowedRdrNames loc_rdr_names
   = do { envs <- getRdrEnvs
        ; checkShadowedOccs envs get_loc_occ filtered_rdrs }
   where
     filtered_rdrs = filterOut (isExact . unLoc) loc_rdr_names
                 -- See Note [Binders in Template Haskell] in Convert
-    get_loc_occ (L loc rdr) = (annGetLoc loc,rdrNameOcc rdr)
+    get_loc_occ (L loc rdr) = (loc,rdrNameOcc rdr)
 
-checkDupAndShadowedNames :: (GlobalRdrEnv, LocalRdrEnv) -> [Name] -> RnM l ()
+checkDupAndShadowedNames :: (ApiAnnotation l)
+                         => (GlobalRdrEnv, LocalRdrEnv) -> [Name] -> RnM l ()
 checkDupAndShadowedNames envs names
   = do { check_dup_names filtered_names
        ; checkShadowedOccs envs get_loc_occ filtered_names }
   where
     filtered_names = filterOut isSystemName names
                 -- See Note [Binders in Template Haskell] in Convert
-    get_loc_occ name = (nameSrcSpan name, nameOccName name)
+    get_loc_occ name = (annFromSpan $ nameSrcSpan name, nameOccName name)
 
 -------------------------------------
-checkShadowedOccs :: (GlobalRdrEnv, LocalRdrEnv)
-                  -> (a -> (SrcSpan, OccName))
+checkShadowedOccs :: forall l a. (ApiAnnotation l)
+                  => (GlobalRdrEnv, LocalRdrEnv)
+                  -> (a -> (l, OccName))
                   -> [a] -> RnM l ()
 checkShadowedOccs (global_env,local_env) get_loc_occ ns
   = whenWOptM Opt_WarnNameShadowing $
@@ -1383,7 +1387,8 @@ checkShadowedOccs (global_env,local_env) get_loc_occ ns
                 -- we don't find any GREs that are in scope qualified-only
 
           complain []      = return ()
-          complain pp_locs = addWarnAt loc (shadowedNameWarn occ pp_locs)
+          complain pp_locs = addWarnAt (annGetSpan loc)
+                                       (shadowedNameWarn occ pp_locs)
 
     is_shadowed_gre :: GlobalRdrElt -> RnM l Bool
         -- Returns False for record selectors that are shadowed, when
@@ -1440,7 +1445,7 @@ unknownNameErr what rdr_name
     extra | rdr_name == forall_tv_RDR = perhapsForallMsg
           | otherwise                 = Outputable.empty
 
-type HowInScope = Either SrcSpan ImpDeclSpec
+type HowInScope l = Either l ImpDeclSpec
      -- Left loc    =>  locally bound at loc
      -- Right ispec =>  imported as specified by ispec
 
@@ -1450,7 +1455,7 @@ unknownNameSuggestErr where_look tried_rdr_name
        ; global_env <- getGlobalRdrEnv
        ; dflags <- getDynFlags
 
-       ; let all_possibilities :: [(String, (RdrName, HowInScope))]
+       ; let all_possibilities :: [(String, (RdrName, HowInScope l))]
              all_possibilities
                 =  [ (showPpr dflags r, (r, Left loc))
                    | (r,loc) <- local_possibilities local_env ]
@@ -1465,7 +1470,7 @@ unknownNameSuggestErr where_look tried_rdr_name
                                       , nest 2 (pprWithCommas pp_item ps) ]
        ; return extra_err }
   where
-    pp_item :: (RdrName, HowInScope) -> SDoc
+    pp_item :: (RdrName, HowInScope l) -> SDoc
     pp_item (rdr, Left loc) = pp_ns rdr <+> quotes (ppr rdr) <+> loc' -- Locally defined
         where loc' = case loc of
                      UnhelpfulSpan l -> parens (ppr l)
@@ -1504,7 +1509,7 @@ unknownNameSuggestErr where_look tried_rdr_name
                    WL_LocalTop -> isLocalGRE
                    _           -> \_ -> True
 
-    global_possibilities :: GlobalRdrEnv -> [(RdrName, (RdrName, HowInScope))]
+    global_possibilities :: GlobalRdrEnv -> [(RdrName, (RdrName, HowInScope l))]
     global_possibilities global_env
       | tried_is_qual = [ (rdr_qual, (rdr_qual, how))
                         | gre <- globalRdrEnvElts global_env
@@ -1539,14 +1544,14 @@ unknownNameSuggestErr where_look tried_rdr_name
               -- then we suggest @Map.Map@.
 
     --------------------
-    unquals_in_scope :: Name -> Provenance -> [HowInScope]
+    unquals_in_scope :: Name -> Provenance -> [HowInScope l]
     unquals_in_scope n LocalDef      = [ Left (nameSrcSpan n) ]
     unquals_in_scope _ (Imported is) = [ Right ispec
                                        | i <- is, let ispec = is_decl i
                                        , not (is_qual ispec) ]
 
     --------------------
-    quals_in_scope :: Name -> Provenance -> [(ModuleName, HowInScope)]
+    quals_in_scope :: Name -> Provenance -> [(ModuleName, HowInScope l)]
     -- Ones for which the qualified version is in scope
     quals_in_scope n LocalDef      = case nameModule_maybe n of
                                        Nothing -> []
@@ -1555,7 +1560,7 @@ unknownNameSuggestErr where_look tried_rdr_name
                                      | i <- is, let ispec = is_decl i ]
 
     --------------------
-    quals_only :: OccName -> Provenance -> [(RdrName, HowInScope)]
+    quals_only :: OccName -> Provenance -> [(RdrName, HowInScope l)]
     -- Ones for which *only* the qualified version is in scope
     quals_only _   LocalDef      = []
     quals_only occ (Imported is) = [ (mkRdrQual (is_as ispec) occ, Right ispec)

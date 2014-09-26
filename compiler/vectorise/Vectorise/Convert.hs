@@ -34,8 +34,8 @@ import Control.Applicative
 --
 fromVect :: Type        -- ^ The type of the original binding.
          -> CoreExpr    -- ^ Expression giving the closure to use, eg @$v_foo@.
-         -> VM CoreExpr
-  
+         -> VM l CoreExpr
+
 -- Convert the type to the core view if it isn't already.
 --
 fromVect ty expr 
@@ -67,13 +67,13 @@ fromVect ty expr
 -- WARNING: Currently only works for the scalar types, where the vectorised value coincides with the
 --          original one.
 --
-toVect :: Type -> CoreExpr -> VM CoreExpr
+toVect :: Type -> CoreExpr -> VM l CoreExpr
 toVect ty expr = identityConv ty >> return expr
 
 -- |Check that the type is neutral under type vectorisation — i.e., all involved type constructor
 -- are not altered by vectorisation as they contain no parallel arrays.
 --
-identityConv :: Type -> VM ()
+identityConv :: Type -> VM l ()
 identityConv ty 
   | Just ty' <- coreView ty 
   = identityConv ty'
@@ -90,7 +90,7 @@ identityConv (ForAllTy {}) = noV $ text "identityConv: quantified type changes u
 -- |Check that this type constructor is not changed by vectorisation — i.e., it does not embed any
 -- parallel arrays.
 --
-identityConvTyCon :: TyCon -> VM ()
+identityConvTyCon :: TyCon -> VM l ()
 identityConvTyCon tc
   = do 
     { isParallel <- (tyConName tc `elemNameSet`) <$> globalParallelTyCons

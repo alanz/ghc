@@ -22,7 +22,7 @@ import Data.Maybe
 -- |Vectorise a type constructor. Unless there is a vectorised version (stripped of embedded
 -- parallel arrays), the vectorised version is the same as the original.
 --
-vectTyCon :: TyCon -> VM TyCon
+vectTyCon :: TyCon -> VM l TyCon
 vectTyCon tc = maybe tc id <$> lookupTyCon tc
 
 -- |Produce the vectorised and lifted versions of a type.
@@ -30,7 +30,7 @@ vectTyCon tc = maybe tc id <$> lookupTyCon tc
 -- NB: Here we are limited to properly handle predicates at the toplevel only.  Anything embedded
 --     in what is called the 'body_ty' below will end up as an argument to the type family 'PData'.
 --
-vectAndLiftType :: Type -> VM (Type, Type)
+vectAndLiftType :: Type -> VM l (Type, Type)
 vectAndLiftType ty | Just ty' <- coreView ty = vectAndLiftType ty'
 vectAndLiftType ty
   = do { padicts  <- liftM catMaybes $ mapM paDictArgType tyvars
@@ -49,7 +49,7 @@ vectAndLiftType ty
 -- So          forall a.         C  a => a -> a   
 -- turns into  forall a. PA a => Cv a => a :-> a
 --
-vectType :: Type -> VM Type
+vectType :: Type -> VM l Type
 vectType ty
   | Just ty'  <- coreView ty
   = vectType ty'
