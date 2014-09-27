@@ -62,7 +62,7 @@ import Control.Monad( when )
 
 \begin{code}
 -- | Main entry point to the desugarer.
-deSugar :: HscEnv -> ModLocation -> TcGblEnv -> IO (Messages, Maybe ModGuts)
+deSugar :: HscEnv -> ModLocation -> TcGblEnv l -> IO (Messages, Maybe ModGuts)
 -- Can modify PCS by faulting in more declarations
 
 deSugar hsc_env
@@ -195,7 +195,7 @@ deSugar hsc_env
         ; return (msgs, Just mod_guts)
         }}}
 
-dsImpSpecs :: [LTcSpecPrag] -> DsM (OrdList (Id,CoreExpr), [CoreRule])
+dsImpSpecs :: (ApiAnnotation l) => [LTcSpecPrag l] -> DsM l (OrdList (Id,CoreExpr), [CoreRule])
 dsImpSpecs imp_specs
  = do { spec_prs <- mapMaybeM (dsSpec Nothing) imp_specs
       ; let (spec_binds, spec_rules) = unzip spec_prs
@@ -225,7 +225,8 @@ and Rec the rest.
 
 
 \begin{code}
-deSugarExpr :: HscEnv -> LHsExpr Id -> IO (Messages, Maybe CoreExpr)
+deSugarExpr :: (ApiAnnotation l)
+            => HscEnv -> LHsExpr l Id -> IO (Messages, Maybe CoreExpr)
 
 deSugarExpr hsc_env tc_expr
   = do { let dflags       = hsc_dflags hsc_env
@@ -345,9 +346,9 @@ Reason
 
 \begin{code}
 
-dsRule :: LRuleDecl Id -> DsM (Maybe CoreRule)
+dsRule :: (ApiAnnotation l) => LRuleDecl l Id -> DsM l (Maybe CoreRule)
 dsRule (L loc (HsRule name act vars lhs _tv_lhs rhs _fv_rhs))
-  = putSrcSpanDs loc $
+  = putSrcSpanDs (annGetSpan loc) $
     do  { let bndrs' = [var | RuleBndr (L _ var) <- vars]
 
         ; lhs' <- unsetGOptM Opt_EnableRewriteRules $
@@ -400,12 +401,12 @@ dsRule (L loc (HsRule name act vars lhs _tv_lhs rhs _fv_rhs))
         } } }
 
 -- See Note [Desugaring coerce as cast]
-unfold_coerce :: [Id] -> CoreExpr -> CoreExpr -> DsM ([Var], CoreExpr, CoreExpr)
+unfold_coerce :: [Id] -> CoreExpr -> CoreExpr -> DsM l ([Var], CoreExpr, CoreExpr)
 unfold_coerce bndrs lhs rhs = do
     (bndrs', wrap) <- go bndrs
     return (bndrs', wrap lhs, wrap rhs)
   where
-    go :: [Id] -> DsM ([Id], CoreExpr -> CoreExpr)
+    go :: [Id] -> DsM l ([Id], CoreExpr -> CoreExpr)
     go []     = return ([], id)
     go (v:vs)
         | Just (tc, args) <- splitTyConApp_maybe (idType v)
@@ -459,9 +460,9 @@ by simpleOptExpr (for the LHS) resp. the simplifiers (for the RHS).
 %************************************************************************
 
 \begin{code}
-dsVect :: LVectDecl Id -> DsM CoreVect
+dsVect :: (ApiAnnotation l) => LVectDecl l Id -> DsM l CoreVect
 dsVect (L loc (HsVect (L _ v) rhs))
-  = putSrcSpanDs loc $
+  = putSrcSpanDs (annGetSpan loc) $
     do { rhs' <- dsLExpr rhs
        ; return $ Vect v rhs'
        }

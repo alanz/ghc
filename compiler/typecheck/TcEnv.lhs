@@ -115,7 +115,7 @@ tcLookupLocatedGlobal :: (ApiAnnotation l) => GenLocated l Name -> TcM l TyThing
 tcLookupLocatedGlobal name
   = addLocM tcLookupGlobal name
 
-tcLookupGlobal :: Name -> TcM l TyThing
+tcLookupGlobal :: (ApiAnnotation l) => Name -> TcM l TyThing
 -- The Name is almost always an ExternalName, but not always
 -- In GHCi, we may make command-line bindings (ghci> let x = True)
 -- that bind a GlobalId, but with an InternalName
@@ -138,7 +138,8 @@ tcLookupGlobal name
             Failed msg      -> failWithTc msg
         }}}
 
-tcLookupField :: Name -> TcM l Id         -- Returns the selector Id
+tcLookupField :: (ApiAnnotation l)
+              => Name -> TcM l Id         -- Returns the selector Id
 tcLookupField name
   = tcLookupId name     -- Note [Record field lookup]
 
@@ -154,42 +155,42 @@ Now the type checker will find f_7 in the *local* type environment, not
 the global (imported) one. It's wrong, of course, but we want to report a tidy
 error, not in TcEnv.notFound.  -}
 
-tcLookupDataCon :: Name -> TcM l DataCon
+tcLookupDataCon :: (ApiAnnotation l) => Name -> TcM l DataCon
 tcLookupDataCon name = do
     thing <- tcLookupGlobal name
     case thing of
         AConLike (RealDataCon con) -> return con
         _                          -> wrongThingErr "data constructor" (AGlobal thing) name
 
-tcLookupPatSyn :: Name -> TcM l PatSyn
+tcLookupPatSyn :: (ApiAnnotation l) => Name -> TcM l PatSyn
 tcLookupPatSyn name = do
     thing <- tcLookupGlobal name
     case thing of
         AConLike (PatSynCon ps) -> return ps
         _                       -> wrongThingErr "pattern synonym" (AGlobal thing) name
 
-tcLookupConLike :: Name -> TcM l ConLike
+tcLookupConLike :: (ApiAnnotation l) => Name -> TcM l ConLike
 tcLookupConLike name = do
     thing <- tcLookupGlobal name
     case thing of
         AConLike cl -> return cl
         _           -> wrongThingErr "constructor-like thing" (AGlobal thing) name
 
-tcLookupClass :: Name -> TcM l Class
+tcLookupClass :: (ApiAnnotation l) => Name -> TcM l Class
 tcLookupClass name = do
     thing <- tcLookupGlobal name
     case thing of
         ATyCon tc | Just cls <- tyConClass_maybe tc -> return cls
         _                                           -> wrongThingErr "class" (AGlobal thing) name
 
-tcLookupTyCon :: Name -> TcM l TyCon
+tcLookupTyCon :: (ApiAnnotation l) => Name -> TcM l TyCon
 tcLookupTyCon name = do
     thing <- tcLookupGlobal name
     case thing of
         ATyCon tc -> return tc
         _         -> wrongThingErr "type constructor" (AGlobal thing) name
 
-tcLookupAxiom :: Name -> TcM l (CoAxiom Branched)
+tcLookupAxiom :: (ApiAnnotation l) => Name -> TcM l (CoAxiom Branched)
 tcLookupAxiom name = do
     thing <- tcLookupGlobal name
     case thing of
@@ -208,7 +209,7 @@ tcLookupLocatedTyCon = addLocM tcLookupTyCon
 -- Find the instance that exactly matches a type class application.  The class arguments must be precisely
 -- the same as in the instance declaration (modulo renaming).
 --
-tcLookupInstance :: Class -> [Type] -> TcM l ClsInst
+tcLookupInstance :: (ApiAnnotation l) => Class -> [Type] -> TcM l ClsInst
 tcLookupInstance cls tys
   = do { instEnv <- tcGetInstEnvs
        ; case lookupUniqueInstEnv instEnv cls tys of
@@ -231,7 +232,8 @@ tcLookupInstance cls tys
 \end{code}
 
 \begin{code}
-instance MonadThings (IOEnv (Env (TcGblEnv l) (TcLclEnv l))) where
+instance (ApiAnnotation l) =>
+          MonadThings (IOEnv (Env (TcGblEnv l) (TcLclEnv l))) where
     lookupThing = tcLookupGlobal
 \end{code}
 
@@ -306,21 +308,21 @@ tcLookupLcl_maybe name
   = do { local_env <- getLclTypeEnv
        ; return (lookupNameEnv local_env name) }
 
-tcLookup :: Name -> TcM l TcTyThing
+tcLookup :: (ApiAnnotation l) => Name -> TcM l TcTyThing
 tcLookup name = do
     local_env <- getLclTypeEnv
     case lookupNameEnv local_env name of
         Just thing -> return thing
         Nothing    -> AGlobal <$> tcLookupGlobal name
 
-tcLookupTyVar :: Name -> TcM l TcTyVar
+tcLookupTyVar :: (ApiAnnotation l) => Name -> TcM l TcTyVar
 tcLookupTyVar name
   = do { thing <- tcLookup name
        ; case thing of
            ATyVar _ tv -> return tv
            _           -> pprPanic "tcLookupTyVar" (ppr name) }
 
-tcLookupId :: Name -> TcM l Id
+tcLookupId :: (ApiAnnotation l) => Name -> TcM l Id
 -- Used when we aren't interested in the binding level, nor refinement. 
 -- The "no refinement" part means that we return the un-refined Id regardless
 -- 
@@ -366,11 +368,11 @@ tcExtendKindEnv name_kind_prs
 
 -----------------------
 -- Scoped type and kind variables
-tcExtendTyVarEnv :: [TyVar] -> TcM l r -> TcM l r
+tcExtendTyVarEnv :: (ApiAnnotation l) => [TyVar] -> TcM l r -> TcM l r
 tcExtendTyVarEnv tvs thing_inside
   = tcExtendTyVarEnv2 [(tyVarName tv, tv) | tv <- tvs] thing_inside
 
-tcExtendTyVarEnv2 :: [(Name,TcTyVar)] -> TcM l r -> TcM l r
+tcExtendTyVarEnv2 :: (ApiAnnotation l) => [(Name,TcTyVar)] -> TcM l r -> TcM l r
 tcExtendTyVarEnv2 binds thing_inside
   = do { stage <- getStage
        ; tc_extend_local_env (NotTopLevel, thLevel stage)
@@ -452,7 +454,8 @@ tcExtendGhciIdEnv ids thing_inside
     is_top id | isEmptyVarSet (tyVarsOfType (idType id)) = TopLevel
               | otherwise                                = NotTopLevel
 
-tcExtendLetEnv :: TopLevelFlag -> TopLevelFlag -> [TcId] -> TcM l a -> TcM l a
+tcExtendLetEnv :: (ApiAnnotation l)
+               => TopLevelFlag -> TopLevelFlag -> [TcId] -> TcM l a -> TcM l a
 -- Used for both top-level value bindings and and nested let/where-bindings
 tcExtendLetEnv top_lvl closed ids thing_inside
   = do  { stage <- getStage
@@ -462,19 +465,19 @@ tcExtendLetEnv top_lvl closed ids thing_inside
                               | id <- ids] $
           tcExtendIdBndrs [TcIdBndr id top_lvl | id <- ids] thing_inside }
 
-tcExtendIdEnv :: [TcId] -> TcM l a -> TcM l a
+tcExtendIdEnv :: (ApiAnnotation l) => [TcId] -> TcM l a -> TcM l a
 tcExtendIdEnv ids thing_inside 
   = tcExtendIdEnv2 [(idName id, id) | id <- ids] $
     tcExtendIdBndrs [TcIdBndr id NotTopLevel | id <- ids] 
     thing_inside
 
-tcExtendIdEnv1 :: Name -> TcId -> TcM l a -> TcM l a
+tcExtendIdEnv1 :: (ApiAnnotation l) => Name -> TcId -> TcM l a -> TcM l a
 tcExtendIdEnv1 name id thing_inside 
   = tcExtendIdEnv2 [(name,id)] $
     tcExtendIdBndrs [TcIdBndr id NotTopLevel]
     thing_inside
 
-tcExtendIdEnv2 :: [(Name,TcId)] -> TcM l a -> TcM l a
+tcExtendIdEnv2 :: (ApiAnnotation l) => [(Name,TcId)] -> TcM l a -> TcM l a
 -- Do *not* extend the tcl_bndrs stack
 -- The tct_closed flag really doesn't matter
 -- Invariant: the TcIds are fully zonked (see tcExtendIdEnv above)
@@ -489,7 +492,8 @@ tcExtendIdEnv2 names_w_ids thing_inside
 tcExtendIdBndrs :: [TcIdBinder] -> TcM l a -> TcM l a
 tcExtendIdBndrs bndrs = updLclEnv (\env -> env { tcl_bndrs = bndrs ++ tcl_bndrs env })
 
-tc_extend_local_env :: (TopLevelFlag, ThLevel) -> [(Name, TcTyThing)]
+tc_extend_local_env :: (ApiAnnotation l)
+                    => (TopLevelFlag, ThLevel) -> [(Name, TcTyThing)]
                     -> TcM l a -> TcM l a
 -- Precondition: the argument list extra_env has TcTyThings
 --               that ATcId or ATyVar, but nothing else
@@ -596,7 +600,8 @@ tcExtendRules lcl_rules thing_inside
 %************************************************************************
 
 \begin{code}
-checkWellStaged :: SDoc         -- What the stage check is for
+checkWellStaged :: (ApiAnnotation l)
+                => SDoc         -- What the stage check is for
                 -> ThLevel      -- Binding level (increases inside brackets)
                 -> ThLevel      -- Use stage
                 -> TcM l ()     -- Fail if badly staged, adding an error
@@ -613,7 +618,7 @@ checkWellStaged pp_thing bind_lvl use_lvl
         hsep   [ptext (sLit "is bound at stage") <+> ppr bind_lvl,
                 ptext (sLit "but used at stage") <+> ppr use_lvl]
 
-stageRestrictionError :: SDoc -> TcM l a
+stageRestrictionError :: (ApiAnnotation l) => SDoc -> TcM l a
 stageRestrictionError pp_thing
   = failWithTc $ 
     sep [ ptext (sLit "GHC stage restriction:")
@@ -633,7 +638,7 @@ topIdLvl :: Id -> ThLevel
 topIdLvl id | isLocalId id = outerLevel
             | otherwise    = impLevel
 
-tcMetaTy :: Name -> TcM l Type
+tcMetaTy :: (ApiAnnotation l) => Name -> TcM l Type
 -- Given the name of a Template Haskell data type, 
 -- return the type
 -- E.g. given the name "Expr" return the type "Expr"
@@ -654,7 +659,8 @@ isBrackStage _other     = False
 %************************************************************************
 
 \begin{code}
-tcGetDefaultTys :: TcM l ([Type], -- Default types
+tcGetDefaultTys :: (ApiAnnotation l)
+                => TcM l ([Type], -- Default types
                         (Bool,    -- True <=> Use overloaded strings
                          Bool))   -- True <=> Use extended defaulting rules
 tcGetDefaultTys
@@ -870,7 +876,7 @@ pprBinders :: [Name] -> SDoc
 pprBinders [bndr] = quotes (ppr bndr)
 pprBinders bndrs  = pprWithCommas ppr bndrs
 
-notFound :: Name -> TcM l TyThing
+notFound :: (ApiAnnotation l) => Name -> TcM l TyThing
 notFound name
   = do { lcl_env <- getLclEnv
        ; let stage = tcl_th_ctxt lcl_env
@@ -887,7 +893,7 @@ notFound name
                        -- very unhelpful, because it hides one compiler bug with another
        }
 
-wrongThingErr :: String -> TcTyThing -> Name -> TcM l a
+wrongThingErr :: (ApiAnnotation l) => String -> TcTyThing -> Name -> TcM l a
 -- It's important that this only calls pprTcTyThingCategory, which in 
 -- turn does not look at the details of the TcTyThing.
 -- See Note [Placeholder PatSyn kinds] in TcBinds

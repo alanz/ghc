@@ -144,7 +144,7 @@ ToDo: this eta-abstraction plays fast and loose with termination,
 
 \begin{code}
 deeplySkolemise
-  :: TcSigmaType
+  :: (ApiAnnotation l) => TcSigmaType
   -> TcM l (HsWrapper, [TyVar], [EvVar], TcRhoType)
 
 deeplySkolemise ty
@@ -291,7 +291,7 @@ newOverloadedLit' dflags orig
                       , ol_rebindable = rebindable }) }
 
 ------------
-mkOverLit :: OverLitVal -> TcM l HsLit
+mkOverLit :: (ApiAnnotation l) => OverLitVal -> TcM l HsLit
 mkOverLit (HsIntegral i)
   = do	{ integer_ty <- tcMetaTy integerTyConName
 	; return (HsInteger i integer_ty) }
@@ -364,7 +364,7 @@ tcSyntaxName orig ty (std_nm, user_nm_expr) = do
 	-- same type as the standard one.
 	-- Tiresome jiggling because tcCheckSigma takes a located expression
      span <- getSrcSpanM
-     expr <- tcPolyExpr (L (annFromSpan span) user_nm_expr) sigma1
+     expr <- tcPolyExpr (L span user_nm_expr) sigma1
      return (std_nm, unLoc expr)
 
 syntaxNameCtxt :: (ApiAnnotation l)
@@ -476,7 +476,7 @@ addLocalInst (home_ie, my_insts) ispec
 
          ; return (extendInstEnv home_ie' ispec, ispec:my_insts') }
 
-traceDFuns :: [ClsInst] -> TcRn l ()
+traceDFuns :: (ApiAnnotation l) => [ClsInst] -> TcRn l ()
 traceDFuns ispecs
   = traceTc "Adding instances:" (vcat (map pp ispecs))
   where
@@ -496,7 +496,7 @@ dupInstErr ispec dup_ispec
 
 addClsInstsErr :: (ApiAnnotation l) => SDoc -> [ClsInst] -> TcRn l ()
 addClsInstsErr herald ispecs
-  = setSrcSpan (getSrcSpan (head sorted)) $
+  = setSrcSpan (annFromSpan (getSrcSpan (head sorted))) $
     addErr (hang herald 2 (pprInstances sorted))
  where
    sorted = sortWith getSrcLoc ispecs

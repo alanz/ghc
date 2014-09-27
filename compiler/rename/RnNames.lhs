@@ -5,6 +5,7 @@
 
 \begin{code}
 {-# LANGUAGE CPP, NondecreasingIndentation #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module RnNames (
         rnImports, getLocalNonValBinders,
@@ -140,8 +141,9 @@ with yes we have gone with no for now.
 -- | Process Import Decls
 -- Do the non SOURCE ones first, so that we get a helpful warning for SOURCE
 -- ones that are unnecessary
-rnImports :: [LImportDecl RdrName]
-          -> RnM ([LImportDecl Name], GlobalRdrEnv, ImportAvails, AnyHpcUsage)
+rnImports :: (ApiAnnotation l) => [LImportDecl l RdrName]
+          -> RnM l ([LImportDecl l Name],
+                    GlobalRdrEnv, ImportAvails, AnyHpcUsage)
 rnImports imports = do
     this_mod <- getModule
     let (source, ordinary) = partition is_source_import imports
@@ -153,8 +155,8 @@ rnImports imports = do
     return (decls, rdr_env, imp_avails, hpc_usage)
 
   where
-    combine :: [(LImportDecl Name,  GlobalRdrEnv, ImportAvails, AnyHpcUsage)]
-            -> ([LImportDecl Name], GlobalRdrEnv, ImportAvails, AnyHpcUsage)
+    combine :: [(LImportDecl l Name,  GlobalRdrEnv, ImportAvails, AnyHpcUsage)]
+            -> ([LImportDecl l Name], GlobalRdrEnv, ImportAvails, AnyHpcUsage)
     combine = foldr plus ([], emptyGlobalRdrEnv, emptyImportAvails, False)
 
     plus (decl,  gbl_env1, imp_avails1,hpc_usage1)
@@ -164,8 +166,9 @@ rnImports imports = do
           imp_avails1 `plusImportAvails` imp_avails2,
           hpc_usage1 || hpc_usage2 )
 
-rnImportDecl  :: Module -> LImportDecl RdrName
-              -> RnM (LImportDecl Name, GlobalRdrEnv, ImportAvails, AnyHpcUsage)
+rnImportDecl  :: Module -> LImportDecl l RdrName
+              -> RnM l (LImportDecl l Name,
+                        GlobalRdrEnv, ImportAvails, AnyHpcUsage)
 rnImportDecl this_mod
              (L loc decl@(ImportDecl { ideclName = loc_imp_mod_name, ideclPkgQual = mb_pkg
                                      , ideclSource = want_boot, ideclSafe = mod_safe
@@ -390,9 +393,9 @@ top level binders specially in two ways
    fields of Brack, hence the error thunks in thRnBrack.
 
 \begin{code}
-extendGlobalRdrEnvRn :: [AvailInfo]
-                     -> MiniFixityEnv
-                     -> RnM (TcGblEnv, TcLclEnv)
+extendGlobalRdrEnvRn :: (ApiAnnotation l) => [AvailInfo]
+                     -> MiniFixityEnv l
+                     -> RnM l (TcGblEnv l, TcLclEnv l)
 -- Updates both the GlobalRdrEnv and the FixityEnv
 -- We return a new TcLclEnv only because we might have to
 -- delete some bindings from it;
@@ -458,8 +461,8 @@ used for source code.
         *** See "THE NAMING STORY" in HsDecls ****
 
 \begin{code}
-getLocalNonValBinders :: MiniFixityEnv -> HsGroup RdrName
-                      -> RnM ((TcGblEnv, TcLclEnv), NameSet)
+getLocalNonValBinders :: MiniFixityEnv l -> HsGroup l RdrName
+                      -> RnM l ((TcGblEnv l, TcLclEnv l), NameSet)
 -- Get all the top-level binders bound the group *except*
 -- for value bindings, which are treated separately
 -- Specifically we return AvailInfo for
@@ -513,7 +516,7 @@ getLocalNonValBinders fixity_env
 
       -- the SrcSpan attached to the input should be the span of the
       -- declaration, not just the name
-    new_simple :: Located RdrName -> RnM AvailInfo
+    new_simple :: Located RdrName -> RnM l AvailInfo
     new_simple rdr_name = do{ nm <- newTopSrcBinder rdr_name
                             ; return (Avail nm) }
 
@@ -522,7 +525,7 @@ getLocalNonValBinders fixity_env
              ; names@(main_name : _) <- mapM newTopSrcBinder bndrs
              ; return (AvailTC main_name names) }
 
-    new_assoc :: LInstDecl RdrName -> RnM [AvailInfo]
+    new_assoc :: LInstDecl l RdrName -> RnM l [AvailInfo]
     new_assoc (L _ (TyFamInstD {})) = return []
       -- type instances don't bind new names
 
@@ -539,7 +542,7 @@ getLocalNonValBinders fixity_env
       = return []     -- Do not crash on ill-formed instances
                       -- Eg   instance !Show Int   Trac #3811c
 
-    new_di :: Maybe Name -> DataFamInstDecl RdrName -> RnM AvailInfo
+    new_di :: Maybe Name -> DataFamInstDecl l RdrName -> RnM l AvailInfo
     new_di mb_cls ti_decl
         = do { main_name <- lookupFamInstName mb_cls (dfid_tycon ti_decl)
              ; sub_names <- mapM newTopSrcBinder (hsDataFamInstBinders ti_decl)
@@ -599,10 +602,10 @@ although we never look up data constructors.
 
 \begin{code}
 filterImports :: ModIface
-              -> ImpDeclSpec                    -- The span for the entire import decl
-              -> Maybe (Bool, [LIE RdrName])    -- Import spec; True => hiding
-              -> RnM (Maybe (Bool, [LIE Name]), -- Import spec w/ Names
-                      [GlobalRdrElt])           -- Same again, but in GRE form
+              -> ImpDeclSpec              -- The span for the entire import decl
+              -> Maybe (Bool, [LIE l RdrName])    -- Import spec; True => hiding
+              -> RnM l (Maybe (Bool, [LIE l Name]), -- Import spec w/ Names
+                       [GlobalRdrElt])            -- Same again, but in GRE form
 filterImports iface decl_spec Nothing
   = return (Nothing, gresFromAvails prov (mi_exports iface))
   where
@@ -613,7 +616,7 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
   = do  -- check for errors, convert RdrNames to Names
         items1 <- mapM lookup_lie import_items
 
-        let items2 :: [(LIE Name, AvailInfo)]
+        let items2 :: [(LIE l Name, AvailInfo)]
             items2 = concat items1
                 -- NB the AvailInfo may have duplicates, and several items
                 --    for the same parent; e.g N(x) and N(y)
@@ -655,7 +658,7 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
       where
         mb_success = lookupOccEnv imp_occ_env (rdrNameOcc rdr)
 
-    lookup_lie :: LIE RdrName -> TcRn [(LIE Name, AvailInfo)]
+    lookup_lie :: LIE l RdrName -> TcRn l [(LIE l Name, AvailInfo)]
     lookup_lie (L loc ieRdr)
         = do (stuff, warns) <- setSrcSpan loc $
                                liftM (fromMaybe ([],[])) $
@@ -671,7 +674,7 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
             emit_warning BadImportW = whenWOptM Opt_WarnDodgyImports $
               addWarn (lookup_err_msg BadImport)
 
-            run_lookup :: IELookupM a -> TcRn (Maybe a)
+            run_lookup :: IELookupM a -> TcRn l (Maybe a)
             run_lookup m = case m of
               Failed err -> addErr (lookup_err_msg err) >> return Nothing
               Succeeded a -> return (Just a)
@@ -840,7 +843,7 @@ filterAvail keep ie rest =
         if null left then rest else AvailTC tc left : rest
 
 -- | Given an import\/export spec, construct the appropriate 'GlobalRdrElt's.
-gresFromIE :: ImpDeclSpec -> (LIE Name, AvailInfo) -> [GlobalRdrElt]
+gresFromIE :: (ApiAnnotation l) => ImpDeclSpec -> (LIE l Name, AvailInfo) -> [GlobalRdrElt]
 gresFromIE decl_spec (L loc ie, avail)
   = gresFromAvail prov_fn avail
   where
@@ -850,7 +853,7 @@ gresFromIE decl_spec (L loc ie, avail)
     prov_fn name = Imported [imp_spec]
         where
           imp_spec  = ImpSpec { is_decl = decl_spec, is_item = item_spec }
-          item_spec = ImpSome { is_explicit = is_explicit name, is_iloc = loc }
+          item_spec = ImpSome { is_explicit = is_explicit name, is_iloc = annGetSpan loc }
 
 mkChildEnv :: [GlobalRdrElt] -> NameEnv [Name]
 mkChildEnv gres = foldr add emptyNameEnv gres
@@ -932,14 +935,14 @@ You just have to use an explicit export list:
     module M( F(..) ) where ...
 
 \begin{code}
-type ExportAccum        -- The type of the accumulating parameter of
+type ExportAccum l      -- The type of the accumulating parameter of
                         -- the main worker function in rnExports
-     = ([LIE Name],             -- Export items with Names
+     = ([LIE l Name],           -- Export items with Names
         ExportOccMap,           -- Tracks exported occurrence names
         [AvailInfo])            -- The accumulated exported stuff
                                 --   Not nub'd!
 
-emptyExportAccum :: ExportAccum
+emptyExportAccum :: ExportAccum l
 emptyExportAccum = ([], emptyOccEnv, [])
 
 type ExportOccMap = OccEnv (Name, IE RdrName)
@@ -949,9 +952,9 @@ type ExportOccMap = OccEnv (Name, IE RdrName)
         --   that have the same occurrence name
 
 rnExports :: Bool       -- False => no 'module M(..) where' header at all
-          -> Maybe [LIE RdrName]        -- Nothing => no explicit export list
-          -> TcGblEnv
-          -> RnM TcGblEnv
+          -> Maybe [LIE l RdrName]   -- Nothing => no explicit export list
+          -> TcGblEnv l
+          -> RnM l (TcGblEnv l)
 
         -- Complains if two distinct exports have same OccName
         -- Warns about identical exports.
@@ -976,7 +979,7 @@ rnExports explicit_mod exports
         ; let real_exports
                  | explicit_mod = exports
                  | ghcLink dflags == LinkInMemory = Nothing
-                 | otherwise = Just [noLoc (IEVar main_RDR_Unqual)]
+                 | otherwise = Just [annNoLoc (IEVar main_RDR_Unqual)]
                         -- ToDo: the 'noLoc' here is unhelpful if 'main'
                         --       turns out to be out of scope
 
@@ -992,12 +995,12 @@ rnExports explicit_mod exports
                             tcg_dus = tcg_dus tcg_env `plusDU`
                                       usesOnly (availsToNameSet final_avails) }) }
 
-exports_from_avail :: Maybe [LIE RdrName]
+exports_from_avail :: forall l. (ApiAnnotation l) => Maybe [LIE l RdrName]
                          -- Nothing => no explicit export list
                    -> GlobalRdrEnv
                    -> ImportAvails
                    -> Module
-                   -> RnM (Maybe [LIE Name], [AvailInfo])
+                   -> RnM l (Maybe [LIE l Name], [AvailInfo])
 
 exports_from_avail Nothing rdr_env _imports _this_mod
  = -- The same as (module M) where M is the current module name,
@@ -1014,7 +1017,7 @@ exports_from_avail (Just rdr_items) rdr_env imports this_mod
 
        return (Just ie_names, exports)
   where
-    do_litem :: ExportAccum -> LIE RdrName -> RnM ExportAccum
+    do_litem :: ExportAccum l -> LIE l RdrName -> RnM l (ExportAccum l)
     do_litem acc lie = setSrcSpan (getLoc lie) (exports_from_item acc lie)
 
     kids_env :: NameEnv [Name]  -- Maps a parent to its in-scope children
@@ -1024,7 +1027,7 @@ exports_from_avail (Just rdr_items) rdr_env imports this_mod
                        | xs <- moduleEnvElts $ imp_mods imports,
                          (qual_name, _, _, _) <- xs ]
 
-    exports_from_item :: ExportAccum -> LIE RdrName -> RnM ExportAccum
+    exports_from_item :: ExportAccum l -> LIE l RdrName -> RnM l (ExportAccum l)
     exports_from_item acc@(ie_names, occs, exports)
                       (L loc (IEModuleContents mod))
         | let earlier_mods = [ mod | (L _ (IEModuleContents mod)) <- ie_names ]
@@ -1080,7 +1083,7 @@ exports_from_avail (Just rdr_items) rdr_env imports this_mod
              return (L loc new_ie : lie_names, occs', avail : exports)
 
     -------------
-    lookup_ie :: IE RdrName -> RnM (IE Name, AvailInfo)
+    lookup_ie :: (ApiAnnotation l) => IE RdrName -> RnM l (IE Name, AvailInfo)
     lookup_ie (IEVar rdr)
         = do gre <- lookupGreRn rdr
              return (IEVar (gre_name gre), greExportAvail gre)
@@ -1121,7 +1124,7 @@ exports_from_avail (Just rdr_items) rdr_env imports this_mod
     lookup_ie _ = panic "lookup_ie"    -- Other cases covered earlier
 
     -------------
-    lookup_doc_ie :: IE RdrName -> RnM (IE Name)
+    lookup_doc_ie :: IE RdrName -> RnM l (IE Name)
     lookup_doc_ie (IEGroup lev doc) = do rn_doc <- rnHsDoc doc
                                          return (IEGroup lev rn_doc)
     lookup_doc_ie (IEDoc doc)       = do rn_doc <- rnHsDoc doc
@@ -1166,7 +1169,8 @@ isModuleExported implicit_prelude mod (GRE { gre_name = name, gre_prov = prov })
         Imported is -> any unQualSpecOK is && any (qualSpecOK mod) is
 
 -------------------------------
-check_occs :: IE RdrName -> ExportOccMap -> [Name] -> RnM ExportOccMap
+check_occs :: (ApiAnnotation l)
+           => IE RdrName -> ExportOccMap -> [Name] -> RnM l ExportOccMap
 check_occs ie occs names  -- 'names' are the entities specifed by 'ie'
   = foldlM check occs names
   where
@@ -1239,8 +1243,8 @@ dupExport_ok n ie1 ie2
 %*********************************************************
 
 \begin{code}
-reportUnusedNames :: Maybe [LIE RdrName]    -- Export list
-                  -> TcGblEnv -> RnM ()
+reportUnusedNames :: (ApiAnnotation l) => Maybe [LIE l RdrName]  -- Export list
+                  -> TcGblEnv l -> RnM l ()
 reportUnusedNames _export_decls gbl_env
   = do  { traceRn ((text "RUN") <+> (ppr (tcg_dus gbl_env)))
         ; warnUnusedImportDecls gbl_env
@@ -1293,14 +1297,14 @@ specification and implementation notes are here:
   http://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/UnusedImports
 
 \begin{code}
-type ImportDeclUsage
-   = ( LImportDecl Name   -- The import declaration
+type ImportDeclUsage l
+   = ( LImportDecl l Name -- The import declaration
      , [AvailInfo]        -- What *is* used (normalised)
      , [Name] )           -- What is imported but *not* used
 \end{code}
 
 \begin{code}
-warnUnusedImportDecls :: TcGblEnv -> RnM ()
+warnUnusedImportDecls :: TcGblEnv l -> RnM l ()
 warnUnusedImportDecls gbl_env
   = do { uses <- readMutVar (tcg_used_rdrnames gbl_env)
        ; let user_imports = filterOut (ideclImplicit . unLoc) (tcg_rn_imports gbl_env)
@@ -1309,7 +1313,7 @@ warnUnusedImportDecls gbl_env
                             -- deciding the minimal ones
              rdr_env = tcg_rdr_env gbl_env
 
-       ; let usage :: [ImportDeclUsage]
+       ; let usage :: [ImportDeclUsage l]
              usage = findImportUsage user_imports rdr_env (Set.elems uses)
 
        ; traceRn (vcat [ ptext (sLit "Uses:") <+> ppr (Set.elems uses)
@@ -1345,10 +1349,10 @@ not normalised).
 \begin{code}
 type ImportMap = Map SrcLoc [AvailInfo]  -- See [The ImportMap]
 
-findImportUsage :: [LImportDecl Name]
+findImportUsage :: [LImportDecl l Name]
                 -> GlobalRdrEnv
                 -> [RdrName]
-                -> [ImportDeclUsage]
+                -> [ImportDeclUsage l]
 
 findImportUsage imports rdr_env rdrs
   = map unused_decl imports
@@ -1430,7 +1434,7 @@ extendImportMap rdr_env rdr imp_map
 \end{code}
 
 \begin{code}
-warnUnusedImport :: ImportDeclUsage -> RnM ()
+warnUnusedImport :: ImportDeclUsage l -> RnM l ()
 warnUnusedImport (L loc decl, used, unused)
   | Just (False,[]) <- ideclHiding decl
                 = return ()            -- Do not warn for 'import M()'
@@ -1439,9 +1443,9 @@ warnUnusedImport (L loc decl, used, unused)
   , not (null hides)
   , pRELUDE_NAME == unLoc (ideclName decl)
                 = return ()            -- Note [Do not warn about Prelude hiding]
-  | null used   = addWarnAt loc msg1   -- Nothing used; drop entire decl
+  | null used   = addWarnAt (annGetSpan loc) msg1 -- Nothing used; drop entire decl
   | null unused = return ()            -- Everything imported is used; nop
-  | otherwise   = addWarnAt loc msg2   -- Some imports are unused
+  | otherwise   = addWarnAt (annGetSpan loc) msg2   -- Some imports are unused
   where
     msg1 = vcat [pp_herald <+> quotes pp_mod <+> pp_not_used,
                  nest 2 (ptext (sLit "except perhaps to import instances from")
@@ -1480,7 +1484,7 @@ decls, and simply trim their import lists.  NB that
     from it.  Instead we just trim to an empty import list
 
 \begin{code}
-printMinimalImports :: [ImportDeclUsage] -> RnM ()
+printMinimalImports :: (ApiAnnotation l) => [ImportDeclUsage l] -> RnM l ()
 -- See Note [Printing minimal imports]
 printMinimalImports imports_w_usage
   = do { imports' <- mapM mk_minimal imports_w_usage
@@ -1669,11 +1673,11 @@ greSrcSpan gre
   where
     name_span = nameSrcSpan (gre_name gre)
 
-addDupDeclErr :: [Name] -> TcRn ()
+addDupDeclErr :: [Name] -> TcRn l ()
 addDupDeclErr []
   = panic "addDupDeclErr: empty list"
 addDupDeclErr names@(name : _)
-  = addErrAt (getSrcSpan (last sorted_names)) $
+  = addErrAt (annFromSpan $ getSrcSpan (last sorted_names)) $
     -- Report the error at the later location
     vcat [ptext (sLit "Multiple declarations of") <+>
              quotes (ppr (nameOccName name)),
@@ -1737,7 +1741,7 @@ packageImportErr
 --      data T = :% Int Int
 -- from interface files, which always print in prefix form
 
-checkConName :: RdrName -> TcRn ()
+checkConName :: (ApiAnnotation l) => RdrName -> TcRn l ()
 checkConName name = checkErr (isRdrDataCon name) (badDataCon name)
 
 badDataCon :: RdrName -> SDoc

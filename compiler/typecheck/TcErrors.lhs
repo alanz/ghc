@@ -326,7 +326,8 @@ mkSkolReporter ctxt cts
            (EqPred ty1 _, EqPred ty2 _) -> ty1 `cmpType` ty2
            _ -> pprPanic "mkSkolReporter" (ppr ct1 $$ ppr ct2)
 
-mkUniReporter :: (ReportErrCtxt l -> Ct l -> TcM l ErrMsg) -> Reporter l
+mkUniReporter :: (ApiAnnotation l)
+              => (ReportErrCtxt l -> Ct l -> TcM l ErrMsg) -> Reporter l
 -- Reports errors one at a time
 mkUniReporter mk_err ctxt
   = mapM_ $ \ct ->
@@ -334,7 +335,8 @@ mkUniReporter mk_err ctxt
        ; maybeReportError ctxt err
        ; maybeAddDeferredBinding ctxt err ct }
 
-mkGroupReporter :: (ReportErrCtxt l -> [Ct l] -> TcM l ErrMsg)
+mkGroupReporter :: (ApiAnnotation l)
+                => (ReportErrCtxt l -> [Ct l] -> TcM l ErrMsg)
                                -- Make error message for a group
                 -> Reporter l  -- Deal with lots of constraints
 -- Group together errors from same location,
@@ -344,7 +346,8 @@ mkGroupReporter mk_err ctxt cts
   where
     cmp_loc ct1 ct2 = ctLocSpan (ctLoc ct1) `compare` ctLocSpan (ctLoc ct2)
 
-reportGroup :: (ReportErrCtxt l -> [Ct l] -> TcM l ErrMsg) -> ReportErrCtxt l
+reportGroup :: (ApiAnnotation l)
+            => (ReportErrCtxt l -> [Ct l] -> TcM l ErrMsg) -> ReportErrCtxt l
             -> [Ct l] -> TcM l ()
 reportGroup mk_err ctxt cts
   = do { err <- mk_err ctxt cts
@@ -353,7 +356,7 @@ reportGroup mk_err ctxt cts
                -- Add deferred bindings for all
                -- But see Note [Always warn with -fdefer-type-errors]
 
-maybeReportError :: ReportErrCtxt l -> ErrMsg -> TcM l ()
+maybeReportError :: (ApiAnnotation l) => ReportErrCtxt l -> ErrMsg -> TcM l ()
 -- Report the error and/or make a deferred binding for it
 maybeReportError ctxt err
   | cec_defer ctxt  -- See Note [Always warn with -fdefer-type-errors]
@@ -381,7 +384,8 @@ maybeAddDeferredBinding ctxt err ct
   | otherwise   -- Do not set any evidence for Given/Derived
   = return ()
 
-tryReporters :: forall l. [ReporterSpec l] -> Reporter l -> Reporter l
+tryReporters :: forall l. (ApiAnnotation l)
+             => [ReporterSpec l] -> Reporter l -> Reporter l
 -- Use the first reporter in the list whose predicate says True
 tryReporters reporters deflt ctxt cts
   = do { traceTc "tryReporters {" (ppr cts)
@@ -427,15 +431,16 @@ pprWithArising (ct:cts)
     ppr_one ct' = hang (parens (pprType (ctPred ct'))) 
                      2 (pprArisingAt (ctLoc ct'))
 
-mkErrorMsg :: ReportErrCtxt l -> Ct l -> SDoc -> TcM l ErrMsg
+mkErrorMsg :: (ApiAnnotation l)
+           => ReportErrCtxt l -> Ct l -> SDoc -> TcM l ErrMsg
 mkErrorMsg ctxt ct msg 
   = do { let tcl_env = ctLocEnv (ctLoc ct)
        ; err_info <- mkErrInfo (cec_tidy ctxt) (tcl_ctxt tcl_env)
        ; mkLongErrAt (tcl_loc tcl_env) msg err_info }
 
-type UserGiven = ([EvVar], SkolemInfo, SrcSpan)
+type UserGiven l = ([EvVar], SkolemInfo, l)
 
-getUserGivens :: (ApiAnnotation l) => ReportErrCtxt l -> [UserGiven]
+getUserGivens :: (ApiAnnotation l) => ReportErrCtxt l -> [UserGiven l]
 -- One item for each enclosing implication
 getUserGivens (CEC {cec_encl = ctxt})
   = reverse $
@@ -528,7 +533,7 @@ mkIrredErr ctxt cts
     msg = couldNotDeduce givens (map ctPred cts, orig)
 
 ----------------
-mkHoleError :: ReportErrCtxt l -> Ct l -> TcM l ErrMsg
+mkHoleError :: (ApiAnnotation l) => ReportErrCtxt l -> Ct l -> TcM l ErrMsg
 mkHoleError ctxt ct@(CHoleCan { cc_occ = occ })
   = do { let tyvars = varSetElems (tyVarsOfCt ct)
              tyvars_msg = map loc_msg tyvars
@@ -808,13 +813,13 @@ misMatchOrCND ctxt ct oriented ty1 ty2
     orig   = TypeEqOrigin { uo_actual = ty1, uo_expected = ty2 }
 
 couldNotDeduce :: (ApiAnnotation l)
-               => [UserGiven] -> (ThetaType, CtOrigin l) -> SDoc
+               => [UserGiven l] -> (ThetaType, CtOrigin l) -> SDoc
 couldNotDeduce givens (wanteds, orig)
   = vcat [ addArising orig (ptext (sLit "Could not deduce") <+> pprTheta wanteds)
          , vcat (pp_givens givens)]
 
-pp_givens :: [UserGiven] -> [SDoc]
-pp_givens givens 
+pp_givens :: (ApiAnnotation l) => [UserGiven l] -> [SDoc]
+pp_givens givens
    = case givens of
          []     -> []
          (g:gs) ->      ppr_given (ptext (sLit "from the context")) g
@@ -1362,7 +1367,8 @@ getSkolemInfo (implic:implics) tv
 -- We always remove closed top-level bindings, though, 
 -- since they are never relevant (cf Trac #8233)
 
-relevantBindings :: Bool  -- True <=> filter by tyvar; False <=> no filtering
+relevantBindings :: (ApiAnnotation l)
+                 => Bool  -- True <=> filter by tyvar; False <=> no filtering
                           -- See Trac #8191
                  -> ReportErrCtxt l -> Ct l
                  -> TcM l (ReportErrCtxt l, SDoc)
@@ -1459,7 +1465,8 @@ are created by in RtClosureInspect.zonkRTTIType.
 %************************************************************************
 
 \begin{code}
-solverDepthErrorTcS :: SubGoalCounter -> CtEvidence l -> TcM l a
+solverDepthErrorTcS :: (ApiAnnotation l)
+                    => SubGoalCounter -> CtEvidence l -> TcM l a
 solverDepthErrorTcS cnt ev
   = setCtLoc loc $
     do { pred <- zonkTcType (ctEvPred ev)

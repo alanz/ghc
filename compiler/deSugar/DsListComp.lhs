@@ -862,7 +862,7 @@ dsInnerMonadComp stmts bndrs ret_op
 --     = ( fmap (selN1 :: (t1, t2) -> t1) ys
 --       , fmap (selN2 :: (t1, t2) -> t2) ys )
 
-mkMcUnzipM :: TransForm
+mkMcUnzipM :: (ApiAnnotation l) => TransForm
            -> SyntaxExpr l TcId -- fmap
            -> Id                -- Of type n (a,b,c)
            -> [Type]            -- [a,b,c]

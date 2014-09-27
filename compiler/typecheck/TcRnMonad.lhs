@@ -73,7 +73,7 @@ import qualified Data.Map as Map
 \begin{code}
 
 -- | Setup the initial typechecking environment
-initTc :: HscEnv
+initTc :: (ApiAnnotation l) => HscEnv
        -> HscSource
        -> Bool          -- True <=> retain renamed syntax trees
        -> Module
@@ -162,7 +162,7 @@ initTc hsc_env hsc_src keep_rn_syntax mod do_this
              } ;
              lcl_env = TcLclEnv {
                 tcl_errs       = errs_var,
-                tcl_loc        = mkGeneralSrcSpan (fsLit "Top level"),
+                tcl_loc        = annFromSpan $ mkGeneralSrcSpan (fsLit "Top level"),
                 tcl_ctxt       = [],
                 tcl_rdr        = emptyLocalRdrEnv,
                 tcl_th_ctxt    = topStage,
@@ -202,14 +202,14 @@ initTc hsc_env hsc_src keep_rn_syntax mod do_this
     }
 
 
-initTcInteractive :: HscEnv -> TcM l a -> IO (Messages, Maybe a)
+initTcInteractive :: (ApiAnnotation l) => HscEnv -> TcM l a -> IO (Messages, Maybe a)
 -- Initialise the type checker monad for use in GHCi
 initTcInteractive hsc_env thing_inside
   = initTc hsc_env HsSrcFile False
            (icInteractiveModule (hsc_IC hsc_env))
            thing_inside
 
-initTcForLookup :: HscEnv -> TcM l a -> IO a
+initTcForLookup :: (ApiAnnotation l) => HscEnv -> TcM l a -> IO a
 -- The thing_inside is just going to look up something
 -- in the environment, so we don't need much setup
 initTcForLookup hsc_env thing_inside
@@ -414,14 +414,14 @@ newUniqueSupply
         writeMutVar u_var us1 ;
         return us2 }}}
 
-newLocalName :: Name -> TcM l Name
+newLocalName :: (ApiAnnotation l) => Name -> TcM l Name
 newLocalName name = newName (nameOccName name)
 
-newName :: OccName -> TcM l Name
+newName :: (ApiAnnotation l) => OccName -> TcM l Name
 newName occ
   = do { uniq <- newUnique
        ; loc  <- getSrcSpanM
-       ; return (mkInternalName uniq occ loc) }
+       ; return (mkInternalName uniq occ (annGetSpan loc)) }
 
 newSysName :: OccName -> TcM l Name
 newSysName occ
@@ -466,16 +466,16 @@ updTcRef = updMutVar
 %************************************************************************
 
 \begin{code}
-traceTc :: String -> SDoc -> TcRn l ()
+traceTc :: (ApiAnnotation l) => String -> SDoc -> TcRn l ()
 traceTc = traceTcN 1
 
-traceTcN :: Int -> String -> SDoc -> TcRn l ()
+traceTcN :: (ApiAnnotation l) => Int -> String -> SDoc -> TcRn l ()
 traceTcN level herald doc
     = do dflags <- getDynFlags
          when (level <= traceLevel dflags) $
              traceOptTcRn Opt_D_dump_tc_trace $ hang (text herald) 2 doc
 
-traceRn, traceSplice :: SDoc -> TcRn l ()
+traceRn, traceSplice :: (ApiAnnotation l) => SDoc -> TcRn l ()
 traceRn      = traceOptTcRn Opt_D_dump_rn_trace
 traceSplice  = traceOptTcRn Opt_D_dump_splices
 
@@ -489,12 +489,12 @@ traceOptIf flag doc = whenDOptM flag $
                           do dflags <- getDynFlags
                              liftIO (printInfoForUser dflags alwaysQualify doc)
 
-traceOptTcRn :: DumpFlag -> SDoc -> TcRn l ()
+traceOptTcRn :: (ApiAnnotation l) => DumpFlag -> SDoc -> TcRn l ()
 -- Output the message, with current location if opt_PprStyle_Debug
 traceOptTcRn flag doc = whenDOptM flag $ do
                         { loc  <- getSrcSpanM
                         ; let real_doc
-                                | opt_PprStyle_Debug = mkLocMessage SevInfo loc doc
+                                | opt_PprStyle_Debug = mkLocMessage SevInfo (annGetSpan loc) doc
                                 | otherwise = doc   -- The full location is
                                                     -- usually way too much
                         ; dumpTcRn real_doc }
@@ -573,34 +573,36 @@ addDependentFiles fs = do
 %************************************************************************
 
 \begin{code}
-getSrcSpanM :: TcRn l SrcSpan
+getSrcSpanM :: TcRn l l
         -- Avoid clash with Name.getSrcLoc
 getSrcSpanM = do { env <- getLclEnv; return (tcl_loc env) }
 
-setSrcSpan :: (ApiAnnotation l) => SrcSpan -> TcRn l a -> TcRn l a
-setSrcSpan loc@(RealSrcSpan _) thing_inside
-    = updLclEnv (\env -> env { tcl_loc = loc }) thing_inside
--- Don't overwrite useful info with useless:
-setSrcSpan (UnhelpfulSpan _) thing_inside = thing_inside
+setSrcSpan :: (ApiAnnotation l) => l -> TcRn l a -> TcRn l a
+setSrcSpan loc thing_inside = setSrcSpan' (annGetSpan loc) thing_inside
+  where
+    setSrcSpan' (RealSrcSpan _) thing_inside
+        = updLclEnv (\env -> env { tcl_loc = loc }) thing_inside
+    -- Don't overwrite useful info with useless:
+    setSrcSpan' (UnhelpfulSpan _) thing_inside = thing_inside
 
 
 addLocM :: (ApiAnnotation l) => (a -> TcM l b) -> GenLocated l a -> TcM l b
-addLocM fn (L loc a) = setSrcSpan (annGetSpan loc) $ fn a
+addLocM fn (L loc a) = setSrcSpan loc $ fn a
 
 wrapLocM :: (ApiAnnotation l) => (a -> TcM l b) -> GenLocated l a -> TcM l (GenLocated l b)
-wrapLocM fn (L loc a) = setSrcSpan (annGetSpan loc) $ do b <- fn a; return (L loc b)
+wrapLocM fn (L loc a) = setSrcSpan loc $ do b <- fn a; return (L loc b)
 
 wrapLocFstM :: (ApiAnnotation l)
             => (a -> TcM l (b,c)) -> GenLocated l a -> TcM l (GenLocated l b, c)
 wrapLocFstM fn (L loc a) =
-  setSrcSpan (annGetSpan loc) $ do
+  setSrcSpan loc $ do
     (b,c) <- fn a
     return (L loc b, c)
 
 wrapLocSndM :: (ApiAnnotation l)
             => (a -> TcM l (b,c)) -> GenLocated l a -> TcM l (b, GenLocated l c)
 wrapLocSndM fn (L loc a) =
-  setSrcSpan (annGetSpan loc) $ do
+  setSrcSpan loc $ do
     (b,c) <- fn a
     return (b, L loc c)
 \end{code}
@@ -614,13 +616,13 @@ getErrsVar = do { env <- getLclEnv; return (tcl_errs env) }
 setErrsVar :: TcRef Messages -> TcRn l a -> TcRn l a
 setErrsVar v = updLclEnv (\ env -> env { tcl_errs =  v })
 
-addErr :: MsgDoc -> TcRn l ()    -- Ignores the context stack
+addErr :: (ApiAnnotation l) => MsgDoc -> TcRn l ()  -- Ignores the context stack
 addErr msg = do { loc <- getSrcSpanM; addErrAt loc msg }
 
-failWith :: MsgDoc -> TcRn l a
+failWith :: (ApiAnnotation l) => MsgDoc -> TcRn l a
 failWith msg = addErr msg >> failM
 
-addErrAt :: SrcSpan -> MsgDoc -> TcRn l ()
+addErrAt :: (ApiAnnotation l) => l -> MsgDoc -> TcRn l ()
 -- addErrAt is mainly (exclusively?) used by the renamer, where
 -- tidying is not an issue, but it's all lazy so the extra
 -- work doesn't matter
@@ -629,16 +631,16 @@ addErrAt loc msg = do { ctxt <- getErrCtxt
                       ; err_info <- mkErrInfo tidy_env ctxt
                       ; addLongErrAt loc msg err_info }
 
-addErrs :: [(SrcSpan,MsgDoc)] -> TcRn l ()
+addErrs :: (ApiAnnotation l) => [(l,MsgDoc)] -> TcRn l ()
 addErrs msgs = mapM_ add msgs
              where
                add (loc,msg) = addErrAt loc msg
 
-checkErr :: Bool -> MsgDoc -> TcRn l ()
+checkErr :: (ApiAnnotation l) => Bool -> MsgDoc -> TcRn l ()
 -- Add the error if the bool is False
 checkErr ok msg = unless ok (addErr msg)
 
-warnIf :: Bool -> MsgDoc -> TcRn l ()
+warnIf :: (ApiAnnotation l) => Bool -> MsgDoc -> TcRn l ()
 warnIf True  msg = addWarn msg
 warnIf False _   = return ()
 
@@ -673,26 +675,26 @@ discardWarnings thing_inside
 %************************************************************************
 
 \begin{code}
-mkLongErrAt :: SrcSpan -> MsgDoc -> MsgDoc -> TcRn l ErrMsg
+mkLongErrAt :: (ApiAnnotation l) => l -> MsgDoc -> MsgDoc -> TcRn l ErrMsg
 mkLongErrAt loc msg extra
   = do { rdr_env <- getGlobalRdrEnv ;
          dflags <- getDynFlags ;
-         return $ mkLongErrMsg dflags loc (mkPrintUnqualified dflags rdr_env) msg extra }
+         return $ mkLongErrMsg dflags (annGetSpan loc) (mkPrintUnqualified dflags rdr_env) msg extra }
 
-addLongErrAt :: SrcSpan -> MsgDoc -> MsgDoc -> TcRn l ()
+addLongErrAt :: (ApiAnnotation l) => l -> MsgDoc -> MsgDoc -> TcRn l ()
 addLongErrAt loc msg extra = mkLongErrAt loc msg extra >>= reportError
 
-reportErrors :: [ErrMsg] -> TcM l ()
+reportErrors :: (ApiAnnotation l) => [ErrMsg] -> TcM l ()
 reportErrors = mapM_ reportError
 
-reportError :: ErrMsg -> TcRn l ()
+reportError :: (ApiAnnotation l) => ErrMsg -> TcRn l ()
 reportError err
   = do { traceTc "Adding error:" (pprLocErrMsg err) ;
          errs_var <- getErrsVar ;
          (warns, errs) <- readTcRef errs_var ;
          writeTcRef errs_var (warns, errs `snocBag` err) }
 
-reportWarning :: ErrMsg -> TcRn l ()
+reportWarning :: (ApiAnnotation l) => ErrMsg -> TcRn l ()
 reportWarning warn
   = do { traceTc "Adding warning:" (pprLocErrMsg warn) ;
          errs_var <- getErrsVar ;
@@ -710,7 +712,7 @@ dumpDerivingInfo doc
 
 
 \begin{code}
-try_m :: TcRn l r -> TcRn l (Either IOEnvFailure r)
+try_m :: (ApiAnnotation l) => TcRn l r -> TcRn l (Either IOEnvFailure r)
 -- Does try_m, with a debug-trace on failure
 try_m thing
   = do { mb_r <- tryM thing ;
@@ -721,7 +723,8 @@ try_m thing
              Right _  -> return mb_r }
 
 -----------------------
-recoverM :: TcRn l r      -- Recovery action; do this if the main one fails
+recoverM :: (ApiAnnotation l)
+         => TcRn l r      -- Recovery action; do this if the main one fails
          -> TcRn l r      -- Main action: do this first
          -> TcRn l r
 -- Errors in 'thing' are retained
@@ -733,7 +736,7 @@ recoverM recover thing
 
 
 -----------------------
-mapAndRecoverM :: (a -> TcRn l b) -> [a] -> TcRn l [b]
+mapAndRecoverM :: (ApiAnnotation l) => (a -> TcRn l b) -> [a] -> TcRn l [b]
 -- Drop elements of the input that fail, so the result
 -- list can be shorter than the argument list
 mapAndRecoverM _ []     = return []
@@ -745,11 +748,11 @@ mapAndRecoverM f (x:xs) = do { mb_r <- try_m (f x)
 
 -- | Succeeds if applying the argument to all members of the lists succeeds,
 --   but nevertheless runs it on all arguments, to collect all errors.
-mapAndReportM :: (a -> TcRn l b) -> [a] -> TcRn l [b]
+mapAndReportM :: (ApiAnnotation l) => (a -> TcRn l b) -> [a] -> TcRn l [b]
 mapAndReportM f xs = checkNoErrs (mapAndRecoverM f xs)
 
 -----------------------
-tryTc :: TcRn l a -> TcRn l (Messages, Maybe a)
+tryTc :: (ApiAnnotation l) => TcRn l a -> TcRn l (Messages, Maybe a)
 -- (tryTc m) executes m, and returns
 --      Just r,  if m succeeds (returning r)
 --      Nothing, if m fails
@@ -767,7 +770,7 @@ tryTc m
    }
 
 -----------------------
-tryTcErrs :: TcRn l a -> TcRn l (Messages, Maybe a)
+tryTcErrs :: (ApiAnnotation l) => TcRn l a -> TcRn l (Messages, Maybe a)
 -- Run the thing, returning
 --      Just r,  if m succceeds with no error messages
 --      Nothing, if m fails, or if it succeeds but has error messages
@@ -784,7 +787,7 @@ tryTcErrs thing
         }
 
 -----------------------
-tryTcLIE :: TcM l a -> TcM l (Messages, Maybe a)
+tryTcLIE :: (ApiAnnotation l) => TcM l a -> TcM l (Messages, Maybe a)
 -- Just like tryTcErrs, except that it ensures that the LIE
 -- for the thing is propagated only if there are no errors
 -- Hence it's restricted to the type-check monad
@@ -796,7 +799,7 @@ tryTcLIE thing_inside
         }
 
 -----------------------
-tryTcLIE_ :: TcM l r -> TcM l r -> TcM l r
+tryTcLIE_ :: (ApiAnnotation l) => TcM l r -> TcM l r -> TcM l r
 -- (tryTcLIE_ r m) tries m;
 --      if m succeeds with no error messages, it's the answer
 --      otherwise tryTcLIE_ drops everything from m and tries r instead.
@@ -809,7 +812,7 @@ tryTcLIE_ recover main
         }
 
 -----------------------
-checkNoErrs :: TcM l r -> TcM l r
+checkNoErrs :: (ApiAnnotation l) => TcM l r -> TcM l r
 -- (checkNoErrs m) succeeds iff m succeeds and generates no errors
 -- If m fails then (checkNoErrsTc m) fails.
 -- If m succeeds, it checks whether m generated any errors messages
@@ -841,14 +844,14 @@ failIfErrsM :: TcRn l ()
 -- Useful to avoid error cascades
 failIfErrsM = ifErrsM failM (return ())
 
-checkTH :: Outputable a => a -> String -> TcRn l ()
+checkTH :: (ApiAnnotation l,Outputable a) => a -> String -> TcRn l ()
 #ifdef GHCI
 checkTH _ _ = return () -- OK
 #else
 checkTH e what = failTH e what  -- Raise an error in a stage-1 compiler
 #endif
 
-failTH :: Outputable a => a -> String -> TcRn l x
+failTH :: (ApiAnnotation l) => Outputable a => a -> String -> TcRn l x
 failTH e what  -- Raise an error in a stage-1 compiler
   = failWithTc (vcat [ hang (char 'A' <+> text what
                              <+> ptext (sLit "requires GHC with interpreter support:"))
@@ -914,21 +917,21 @@ setCtLoc (CtLoc { ctl_env = lcl }) thing_inside
     tidy up the message; we then use it to tidy the context messages
 
 \begin{code}
-addErrTc :: MsgDoc -> TcM l ()
+addErrTc :: (ApiAnnotation l) => MsgDoc -> TcM l ()
 addErrTc err_msg = do { env0 <- tcInitTidyEnv
                       ; addErrTcM (env0, err_msg) }
 
-addErrsTc :: [MsgDoc] -> TcM l ()
+addErrsTc :: (ApiAnnotation l) => [MsgDoc] -> TcM l ()
 addErrsTc err_msgs = mapM_ addErrTc err_msgs
 
-addErrTcM :: (TidyEnv, MsgDoc) -> TcM l ()
+addErrTcM :: (ApiAnnotation l) => (TidyEnv, MsgDoc) -> TcM l ()
 addErrTcM (tidy_env, err_msg)
   = do { ctxt <- getErrCtxt ;
          loc  <- getSrcSpanM ;
          add_err_tcm tidy_env err_msg loc ctxt }
 
 -- Return the error message, instead of reporting it straight away
-mkErrTcM :: (TidyEnv, MsgDoc) -> TcM l ErrMsg
+mkErrTcM :: (ApiAnnotation l) => (TidyEnv, MsgDoc) -> TcM l ErrMsg
 mkErrTcM (tidy_env, err_msg)
   = do { ctxt <- getErrCtxt ;
          loc  <- getSrcSpanM ;
@@ -939,15 +942,18 @@ mkErrTcM (tidy_env, err_msg)
 The failWith functions add an error message and cause failure
 
 \begin{code}
-failWithTc :: MsgDoc -> TcM l a             -- Add an error message and fail
+failWithTc :: (ApiAnnotation l)
+           => MsgDoc -> TcM l a             -- Add an error message and fail
 failWithTc err_msg
   = addErrTc err_msg >> failM
 
-failWithTcM :: (TidyEnv, MsgDoc) -> TcM l a -- Add an error message and fail
+failWithTcM :: (ApiAnnotation l)
+            => (TidyEnv, MsgDoc) -> TcM l a -- Add an error message and fail
 failWithTcM local_and_msg
   = addErrTcM local_and_msg >> failM
 
-checkTc :: Bool -> MsgDoc -> TcM l ()       -- Check that the boolean is true
+checkTc :: (ApiAnnotation l)
+        => Bool -> MsgDoc -> TcM l ()       -- Check that the boolean is true
 checkTc True  _   = return ()
 checkTc False err = failWithTc err
 \end{code}
@@ -955,33 +961,33 @@ checkTc False err = failWithTc err
         Warnings have no 'M' variant, nor failure
 
 \begin{code}
-warnTc :: Bool -> MsgDoc -> TcM l ()
+warnTc :: (ApiAnnotation l) => Bool -> MsgDoc -> TcM l ()
 warnTc warn_if_true warn_msg
   | warn_if_true = addWarnTc warn_msg
   | otherwise    = return ()
 
-addWarnTc :: MsgDoc -> TcM l ()
+addWarnTc :: (ApiAnnotation l) => MsgDoc -> TcM l ()
 addWarnTc msg = do { env0 <- tcInitTidyEnv
                    ; addWarnTcM (env0, msg) }
 
-addWarnTcM :: (TidyEnv, MsgDoc) -> TcM l ()
+addWarnTcM :: (ApiAnnotation l) => (TidyEnv, MsgDoc) -> TcM l ()
 addWarnTcM (env0, msg)
  = do { ctxt <- getErrCtxt ;
         err_info <- mkErrInfo env0 ctxt ;
         add_warn msg err_info }
 
-addWarn :: MsgDoc -> TcRn l ()
+addWarn :: (ApiAnnotation l) => MsgDoc -> TcRn l ()
 addWarn msg = add_warn msg Outputable.empty
 
-addWarnAt :: SrcSpan -> MsgDoc -> TcRn l ()
+addWarnAt :: (ApiAnnotation l) => SrcSpan -> MsgDoc -> TcRn l ()
 addWarnAt loc msg = add_warn_at loc msg Outputable.empty
 
-add_warn :: MsgDoc -> MsgDoc -> TcRn l ()
-add_warn msg extra_info 
+add_warn :: (ApiAnnotation l) => MsgDoc -> MsgDoc -> TcRn l ()
+add_warn msg extra_info
   = do { loc <- getSrcSpanM
-       ; add_warn_at loc msg extra_info }
+       ; add_warn_at (annGetSpan loc) msg extra_info }
 
-add_warn_at :: SrcSpan -> MsgDoc -> MsgDoc -> TcRn l ()
+add_warn_at :: (ApiAnnotation l) => SrcSpan -> MsgDoc -> MsgDoc -> TcRn l ()
 add_warn_at loc msg extra_info
   = do { rdr_env <- getGlobalRdrEnv ;
          dflags <- getDynFlags ;
@@ -999,7 +1005,7 @@ tcInitTidyEnv
         Other helper functions
 
 \begin{code}
-add_err_tcm :: TidyEnv -> MsgDoc -> SrcSpan
+add_err_tcm :: (ApiAnnotation l) => TidyEnv -> MsgDoc -> l
             -> [ErrCtxt l]
             -> TcM l ()
 add_err_tcm tidy_env err_msg loc ctxt
@@ -1101,7 +1107,7 @@ emitImplications ct
   = do { lie_var <- getConstraintVar ;
          updTcRef lie_var (`addImplics` ct) }
 
-emitInsoluble :: Ct l -> TcM l ()
+emitInsoluble :: (ApiAnnotation l) => Ct l -> TcM l ()
 emitInsoluble ct
   = do { lie_var <- getConstraintVar ;
          updTcRef lie_var (`addInsols` unitBag ct) ;
@@ -1151,7 +1157,7 @@ setLclTypeEnv lcl_env thing_inside
     upd env = env { tcl_env = tcl_env lcl_env,
                     tcl_tyvars = tcl_tyvars lcl_env }
 
-traceTcConstraints :: String -> TcM l ()
+traceTcConstraints :: (ApiAnnotation l) => String -> TcM l ()
 traceTcConstraints msg
   = do { lie_var <- getConstraintVar
        ; lie     <- readTcRef lie_var
@@ -1173,7 +1179,8 @@ recordThUse = do { env <- getGblEnv; writeTcRef (tcg_th_used env) True }
 recordThSpliceUse :: TcM l ()
 recordThSpliceUse = do { env <- getGblEnv; writeTcRef (tcg_th_splice_used env) True }
 
-keepAlive :: Name -> TcRn l ()   -- Record the name in the keep-alive set
+keepAlive :: (ApiAnnotation l)
+          => Name -> TcRn l ()   -- Record the name in the keep-alive set
 keepAlive name
   = do { env <- getGblEnv
        ; traceRn (ptext (sLit "keep alive") <+> ppr name)

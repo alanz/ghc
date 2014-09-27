@@ -29,7 +29,7 @@ import FastString
 #ifndef GHCI
 
 tcAnnotations :: (ApiAnnotation l)
-              => [LAnnDecl SrcSpan Name] -> TcM l [Annotation]
+              => [LAnnDecl l Name] -> TcM l [Annotation]
 -- No GHCI; emit a warning (not an error) and ignore. cf Trac #4268
 tcAnnotations [] = return []
 tcAnnotations anns@(L loc _ : _)

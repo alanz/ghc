@@ -61,7 +61,8 @@ data DsCmdEnv = DsCmdEnv {
 	arr_id, compose_id, first_id, app_id, choice_id, loop_id :: CoreExpr
     }
 
-mkCmdEnv :: CmdSyntaxTable l Id -> DsM l ([CoreBind], DsCmdEnv)
+mkCmdEnv :: (ApiAnnotation l)
+         => CmdSyntaxTable l Id -> DsM l ([CoreBind], DsCmdEnv)
 -- See Note [CmdSyntaxTable] in HsExpr
 mkCmdEnv tc_meths
   = do { (meth_binds, prs) <- mapAndUnzipM mk_bind tc_meths

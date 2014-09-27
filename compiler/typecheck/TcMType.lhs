@@ -239,24 +239,25 @@ tcInstSkolTyVar loc overlappable subst tyvar
 
 -- Wrappers
 -- we need to be able to do this from outside the TcM monad:
-tcInstSkolTyVars :: [TyVar] -> TcM l (TvSubst, [TcTyVar])
+tcInstSkolTyVars :: (ApiAnnotation l) => [TyVar] -> TcM l (TvSubst, [TcTyVar])
 tcInstSkolTyVars = tcInstSkolTyVarsX (mkTopTvSubst [])
 
-tcInstSuperSkolTyVars :: [TyVar] -> TcM l [TcTyVar]
+tcInstSuperSkolTyVars :: (ApiAnnotation l) => [TyVar] -> TcM l [TcTyVar]
 tcInstSuperSkolTyVars = fmap snd . tcInstSkolTyVars' True  (mkTopTvSubst [])
 
 tcInstSkolTyVarsX, tcInstSuperSkolTyVarsX
-  :: TvSubst -> [TyVar] -> TcM l (TvSubst, [TcTyVar])
+  :: (ApiAnnotation l) => TvSubst -> [TyVar] -> TcM l (TvSubst, [TcTyVar])
 tcInstSkolTyVarsX      subst = tcInstSkolTyVars' False subst
 tcInstSuperSkolTyVarsX subst = tcInstSkolTyVars' True  subst
 
-tcInstSkolTyVars' :: Bool -> TvSubst -> [TyVar] -> TcM l (TvSubst, [TcTyVar])
+tcInstSkolTyVars' :: (ApiAnnotation l)
+                  => Bool -> TvSubst -> [TyVar] -> TcM l (TvSubst, [TcTyVar])
 -- Precondition: tyvars should be ordered (kind vars first)
 -- see Note [Kind substitution when instantiating]
 -- Get the location from the monad; this is a complete freshening operation
 tcInstSkolTyVars' isSuperSkol subst tvs
   = do { loc <- getSrcSpanM
-       ; mapAccumLM (tcInstSkolTyVar loc isSuperSkol) subst tvs }
+       ; mapAccumLM (tcInstSkolTyVar (annGetSpan loc) isSuperSkol) subst tvs }
 
 tcInstSigTyVarsLoc :: SrcSpan -> [TyVar] -> TcRnIf gbl lcl (TvSubst, [TcTyVar])
 -- We specify the location
@@ -268,7 +269,8 @@ tcInstSigTyVars = mapAccumLM inst_tv (mkTopTvSubst [])
   where
     inst_tv subst tv = tcInstSkolTyVar (getSrcSpan tv) False subst tv
 
-tcInstSkolType :: TcType -> TcM l ([TcTyVar], TcThetaType, TcType)
+tcInstSkolType :: (ApiAnnotation l)
+               => TcType -> TcM l ([TcTyVar], TcThetaType, TcType)
 -- Instantiate a type with fresh skolem constants
 -- Binding location comes from the monad
 tcInstSkolType ty = tcInstType tcInstSkolTyVars ty
@@ -365,7 +367,7 @@ isFlexiMetaTyVar tv
 
 --------------------
 -- Works with both type and kind variables
-writeMetaTyVar :: TcTyVar -> TcType -> TcM l ()
+writeMetaTyVar :: (ApiAnnotation l) => TcTyVar -> TcType -> TcM l ()
 -- Write into a currently-empty MetaTyVar
 
 writeMetaTyVar tyvar ty
@@ -385,7 +387,8 @@ writeMetaTyVar tyvar ty
     return ()
 
 --------------------
-writeMetaTyVarRef :: TcTyVar -> TcRef MetaDetails -> TcType -> TcM l ()
+writeMetaTyVarRef :: (ApiAnnotation l)
+                  => TcTyVar -> TcRef MetaDetails -> TcType -> TcM l ()
 -- Here the tyvar is for error checking only;
 -- the ref cell must be for the same tyvar
 writeMetaTyVarRef tyvar ref ty
@@ -497,7 +500,8 @@ has free vars {k,a}.  But the type (see Trac #7916)
 has free vars {f,a}, but we must add 'k' as well! Hence step (3).
 
 \begin{code}
-quantifyTyVars :: TcTyVarSet -> TcTyVarSet -> TcM l [TcTyVar]
+quantifyTyVars :: (ApiAnnotation l)
+               => TcTyVarSet -> TcTyVarSet -> TcM l [TcTyVar]
 -- See Note [quantifyTyVars]
 -- The input is a mixture of type and kind variables; a kind variable k 
 --   may occur *after* a tyvar mentioning k in its kind
@@ -535,7 +539,7 @@ quantifyTyVars gbl_tvs tkvs
       -- For associated types, we have the class variables 
       -- in scope, and they are TyVars not TcTyVars
 
-zonkQuantifiedTyVar :: TcTyVar -> TcM l TcTyVar
+zonkQuantifiedTyVar :: (ApiAnnotation l) => TcTyVar -> TcM l TcTyVar
 -- The quantified type variables often include meta type variables
 -- we want to freeze them into ordinary type variables, and
 -- default their kind (e.g. from OpenTypeKind to TypeKind)
@@ -568,14 +572,15 @@ zonkQuantifiedTyVar tv
              skolemiseUnboundMetaTyVar tv vanillaSkolemTv
       _other -> pprPanic "zonkQuantifiedTyVar" (ppr tv) -- FlatSkol, RuntimeUnk
 
-defaultKindVarToStar :: TcTyVar -> TcM l Kind
+defaultKindVarToStar :: (ApiAnnotation l) => TcTyVar -> TcM l Kind
 -- We have a meta-kind: unify it with '*'
 defaultKindVarToStar kv 
   = do { ASSERT( isKindVar kv && isMetaTyVar kv )
          writeMetaTyVar kv liftedTypeKind
        ; return liftedTypeKind }
 
-skolemiseUnboundMetaTyVar :: TcTyVar -> TcTyVarDetails -> TcM l TyVar
+skolemiseUnboundMetaTyVar :: (ApiAnnotation l)
+                          => TcTyVar -> TcTyVarDetails -> TcM l TyVar
 -- We have a Meta tyvar with a ref-cell inside it
 -- Skolemise it, including giving it a new Name, so that
 --   we are totally out of Meta-tyvar-land
@@ -588,7 +593,7 @@ skolemiseUnboundMetaTyVar tv details
         ; uniq <- newUnique      -- Remove it from TcMetaTyVar unique land
         ; kind <- zonkTcKind (tyVarKind tv)
         ; let final_kind = defaultKind kind
-              final_name = mkInternalName uniq (getOccName tv) span
+              final_name = mkInternalName uniq (getOccName tv) (annGetSpan span)
               final_tv   = mkTcTyVar final_name final_kind details
 
         ; writeMetaTyVar tv (mkTyVarTy final_tv)
@@ -727,7 +732,8 @@ zonkTcPredType = zonkTcType
 ---------------  Constraints
 
 \begin{code}
-zonkImplication :: Implication l -> TcM l (Bag (Implication l))
+zonkImplication :: (ApiAnnotation l)
+                => Implication l -> TcM l (Bag (Implication l))
 zonkImplication implic@(Implic { ic_untch  = untch
                                , ic_binds  = binds_var
                                , ic_skols  = skols
@@ -753,13 +759,14 @@ zonkEvVar var = do { ty' <- zonkTcType (varType var)
                    ; return (setVarType var ty') }
 
 
-zonkWC :: EvBindsVar -- May add new bindings for wanted family equalities in here
+zonkWC :: (ApiAnnotation l)
+       => EvBindsVar -- May add new bindings for wanted family equalities in here
        -> WantedConstraints l -> TcM l (WantedConstraints l)
 zonkWC binds_var wc
   = do { untch <- getUntouchables
        ; zonkWCRec binds_var untch wc }
 
-zonkWCRec :: EvBindsVar
+zonkWCRec :: (ApiAnnotation l) => EvBindsVar
           -> Untouchables
           -> WantedConstraints l -> TcM l (WantedConstraints l)
 zonkWCRec binds_var untch (WC { wc_flat = flat, wc_impl = implic, wc_insol = insol })
@@ -768,7 +775,8 @@ zonkWCRec binds_var untch (WC { wc_flat = flat, wc_impl = implic, wc_insol = ins
        ; insol'  <- zonkCts insol -- No need to do the more elaborate zonkFlats thing
        ; return (WC { wc_flat = flat', wc_impl = implic', wc_insol = insol' }) }
 
-zonkFlats :: EvBindsVar -> Untouchables -> Cts l -> TcM l (Cts l)
+zonkFlats :: (ApiAnnotation l)
+          => EvBindsVar -> Untouchables -> Cts l -> TcM l (Cts l)
 -- This zonks and unflattens a bunch of flat constraints
 -- See Note [Unflattening while zonking]
 zonkFlats binds_var untch cts

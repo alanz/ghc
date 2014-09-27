@@ -166,7 +166,7 @@ advanceSrcLoc (SrcLoc f l c) _    = SrcLoc f  l (c + 1)
 
 \begin{code}
 
-class (Outputable l, OutputableBndr l) => ApiAnnotation l where
+class (Ord l,Outputable l, OutputableBndr l) => ApiAnnotation l where
     annGetSpan :: l -> SrcSpan
     annSetSpan :: l -> SrcSpan -> l
     annNoSpan  :: l

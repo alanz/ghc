@@ -391,7 +391,7 @@ wrapFunResCoercion arg_tys co_fn_res
 %************************************************************************
 
 \begin{code}
-tcGen :: UserTypeCtxt -> TcType
+tcGen :: (ApiAnnotation l) => UserTypeCtxt -> TcType
       -> ([TcTyVar] -> TcRhoType -> TcM l result)
       -> TcM l (HsWrapper, result)
         -- The expression has type: spec_ty -> expected_ty
@@ -862,7 +862,8 @@ nicer_to_update_tv1 tv1 _     _     = isSystemName (Var.varName tv1)
         -- type sig
 
 ----------------
-checkTauTvUpdate :: DynFlags -> TcTyVar -> TcType -> TcM l (Maybe TcType)
+checkTauTvUpdate :: (ApiAnnotation l)
+                 => DynFlags -> TcTyVar -> TcType -> TcM l (Maybe TcType)
 --    (checkTauTvUpdate tv ty)
 -- We are about to update the TauTv/PolyTv tv with ty.
 -- Check (a) that tv doesn't occur in ty (occurs check)
@@ -1055,7 +1056,8 @@ lookupTcTyVar tyvar
     details = ASSERT2( isTcTyVar tyvar, ppr tyvar )
               tcTyVarDetails tyvar
 
-updateMeta :: TcTyVar -> TcRef MetaDetails -> TcType -> TcM l TcCoercion
+updateMeta :: (ApiAnnotation l)
+           => TcTyVar -> TcRef MetaDetails -> TcType -> TcM l TcCoercion
 updateMeta tv1 ref1 ty2
   = do { writeMetaTyVarRef tv1 ref1 ty2
        ; return (mkTcNomReflCo ty2) }
@@ -1110,7 +1112,8 @@ Hence the isTcTyVar tests before calling lookupTcTyVar.
 
 
 \begin{code}
-matchExpectedFunKind :: TcKind -> TcM l (Maybe (TcKind, TcKind))
+matchExpectedFunKind :: (ApiAnnotation l)
+                     => TcKind -> TcM l (Maybe (TcKind, TcKind))
 -- Like unifyFunTy, but does not fail; instead just returns Nothing
 
 matchExpectedFunKind (FunTy arg_kind res_kind) 
@@ -1130,7 +1133,8 @@ matchExpectedFunKind (TyVarTy kvar)
 matchExpectedFunKind _ = return Nothing
 
 -----------------  
-unifyKindX :: TcKind           -- k1 (actual)
+unifyKindX :: (ApiAnnotation l)
+           => TcKind           -- k1 (actual)
            -> TcKind           -- k2 (expected)
            -> TcM l (Maybe Ordering)
                               -- Returns the relation between the kinds
@@ -1158,7 +1162,8 @@ unifyKindX k1 k2 = unifyKindEq k1 k2
   -- In all other cases, let unifyKindEq do the work
 
 -------------------
-uKVar :: SwapFlag -> (TcKind -> TcKind -> TcM l (Maybe Ordering))
+uKVar :: (ApiAnnotation l)
+      => SwapFlag -> (TcKind -> TcKind -> TcM l (Maybe Ordering))
       -> MetaKindVar -> TcKind -> TcM l (Maybe Ordering)
 uKVar swapped unify_kind kv1 k2
   | isTcTyVar kv1
@@ -1171,7 +1176,8 @@ uKVar swapped unify_kind kv1 k2
   = uUnfilledKVar kv1 vanillaSkolemTv k2
 
 -------------------
-uUnfilledKVar :: MetaKindVar -> TcTyVarDetails -> TcKind -> TcM l (Maybe Ordering)
+uUnfilledKVar :: (ApiAnnotation l)
+              => MetaKindVar -> TcTyVarDetails -> TcKind -> TcM l (Maybe Ordering)
 uUnfilledKVar kv1 ds1 (TyVarTy kv2)
   | kv1 == kv2
   = return (Just EQ)
@@ -1201,7 +1207,8 @@ uUnfilledKVar kv1 ds1 non_var_k2
       _ -> return Nothing
 
 -------------------
-uUnfilledKVars :: MetaKindVar -> TcTyVarDetails
+uUnfilledKVars :: (ApiAnnotation l)
+               => MetaKindVar -> TcTyVarDetails
                -> MetaKindVar -> TcTyVarDetails
                -> TcM l (Maybe Ordering)
 -- kv1 /= kv2
@@ -1219,7 +1226,7 @@ uUnfilledKVars kv1 ds1 kv2 ds2
       = do { writeMetaTyVarRef kv1 r1 (mkTyVarTy kv2); return (Just EQ) }
 
 ---------------------------
-unifyKindEq :: TcKind -> TcKind -> TcM l (Maybe Ordering)
+unifyKindEq :: (ApiAnnotation l) => TcKind -> TcKind -> TcM l (Maybe Ordering)
 -- Unify two kinds looking for equality not sub-kinding
 -- So it returns Nothing or (Just EQ) only
 unifyKindEq (TyVarTy kv1) k2 = uKVar NotSwapped unifyKindEq kv1 k2

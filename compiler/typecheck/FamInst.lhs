@@ -31,7 +31,7 @@ import CoAxiom
 import DynFlags
 import Module
 import Outputable
-import SrcLoc( ApiAnnotation )
+import SrcLoc( ApiAnnotation,annFromSpan )
 import UniqFM
 import FastString
 import Util
@@ -359,7 +359,7 @@ conflictInstErr fam_inst conflictingMatch
 addFamInstsErr :: (ApiAnnotation l) => SDoc -> [FamInst] -> TcRn l ()
 addFamInstsErr herald insts
   = ASSERT( not (null insts) )
-    setSrcSpan srcSpan $ addErr $
+    setSrcSpan (annFromSpan srcSpan) $ addErr $
     hang herald
        2 (vcat [ pprCoAxBranchHdr (famInstAxiom fi) 0
                | fi <- sorted ])

@@ -82,7 +82,7 @@ import Annotations
 import IOEnv hiding     ( liftIO, failM, failWithM )
 import qualified IOEnv  ( liftIO )
 import TcEnv            ( tcLookupGlobal )
-import TcRnMonad        ( initTcForLookup )
+import TcRnMonad        ( initTcForLookup, TcM )
 import InstEnv          ( instanceDFunId )
 import Type             ( tyVarsOfType )
 import Id               ( idType )
@@ -1127,7 +1127,10 @@ dumpIfSet_dyn flag str = msg (\dflags -> Err.dumpIfSet_dyn dflags flag str)
 instance MonadThings CoreM where
     lookupThing name = do
         hsc_env <- getHscEnv
-        liftIO $ initTcForLookup hsc_env (tcLookupGlobal name)
+        liftIO $ initTcForLookupSrcSpan hsc_env (tcLookupGlobal name)
+        where
+         initTcForLookupSrcSpan :: HscEnv -> TcM SrcSpan TyThing -> IO TyThing
+         initTcForLookupSrcSpan = initTcForLookup
 \end{code}
 
 %************************************************************************

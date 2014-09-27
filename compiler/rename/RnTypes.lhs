@@ -5,6 +5,7 @@
 
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module RnTypes (
         -- Type related stuff
@@ -61,12 +62,14 @@ to break several loop.
 %*********************************************************
 
 \begin{code}
-rnHsSigType :: SDoc -> LHsType RdrName -> RnM (LHsType Name, FreeVars)
+rnHsSigType :: (ApiAnnotation l)
+            => SDoc -> LHsType l RdrName -> RnM l (LHsType l Name, FreeVars)
         -- rnHsSigType is used for source-language type signatures,
         -- which use *implicit* universal quantification.
 rnHsSigType doc_str ty = rnLHsType (TypeSigCtx doc_str) ty
 
-rnLHsInstType :: SDoc -> LHsType RdrName -> RnM (LHsType Name, FreeVars)
+rnLHsInstType :: (ApiAnnotation l)
+              => SDoc -> LHsType l RdrName -> RnM l (LHsType l Name, FreeVars)
 -- Rename the type in an instance or standalone deriving decl
 rnLHsInstType doc_str ty
   = do { (ty', fvs) <- rnLHsType (GenericCtx doc_str) ty
@@ -78,7 +81,7 @@ rnLHsInstType doc_str ty
       , isTcOcc (rdrNameOcc cls) = True
       | otherwise                = False
 
-badInstTy :: LHsType RdrName -> SDoc
+badInstTy :: (ApiAnnotation l) => LHsType l RdrName -> SDoc
 badInstTy ty = ptext (sLit "Malformed instance:") <+> ppr ty
 \end{code}
 
@@ -105,33 +108,41 @@ The -fwarn-context-quantification flag warns about
 this situation. See rnHsTyKi for case HsForAllTy Qualified.
 
 \begin{code}
-rnLHsTyKi  :: Bool --  True <=> renaming a type, False <=> a kind
-           -> HsDocContext -> LHsType RdrName -> RnM (LHsType Name, FreeVars)
+rnLHsTyKi  :: (ApiAnnotation l)
+           => Bool --  True <=> renaming a type, False <=> a kind
+           -> HsDocContext l -> LHsType l RdrName
+           -> RnM l (LHsType l Name, FreeVars)
 rnLHsTyKi isType doc (L loc ty)
   = setSrcSpan loc $
     do { (ty', fvs) <- rnHsTyKi isType doc ty
        ; return (L loc ty', fvs) }
 
-rnLHsType  :: HsDocContext -> LHsType RdrName -> RnM (LHsType Name, FreeVars)
+rnLHsType  :: (ApiAnnotation l) => HsDocContext l -> LHsType l RdrName
+           -> RnM l (LHsType l Name, FreeVars)
 rnLHsType = rnLHsTyKi True
 
-rnLHsKind  :: HsDocContext -> LHsKind RdrName -> RnM (LHsKind Name, FreeVars)
+rnLHsKind  :: (ApiAnnotation l) => HsDocContext l -> LHsKind l RdrName
+           -> RnM l (LHsKind l Name, FreeVars)
 rnLHsKind = rnLHsTyKi False
 
-rnLHsMaybeKind  :: HsDocContext -> Maybe (LHsKind RdrName)
-                -> RnM (Maybe (LHsKind Name), FreeVars)
+rnLHsMaybeKind  :: (ApiAnnotation l)
+                => HsDocContext l -> Maybe (LHsKind l RdrName)
+                -> RnM l (Maybe (LHsKind l Name), FreeVars)
 rnLHsMaybeKind _ Nothing
   = return (Nothing, emptyFVs)
 rnLHsMaybeKind doc (Just kind)
   = do { (kind', fvs) <- rnLHsKind doc kind
        ; return (Just kind', fvs) }
 
-rnHsType  :: HsDocContext -> HsType RdrName -> RnM (HsType Name, FreeVars)
+rnHsType  :: (ApiAnnotation l) => HsDocContext l -> HsType l RdrName
+          -> RnM l (HsType l Name, FreeVars)
 rnHsType = rnHsTyKi True
-rnHsKind  :: HsDocContext -> HsKind RdrName -> RnM (HsKind Name, FreeVars)
+rnHsKind  :: (ApiAnnotation l) => HsDocContext l -> HsKind l RdrName
+          -> RnM l (HsKind l Name, FreeVars)
 rnHsKind = rnHsTyKi False
 
-rnHsTyKi :: Bool -> HsDocContext -> HsType RdrName -> RnM (HsType Name, FreeVars)
+rnHsTyKi :: (ApiAnnotation l) => Bool -> HsDocContext l -> HsType l RdrName
+         -> RnM l (HsType l Name, FreeVars)
 
 rnHsTyKi isType doc (HsForAllTy Implicit _ lctxt@(L _ ctxt) ty)
   = ASSERT( isType ) do
@@ -326,25 +337,25 @@ rnHsTyKi isType doc ty@(HsExplicitTupleTy kis tys)
        ; return (HsExplicitTupleTy kis tys', fvs) }
 
 --------------
-rnTyVar :: Bool -> RdrName -> RnM Name
+rnTyVar :: (ApiAnnotation l) => Bool -> RdrName -> RnM l Name
 rnTyVar is_type rdr_name
   | is_type   = lookupTypeOccRn rdr_name
   | otherwise = lookupKindOccRn rdr_name
 
 
 --------------
-rnLHsTypes :: HsDocContext -> [LHsType RdrName]
-           -> RnM ([LHsType Name], FreeVars)
+rnLHsTypes :: (ApiAnnotation l) => HsDocContext l -> [LHsType l RdrName]
+           -> RnM l ([LHsType l Name], FreeVars)
 rnLHsTypes doc tys = mapFvRn (rnLHsType doc) tys
 \end{code}
 
 
 \begin{code}
-rnForAll :: HsDocContext -> HsExplicitFlag
+rnForAll :: (ApiAnnotation l) => HsDocContext l -> HsExplicitFlag
          -> [RdrName]                -- Kind variables
-         -> LHsTyVarBndrs RdrName   -- Type variables
-         -> LHsContext RdrName -> LHsType RdrName
-         -> RnM (HsType Name, FreeVars)
+         -> LHsTyVarBndrs l RdrName  -- Type variables
+         -> LHsContext l RdrName -> LHsType l RdrName
+         -> RnM l (HsType l Name, FreeVars)
 
 rnForAll doc exp kvs forall_tyvars ctxt ty
   | null kvs, null (hsQTvBndrs forall_tyvars), null (unLoc ctxt)
@@ -367,8 +378,8 @@ rnForAll doc exp kvs forall_tyvars ctxt ty
 
 ---------------
 bindSigTyVarsFV :: [Name]
-                -> RnM (a, FreeVars)
-                -> RnM (a, FreeVars)
+                -> RnM l (a, FreeVars)
+                -> RnM l (a, FreeVars)
 -- Used just before renaming the defn of a function
 -- with a separate type signature, to bring its tyvars into scope
 -- With no -XScopedTypeVariables, this is a no-op
@@ -380,12 +391,12 @@ bindSigTyVarsFV tvs thing_inside
                 bindLocalNamesFV tvs thing_inside }
 
 ---------------
-bindHsTyVars :: HsDocContext
+bindHsTyVars :: forall l a b. (ApiAnnotation l) => HsDocContext l
              -> Maybe a                 -- Just _  => an associated type decl
              -> [RdrName]               -- Kind variables from scope
-             -> LHsTyVarBndrs RdrName   -- Type variables
-             -> (LHsTyVarBndrs Name -> RnM (b, FreeVars))
-             -> RnM (b, FreeVars)
+             -> LHsTyVarBndrs l RdrName -- Type variables
+             -> (LHsTyVarBndrs l Name -> RnM l (b, FreeVars))
+             -> RnM l (b, FreeVars)
 -- (a) Bring kind variables into scope
 --     both (i)  passed in (kv_bndrs)
 --     and  (ii) mentioned in the kinds of tv_bndrs
@@ -415,7 +426,8 @@ bindHsTyVars doc mb_assoc kv_bndrs tv_bndrs thing_inside
        ; bindLocalNamesFV kv_names $
     do { let tv_names_w_loc = hsLTyVarLocNames tv_bndrs
 
-             rn_tv_bndr :: LHsTyVarBndr RdrName -> RnM (LHsTyVarBndr Name, FreeVars)
+             rn_tv_bndr :: LHsTyVarBndr l RdrName
+                        -> RnM l (LHsTyVarBndr l Name, FreeVars)
              rn_tv_bndr (L loc (UserTyVar rdr))
                = do { nm <- newTyVarNameRn mb_assoc rdr_env loc rdr
                     ; return (L loc (UserTyVar nm), emptyFVs) }
@@ -441,7 +453,8 @@ bindHsTyVars doc mb_assoc kv_bndrs tv_bndrs thing_inside
                            ; thing_inside (HsQTvs { hsq_tvs = tv_bndrs', hsq_kvs = kv_names }) }
        ; return (res, fvs1 `plusFV` fvs2) } }
 
-newTyVarNameRn :: Maybe a -> LocalRdrEnv -> SrcSpan -> RdrName -> RnM Name
+newTyVarNameRn :: (ApiAnnotation l)
+               => Maybe a -> LocalRdrEnv -> l -> RdrName -> RnM l Name
 newTyVarNameRn mb_assoc rdr_env loc rdr
   | Just _ <- mb_assoc    -- Use the same Name as the parent class decl
   , Just n <- lookupLocalRdrEnv rdr_env rdr
@@ -450,10 +463,10 @@ newTyVarNameRn mb_assoc rdr_env loc rdr
   = newLocalBndrRn (L loc rdr)
 
 --------------------------------
-rnHsBndrSig :: HsDocContext
-            -> HsWithBndrs RdrName (LHsType RdrName)
-            -> (HsWithBndrs Name (LHsType Name) -> RnM (a, FreeVars))
-            -> RnM (a, FreeVars)
+rnHsBndrSig :: (ApiAnnotation l) => HsDocContext l
+            -> HsWithBndrs RdrName (LHsType l RdrName)
+            -> (HsWithBndrs Name (LHsType l Name) -> RnM l (a, FreeVars))
+            -> RnM l (a, FreeVars)
 rnHsBndrSig doc (HsWB { hswb_cts = ty@(L loc _) }) thing_inside
   = do { sig_ok <- xoptM Opt_ScopedTypeVariables
        ; unless sig_ok (badSigErr True doc ty)
@@ -469,21 +482,22 @@ rnHsBndrSig doc (HsWB { hswb_cts = ty@(L loc _) }) thing_inside
        ; (res, fvs2) <- thing_inside (HsWB { hswb_cts = ty', hswb_kvs = kv_names, hswb_tvs = tv_names })
        ; return (res, fvs1 `plusFV` fvs2) } }
 
-overlappingKindVars :: HsDocContext -> [RdrName] -> SDoc
+overlappingKindVars :: (ApiAnnotation l) => HsDocContext l -> [RdrName] -> SDoc
 overlappingKindVars doc kvs
   = vcat [ ptext (sLit "Kind variable") <> plural kvs <+>
            ptext (sLit "also used as type variable") <> plural kvs
            <> colon <+> pprQuotedList kvs
          , docOfHsDocContext doc ]
 
-badKindBndrs :: HsDocContext -> [RdrName] -> SDoc
+badKindBndrs :: (ApiAnnotation l) => HsDocContext l -> [RdrName] -> SDoc
 badKindBndrs doc kvs
   = vcat [ hang (ptext (sLit "Unexpected kind variable") <> plural kvs
                  <+> pprQuotedList kvs)
               2 (ptext (sLit "Perhaps you intended to use PolyKinds"))
          , docOfHsDocContext doc ]
 
-badSigErr :: Bool -> HsDocContext -> LHsType RdrName -> TcM ()
+badSigErr :: (ApiAnnotation l)
+          => Bool -> HsDocContext l -> LHsType l RdrName -> TcM l ()
 badSigErr is_type doc (L loc ty)
   = setSrcSpan loc $ addErr $
     vcat [ hang (ptext (sLit "Illegal") <+> what
@@ -496,7 +510,7 @@ badSigErr is_type doc (L loc ty)
     flag | is_type   = ptext (sLit "ScopedTypeVariables")
          | otherwise = ptext (sLit "KindSignatures")
 
-dataKindsErr :: Bool -> HsType RdrName -> SDoc
+dataKindsErr :: (ApiAnnotation l) => Bool -> HsType l RdrName -> SDoc
 dataKindsErr is_type thing
   = hang (ptext (sLit "Illegal") <+> what <> colon <+> quotes (ppr thing))
        2 (ptext (sLit "Perhaps you intended to use DataKinds"))
@@ -537,18 +551,21 @@ but it seems tiresome to do so.
 %*********************************************************
 
 \begin{code}
-rnConDeclFields :: HsDocContext -> [ConDeclField RdrName]
-                -> RnM ([ConDeclField Name], FreeVars)
+rnConDeclFields :: (ApiAnnotation l)
+                => HsDocContext l -> [ConDeclField l RdrName]
+                -> RnM l ([ConDeclField l Name], FreeVars)
 rnConDeclFields doc fields = mapFvRn (rnField doc) fields
 
-rnField :: HsDocContext -> ConDeclField RdrName -> RnM (ConDeclField Name, FreeVars)
+rnField :: (ApiAnnotation l) => HsDocContext l -> ConDeclField l RdrName
+        -> RnM l (ConDeclField l Name, FreeVars)
 rnField doc (ConDeclField name ty haddock_doc)
   = do { new_name <- lookupLocatedTopBndrRn name
        ; (new_ty, fvs) <- rnLHsType doc ty
        ; new_haddock_doc <- rnMbLHsDoc haddock_doc
        ; return (ConDeclField new_name new_ty new_haddock_doc, fvs) }
 
-rnContext :: HsDocContext -> LHsContext RdrName -> RnM (LHsContext Name, FreeVars)
+rnContext :: (ApiAnnotation l) => HsDocContext l -> LHsContext l RdrName
+          -> RnM l (LHsContext l Name, FreeVars)
 rnContext doc (L loc cxt)
   = do { (cxt', fvs) <- rnLHsTypes doc cxt
        ; return (L loc cxt', fvs) }
@@ -582,9 +599,10 @@ by the presence of ->, which is a separate syntactic construct.
 \begin{code}
 ---------------
 -- Building (ty1 `op1` (ty21 `op2` ty22))
-mkHsOpTyRn :: (LHsType Name -> LHsType Name -> HsType Name)
-           -> Name -> Fixity -> LHsType Name -> LHsType Name
-           -> RnM (HsType Name)
+mkHsOpTyRn :: (ApiAnnotation l)
+           => (LHsType l Name -> LHsType l Name -> HsType l Name)
+           -> Name -> Fixity -> LHsType l Name -> LHsType l Name
+           -> RnM l (HsType l Name)
 
 mkHsOpTyRn mk1 pp_op1 fix1 ty1 (L loc2 (HsOpTy ty21 (w2, op2) ty22))
   = do  { fix2 <- lookupTyFixityRn op2
@@ -600,11 +618,12 @@ mkHsOpTyRn mk1 _ _ ty1 ty2              -- Default case, no rearrangment
   = return (mk1 ty1 ty2)
 
 ---------------
-mk_hs_op_ty :: (LHsType Name -> LHsType Name -> HsType Name)
-            -> Name -> Fixity -> LHsType Name
-            -> (LHsType Name -> LHsType Name -> HsType Name)
-            -> Name -> Fixity -> LHsType Name -> LHsType Name -> SrcSpan
-            -> RnM (HsType Name)
+mk_hs_op_ty :: (ApiAnnotation l)
+            => (LHsType l Name -> LHsType l Name -> HsType l Name)
+            -> Name -> Fixity -> LHsType l Name
+            -> (LHsType l Name -> LHsType l Name -> HsType l Name)
+            -> Name -> Fixity -> LHsType l Name -> LHsType l Name -> l
+            -> RnM l (HsType l Name)
 mk_hs_op_ty mk1 op1 fix1 ty1
             mk2 op2 fix2 ty21 ty22 loc2
   | nofix_error     = do { precParseErr (op1,fix1) (op2,fix2)
@@ -612,17 +631,18 @@ mk_hs_op_ty mk1 op1 fix1 ty1
   | associate_right = return (mk1 ty1 (L loc2 (mk2 ty21 ty22)))
   | otherwise       = do { -- Rearrange to ((ty1 `op1` ty21) `op2` ty22)
                            new_ty <- mkHsOpTyRn mk1 op1 fix1 ty1 ty21
-                         ; return (mk2 (noLoc new_ty) ty22) }
+                         ; return (mk2 (annNoLoc new_ty) ty22) }
   where
     (nofix_error, associate_right) = compareFixity fix1 fix2
 
 
 ---------------------------
-mkOpAppRn :: LHsExpr Name                       -- Left operand; already rearranged
-          -> LHsExpr Name -> Fixity             -- Operator and fixity
-          -> LHsExpr Name                       -- Right operand (not an OpApp, but might
-                                                -- be a NegApp)
-          -> RnM (HsExpr Name)
+mkOpAppRn :: (ApiAnnotation l)
+          => LHsExpr l Name            -- Left operand; already rearranged
+          -> LHsExpr l Name -> Fixity  -- Operator and fixity
+          -> LHsExpr l Name            -- Right operand (not an OpApp, but might
+                                       -- be a NegApp)
+          -> RnM l (HsExpr l Name)
 
 -- (e11 `op1` e12) `op2` e2
 mkOpAppRn e1@(L _ (OpApp e11 op1 fix1 e12)) op2 fix2 e2
@@ -634,7 +654,8 @@ mkOpAppRn e1@(L _ (OpApp e11 op1 fix1 e12)) op2 fix2 e2
     new_e <- mkOpAppRn e12 op2 fix2 e2
     return (OpApp e11 op1 fix1 (L loc' new_e))
   where
-    loc'= combineLocs e12 e2
+    -- ++AZ++ : should there be a Monoid instance for ApiAnnotation and do the right thing here?
+    loc'= annFromSpan $ combineLocs e12 e2
     (nofix_error, associate_right) = compareFixity fix1 fix2
 
 ---------------------------
@@ -669,14 +690,14 @@ mkOpAppRn e1 op fix e2                  -- Default case, no rearrangment
     return (OpApp e1 op fix e2)
 
 ----------------------------
-get_op :: LHsExpr Name -> Name
+get_op :: (ApiAnnotation l) => LHsExpr l Name -> Name
 get_op (L _ (HsVar n)) = n
 get_op other           = pprPanic "get_op" (ppr other)
 
 -- Parser left-associates everything, but
 -- derived instances may have correctly-associated things to
 -- in the right operarand.  So we just check that the right operand is OK
-right_op_ok :: Fixity -> HsExpr Name -> Bool
+right_op_ok :: Fixity -> HsExpr l Name -> Bool
 right_op_ok fix1 (OpApp _ _ fix2 _)
   = not error_please && associate_right
   where
@@ -686,20 +707,21 @@ right_op_ok _ _
 
 -- Parser initially makes negation bind more tightly than any other operator
 -- And "deriving" code should respect this (use HsPar if not)
-mkNegAppRn :: LHsExpr id -> SyntaxExpr id -> RnM (HsExpr id)
+mkNegAppRn :: LHsExpr l id -> SyntaxExpr l id -> RnM l (HsExpr l id)
 mkNegAppRn neg_arg neg_name
   = ASSERT( not_op_app (unLoc neg_arg) )
     return (NegApp neg_arg neg_name)
 
-not_op_app :: HsExpr id -> Bool
+not_op_app :: HsExpr l id -> Bool
 not_op_app (OpApp _ _ _ _) = False
 not_op_app _               = True
 
 ---------------------------
-mkOpFormRn :: LHsCmdTop Name            -- Left operand; already rearranged
-          -> LHsExpr Name -> Fixity     -- Operator and fixity
-          -> LHsCmdTop Name             -- Right operand (not an infix)
-          -> RnM (HsCmd Name)
+mkOpFormRn :: (ApiAnnotation l)
+          => LHsCmdTop l Name             -- Left operand; already rearranged
+          -> LHsExpr l Name -> Fixity     -- Operator and fixity
+          -> LHsCmdTop l Name             -- Right operand (not an infix)
+          -> RnM l (HsCmd l Name)
 
 -- (e11 `op1` e12) `op2` e2
 mkOpFormRn a1@(L loc (HsCmdTop (L _ (HsCmdArrForm op1 (Just fix1) [a11,a12])) _ _ _))
@@ -723,8 +745,9 @@ mkOpFormRn arg1 op fix arg2                     -- Default case, no rearrangment
 
 
 --------------------------------------
-mkConOpPatRn :: Located Name -> Fixity -> LPat Name -> LPat Name
-             -> RnM (Pat Name)
+mkConOpPatRn :: (ApiAnnotation l)
+             => GenLocated l Name -> Fixity -> LPat l Name -> LPat l Name
+             -> RnM l (Pat l Name)
 
 mkConOpPatRn op2 fix2 p1@(L loc (ConPatIn op1 (InfixCon p11 p12))) p2
   = do  { fix1 <- lookupFixityRn (unLoc op1)
@@ -743,12 +766,13 @@ mkConOpPatRn op _ p1 p2                         -- Default case, no rearrangment
   = ASSERT( not_op_pat (unLoc p2) )
     return (ConPatIn op (InfixCon p1 p2))
 
-not_op_pat :: Pat Name -> Bool
+not_op_pat :: Pat l Name -> Bool
 not_op_pat (ConPatIn _ (InfixCon _ _)) = False
 not_op_pat _                           = True
 
 --------------------------------------
-checkPrecMatch :: Name -> MatchGroup Name body -> RnM ()
+checkPrecMatch :: (ApiAnnotation l)
+               => Name -> MatchGroup l Name body -> RnM l ()
   -- Check precedence of a function binding written infix
   --   eg  a `op` b `C` c = ...
   -- See comments with rnExpr (OpApp ...) about "deriving"
@@ -757,7 +781,7 @@ checkPrecMatch op (MG { mg_alts = ms })
   = mapM_ check ms
   where
     check (L _ (Match (L l1 p1 : L l2 p2 :_) _ _))
-      = setSrcSpan (combineSrcSpans l1 l2) $
+      = setSrcSpan (annFromSpan $ combineSrcSpans (annGetSpan l1) (annGetSpan l2)) $
         do checkPrec op p1 False
            checkPrec op p2 True
 
@@ -770,7 +794,8 @@ checkPrecMatch op (MG { mg_alts = ms })
         -- until the type checker).  So we don't want to crash on the
         -- second eqn.
 
-checkPrec :: Name -> Pat Name -> Bool -> IOEnv (Env TcGblEnv TcLclEnv) ()
+checkPrec :: (ApiAnnotation l) => Name -> Pat l Name -> Bool
+          -> IOEnv (Env (TcGblEnv l) (TcLclEnv l)) ()
 checkPrec op (ConPatIn op1 (InfixCon _ _)) right = do
     op_fix@(Fixity op_prec  op_dir) <- lookupFixityRn op
     op1_fix@(Fixity op1_prec op1_dir) <- lookupFixityRn (unLoc op1)
@@ -792,8 +817,8 @@ checkPrec _ _ _
 -- If arg is itself an operator application, then either
 --   (a) its precedence must be higher than that of op
 --   (b) its precedency & associativity must be the same as that of op
-checkSectionPrec :: FixityDirection -> HsExpr RdrName
-        -> LHsExpr Name -> LHsExpr Name -> RnM ()
+checkSectionPrec :: (ApiAnnotation l) => FixityDirection -> HsExpr l RdrName
+        -> LHsExpr l Name -> LHsExpr l Name -> RnM l ()
 checkSectionPrec direction section op arg
   = case unLoc arg of
         OpApp _ op fix _ -> go_for_it (get_op op) fix
@@ -812,7 +837,8 @@ checkSectionPrec direction section op arg
 Precedence-related error messages
 
 \begin{code}
-precParseErr :: (Name, Fixity) -> (Name, Fixity) -> RnM ()
+precParseErr :: (ApiAnnotation l)
+             => (Name, Fixity) -> (Name, Fixity) -> RnM l ()
 precParseErr op1@(n1,_) op2@(n2,_)
   | isUnboundName n1 || isUnboundName n2
   = return ()     -- Avoid error cascade
@@ -822,7 +848,9 @@ precParseErr op1@(n1,_) op2@(n2,_)
                ppr_opfix op2,
                ptext (sLit "in the same infix expression")])
 
-sectionPrecErr :: (Name, Fixity) -> (Name, Fixity) -> HsExpr RdrName -> RnM ()
+sectionPrecErr :: (ApiAnnotation l)
+               => (Name, Fixity) -> (Name, Fixity)
+               -> HsExpr l RdrName -> RnM l ()
 sectionPrecErr op@(n1,_) arg_op@(n2,_) section
   | isUnboundName n1 || isUnboundName n2
   = return ()     -- Avoid error cascade
@@ -846,7 +874,8 @@ ppr_opfix (op, fixity) = pp_op <+> brackets (ppr fixity)
 %*********************************************************
 
 \begin{code}
-warnUnusedForAlls :: SDoc -> LHsTyVarBndrs RdrName -> [RdrName] -> TcM ()
+warnUnusedForAlls :: (ApiAnnotation l)
+                  => SDoc -> LHsTyVarBndrs l RdrName -> [RdrName] -> TcM l ()
 warnUnusedForAlls in_doc bound mentioned_rdrs
   = whenWOptM Opt_WarnUnusedMatches $
     mapM_ add_warn bound_but_not_used
@@ -855,24 +884,25 @@ warnUnusedForAlls in_doc bound mentioned_rdrs
     bound_but_not_used = filterOut ((`elem` mentioned_rdrs) . unLoc) bound_names
 
     add_warn (L loc tv)
-      = addWarnAt loc $
+      = addWarnAt (annGetSpan loc) $
         vcat [ ptext (sLit "Unused quantified type variable") <+> quotes (ppr tv)
              , in_doc ]
 
-warnContextQuantification :: SDoc -> [LHsTyVarBndr RdrName] -> TcM ()
+warnContextQuantification :: (ApiAnnotation l)
+                          => SDoc -> [LHsTyVarBndr l RdrName] -> TcM l ()
 warnContextQuantification in_doc tvs
   = whenWOptM Opt_WarnContextQuantification $
     mapM_ add_warn tvs
   where
     add_warn (L loc tv)
-      = addWarnAt loc $
+      = addWarnAt (annGetLoc loc) $
         vcat [ ptext (sLit "Variable") <+> quotes (ppr tv) <+>
                ptext (sLit "is implicitly quantified due to a context") $$
                ptext (sLit "Use explicit forall syntax instead.") $$
                ptext (sLit "This will become an error in GHC 7.12.")
              , in_doc ]
 
-opTyErr :: RdrName -> HsType RdrName -> SDoc
+opTyErr :: (ApiAnnotation l) => RdrName -> HsType l RdrName -> SDoc
 opTyErr op ty@(HsOpTy ty1 _ _)
   = hang (ptext (sLit "Illegal operator") <+> quotes (ppr op) <+> ptext (sLit "in type") <+> quotes (ppr ty))
          2 extra
@@ -932,7 +962,7 @@ filterInScope rdr_env (kvs, tvs)
   where
     in_scope tv = tv `elemLocalRdrEnv` rdr_env
 
-extractHsTyRdrTyVars :: LHsType RdrName -> FreeKiTyVars
+extractHsTyRdrTyVars :: LHsType l RdrName -> FreeKiTyVars
 -- extractHsTyRdrNames finds the free (kind, type) variables of a HsType
 --                        or the free (sort, kind) variables of a HsKind
 -- It's used when making the for-alls explicit.
@@ -941,17 +971,17 @@ extractHsTyRdrTyVars ty
   = case extract_lty ty ([],[]) of
      (kvs, tvs) -> (nub kvs, nub tvs)
 
-extractHsTysRdrTyVars :: [LHsType RdrName] -> FreeKiTyVars
+extractHsTysRdrTyVars :: [LHsType l RdrName] -> FreeKiTyVars
 -- See Note [Kind and type-variable binders]
 extractHsTysRdrTyVars ty
   = case extract_ltys ty ([],[]) of
      (kvs, tvs) -> (nub kvs, nub tvs)
 
-extractRdrKindSigVars :: Maybe (LHsKind RdrName) -> [RdrName]
+extractRdrKindSigVars :: Maybe (LHsKind l RdrName) -> [RdrName]
 extractRdrKindSigVars Nothing = []
 extractRdrKindSigVars (Just k) = nub (fst (extract_lkind k ([],[])))
 
-extractDataDefnKindVars :: HsDataDefn RdrName -> [RdrName]
+extractDataDefnKindVars :: HsDataDefn l RdrName -> [RdrName]
 -- Get the scoped kind variables mentioned free in the constructor decls
 -- Eg    data T a = T1 (S (a :: k) | forall (b::k). T2 (S b)
 -- Here k should scope over the whole definition
@@ -970,22 +1000,22 @@ extractDataDefnKindVars (HsDataDefn { dd_ctxt = ctxt, dd_kindSig = ksig
         extract_ltys (hsConDeclArgTys details) ([],[])
 
 
-extract_lctxt :: LHsContext RdrName -> FreeKiTyVars -> FreeKiTyVars
+extract_lctxt :: LHsContext l RdrName -> FreeKiTyVars -> FreeKiTyVars
 extract_lctxt ctxt = extract_ltys (unLoc ctxt)
 
-extract_ltys :: [LHsType RdrName] -> FreeKiTyVars -> FreeKiTyVars
+extract_ltys :: [LHsType l RdrName] -> FreeKiTyVars -> FreeKiTyVars
 extract_ltys tys acc = foldr extract_lty acc tys
 
 extract_mb :: (a -> FreeKiTyVars -> FreeKiTyVars) -> Maybe a -> FreeKiTyVars -> FreeKiTyVars
 extract_mb _ Nothing  acc = acc
 extract_mb f (Just x) acc = f x acc
 
-extract_lkind :: LHsType RdrName -> FreeKiTyVars -> FreeKiTyVars
+extract_lkind :: LHsType l RdrName -> FreeKiTyVars -> FreeKiTyVars
 extract_lkind kind (acc_kvs, acc_tvs) = case extract_lty kind ([], acc_kvs) of
                                           (_, res_kvs) -> (res_kvs, acc_tvs)
                                         -- Kinds shouldn't have sort signatures!
 
-extract_lty :: LHsType RdrName -> FreeKiTyVars -> FreeKiTyVars
+extract_lty :: LHsType l RdrName -> FreeKiTyVars -> FreeKiTyVars
 extract_lty (L _ ty) acc
   = case ty of
       HsTyVar tv                -> extract_tv tv acc
@@ -1013,7 +1043,7 @@ extract_lty (L _ ty) acc
                                    extract_lctxt cx   $
                                    extract_lty ty ([],[])
 
-extract_hs_tv_bndrs :: LHsTyVarBndrs RdrName -> FreeKiTyVars
+extract_hs_tv_bndrs :: LHsTyVarBndrs l RdrName -> FreeKiTyVars
                     -> FreeKiTyVars -> FreeKiTyVars
 extract_hs_tv_bndrs (HsQTvs { hsq_tvs = tvs })
                     (acc_kvs, acc_tvs)   -- Note accumulator comes first

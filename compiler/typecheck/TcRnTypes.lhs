@@ -460,7 +460,7 @@ Why?  Because they are now Ids not TcIds.  This final GlobalEnv is
 data TcLclEnv l         -- Changes as we move inside an expression
                         -- Discarded after typecheck/rename; not passed on to desugarer
   = TcLclEnv {
-        tcl_loc        :: SrcSpan,         -- Source span
+        tcl_loc        :: l,               -- Source span
         tcl_ctxt       :: [ErrCtxt l],     -- Error context, innermost on top
         tcl_untch      :: Untouchables,    -- Birthplace for new unification variables
 
@@ -1645,7 +1645,7 @@ ctLocDepth = ctl_depth
 ctLocOrigin :: CtLoc l -> CtOrigin l
 ctLocOrigin = ctl_origin
 
-ctLocSpan :: CtLoc l -> SrcSpan
+ctLocSpan :: CtLoc l -> l
 ctLocSpan (CtLoc { ctl_env = lcl}) = tcl_loc lcl
 
 bumpCtLocDepth :: SubGoalCounter -> CtLoc l -> CtLoc l

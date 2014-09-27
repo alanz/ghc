@@ -4,8 +4,10 @@ import HsSyn    ( HsExpr, LHsExpr, HsLocalBinds )
 import Var      ( Id )
 import DsMonad  ( DsM )
 import CoreSyn  ( CoreExpr )
+import SrcLoc   ( ApiAnnotation )
 
-dsExpr  :: HsExpr  l Id -> DsM l CoreExpr
-dsLExpr :: LHsExpr l Id -> DsM l CoreExpr
-dsLocalBinds :: HsLocalBinds l Id -> CoreExpr -> DsM l CoreExpr
+dsExpr  :: (ApiAnnotation l) => HsExpr  l Id -> DsM l CoreExpr
+dsLExpr :: (ApiAnnotation l) => LHsExpr l Id -> DsM l CoreExpr
+dsLocalBinds :: (ApiAnnotation l)
+             => HsLocalBinds l Id -> CoreExpr -> DsM l CoreExpr
 \end{code}

@@ -127,10 +127,14 @@ tcSpliceExpr     :: (ApiAnnotation l)
                  => HsSplice l Name  -> TcRhoType -> TcM l (HsExpr l TcId)
         -- None of these functions add constraints to the LIE
 
-runQuasiQuoteExpr :: HsQuasiQuote RdrName -> RnM l (LHsExpr l RdrName)
-runQuasiQuotePat  :: HsQuasiQuote RdrName -> RnM l (LPat l RdrName)
-runQuasiQuoteType :: HsQuasiQuote RdrName -> RnM l (LHsType l RdrName)
-runQuasiQuoteDecl :: HsQuasiQuote RdrName -> RnM l [LHsDecl l RdrName]
+runQuasiQuoteExpr :: (ApiAnnotation l)
+                  => HsQuasiQuote RdrName -> RnM l (LHsExpr l RdrName)
+runQuasiQuotePat  :: (ApiAnnotation l)
+                  => HsQuasiQuote RdrName -> RnM l (LPat l RdrName)
+runQuasiQuoteType :: (ApiAnnotation l)
+                  => HsQuasiQuote RdrName -> RnM l (LHsType l RdrName)
+runQuasiQuoteDecl :: (ApiAnnotation l)
+                  => HsQuasiQuote RdrName -> RnM l [LHsDecl l RdrName]
 
 runAnnotation     :: (ApiAnnotation l)
                   => CoreAnnTarget -> LHsExpr l Name -> TcM l Annotation

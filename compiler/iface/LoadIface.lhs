@@ -80,7 +80,7 @@ import System.FilePath
 \begin{code}
 -- | Load the interface corresponding to an @import@ directive in 
 -- source code.  On a failure, fail in the monad with an error message.
-loadSrcInterface :: SDoc
+loadSrcInterface :: (ApiAnnotation l) => SDoc
                  -> ModuleName
                  -> IsBootInterface     -- {-# SOURCE #-} ?
                  -> Maybe FastString    -- "package", if any

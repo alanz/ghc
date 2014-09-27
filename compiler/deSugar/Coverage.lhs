@@ -54,15 +54,15 @@ import qualified Data.Map as Map
 
 \begin{code}
 addTicksToBinds
-        :: DynFlags
+        :: (ApiAnnotation l) => DynFlags
         -> Module
         -> ModLocation          -- ... off the current module
         -> NameSet              -- Exported Ids.  When we call addTicksToBinds,
                                 -- isExportedId doesn't work yet (the desugarer
                                 -- hasn't set it), so we have to work from this set.
         -> [TyCon]              -- Type constructor in this module
-        -> LHsBinds SrcSpan Id
-        -> IO (LHsBinds SrcSpan Id, HpcInfo, ModBreaks)
+        -> LHsBinds l Id
+        -> IO (LHsBinds l Id, HpcInfo, ModBreaks)
 
 addTicksToBinds dflags mod mod_loc exports tyCons binds =
 
@@ -115,12 +115,12 @@ addTicksToBinds dflags mod mod_loc exports tyCons binds =
      return (binds1, HpcInfo count hashNo, modBreaks)
 
 
-guessSourceFile :: LHsBinds SrcSpan Id -> FilePath -> FilePath
+guessSourceFile :: (ApiAnnotation l) => LHsBinds l Id -> FilePath -> FilePath
 guessSourceFile binds orig_file =
      -- Try look for a file generated from a .hsc file to a
      -- .hs file, by peeking ahead.
      let top_pos = catMaybes $ foldrBag (\ (L pos _) rest ->
-                                 srcSpanFileName_maybe pos : rest) [] binds
+                                 srcSpanFileName_maybe (annGetSpan pos) : rest) [] binds
      in
      case top_pos of
         (file_name:_) | ".hsc" `isSuffixOf` unpackFS file_name
@@ -230,10 +230,10 @@ shouldTickPatBind density top_lev
 -- -----------------------------------------------------------------------------
 -- Adding ticks to bindings
 
-addTickLHsBinds :: LHsBinds SrcSpan Id -> TM (LHsBinds SrcSpan Id)
+addTickLHsBinds :: LHsBinds l Id -> TM (LHsBinds l Id)
 addTickLHsBinds = mapBagM addTickLHsBind
 
-addTickLHsBind :: LHsBind SrcSpan Id -> TM (LHsBind SrcSpan Id)
+addTickLHsBind :: LHsBind l Id -> TM (LHsBind l Id)
 addTickLHsBind (L pos bind@(AbsBinds { abs_binds   = binds,
                                        abs_exports = abs_exports })) = do
   withEnv add_exports $ do
@@ -599,8 +599,8 @@ addTickTupArg (Present e)  = do { e' <- addTickLHsExpr e; return (Present e') }
 addTickTupArg (Missing ty) = return (Missing ty)
 
 addTickMatchGroup :: Bool{-is lambda-}
-                  -> MatchGroup SrcSpan Id (LHsExpr SrcSpan Id)
-                  -> TM (MatchGroup SrcSpan Id (LHsExpr SrcSpan Id))
+                  -> MatchGroup l Id (LHsExpr l Id)
+                  -> TM (MatchGroup l Id (LHsExpr l Id))
 addTickMatchGroup is_lam mg@(MG { mg_alts = matches }) = do
   let isOneOfMany = matchesOneOfMany matches
   matches' <- mapM (liftL (addTickMatch isOneOfMany is_lam)) matches

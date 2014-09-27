@@ -92,11 +92,11 @@ genGenericMetaTyCons tc mod =
                                           False          -- Not GADT syntax
                                           NoParentTyCon
 
-      d_name  <- newGlobalBinder mod d_occ loc
+      d_name  <- newGlobalBinder mod d_occ (annGetSpan loc)
       c_names <- forM (zip [0..] tc_cons) $ \(m,_) ->
-                    newGlobalBinder mod (c_occ m) loc
+                    newGlobalBinder mod (c_occ m) (annGetSpan loc)
       s_names <- forM (zip [0..] tc_arits) $ \(m,a) -> forM [0..a-1] $ \n ->
-                    newGlobalBinder mod (s_occ m n) loc
+                    newGlobalBinder mod (s_occ m n) (annGetSpan loc)
 
       let metaDTyCon  = mkTyCon d_name
           metaCTyCons = map mkTyCon c_names
@@ -114,7 +114,7 @@ metaTyConsToDerivStuff tc metaDts =
   do  loc <- getSrcSpanM
       dflags <- getDynFlags
       dClas <- tcLookupClass datatypeClassName
-      let new_dfun_name clas tycon = newDFunName clas [mkTyConApp tycon []] loc
+      let new_dfun_name clas tycon = newDFunName clas [mkTyConApp tycon []] (annGetSpan loc)
       d_dfun_name <- new_dfun_name dClas tc
       cClas <- tcLookupClass constructorClassName
       c_dfun_names <- sequence [ new_dfun_name cClas tc | _ <- metaC metaDts ]
@@ -462,7 +462,8 @@ mkBindsRep gk tycon =
 --       type Rep_D a b = ...representation type for D ...
 --------------------------------------------------------------------------------
 
-tc_mkRepFamInsts :: GenericKind     -- Gen0 or Gen1
+tc_mkRepFamInsts :: (ApiAnnotation l)
+               => GenericKind     -- Gen0 or Gen1
                -> TyCon           -- The type to generate representation for
                -> MetaTyCons      -- Metadata datatypes to refer to
                -> Module          -- Used as the location of the new RepTy
@@ -579,7 +580,8 @@ argTyFold argVar (ArgTyAlg {ata_rec0 = mkRec0,
             else mkComp phi `fmap` go beta -- It must be a composition.
 
 
-tc_mkRepTy ::  -- Gen0_ or Gen1_, for Rep or Rep1
+tc_mkRepTy ::  (ApiAnnotation l)
+           => -- Gen0_ or Gen1_, for Rep or Rep1
                GenericKind_
               -- The type to generate representation for
             -> TyCon

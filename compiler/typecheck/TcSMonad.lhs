@@ -216,24 +216,24 @@ extractDeque (DQ [] bs)     = case reverse bs of
                                 [] -> panic "extractDeque"
 
 -- See Note [WorkList priorities]
-data WorkList = WorkList { wl_eqs    :: [Ct]
-                         , wl_funeqs :: Deque Ct
-                         , wl_rest   :: [Ct]
-                         }
+data WorkList l = WorkList { wl_eqs    :: [Ct l]
+                           , wl_funeqs :: Deque (Ct l)
+                           , wl_rest   :: [Ct l]
+                           }
 
 
-appendWorkList :: WorkList -> WorkList -> WorkList
+appendWorkList :: WorkList l -> WorkList l -> WorkList l
 appendWorkList new_wl orig_wl
    = WorkList { wl_eqs    = wl_eqs new_wl    ++            wl_eqs orig_wl
               , wl_funeqs = wl_funeqs new_wl `appendDeque` wl_funeqs orig_wl
               , wl_rest   = wl_rest new_wl   ++            wl_rest orig_wl }
 
 
-workListSize :: WorkList -> Int
+workListSize :: WorkList l -> Int
 workListSize (WorkList { wl_eqs = eqs, wl_funeqs = funeqs, wl_rest = rest })
   = length eqs + dequeSize funeqs + length rest
 
-extendWorkListEq :: Ct -> WorkList -> WorkList
+extendWorkListEq :: Ct l -> WorkList l -> WorkList l
 -- Extension by equality
 extendWorkListEq ct wl
   | Just {} <- isCFunEqCan_maybe ct
@@ -241,49 +241,49 @@ extendWorkListEq ct wl
   | otherwise
   = wl { wl_eqs = ct : wl_eqs wl }
 
-extendWorkListFunEq :: Ct -> WorkList -> WorkList
+extendWorkListFunEq :: Ct l -> WorkList l -> WorkList l
 extendWorkListFunEq ct wl
   = wl { wl_funeqs = insertDeque ct (wl_funeqs wl) }
 
-extendWorkListEqs :: [Ct] -> WorkList -> WorkList
+extendWorkListEqs :: [Ct l] -> WorkList l -> WorkList l
 -- Append a list of equalities
 extendWorkListEqs cts wl = foldr extendWorkListEq wl cts
 
-extendWorkListNonEq :: Ct -> WorkList -> WorkList
+extendWorkListNonEq :: Ct l -> WorkList l -> WorkList l
 -- Extension by non equality
 extendWorkListNonEq ct wl
   = wl { wl_rest = ct : wl_rest wl }
 
-extendWorkListCt :: Ct -> WorkList -> WorkList
+extendWorkListCt :: Ct l -> WorkList l -> WorkList l
 -- Agnostic
 extendWorkListCt ct wl
  | isEqPred (ctPred ct) = extendWorkListEq ct wl
  | otherwise = extendWorkListNonEq ct wl
 
-extendWorkListCts :: [Ct] -> WorkList -> WorkList
+extendWorkListCts :: [Ct l] -> WorkList l -> WorkList l
 -- Agnostic
 extendWorkListCts cts wl = foldr extendWorkListCt wl cts
 
-isEmptyWorkList :: WorkList -> Bool
+isEmptyWorkList :: WorkList l -> Bool
 isEmptyWorkList wl
   = null (wl_eqs wl) &&  null (wl_rest wl) && isEmptyDeque (wl_funeqs wl)
 
-emptyWorkList :: WorkList
+emptyWorkList :: WorkList l
 emptyWorkList = WorkList { wl_eqs  = [], wl_rest = [], wl_funeqs = emptyDeque }
 
-workListFromEq :: Ct -> WorkList
+workListFromEq :: Ct l -> WorkList l
 workListFromEq ct = extendWorkListEq ct emptyWorkList
 
-workListFromNonEq :: Ct -> WorkList
+workListFromNonEq :: Ct l -> WorkList l
 workListFromNonEq ct = extendWorkListNonEq ct emptyWorkList
 
-workListFromCt :: Ct -> WorkList
+workListFromCt :: Ct l -> WorkList l
 -- Agnostic
 workListFromCt ct | isEqPred (ctPred ct) = workListFromEq ct
                   | otherwise            = workListFromNonEq ct
 
 
-selectWorkItem :: WorkList -> (Maybe Ct, WorkList)
+selectWorkItem :: WorkList l -> (Maybe (Ct l), WorkList l)
 selectWorkItem wl@(WorkList { wl_eqs = eqs, wl_funeqs = feqs, wl_rest = rest })
   = case (eqs,feqs,rest) of
       (ct:cts,_,_)     -> (Just ct, wl { wl_eqs    = cts })
@@ -293,7 +293,7 @@ selectWorkItem wl@(WorkList { wl_eqs = eqs, wl_funeqs = feqs, wl_rest = rest })
       (_,_,_)          -> (Nothing,wl)
 
 -- Pretty printing
-instance Outputable WorkList where
+instance Outputable (WorkList l) where
   ppr wl = vcat [ text "WorkList (eqs)   = " <+> ppr (wl_eqs wl)
                 , text "WorkList (funeqs)= " <+> ppr (wl_funeqs wl)
                 , text "WorkList (rest)  = " <+> ppr (wl_rest wl)
@@ -402,24 +402,24 @@ Type-family equations, of form (ev : F tys ~ ty), live in four places
 \begin{code}
 -- All Given (fully known) or Wanted or Derived
 -- See Note [Detailed InertCans Invariants] for more
-data InertCans
-  = IC { inert_eqs :: TyVarEnv EqualCtList
+data InertCans l
+  = IC { inert_eqs :: TyVarEnv (EqualCtList l)
               -- All CTyEqCans; index is the LHS tyvar
               -- Some Refl equalities are also in tcs_ty_binds
               -- see Note [Spontaneously solved in TyBinds] in TcInteract
 
-       , inert_funeqs :: FunEqMap EqualCtList
+       , inert_funeqs :: FunEqMap (EqualCtList l)
               -- All CFunEqCans; index is the whole family head type.
 
-       , inert_dicts :: DictMap Ct
+       , inert_dicts :: DictMap (Ct l)
               -- Dictionaries only, index is the class
               -- NB: index is /not/ the whole type because FD reactions
               -- need to match the class but not necessarily the whole type.
 
-       , inert_irreds :: Cts
+       , inert_irreds :: Cts l
               -- Irreducible predicates
 
-       , inert_insols :: Cts
+       , inert_insols :: Cts l
               -- Frozen errors (as non-canonicals)
 
        , inert_no_eqs :: !Bool    
@@ -430,7 +430,7 @@ data InertCans
               -- in TcSimplify
        }
 
-type EqualCtList = [Ct]
+type EqualCtList l = [Ct l]
 -- EqualCtList invariants:
 --    * All are equalities
 --    * All these equalities have the same LHS
@@ -443,12 +443,12 @@ type EqualCtList = [Ct]
 --   - Multiple Deriveds
 
 -- The Inert Set
-data InertSet
-  = IS { inert_cans :: InertCans
+data InertSet l
+  = IS { inert_cans :: InertCans l
               -- Canonical Given, Wanted, Derived (no Solved)
               -- Sometimes called "the inert set"
 
-       , inert_flat_cache :: FunEqMap (CtEvidence, TcType)
+       , inert_flat_cache :: FunEqMap (CtEvidence l, TcType)
               -- See Note [Type family equations]
               -- Just a hash-cons cache for use when flattening only
               -- These include entirely un-processed goals, so don't use
@@ -461,14 +461,14 @@ data InertSet
                                   -- allocated in this local scope
                                   -- See Note [Given flatten-skolems]
 
-       , inert_solved_funeqs :: FunEqMap (CtEvidence, TcType)
+       , inert_solved_funeqs :: FunEqMap (CtEvidence l, TcType)
               -- See Note [Type family equations]
               -- Of form co :: F xis ~ xi
               -- Always the result of using a top-level family axiom F xis ~ tau
               -- No Deriveds
               -- Not necessarily fully rewritten (by type substitutions)
 
-       , inert_solved_dicts   :: DictMap CtEvidence
+       , inert_solved_dicts   :: DictMap (CtEvidence l)
               -- Of form ev :: C t1 .. tn
               -- Always the result of using a top-level instance declaration
               -- See Note [Solved constraints]
@@ -514,12 +514,12 @@ instance Outputable InertCans where
                     braces (vcat (map ppr (Bag.bagToList $ inert_insols ics)))
                  ]
 
-instance Outputable InertSet where
+instance Outputable (InertSet l) where
   ppr is = vcat [ ppr $ inert_cans is
                 , text "Solved dicts"  <+> int (sizeDictMap (inert_solved_dicts is))
                 , text "Solved funeqs" <+> int (sizeFunEqMap (inert_solved_funeqs is))]
 
-emptyInert :: InertSet
+emptyInert :: InertSet l
 emptyInert
   = IS { inert_cans = IC { inert_eqs     = emptyVarEnv
                          , inert_dicts   = emptyDicts
@@ -600,14 +600,14 @@ addSolvedFunEq fam_tc tys ev rhs_ty
     inert { inert_solved_funeqs = insertFunEq (inert_solved_funeqs inert)
                                               fam_tc tys (ev, rhs_ty) }
 
-updInertTcS :: (InertSet -> InertSet) -> TcS ()
+updInertTcS :: (InertSet l -> InertSet l) -> TcS ()
 -- Modify the inert set with the supplied function
 updInertTcS upd
   = do { is_var <- getTcSInertsRef
        ; wrapTcS (do { curr_inert <- TcM.readTcRef is_var
                      ; TcM.writeTcRef is_var (upd curr_inert) }) }
 
-prepareInertsForImplications :: InertSet -> InertSet
+prepareInertsForImplications :: InertSet l -> InertSet l
 -- See Note [Preparing inert set for implications]
 prepareInertsForImplications is
   = is { inert_cans    = getGivens (inert_cans is)
@@ -630,7 +630,8 @@ prepareInertsForImplications is
     is_given_eq (ct:rest) | isGivenCt ct = ASSERT( null rest ) True
     is_given_eq _                        = False
 
-    given_from_wanted :: EqualCtList -> FunEqMap EqualCtList -> FunEqMap EqualCtList
+    given_from_wanted :: EqualCtList l -> FunEqMap (EqualCtList l)
+                      -> FunEqMap (EqualCtList l)
     given_from_wanted (funeq:_) fhm  -- This is where the magic processing happens
                                      -- for type-function equalities
                                      -- Pick just the first
@@ -646,7 +647,7 @@ prepareInertsForImplications is
 
     given_from_wanted _ fhm = fhm -- Drop derived constraints
 
-    insert_one :: Ct -> FunEqMap EqualCtList -> FunEqMap EqualCtList
+    insert_one :: Ct l -> FunEqMap (EqualCtList l) -> FunEqMap (EqualCtList l)
     insert_one item@(CFunEqCan { cc_fun = tc, cc_tyargs = tys }) fhm
        = addFunEq fhm tc tys item
     insert_one item _ = pprPanic "insert_one" (ppr item)
@@ -793,7 +794,7 @@ lookupInInerts pty
                          | otherwise
                          = deflt
 
-lookupSolvedDict :: InertSet -> Class -> [Type] -> Maybe CtEvidence
+lookupSolvedDict :: InertSet l -> Class -> [Type] -> Maybe CtEvidence
 -- Returns just if exactly this predicate type exists in the solved.
 lookupSolvedDict (IS { inert_solved_dicts = solved }) cls tys
   = findDict solved cls tys
@@ -809,7 +810,7 @@ lookupSolvedDict (IS { inert_solved_dicts = solved }) cls tys
 \begin{code}
 type TyEqMap a = TyVarEnv a
 
-findTyEqs :: TyEqMap EqualCtList -> TyVar -> EqualCtList
+findTyEqs :: TyEqMap (EqualCtList l) -> TyVar -> EqualCtList l
 findTyEqs m tv = lookupVarEnv m tv `orElse` []
 \end{code}
 
@@ -936,7 +937,8 @@ foldFunEqs = foldTcAppMap
 insertFunEq :: FunEqMap a -> TyCon -> [Type] -> a -> FunEqMap a
 insertFunEq m tc tys val = insertTcApp m (getUnique tc) tys val
 
-addFunEq :: FunEqMap EqualCtList -> TyCon -> [Type] -> Ct -> FunEqMap EqualCtList
+addFunEq :: FunEqMap (EqualCtList l) -> TyCon -> [Type] -> Ct l
+         -> FunEqMap (EqualCtList l)
 addFunEq m tc tys item
   = alterUFM alter_tm m (getUnique tc)
   where
@@ -983,7 +985,7 @@ for it, so TcS carries a mutable location where the binding can be
 added.  This is initialised from the innermost implication constraint.
 
 \begin{code}
-data TcSEnv
+data TcSEnv l
   = TcSEnv {
       tcs_ev_binds    :: EvBindsVar,
 
@@ -994,35 +996,35 @@ data TcSEnv
 
       tcs_count    :: IORef Int, -- Global step count
 
-      tcs_inerts   :: IORef InertSet, -- Current inert set
-      tcs_worklist :: IORef WorkList, -- Current worklist
+      tcs_inerts   :: IORef (InertSet l), -- Current inert set
+      tcs_worklist :: IORef (WorkList l), -- Current worklist
 
       -- Residual implication constraints that are generated
       -- while solving or canonicalising the current worklist.
       -- Specifically, when canonicalising (forall a. t1 ~ forall a. t2)
       -- from which we get the implication (forall a. t1 ~ t2)
-      tcs_implics  :: IORef (Bag Implication)
+      tcs_implics  :: IORef (Bag (Implication l))
     }
 \end{code}
 
 \begin{code}
 
 ---------------
-newtype TcS a = TcS { unTcS :: TcSEnv -> TcM a }
+newtype TcS l a = TcS { unTcS :: TcSEnv l -> TcM l a }
 
-instance Functor TcS where
+instance Functor (TcS l) where
   fmap f m = TcS $ fmap f . unTcS m
 
-instance Applicative TcS where
+instance Applicative (TcS l) where
   pure  = return
   (<*>) = ap
 
-instance Monad TcS where
+instance Monad (TcS l) where
   return x  = TcS (\_ -> return x)
   fail err  = TcS (\_ -> fail err)
   m >>= k   = TcS (\ebs -> unTcS m ebs >>= \r -> unTcS (k r) ebs)
 
-instance MonadUnique TcS where
+instance MonadUnique (TcS l) where
    getUniqueSupplyM = wrapTcS getUniqueSupplyM
 
 -- Basic functionality
@@ -1562,24 +1564,24 @@ data XEvTerm
             -- and each EvTerm has type of the corresponding EvPred
             }
 
-data MaybeNew = Fresh CtEvidence | Cached EvTerm
+data MaybeNew l = Fresh (CtEvidence l) | Cached EvTerm
 
 isFresh :: MaybeNew -> Bool
 isFresh (Fresh {}) = True
 isFresh _ = False
 
-getEvTerm :: MaybeNew -> EvTerm
+getEvTerm :: MaybeNew l -> EvTerm
 getEvTerm (Fresh ctev) = ctEvTerm ctev
 getEvTerm (Cached tm)  = tm
 
-getEvTerms :: [MaybeNew] -> [EvTerm]
+getEvTerms :: [MaybeNew l] -> [EvTerm]
 getEvTerms = map getEvTerm
 
-freshGoal :: MaybeNew -> Maybe CtEvidence
+freshGoal :: MaybeNew l -> Maybe CtEvidence
 freshGoal (Fresh ctev) = Just ctev
 freshGoal _ = Nothing
 
-freshGoals :: [MaybeNew] -> [CtEvidence]
+freshGoals :: [MaybeNew l] -> [CtEvidence]
 freshGoals mns = [ ctev | Fresh ctev <- mns ]
 
 setEvBind :: EvVar -> EvTerm -> TcS ()

@@ -7,6 +7,7 @@ Desugaring exporessions.
 
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module DsExpr ( dsExpr, dsLExpr, dsLocalBinds, dsValBinds, dsLit ) where
 
@@ -191,7 +192,7 @@ dsLExpr :: (ApiAnnotation l) => LHsExpr l Id -> DsM l CoreExpr
 
 dsLExpr (L loc e) = putSrcSpanDs (annGetSpan loc) $ dsExpr e
 
-dsExpr :: HsExpr l Id -> DsM l CoreExpr
+dsExpr :: (ApiAnnotation l) => HsExpr l Id -> DsM l CoreExpr
 dsExpr (HsPar e)              = dsLExpr e
 dsExpr (ExprWithTySigOut e _) = dsLExpr e
 dsExpr (HsVar var)            = return (varToCoreExpr var)   -- See Note [Desugaring vars]
@@ -303,7 +304,8 @@ dsExpr (HsSCC cc expr@(L loc _)) = do
     mod_name <- getModule
     count <- goptM Opt_ProfCountEntries
     uniq <- newUnique
-    Tick (ProfNote (mkUserCC cc mod_name loc uniq) count True) <$> dsLExpr expr
+    Tick (ProfNote (mkUserCC cc mod_name (annGetSpan loc) uniq) count True)
+         <$> dsLExpr expr
 
 dsExpr (HsCoreAnn _ expr)
   = dsLExpr expr
@@ -498,7 +500,8 @@ dsExpr expr@(RecordUpd record_expr (HsRecFields { rec_flds = fields })
         ; return (add_field_binds field_binds' $
                   bindNonRec discrim_var record_expr' matching_code) }
   where
-    ds_field :: HsRecField l Id (LHsExpr l Id) -> DsM l (Name, Id, CoreExpr)
+    ds_field :: (ApiAnnotation l)
+             => HsRecField l Id (LHsExpr l Id) -> DsM l (Name, Id, CoreExpr)
       -- Clone the Id in the HsRecField, because its Name is that
       -- of the record selector, and we must not make that a lcoal binder
       -- else we shadow other uses of the record selector
@@ -746,7 +749,7 @@ handled in DsListComp).  Basically does the translation given in the
 Haskell 98 report:
 
 \begin{code}
-dsDo :: [ExprLStmt l Id] -> DsM l CoreExpr
+dsDo :: (ApiAnnotation l) => [ExprLStmt l Id] -> DsM l CoreExpr
 dsDo stmts
   = goL stmts
   where
@@ -801,7 +804,7 @@ dsDo stmts
                                          , mg_origin = Generated })
         mfix_pat     = annNoLoc $ LazyPat $ mkBigLHsPatTup rec_tup_pats
         body         = annNoLoc $ HsDo DoExpr (rec_stmts ++ [ret_stmt]) body_ty
-        ret_app      = nlHsApp (noLoc return_op) (mkBigLHsTup rets)
+        ret_app      = nlHsApp (annNoLoc return_op) (mkBigLHsTup rets)
         ret_stmt     = annNoLoc $ mkLastStmt ret_app
                      -- This LastStmt will be desugared with dsDo, 
                      -- which ignores the return_op in the LastStmt,
@@ -810,7 +813,8 @@ dsDo stmts
     go _ (ParStmt   {}) _ = panic "dsDo ParStmt"
     go _ (TransStmt {}) _ = panic "dsDo TransStmt"
 
-handle_failure :: LPat l Id -> MatchResult l -> SyntaxExpr l Id
+handle_failure :: (ApiAnnotation l)
+               => LPat l Id -> MatchResult l -> SyntaxExpr l Id
                -> DsM l CoreExpr
     -- In a do expression, pattern-match failure just calls
     -- the monadic 'fail' rather than throwing an exception
@@ -837,7 +841,7 @@ mk_fail_msg dflags pat = "Pattern match failure in do expression at " ++
 
 \begin{code}
 -- Warn about certain types of values discarded in monadic bindings (#3263)
-warnDiscardedDoBindings :: LHsExpr l Id -> Type -> DsM l ()
+warnDiscardedDoBindings :: (ApiAnnotation l) => LHsExpr l Id -> Type -> DsM l ()
 warnDiscardedDoBindings rhs rhs_ty
   | Just (m_ty, elt_ty) <- tcSplitAppTy_maybe rhs_ty
   = do { warn_unused <- woptM Opt_WarnUnusedDoBind

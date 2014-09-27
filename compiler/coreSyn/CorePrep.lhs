@@ -56,6 +56,7 @@ import Config
 import Data.Bits
 import Data.List        ( mapAccumL )
 import Control.Monad
+import SrcLoc ( SrcSpan )
 \end{code}
 
 -- ---------------------------------------------------------------------------
@@ -1120,7 +1121,10 @@ lookupMkIntegerName dflags hsc_env
       else if thisPackage dflags == integerPackageKey
       then return $ panic "Can't use Integer in integer"
       else liftM tyThingId
-         $ initTcForLookup hsc_env (tcLookupGlobal mkIntegerName)
+         $ initTcForLookupSrcSpan hsc_env (tcLookupGlobal mkIntegerName)
+      where
+        initTcForLookupSrcSpan :: HscEnv -> TcM SrcSpan a -> IO a
+        initTcForLookupSrcSpan = initTcForLookup
 
 mkInitialCorePrepEnv :: DynFlags -> HscEnv -> IO CorePrepEnv
 mkInitialCorePrepEnv dflags hsc_env

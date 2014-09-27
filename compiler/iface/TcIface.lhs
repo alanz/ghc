@@ -316,7 +316,7 @@ typecheckIface iface
 %************************************************************************
 
 \begin{code}
-tcHiBootIface :: HscSource -> Module -> TcRn l ModDetails
+tcHiBootIface :: (ApiAnnotation l) => HscSource -> Module -> TcRn l ModDetails
 -- Load the hi-boot iface for the module being compiled,
 -- if it indeed exists in the transitive closure of imports
 -- Return the ModDetails, empty if no hi-boot iface
