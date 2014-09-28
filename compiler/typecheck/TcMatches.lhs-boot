@@ -3,16 +3,17 @@ module TcMatches where
 import HsSyn    ( GRHSs, MatchGroup, LHsExpr )
 import TcEvidence( HsWrapper )
 import Name     ( Name )
-import TcType   ( TcRhoType )
+import TcType   ( TcRhoType,TcSigmaType )
 import TcRnTypes( TcM, TcId )
---import SrcLoc   ( Located )
+import SrcLoc   ( ApiAnnotation )
 
-tcGRHSsPat    :: GRHSs l Name (LHsExpr l Name)
+tcGRHSsPat    :: (ApiAnnotation l) => GRHSs l Name (LHsExpr l Name)
               -> TcRhoType
               -> TcM l (GRHSs l TcId (LHsExpr l TcId))
 
-tcMatchesFun :: Name -> Bool
+tcMatchesFun :: (ApiAnnotation l) => Name -> Bool
              -> MatchGroup l Name (LHsExpr l Name)
-             -> TcRhoType
+             -> TcSigmaType     -- Expected type of function
              -> TcM l (HsWrapper, MatchGroup l TcId (LHsExpr l TcId))
+
 \end{code}

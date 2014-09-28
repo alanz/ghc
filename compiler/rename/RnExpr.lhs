@@ -55,7 +55,7 @@ import TysWiredIn       ( nilDataConName )
 %************************************************************************
 
 \begin{code}
-rnExprs :: [LHsExpr RdrName] -> RnM ([LHsExpr Name], FreeVars)
+rnExprs :: [LHsExpr l RdrName] -> RnM l ([LHsExpr l Name], FreeVars)
 rnExprs ls = rnExprs' ls emptyUniqSet
  where
   rnExprs' [] acc = return ([], acc)
@@ -71,12 +71,14 @@ rnExprs ls = rnExprs' ls emptyUniqSet
 Variables. We look up the variable and return the resulting name.
 
 \begin{code}
-rnLExpr :: LHsExpr RdrName -> RnM (LHsExpr Name, FreeVars)
+rnLExpr :: (ApiAnnotation l)
+        => LHsExpr l RdrName -> RnM l (LHsExpr l Name, FreeVars)
 rnLExpr = wrapLocFstM rnExpr
 
-rnExpr :: HsExpr RdrName -> RnM (HsExpr Name, FreeVars)
+rnExpr :: (ApiAnnotation l)
+       => HsExpr l RdrName -> RnM l (HsExpr l Name, FreeVars)
 
-finishHsVar :: Name -> RnM (HsExpr Name, FreeVars)
+finishHsVar :: Name -> RnM l (HsExpr l Name, FreeVars)
 -- Separated from rnExpr because it's also used
 -- when renaming infix expressions
 -- See Note [Adding the implicit parameter to 'assert']
@@ -334,10 +336,11 @@ rnExpr e@(HsArrForm {}) = arrowFail e
 rnExpr other = pprPanic "rnExpr: unexpected expression" (ppr other)
         -- HsWrap
 
-hsHoleExpr :: HsExpr Name
+hsHoleExpr :: HsExpr l Name
 hsHoleExpr = HsUnboundVar (mkRdrUnqual (mkVarOcc "_"))
 
-arrowFail :: HsExpr RdrName -> RnM (HsExpr Name, FreeVars)
+arrowFail :: (ApiAnnotation l)
+          => HsExpr l RdrName -> RnM l (HsExpr l Name, FreeVars)
 arrowFail e
   = do { addErr (vcat [ ptext (sLit "Arrow command found where an expression was expected:")
                       , nest 2 (ppr e) ])
@@ -347,7 +350,8 @@ arrowFail e
 
 ----------------------
 -- See Note [Parsing sections] in Parser.y.pp
-rnSection :: HsExpr RdrName -> RnM (HsExpr Name, FreeVars)
+rnSection :: (ApiAnnotation l)
+          => HsExpr l RdrName -> RnM l (HsExpr l Name, FreeVars)
 rnSection section@(SectionR op expr)
   = do  { (op', fvs_op)     <- rnLExpr op
         ; (expr', fvs_expr) <- rnLExpr expr
@@ -370,8 +374,9 @@ rnSection other = pprPanic "rnSection" (ppr other)
 %************************************************************************
 
 \begin{code}
-rnHsRecBinds :: HsRecFieldContext -> HsRecordBinds RdrName
-             -> RnM (HsRecordBinds Name, FreeVars)
+rnHsRecBinds :: (ApiAnnotation l)
+             => HsRecFieldContext -> HsRecordBinds l RdrName
+             -> RnM l (HsRecordBinds l Name, FreeVars)
 rnHsRecBinds ctxt rec_binds@(HsRecFields { rec_dotdot = dd })
   = do { (flds, fvs) <- rnHsRecFields ctxt HsVar rec_binds
        ; (flds', fvss) <- mapAndUnzipM rn_field flds
@@ -390,14 +395,15 @@ rnHsRecBinds ctxt rec_binds@(HsRecFields { rec_dotdot = dd })
 %************************************************************************
 
 \begin{code}
-rnCmdArgs :: [LHsCmdTop RdrName] -> RnM ([LHsCmdTop Name], FreeVars)
+rnCmdArgs :: [LHsCmdTop l RdrName] -> RnM l ([LHsCmdTop l Name], FreeVars)
 rnCmdArgs [] = return ([], emptyFVs)
 rnCmdArgs (arg:args)
   = do { (arg',fvArg) <- rnCmdTop arg
        ; (args',fvArgs) <- rnCmdArgs args
        ; return (arg':args', fvArg `plusFV` fvArgs) }
 
-rnCmdTop :: LHsCmdTop RdrName -> RnM (LHsCmdTop Name, FreeVars)
+rnCmdTop :: (ApiAnnotation l)
+         => LHsCmdTop l RdrName -> RnM l (LHsCmdTop l Name, FreeVars)
 rnCmdTop = wrapLocFstM rnCmdTop'
  where
   rnCmdTop' (HsCmdTop cmd _ _ _)
@@ -411,10 +417,11 @@ rnCmdTop = wrapLocFstM rnCmdTop'
                   (cmd_names `zip` cmd_names'),
                   fvCmd `plusFV` cmd_fvs) }
 
-rnLCmd :: LHsCmd RdrName -> RnM (LHsCmd Name, FreeVars)
+rnLCmd :: (ApiAnnotation l)
+       => LHsCmd l RdrName -> RnM l (LHsCmd l Name, FreeVars)
 rnLCmd = wrapLocFstM rnCmd
 
-rnCmd :: HsCmd RdrName -> RnM (HsCmd Name, FreeVars)
+rnCmd :: (ApiAnnotation l) => HsCmd l RdrName -> RnM l (HsCmd l Name, FreeVars)
 
 rnCmd (HsCmdArrApp arrow arg _ ho rtl)
   = do { (arrow',fvArrow) <- select_arrow_scope (rnLExpr arrow)
@@ -488,10 +495,10 @@ type CmdNeeds = FreeVars        -- Only inhabitants are
                                 --      appAName, choiceAName, loopAName
 
 -- find what methods the Cmd needs (loop, choice, apply)
-methodNamesLCmd :: LHsCmd Name -> CmdNeeds
+methodNamesLCmd :: LHsCmd l Name -> CmdNeeds
 methodNamesLCmd = methodNamesCmd . unLoc
 
-methodNamesCmd :: HsCmd Name -> CmdNeeds
+methodNamesCmd :: HsCmd l Name -> CmdNeeds
 
 methodNamesCmd (HsCmdArrApp _arrow _arg _ HsFirstOrderApp _rtl)
   = emptyFVs
@@ -519,7 +526,7 @@ methodNamesCmd (HsCmdCase _ matches)
    -- The type checker will complain later
 
 ---------------------------------------------------
-methodNamesMatch :: MatchGroup Name (LHsCmd Name) -> FreeVars
+methodNamesMatch :: MatchGroup l Name (LHsCmd l Name) -> FreeVars
 methodNamesMatch (MG { mg_alts = ms })
   = plusFVs (map do_one ms)
  where
@@ -527,23 +534,23 @@ methodNamesMatch (MG { mg_alts = ms })
 
 -------------------------------------------------
 -- gaw 2004
-methodNamesGRHSs :: GRHSs Name (LHsCmd Name) -> FreeVars
+methodNamesGRHSs :: GRHSs l Name (LHsCmd l Name) -> FreeVars
 methodNamesGRHSs (GRHSs grhss _) = plusFVs (map methodNamesGRHS grhss)
 
 -------------------------------------------------
 
-methodNamesGRHS :: Located (GRHS Name (LHsCmd Name)) -> CmdNeeds
+methodNamesGRHS :: GenLocated l (GRHS l Name (LHsCmd l Name)) -> CmdNeeds
 methodNamesGRHS (L _ (GRHS _ rhs)) = methodNamesLCmd rhs
 
 ---------------------------------------------------
-methodNamesStmts :: [Located (StmtLR Name Name (LHsCmd Name))] -> FreeVars
+methodNamesStmts :: [GenLocated l (StmtLR l Name Name (LHsCmd l Name))] -> FreeVars
 methodNamesStmts stmts = plusFVs (map methodNamesLStmt stmts)
 
 ---------------------------------------------------
-methodNamesLStmt :: Located (StmtLR Name Name (LHsCmd Name)) -> FreeVars
+methodNamesLStmt :: GenLocated l (StmtLR l Name Name (LHsCmd l Name)) -> FreeVars
 methodNamesLStmt = methodNamesStmt . unLoc
 
-methodNamesStmt :: StmtLR Name Name (LHsCmd Name) -> FreeVars
+methodNamesStmt :: StmtLR l Name Name (LHsCmd l Name) -> FreeVars
 methodNamesStmt (LastStmt cmd _)                 = methodNamesLCmd cmd
 methodNamesStmt (BodyStmt cmd _ _ _)             = methodNamesLCmd cmd
 methodNamesStmt (BindStmt _ cmd _ _)             = methodNamesLCmd cmd
@@ -563,7 +570,7 @@ methodNamesStmt (TransStmt {})                   = emptyFVs
 %************************************************************************
 
 \begin{code}
-rnArithSeq :: ArithSeqInfo RdrName -> RnM (ArithSeqInfo Name, FreeVars)
+rnArithSeq :: ArithSeqInfo l RdrName -> RnM l (ArithSeqInfo l Name, FreeVars)
 rnArithSeq (From expr)
  = do { (expr', fvExpr) <- rnLExpr expr
       ; return (From expr', fvExpr) }
@@ -593,11 +600,12 @@ rnArithSeq (FromThenTo expr1 expr2 expr3)
 %************************************************************************
 
 \begin{code}
-rnStmts :: Outputable (body RdrName) => HsStmtContext Name
-        -> (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-        -> [LStmt RdrName (Located (body RdrName))]
-        -> ([Name] -> RnM (thing, FreeVars))
-        -> RnM (([LStmt Name (Located (body Name))], thing), FreeVars)
+rnStmts :: Outputable (body l RdrName) => HsStmtContext Name
+        -> (GenLocated l (body l RdrName)
+                       -> RnM l (GenLocated l (body l Name),FreeVars))
+        -> [LStmt l RdrName (GenLocated l (body l RdrName))]
+        -> ([Name] -> RnM l (thing, FreeVars))
+        -> RnM l (([LStmt l Name (GenLocated l (body l Name))], thing), FreeVars)
 -- Variables bound by the Stmts, and mentioned in thing_inside,
 -- do not appear in the result FreeVars
 
@@ -632,11 +640,12 @@ rnStmts ctxt rnBody (lstmt@(L loc _) : lstmts) thing_inside
         ; return (((stmts1 ++ stmts2), thing), fvs) }
 
 ----------------------
-rnStmt :: Outputable (body RdrName) => HsStmtContext Name
-       -> (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-       -> LStmt RdrName (Located (body RdrName))
-       -> ([Name] -> RnM (thing, FreeVars))
-       -> RnM (([LStmt Name (Located (body Name))], thing), FreeVars)
+rnStmt :: (ApiAnnotation l, Outputable (body l RdrName)) => HsStmtContext Name
+       -> (GenLocated l (body l RdrName)
+               -> RnM l (GenLocated l (body l Name), FreeVars))
+       -> LStmt l RdrName (GenLocated l (body l RdrName))
+       -> ([Name] -> RnM l (thing, FreeVars))
+       -> RnM l (([LStmt l Name (GenLocated l (body l Name))], thing), FreeVars)
 -- Variables bound by the Stmt, and mentioned in thing_inside,
 -- do not appear in the result FreeVars
 
@@ -744,19 +753,19 @@ rnStmt ctxt _ (L loc (TransStmt { trS_stmts = stmts, trS_by = by, trS_form = for
                                     , trS_ret = return_op, trS_bind = bind_op
                                     , trS_fmap = fmap_op })], thing), all_fvs) }
 
-rnParallelStmts :: forall thing. HsStmtContext Name
-                -> SyntaxExpr Name
-                -> [ParStmtBlock RdrName RdrName]
-                -> ([Name] -> RnM (thing, FreeVars))
-                -> RnM (([ParStmtBlock Name Name], thing), FreeVars)
+rnParallelStmts :: forall thing l. HsStmtContext Name
+                -> SyntaxExpr l Name
+                -> [ParStmtBlock l RdrName RdrName]
+                -> ([Name] -> RnM l (thing, FreeVars))
+                -> RnM l (([ParStmtBlock l Name Name], thing), FreeVars)
 -- Note [Renaming parallel Stmts]
 rnParallelStmts ctxt return_op segs thing_inside
   = do { orig_lcl_env <- getLocalRdrEnv
        ; rn_segs orig_lcl_env [] segs }
   where
     rn_segs :: LocalRdrEnv
-            -> [Name] -> [ParStmtBlock RdrName RdrName]
-            -> RnM (([ParStmtBlock Name Name], thing), FreeVars)
+            -> [Name] -> [ParStmtBlock l RdrName RdrName]
+            -> RnM l (([ParStmtBlock l Name Name], thing), FreeVars)
     rn_segs _ bndrs_so_far []
       = do { let (bndrs', dups) = removeDups cmpByOcc bndrs_so_far
            ; mapM_ dupErr dups
@@ -778,7 +787,8 @@ rnParallelStmts ctxt return_op segs thing_inside
     dupErr vs = addErr (ptext (sLit "Duplicate binding in parallel list comprehension for:")
                     <+> quotes (ppr (head vs)))
 
-lookupStmtName :: HsStmtContext Name -> Name -> RnM (HsExpr Name, FreeVars)
+lookupStmtName :: (ApiAnnotation l)
+               => HsStmtContext Name -> Name -> RnM l (HsExpr l Name, FreeVars)
 -- Like lookupSyntaxName, but ListComp/PArrComp are never rebindable
 -- Neither is ArrowExpr, which has its own desugarer in DsArrows
 lookupStmtName ctxt n
@@ -835,13 +845,15 @@ type Segment stmts = (Defs,
 
 
 -- wrapper that does both the left- and right-hand sides
-rnRecStmtsAndThen :: Outputable (body RdrName) =>
-                     (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-                  -> [LStmt RdrName (Located (body RdrName))]
+rnRecStmtsAndThen :: (ApiAnnotation l, Outputable (body l RdrName))
+                  => (GenLocated l (body l RdrName)
+                          -> RnM l (GenLocated l (body l Name), FreeVars))
+                  -> [LStmt l RdrName (GenLocated l (body l RdrName))]
                          -- assumes that the FreeVars returned includes
                          -- the FreeVars of the Segments
-                  -> ([Segment (LStmt Name (Located (body Name)))] -> RnM (a, FreeVars))
-                  -> RnM (a, FreeVars)
+                  -> ([Segment (LStmt l Name (GenLocated l (body l Name)))]
+                          -> RnM l (a, FreeVars))
+                  -> RnM l (a, FreeVars)
 rnRecStmtsAndThen rnBody s cont
   = do  { -- (A) Make the mini fixity env for all of the stmts
           fix_env <- makeMiniFixityEnv (collectRecStmtsFixities s)
@@ -863,7 +875,8 @@ rnRecStmtsAndThen rnBody s cont
         ; return (res, fvs) }}
 
 -- get all the fixity decls in any Let stmt
-collectRecStmtsFixities :: [LStmtLR RdrName RdrName body] -> [LFixitySig RdrName]
+collectRecStmtsFixities :: [LStmtLR l RdrName RdrName body]
+                        -> [LFixitySig l RdrName]
 collectRecStmtsFixities l =
     foldr (\ s -> \acc -> case s of
                             (L _ (LetStmt (HsValBinds (ValBindsIn _ sigs)))) ->
@@ -874,12 +887,12 @@ collectRecStmtsFixities l =
 
 -- left-hand sides
 
-rn_rec_stmt_lhs :: Outputable body => MiniFixityEnv
-                -> LStmt RdrName body
+rn_rec_stmt_lhs :: (ApiAnnotation l, Outputable (body l)) => MiniFixityEnv l
+                -> LStmt l RdrName (body l)
                    -- rename LHS, and return its FVs
                    -- Warning: we will only need the FreeVars below in the case of a BindStmt,
                    -- so we don't bother to compute it accurately in the other cases
-                -> RnM [(LStmtLR Name RdrName body, FreeVars)]
+                -> RnM l [(LStmtLR l Name RdrName (body l), FreeVars)]
 
 rn_rec_stmt_lhs _ (L loc (BodyStmt body a b c))
   = return [(L loc (BodyStmt body a b c), emptyFVs)]
@@ -917,9 +930,9 @@ rn_rec_stmt_lhs _ stmt@(L _ (TransStmt {}))     -- Syntactically illegal in mdo
 rn_rec_stmt_lhs _ (L _ (LetStmt EmptyLocalBinds))
   = panic "rn_rec_stmt LetStmt EmptyLocalBinds"
 
-rn_rec_stmts_lhs :: Outputable body => MiniFixityEnv
-                 -> [LStmt RdrName body]
-                 -> RnM [(LStmtLR Name RdrName body, FreeVars)]
+rn_rec_stmts_lhs :: Outputable body => MiniFixityEnv l
+                 -> [LStmt l RdrName body]
+                 -> RnM l [(LStmtLR l Name RdrName body, FreeVars)]
 rn_rec_stmts_lhs fix_env stmts
   = do { ls <- concatMapM (rn_rec_stmt_lhs fix_env) stmts
        ; let boundNames = collectLStmtsBinders (map fst ls)
@@ -932,10 +945,11 @@ rn_rec_stmts_lhs fix_env stmts
 
 -- right-hand-sides
 
-rn_rec_stmt :: (Outputable (body RdrName)) =>
-               (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-            -> [Name] -> LStmtLR Name RdrName (Located (body RdrName))
-            -> FreeVars -> RnM [Segment (LStmt Name (Located (body Name)))]
+rn_rec_stmt :: (ApiAnnotation l, Outputable (body RdrName)) =>
+               (GenLocated l (body RdrName) -> RnM l (GenLocated l (body Name), FreeVars))
+            -> [Name] -> LStmtLR l Name RdrName (GenLocated l (body RdrName))
+            -> FreeVars
+            -> RnM l [Segment (LStmt l Name (GenLocated l (body Name)))]
         -- Rename a Stmt that is inside a RecStmt (or mdo)
         -- Assumes all binders are already in scope
         -- Turns each stmt into a singleton Stmt
@@ -984,19 +998,19 @@ rn_rec_stmt _ _ (L _ (LetStmt EmptyLocalBinds)) _
   = panic "rn_rec_stmt: LetStmt EmptyLocalBinds"
 
 rn_rec_stmts :: Outputable (body RdrName) =>
-                (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
+                (GenLocated l (body RdrName) -> RnM l (GenLocated l (body Name), FreeVars))
              -> [Name]
-             -> [(LStmtLR Name RdrName (Located (body RdrName)), FreeVars)]
-             -> RnM [Segment (LStmt Name (Located (body Name)))]
+             -> [(LStmtLR l Name RdrName (GenLocated l (body RdrName)), FreeVars)]
+             -> RnM l [Segment (LStmt l Name (GenLocated l (body Name)))]
 rn_rec_stmts rnBody bndrs stmts
   = do { segs_s <- mapM (uncurry (rn_rec_stmt rnBody bndrs)) stmts
        ; return (concat segs_s) }
 
 ---------------------------------------------
-segmentRecStmts :: HsStmtContext Name 
-                -> Stmt Name body
-                -> [Segment (LStmt Name body)] -> FreeVars
-                -> ([LStmt Name body], FreeVars)
+segmentRecStmts :: HsStmtContext Name
+                -> Stmt l Name body
+                -> [Segment (LStmt l Name body)] -> FreeVars
+                -> ([LStmt l Name body], FreeVars)
 
 segmentRecStmts ctxt empty_rec_stmt segs fvs_later
   | MDoExpr <- ctxt
@@ -1091,7 +1105,8 @@ glom it together with the first two groups
        r <- x }
 
 \begin{code}
-glomSegments :: HsStmtContext Name -> [Segment (LStmt Name body)] -> [Segment [LStmt Name body]]
+glomSegments :: HsStmtContext Name -> [Segment (LStmt l Name body)]
+             -> [Segment [LStmt l Name body]]
 -- See Note [Glomming segments]
 
 glomSegments _ [] = []
@@ -1120,10 +1135,10 @@ glomSegments ctxt ((defs,uses,fwds,stmt) : segs)
           not_needed (defs,_,_,_) = not (intersectsNameSet defs uses)
 
 ----------------------------------------------------
-segsToStmts :: Stmt Name body                   -- A RecStmt with the SyntaxOps filled in
-            -> [Segment [LStmt Name body]]
+segsToStmts :: Stmt l Name body        -- A RecStmt with the SyntaxOps filled in
+            -> [Segment [LStmt l Name body]]
             -> FreeVars                         -- Free vars used 'later'
-            -> ([LStmt Name body], FreeVars)
+            -> ([LStmt l Name body], FreeVars)
 
 segsToStmts _ [] fvs_later = ([], fvs_later)
 segsToStmts empty_rec_stmt ((defs, uses, fwds, ss) : segs) fvs_later
@@ -1148,11 +1163,11 @@ segsToStmts empty_rec_stmt ((defs, uses, fwds, ss) : segs) fvs_later
 %************************************************************************
 
 \begin{code}
-srcSpanPrimLit :: DynFlags -> SrcSpan -> HsExpr Name
+srcSpanPrimLit :: (ApiAnnotation l) => DynFlags -> l -> HsExpr l Name
 srcSpanPrimLit dflags span
     = HsLit (HsStringPrim (unsafeMkByteString (showSDocOneLine dflags (ppr span))))
 
-mkAssertErrorExpr :: RnM (HsExpr Name)
+mkAssertErrorExpr :: RnM l (HsExpr l Name)
 -- Return an expression for (assertError "Foo.hs:27")
 mkAssertErrorExpr
   = do sloc <- getSrcSpanM
@@ -1178,7 +1193,7 @@ program.
 %************************************************************************
 
 \begin{code}
-checkEmptyStmts :: HsStmtContext Name -> RnM ()
+checkEmptyStmts :: (ApiAnnotation l) => HsStmtContext Name -> RnM l ()
 -- We've seen an empty sequence of Stmts... is that ok?
 checkEmptyStmts ctxt
   = unless (okEmpty ctxt) (addErr (emptyErr ctxt))
@@ -1193,9 +1208,10 @@ emptyErr (TransStmtCtxt {}) = ptext (sLit "Empty statement group preceding 'grou
 emptyErr ctxt               = ptext (sLit "Empty") <+> pprStmtContext ctxt
 
 ----------------------
-checkLastStmt :: Outputable (body RdrName) => HsStmtContext Name
-              -> LStmt RdrName (Located (body RdrName))
-              -> RnM (LStmt RdrName (Located (body RdrName)))
+checkLastStmt :: (ApiAnnotation l, Outputable (body l RdrName))
+              => HsStmtContext Name
+              -> LStmt l RdrName (GenLocated l (body l RdrName))
+              -> RnM l (LStmt l RdrName (GenLocated l (body l RdrName)))
 checkLastStmt ctxt lstmt@(L loc stmt)
   = case ctxt of
       ListComp  -> check_comp
@@ -1224,9 +1240,9 @@ checkLastStmt ctxt lstmt@(L loc stmt)
       = do { checkStmt ctxt lstmt; return lstmt }
 
 -- Checking when a particular Stmt is ok
-checkStmt :: HsStmtContext Name
-          -> LStmt RdrName (Located (body RdrName))
-          -> RnM ()
+checkStmt :: (ApiAnnotation l) => HsStmtContext Name
+          -> LStmt l RdrName (GenLocated l (body l RdrName))
+          -> RnM l ()
 checkStmt ctxt (L _ stmt)
   = do { dflags <- getDynFlags
        ; case okStmt dflags ctxt stmt of
@@ -1236,7 +1252,7 @@ checkStmt ctxt (L _ stmt)
    msg = sep [ ptext (sLit "Unexpected") <+> pprStmtCat stmt <+> ptext (sLit "statement")
              , ptext (sLit "in") <+> pprAStmtContext ctxt ]
 
-pprStmtCat :: Stmt a body -> SDoc
+pprStmtCat :: Stmt l a body -> SDoc
 pprStmtCat (TransStmt {})     = ptext (sLit "transform")
 pprStmtCat (LastStmt {})      = ptext (sLit "return expression")
 pprStmtCat (BodyStmt {})      = ptext (sLit "body")
@@ -1251,7 +1267,7 @@ emptyInvalid = NotValid Outputable.empty
 
 okStmt, okDoStmt, okCompStmt, okParStmt, okPArrStmt
    :: DynFlags -> HsStmtContext Name
-   -> Stmt RdrName (Located (body RdrName)) -> Validity
+   -> Stmt l RdrName (GenLocated l (body l RdrName)) -> Validity
 -- Return Nothing if OK, (Just extra) if not ok
 -- The "extra" is an SDoc that is appended to an generic error message
 
@@ -1269,7 +1285,7 @@ okStmt dflags ctxt stmt
       TransStmtCtxt ctxt -> okStmt dflags ctxt stmt
 
 -------------
-okPatGuardStmt :: Stmt RdrName (Located (body RdrName)) -> Validity
+okPatGuardStmt :: Stmt l RdrName (GenLocated l (body l RdrName)) -> Validity
 okPatGuardStmt stmt
   = case stmt of
       BodyStmt {} -> IsValid
@@ -1324,7 +1340,7 @@ okPArrStmt dflags _ stmt
        LastStmt {}  -> emptyInvalid  -- Should not happen (dealt with by checkLastStmt)
 
 ---------
-checkTupleSection :: [HsTupArg RdrName] -> RnM ()
+checkTupleSection :: (ApiAnnotation l) => [HsTupArg l RdrName] -> RnM l ()
 checkTupleSection args
   = do  { tuple_section <- xoptM Opt_TupleSections
         ; checkErr (all tupArgPresent args || tuple_section) msg }
@@ -1332,12 +1348,13 @@ checkTupleSection args
     msg = ptext (sLit "Illegal tuple section: use TupleSections")
 
 ---------
-sectionErr :: HsExpr RdrName -> SDoc
+sectionErr :: (ApiAnnotation l) => HsExpr l RdrName -> SDoc
 sectionErr expr
   = hang (ptext (sLit "A section must be enclosed in parentheses"))
        2 (ptext (sLit "thus:") <+> (parens (ppr expr)))
 
-patSynErr :: HsExpr RdrName -> RnM (HsExpr Name, FreeVars)
+patSynErr :: (ApiAnnotation l)
+          => HsExpr l RdrName -> RnM l (HsExpr l Name, FreeVars)
 patSynErr e = do { addErr (sep [ptext (sLit "Pattern syntax in expression context:"),
                                 nest 4 (ppr e)])
                  ; return (EWildPat, emptyFVs) }

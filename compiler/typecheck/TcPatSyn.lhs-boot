@@ -6,10 +6,11 @@ import Id        ( Id )
 import HsSyn     ( PatSynBind, LHsBinds )
 import TcRnTypes ( TcM )
 import PatSyn    ( PatSyn )
+import SrcLoc    ( ApiAnnotation )
 
-tcPatSynDecl :: PatSynBind l Name Name
+tcPatSynDecl :: (ApiAnnotation l) => PatSynBind l Name Name
              -> TcM l (PatSyn, LHsBinds l Id)
 
-tcPatSynWrapper :: PatSynBind l Name Name
+tcPatSynWrapper :: (ApiAnnotation l) => PatSynBind l Name Name
                 -> TcM l (LHsBinds l Id)
 \end{code}

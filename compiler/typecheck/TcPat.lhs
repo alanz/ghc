@@ -63,7 +63,7 @@ import Control.Monad
 %************************************************************************
 
 \begin{code}
-tcLetPat :: (ApiAnnotation l) => TcSigFun -> LetBndrSpec l
+tcLetPat :: (ApiAnnotation l) => TcSigFun l -> LetBndrSpec l
          -> LPat l Name -> TcSigmaType
          -> TcM l a
          -> TcM l (LPat l TcId, a)
@@ -118,8 +118,8 @@ data PatCtxt l
        (HsMatchContext Name) 
 
   | LetPat   -- Used only for let(rec) pattern bindings
-    	     -- See Note [Typing patterns in pattern bindings]
-       TcSigFun        -- Tells type sig if any
+             -- See Note [Typing patterns in pattern bindings]
+       (TcSigFun l)    -- Tells type sig if any
        (LetBndrSpec l) -- True <=> no generalisation of this let
 
 data LetBndrSpec l
@@ -140,9 +140,9 @@ patSigCtxt (PE { pe_ctxt = LamPat {} }) = LamPatSigCtxt
 
 ---------------
 type TcPragFun l = Name -> [LSig l Name]
-type TcSigFun  = Name -> Maybe TcSigInfo
+type TcSigFun l  = Name -> Maybe (TcSigInfo l)
 
-data TcSigInfo
+data TcSigInfo l
   = TcSigInfo {
         sig_id     :: TcId,         --  *Polymorphic* binder for this value...
 
@@ -154,9 +154,9 @@ data TcSigInfo
         sig_theta  :: TcThetaType,  -- Instantiated theta
 
         sig_tau    :: TcSigmaType,  -- Instantiated tau
-		      		    -- See Note [sig_tau may be polymorphic]
+                                    -- See Note [sig_tau may be polymorphic]
 
-        sig_loc    :: SrcSpan       -- The location of the signature
+        sig_loc    :: l             -- The location of the signature
     }
 
 findScopedTyVars  -- See Note [Binding scoped type variables]
@@ -177,7 +177,7 @@ findScopedTyVars hs_ty sig_ty inst_tvs
     scoped_names = mkNameSet (hsExplicitTvs hs_ty)
     (sig_tvs,_)  = tcSplitForAllTys sig_ty
 
-instance Outputable TcSigInfo where
+instance Outputable (TcSigInfo l) where
     ppr (TcSigInfo { sig_id = id, sig_tvs = tyvars, sig_theta = theta, sig_tau = tau})
         = ppr id <+> dcolon <+> vcat [ pprSigmaType (mkSigmaTy (map snd tyvars) theta tau)
                                      , ppr (map fst tyvars) ]
@@ -358,7 +358,7 @@ Hence the getErrCtxt/setErrCtxt stuff in tcMultiple
 
 \begin{code}
 --------------------
-type Checker l inp out = forall r l.
+type Checker l inp out = forall r.
                           inp
                        -> PatEnv l
                        -> TcM l r
@@ -924,7 +924,7 @@ Suppose (coi, tys) = matchExpectedConType data_tc pat_ty
    error messages; it's a purely internal thing
 
 \begin{code}
-tcConArgs :: (ApiAnnotation l) => ConLike -> [TcSigmaType]
+tcConArgs :: forall l. (ApiAnnotation l) => ConLike -> [TcSigmaType]
           -> Checker l (HsConPatDetails l Name) (HsConPatDetails l Id)
 
 tcConArgs con_like arg_tys (PrefixCon arg_pats) penv thing_inside
@@ -952,14 +952,15 @@ tcConArgs con_like arg_tys (RecCon (HsRecFields rpats dd)) penv thing_inside
   = do	{ (rpats', res) <- tcMultiple tc_field rpats penv thing_inside
 	; return (RecCon (HsRecFields rpats' dd), res) }
   where
-    tc_field :: Checker l (HsRecField l FieldLabel (LPat l Name))
+    tc_field :: (ApiAnnotation l)
+             => Checker l (HsRecField l FieldLabel (LPat l Name))
                           (HsRecField l TcId (LPat l TcId))
     tc_field (HsRecField field_lbl pat pun) penv thing_inside
       = do { (sel_id, pat_ty) <- wrapLocFstM find_field_ty field_lbl
 	   ; (pat', res) <- tcConArg (pat, pat_ty) penv thing_inside
 	   ; return (HsRecField sel_id pat' pun, res) }
 
-    find_field_ty :: FieldLabel -> TcM l (Id, TcType)
+    find_field_ty :: (ApiAnnotation l) => FieldLabel -> TcM l (Id, TcType)
     find_field_ty field_lbl
 	= case [ty | (f,ty) <- field_tys, f == field_lbl] of
 
@@ -989,7 +990,8 @@ conLikeArity :: ConLike -> Arity
 conLikeArity (RealDataCon data_con) = dataConSourceArity data_con
 conLikeArity (PatSynCon   pat_syn)  = patSynArity pat_syn
 
-tcConArg :: Checker l (LPat l Name, TcSigmaType) (LPat l Id)
+tcConArg :: forall l. (ApiAnnotation l)
+         => Checker l (LPat l Name, TcSigmaType) (LPat l Id)
 tcConArg (arg_pat, arg_ty) penv thing_inside
   = tc_lpat arg_pat arg_ty penv thing_inside
 \end{code}

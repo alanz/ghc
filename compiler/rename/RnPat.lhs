@@ -520,11 +520,11 @@ data HsRecFieldContext
   | HsRecFieldUpd
 
 rnHsRecFields
-    :: forall arg l.
-       HsRecFieldContext
+    :: forall arg l. (ApiAnnotation l)
+    => HsRecFieldContext
     -> (RdrName -> arg) -- When punning, use this to build a new field
     -> HsRecFields l RdrName (GenLocated l arg)
-    -> RnM l ([HsRecField Name l (GenLocated l arg)], FreeVars)
+    -> RnM l ([HsRecField l Name (GenLocated l arg)], FreeVars)
 
 -- This supprisingly complicated pass
 --   a) looks up the field name (possibly using disambiguation)
@@ -577,11 +577,12 @@ rnHsRecFields ctxt mk_arg (HsRecFields { rec_flds = flds, rec_dotdot = dotdot })
                                 , hsRecFieldArg = arg'
                                 , hsRecPun = pun }) }
 
-    rn_dotdot :: Maybe Int      -- See Note [DotDot fields] in HsPat
+    rn_dotdot :: (ApiAnnotation l)
+              => Maybe Int      -- See Note [DotDot fields] in HsPat
               -> Maybe Name     -- The constructor (Nothing for an update
                                 --    or out of scope constructor)
-              -> [HsRecField l Name (Located arg)]   -- Explicit fields
-              -> RnM l [HsRecField l Name (Located arg)]   -- Filled in .. fields
+              -> [HsRecField l Name (GenLocated l arg)]   -- Explicit fields
+              -> RnM l [HsRecField l Name (GenLocated l arg)] -- Filled in .. fields
     rn_dotdot Nothing _mb_con _flds     -- No ".." at all
       = return []
     rn_dotdot (Just {}) Nothing _flds   -- ".." on record update
@@ -671,7 +672,7 @@ badDotDot = ptext (sLit "You cannot use `..' in a record update")
 emptyUpdateErr :: SDoc
 emptyUpdateErr = ptext (sLit "Empty record update")
 
-badPun :: Located RdrName -> SDoc
+badPun :: (ApiAnnotation l) => GenLocated l RdrName -> SDoc
 badPun fld = vcat [ptext (sLit "Illegal use of punning for field") <+> quotes (ppr fld),
                    ptext (sLit "Use NamedFieldPuns to permit this")]
 

@@ -788,12 +788,14 @@ Make a name for the representation tycon of a family instance.  It's an
 newGlobalBinder.
 
 \begin{code}
-newFamInstTyConName :: Located Name -> [Type] -> TcM l Name
-newFamInstTyConName (L loc name) tys = mk_fam_inst_name id loc name [tys]
+newFamInstTyConName :: (ApiAnnotation l)
+                    => GenLocated l Name -> [Type] -> TcM l Name
+newFamInstTyConName (L loc name) tys
+   = mk_fam_inst_name id (annGetSpan loc) name [tys]
 
-newFamInstAxiomName :: SrcSpan -> Name -> [CoAxBranch] -> TcM l Name
+newFamInstAxiomName :: (ApiAnnotation l) => l -> Name -> [CoAxBranch] -> TcM l Name
 newFamInstAxiomName loc name branches
-  = mk_fam_inst_name mkInstTyCoOcc loc name (map coAxBranchLHS branches)
+  = mk_fam_inst_name mkInstTyCoOcc (annGetSpan loc) name (map coAxBranchLHS branches)
 
 mk_fam_inst_name :: (OccName -> OccName) -> SrcSpan -> Name -> [[Type]]
                  -> TcM l Name

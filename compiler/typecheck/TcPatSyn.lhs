@@ -6,6 +6,7 @@
 
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module TcPatSyn (tcPatSynDecl, tcPatSynWrapper) where
 
@@ -42,8 +43,8 @@ import TypeRep
 \end{code}
 
 \begin{code}
-tcPatSynDecl :: PatSynBind Name Name
-             -> TcM (PatSyn, LHsBinds Id)
+tcPatSynDecl :: (ApiAnnotation l) => PatSynBind l Name Name
+             -> TcM l (PatSyn, LHsBinds l Id)
 tcPatSynDecl PSB{ psb_id = lname@(L _ name), psb_args = details,
                   psb_def = lpat, psb_dir = dir }
   = do { traceTc "tcPatSynDecl {" $ ppr name $$ ppr lpat
@@ -113,15 +114,15 @@ tcPatSynDecl PSB{ psb_id = lname@(L _ name), psb_args = details,
 
 
 \begin{code}
-tcPatSynMatcher :: Located Name
-                -> LPat Id
+tcPatSynMatcher :: (ApiAnnotation l) => GenLocated l Name
+                -> LPat l Id
                 -> [Var]
                 -> [TcTyVar] -> [TcTyVar]
                 -> TcEvBinds
                 -> [EvVar] -> [EvVar]
                 -> ThetaType -> ThetaType
                 -> TcType
-                -> TcM (Id, LHsBinds Id)
+                -> TcM l (Id, LHsBinds l Id)
 -- See Note [Matchers and wrappers for pattern synonyms] in PatSyn
 tcPatSynMatcher (L loc name) lpat args univ_tvs ex_tvs ev_binds prov_dicts req_dicts prov_theta req_theta pat_ty
   = do { res_tv <- zonkQuantifiedTyVar =<< newFlexiTyVar liftedTypeKind
@@ -145,7 +146,7 @@ tcPatSynMatcher (L loc name) lpat args univ_tvs ex_tvs ev_binds prov_dicts req_d
 
 
        ; let args = map nlVarPat [scrutinee, cont, fail]
-             lwpat = noLoc $ WildPat pat_ty
+             lwpat = annNoLoc $ WildPat pat_ty
              cases = if isIrrefutableHsPat lpat
                      then [mkSimpleHsAlt lpat  cont']
                      else [mkSimpleHsAlt lpat  cont',
@@ -158,7 +159,7 @@ tcPatSynMatcher (L loc name) lpat args univ_tvs ex_tvs ev_binds prov_dicts req_d
                       , mg_res_ty = res_ty
                       , mg_origin = Generated
                       }
-             body' = noLoc $
+             body' = annNoLoc $
                      HsLam $
                      MG{ mg_alts = [mkSimpleMatch args body]
                        , mg_arg_tys = [pat_ty, cont_ty, res_ty]
@@ -179,7 +180,7 @@ tcPatSynMatcher (L loc name) lpat args univ_tvs ex_tvs ev_binds prov_dicts req_d
                            , fun_co_fn = idHsWrapper
                            , bind_fvs = emptyNameSet
                            , fun_tick = Nothing }
-             matcher_bind = unitBag (noLoc bind)
+             matcher_bind = unitBag (annNoLoc bind)
 
        ; traceTc "tcPatSynMatcher" (ppr matcher_bind)
 
@@ -189,13 +190,13 @@ tcPatSynMatcher (L loc name) lpat args univ_tvs ex_tvs ev_binds prov_dicts req_d
         name <- newName . mkVarOccFS . fsLit $ s
         return $ mkLocalId name ty
 
-isBidirectional :: HsPatSynDir a -> Bool
+isBidirectional :: HsPatSynDir l a -> Bool
 isBidirectional Unidirectional = False
 isBidirectional ImplicitBidirectional = True
 isBidirectional ExplicitBidirectional{} = True
 
-tcPatSynWrapper :: PatSynBind Name Name
-                -> TcM (LHsBinds Id)
+tcPatSynWrapper :: (ApiAnnotation l) => PatSynBind l Name Name
+                -> TcM l (LHsBinds l Id)
 -- See Note [Matchers and wrappers for pattern synonyms] in PatSyn
 tcPatSynWrapper PSB{ psb_id = L loc name, psb_def = lpat, psb_dir = dir, psb_args = details }
   = case dir of
@@ -205,7 +206,7 @@ tcPatSynWrapper PSB{ psb_id = L loc name, psb_def = lpat, psb_dir = dir, psb_arg
            ; lexpr <- case tcPatToExpr (mkNameSet args) lpat of
                   Nothing -> cannotInvertPatSynErr lpat
                   Just lexpr -> return lexpr
-           ; let wrapper_args = map (noLoc . VarPat) args
+           ; let wrapper_args = map (annNoLoc . VarPat) args
                  wrapper_lname = L (getLoc lpat) (idName wrapper_id)
                  wrapper_match = mkMatch wrapper_args lexpr EmptyLocalBinds
                  wrapper_bind = mkTopFunBind Generated wrapper_lname [wrapper_match]
@@ -230,9 +231,9 @@ tcPatSynWrapper PSB{ psb_id = L loc name, psb_def = lpat, psb_dir = dir, psb_arg
                Nothing -> panic "tcLookupPatSynWrapper"
                Just wrapper_id -> return wrapper_id }
 
-mkPatSynWrapperId :: Located Name
+mkPatSynWrapperId :: (ApiAnnotation l) => GenLocated l Name
                   -> [Var] -> [TyVar] -> [TyVar] -> ThetaType -> Type
-                  -> TcM Id
+                  -> TcM l Id
 mkPatSynWrapperId (L _ name) args univ_tvs ex_tvs theta pat_ty
   = do { let qtvs = univ_tvs ++ ex_tvs
        ; (subst, wrapper_tvs) <- tcInstSkolTyVars qtvs
@@ -245,11 +246,11 @@ mkPatSynWrapperId (L _ name) args univ_tvs ex_tvs theta pat_ty
        ; wrapper_name <- newImplicitBinder name mkDataConWrapperOcc
        ; return $ mkExportedLocalId VanillaId wrapper_name wrapper_sigma }
 
-mkPatSynWrapper :: Id
-                -> HsBind Name
-                -> TcM (LHsBinds Id)
+mkPatSynWrapper :: (ApiAnnotation l) => Id
+                -> HsBind l Name
+                -> TcM l (LHsBinds l Id)
 mkPatSynWrapper wrapper_id bind
-  = do { (wrapper_binds, _, _) <- tcPolyCheck NonRecursive (const []) sig (noLoc bind)
+  = do { (wrapper_binds, _, _) <- tcPolyCheck NonRecursive (const []) sig (annNoLoc bind)
        ; traceTc "tcPatSynDecl wrapper" $ ppr wrapper_binds
        ; traceTc "tcPatSynDecl wrapper type" $ ppr (varType wrapper_id)
        ; return wrapper_binds }
@@ -258,7 +259,7 @@ mkPatSynWrapper wrapper_id bind
                    , sig_tvs = map (\tv -> (Nothing, tv)) wrapper_tvs
                    , sig_theta = wrapper_theta
                    , sig_tau = wrapper_tau
-                   , sig_loc = noSrcSpan
+                   , sig_loc = annNoSpan
                    }
     (wrapper_tvs, wrapper_theta, wrapper_tau) = tcSplitSigmaTy (idType wrapper_id)
 
@@ -281,13 +282,13 @@ or
         g (K (Just True) False) = ...
 
 \begin{code}
-tcCheckPatSynPat :: LPat Name -> TcM ()
+tcCheckPatSynPat :: forall l. (ApiAnnotation l) => LPat l Name -> TcM l ()
 tcCheckPatSynPat = go
   where
-    go :: LPat Name -> TcM ()
+    go :: LPat l Name -> TcM l ()
     go = addLocM go1
 
-    go1 :: Pat Name -> TcM ()
+    go1 :: (ApiAnnotation l) => Pat l Name -> TcM l ()
     go1   (ConPatIn _ info)   = mapM_ go (hsConPatArgs info)
     go1   VarPat{}            = return ()
     go1   WildPat{}           = return ()
@@ -309,28 +310,30 @@ tcCheckPatSynPat = go
     go1   SigPatOut{}         = panic "SigPatOut in output of renamer"
     go1   CoPat{}             = panic "CoPat in output of renamer"
 
-asPatInPatSynErr :: OutputableBndr name => Pat name -> TcM a
+asPatInPatSynErr :: (ApiAnnotation l, OutputableBndr name) => Pat l name -> TcM l a
 asPatInPatSynErr pat
   = failWithTc $
     hang (ptext (sLit "Pattern synonym definition cannot contain as-patterns (@):"))
        2 (ppr pat)
 
-thInPatSynErr :: OutputableBndr name => Pat name -> TcM a
+thInPatSynErr :: (ApiAnnotation l, OutputableBndr name) => Pat l name -> TcM l a
 thInPatSynErr pat
   = failWithTc $
     hang (ptext (sLit "Pattern synonym definition cannot contain Template Haskell:"))
        2 (ppr pat)
 
-nPlusKPatInPatSynErr :: OutputableBndr name => Pat name -> TcM a
+nPlusKPatInPatSynErr :: (ApiAnnotation l, OutputableBndr name)
+                     => Pat l name -> TcM l a
 nPlusKPatInPatSynErr pat
   = failWithTc $
     hang (ptext (sLit "Pattern synonym definition cannot contain n+k-pattern:"))
        2 (ppr pat)
 
-tcPatToExpr :: NameSet -> LPat Name -> Maybe (LHsExpr Name)
+tcPatToExpr :: forall l. (ApiAnnotation l)
+            => NameSet -> LPat l Name -> Maybe (LHsExpr l Name)
 tcPatToExpr lhsVars = go
   where
-    go :: LPat Name -> Maybe (LHsExpr Name)
+    go :: LPat l Name -> Maybe (LHsExpr l Name)
     go (L loc (ConPatIn conName info))
       = do
           { let con = L loc (HsVar (unLoc conName))
@@ -338,7 +341,7 @@ tcPatToExpr lhsVars = go
           ; return $ foldl (\x y -> L loc (HsApp x y)) con exprs }
     go (L loc p) = fmap (L loc) $ go1 p
 
-    go1 :: Pat Name -> Maybe (HsExpr Name)
+    go1 :: (ApiAnnotation l) => Pat l Name -> Maybe (HsExpr l Name)
     go1   (VarPat var)
       | var `elemNameSet` lhsVars  = return $ HsVar var
       | otherwise                  = Nothing
@@ -357,7 +360,7 @@ tcPatToExpr lhsVars = go
            }
     go1   (LitPat lit)             = return $ HsLit lit
     go1   (NPat n Nothing _)       = return $ HsOverLit n
-    go1   (NPat n (Just neg) _)    = return $ noLoc neg `HsApp` noLoc (HsOverLit n)
+    go1   (NPat n (Just neg) _)    = return $ annNoLoc neg `HsApp` annNoLoc (HsOverLit n)
     go1   (SigPatIn pat (HsWB ty _ _))
       = do { expr <- go pat
            ; return $ ExprWithTySig expr ty }
@@ -366,7 +369,8 @@ tcPatToExpr lhsVars = go
     go1   (CoPat{})                = panic "CoPat in output of renamer"
     go1   _                        = Nothing
 
-cannotInvertPatSynErr :: OutputableBndr name => LPat name -> TcM a
+cannotInvertPatSynErr :: (ApiAnnotation l, OutputableBndr name)
+                      => LPat l name -> TcM l a
 cannotInvertPatSynErr (L loc pat)
   = setSrcSpan loc $ failWithTc $
     hang (ptext (sLit "Right-hand side of bidirectional pattern synonym cannot be used as an expression"))
@@ -378,13 +382,13 @@ cannotInvertPatSynErr (L loc pat)
 -- These are used in computing the type of a pattern synonym and also
 -- in generating matcher functions, since success continuations need
 -- to be passed these pattern-bound evidences.
-tcCollectEx :: LPat Id -> TcM (TyVarSet, [EvVar])
+tcCollectEx :: forall l. (ApiAnnotation l) => LPat l Id -> TcM l (TyVarSet, [EvVar])
 tcCollectEx = return . go
   where
-    go :: LPat Id -> (TyVarSet, [EvVar])
+    go :: LPat l Id -> (TyVarSet, [EvVar])
     go = go1 . unLoc
 
-    go1 :: Pat Id -> (TyVarSet, [EvVar])
+    go1 :: (ApiAnnotation l) => Pat l Id -> (TyVarSet, [EvVar])
     go1 (LazyPat p)         = go p
     go1 (AsPat _ p)         = go p
     go1 (ParPat p)          = go p
@@ -402,13 +406,13 @@ tcCollectEx = return . go
       = pprPanic "TODO: NPlusKPat" $ ppr n $$ ppr k $$ ppr geq $$ ppr subtract
     go1 _                   = mempty
 
-    goConDetails :: HsConPatDetails Id -> (TyVarSet, [EvVar])
+    goConDetails :: HsConPatDetails l Id -> (TyVarSet, [EvVar])
     goConDetails (PrefixCon ps) = mconcat . map go $ ps
     goConDetails (InfixCon p1 p2) = go p1 `mappend` go p2
     goConDetails (RecCon HsRecFields{ rec_flds = flds })
       = mconcat . map goRecFd $ flds
 
-    goRecFd :: HsRecField Id (LPat Id) -> (TyVarSet, [EvVar])
+    goRecFd :: HsRecField l Id (LPat l Id) -> (TyVarSet, [EvVar])
     goRecFd HsRecField{ hsRecFieldArg = p } = go p
 
 \end{code}

@@ -94,11 +94,12 @@ Death to "ExpandingDicts".
 %************************************************************************
 
 \begin{code}
-tcClassSigs :: Name	             -- Name of the class
-	    -> [LSig Name]
-	    -> LHsBinds Name
-	    -> TcM ([TcMethInfo],    -- Exactly one for each method
-                    NameEnv Type)    -- Types of the generic-default methods
+tcClassSigs :: (ApiAnnotation l)
+            => Name                  -- Name of the class
+            -> [LSig l Name]
+            -> LHsBinds l Name
+            -> TcM l ([TcMethInfo],  -- Exactly one for each method
+                      NameEnv Type)  -- Types of the generic-default methods
 tcClassSigs clas sigs def_methods
   = do { traceTc "tcClassSigs 1" (ppr clas)
 
@@ -147,8 +148,9 @@ tcClassSigs clas sigs def_methods
 %************************************************************************
 
 \begin{code}
-tcClassDecl2 :: LTyClDecl Name		-- The class declaration
-	     -> TcM (LHsBinds Id)
+tcClassDecl2 :: (ApiAnnotation l)
+             => LTyClDecl l Name        -- The class declaration
+             -> TcM l (LHsBinds l Id)
 
 tcClassDecl2 (L loc (ClassDecl {tcdLName = class_name, tcdSigs = sigs, 
 				tcdMeths = default_binds}))
@@ -184,9 +186,9 @@ tcClassDecl2 (L loc (ClassDecl {tcdLName = class_name, tcdSigs = sigs,
 
 tcClassDecl2 d = pprPanic "tcClassDecl2" (ppr d)
     
-tcDefMeth :: Class -> [TyVar] -> EvVar -> LHsBinds Name
-          -> HsSigFun -> PragFun -> ClassOpItem
-          -> TcM (LHsBinds TcId)
+tcDefMeth :: (ApiAnnotation l) => Class -> [TyVar] -> EvVar -> LHsBinds l Name
+          -> HsSigFun l -> PragFun l -> ClassOpItem
+          -> TcM l (LHsBinds l TcId)
 -- Generate code for polymorphic default methods only (hence DefMeth)
 -- (Generic default methods have turned into instance decls by now.)
 -- This is incompatible with Hugs, which expects a polymorphic 
@@ -237,10 +239,10 @@ tcDefMeth clas tyvars this_dict binds_in hs_sig_fn prag_fn (sel_id, dm_info)
            ; return (unitBag tc_bind) }
 
 ---------------
-tcInstanceMethodBody :: SkolemInfo -> [TcTyVar] -> [EvVar]
-                     -> Id -> TcSigInfo
-          	     -> TcSpecPrags -> LHsBind Name
-          	     -> TcM (LHsBind Id)
+tcInstanceMethodBody :: (ApiAnnotation l) => SkolemInfo -> [TcTyVar] -> [EvVar]
+                     -> Id -> TcSigInfo l
+                     -> TcSpecPrags l -> LHsBind l Name
+                     -> TcM l (LHsBind l Id)
 tcInstanceMethodBody skol_info tyvars dfun_ev_vars
                      meth_id local_meth_sig
 		     specs (L loc bind)
@@ -265,7 +267,9 @@ tcInstanceMethodBody skol_info tyvars dfun_ev_vars
     		    		-- they are all for meth_id
 
 ---------------
-tcClassMinimalDef :: Name -> [LSig Name] -> [TcMethInfo] -> TcM ClassMinimalDef
+tcClassMinimalDef :: (ApiAnnotation l)
+                  => Name -> [LSig l Name] -> [TcMethInfo]
+                  -> TcM l ClassMinimalDef
 tcClassMinimalDef _clas sigs op_info
   = case findMinimalDef sigs of
       Nothing -> return defMindef
@@ -311,24 +315,24 @@ instantiateMethod clas sel_id inst_tys
 
 
 ---------------------------
-type HsSigFun = NameEnv (LHsType Name)
+type HsSigFun l = NameEnv (LHsType l Name)
 
-emptyHsSigs :: HsSigFun
+emptyHsSigs :: HsSigFun l
 emptyHsSigs = emptyNameEnv
 
-mkHsSigFun :: [LSig Name] -> HsSigFun
+mkHsSigFun :: [LSig l Name] -> HsSigFun l
 mkHsSigFun sigs = mkNameEnv [(n, hs_ty) 
                             | L _ (TypeSig ns hs_ty) <- sigs
                             , L _ n <- ns ]
 
-lookupHsSig :: HsSigFun -> Name -> Maybe (LHsType Name)
+lookupHsSig :: HsSigFun l -> Name -> Maybe (LHsType l Name)
 lookupHsSig = lookupNameEnv
 
 ---------------------------
-findMethodBind	:: Name  	        -- Selector name
-          	-> LHsBinds Name 	-- A group of bindings
-		-> Maybe (LHsBind Name, SrcSpan)
-          	-- Returns the binding, and the binding 
+findMethodBind  :: Name                 -- Selector name
+                -> LHsBinds l Name      -- A group of bindings
+                -> Maybe (LHsBind l Name, l)
+                -- Returns the binding, and the binding
                 -- site of the method binder
 findMethodBind sel_name binds
   = foldlBag mplus Nothing (mapBag f binds)
@@ -339,10 +343,10 @@ findMethodBind sel_name binds
     f _other = Nothing
 
 ---------------------------
-findMinimalDef :: [LSig Name] -> Maybe ClassMinimalDef
+findMinimalDef :: [LSig l Name] -> Maybe ClassMinimalDef
 findMinimalDef = firstJusts . map toMinimalDef
   where
-    toMinimalDef :: LSig Name -> Maybe ClassMinimalDef
+    toMinimalDef :: LSig l Name -> Maybe ClassMinimalDef
     toMinimalDef (L _ (MinimalSig bf)) = Just (fmap unLoc bf)
     toMinimalDef _                     = Nothing
 \end{code}
@@ -381,11 +385,11 @@ This makes the error messages right.
 %************************************************************************
 
 \begin{code}
-tcMkDeclCtxt :: TyClDecl Name -> SDoc
+tcMkDeclCtxt :: TyClDecl l Name -> SDoc
 tcMkDeclCtxt decl = hsep [ptext (sLit "In the"), pprTyClDeclFlavour decl, 
                       ptext (sLit "declaration for"), quotes (ppr (tcdName decl))]
 
-tcAddDeclCtxt :: TyClDecl Name -> TcM a -> TcM a
+tcAddDeclCtxt :: TyClDecl l Name -> TcM l a -> TcM l a
 tcAddDeclCtxt decl thing_inside
   = addErrCtxt (tcMkDeclCtxt decl) thing_inside
 
@@ -418,7 +422,7 @@ dupGenericInsts tc_inst_infos
   where 
     ppr_inst_ty (_,inst) = ppr (simpleInstInfoTy inst)
 -}
-badDmPrag :: Id -> Sig Name -> TcM ()
+badDmPrag :: (ApiAnnotation l) => Id -> Sig l Name -> TcM l ()
 badDmPrag sel_id prag
   = addErrTc (ptext (sLit "The") <+> hsSigDoc prag <+> ptext (sLit "for default method") 
               <+> quotes (ppr sel_id) 

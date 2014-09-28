@@ -10,6 +10,7 @@ they may be affected by renaming (which isn't fully worked out yet).
 
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module RnBinds (
    -- Renaming top-level bindings
@@ -164,21 +165,22 @@ it expects the global environment to contain bindings for the binders
 \begin{code}
 -- for top-level bindings, we need to make top-level names,
 -- so we have a different entry point than for local bindings
-rnTopBindsLHS :: MiniFixityEnv
-              -> HsValBinds RdrName
-              -> RnM (HsValBindsLR Name RdrName)
+rnTopBindsLHS :: (ApiAnnotation l) => MiniFixityEnv l
+              -> HsValBinds l RdrName
+              -> RnM l (HsValBindsLR l Name RdrName)
 rnTopBindsLHS fix_env binds
   = rnValBindsLHS (topRecNameMaker fix_env) binds
 
-rnTopBindsRHS :: NameSet -> HsValBindsLR Name RdrName
-              -> RnM (HsValBinds Name, DefUses)
+rnTopBindsRHS :: (ApiAnnotation l) => NameSet -> HsValBindsLR l Name RdrName
+              -> RnM l (HsValBinds l Name, DefUses)
 rnTopBindsRHS bound_names binds
   = do { is_boot <- tcIsHsBoot
        ; if is_boot
          then rnTopBindsBoot binds
          else rnValBindsRHS (TopSigCtxt bound_names False) binds }
 
-rnTopBindsBoot :: HsValBindsLR Name RdrName -> RnM (HsValBinds Name, DefUses)
+rnTopBindsBoot :: (ApiAnnotation l) => HsValBindsLR l Name RdrName
+               -> RnM l (HsValBinds l Name, DefUses)
 -- A hs-boot file has no bindings.
 -- Return a single HsBindGroup with empty binds and renamed signatures
 rnTopBindsBoot (ValBindsIn mbinds sigs)
@@ -196,9 +198,9 @@ rnTopBindsBoot b = pprPanic "rnTopBindsBoot" (ppr b)
 %*********************************************************
 
 \begin{code}
-rnLocalBindsAndThen :: HsLocalBinds RdrName
-                    -> (HsLocalBinds Name -> RnM (result, FreeVars))
-                    -> RnM (result, FreeVars)
+rnLocalBindsAndThen :: (ApiAnnotation l) => HsLocalBinds l RdrName
+                    -> (HsLocalBinds l Name -> RnM l (result, FreeVars))
+                    -> RnM l (result, FreeVars)
 -- This version (a) assumes that the binding vars are *not* already in scope
 --               (b) removes the binders from the free vars of the thing inside
 -- The parser doesn't produce ThenBinds
@@ -214,12 +216,13 @@ rnLocalBindsAndThen (HsIPBinds binds) thing_inside = do
     (thing, fvs_thing) <- thing_inside (HsIPBinds binds')
     return (thing, fvs_thing `plusFV` fv_binds)
 
-rnIPBinds :: HsIPBinds RdrName -> RnM (HsIPBinds Name, FreeVars)
+rnIPBinds :: (ApiAnnotation l)
+          => HsIPBinds l RdrName -> RnM l (HsIPBinds l Name, FreeVars)
 rnIPBinds (IPBinds ip_binds _no_dict_binds) = do
     (ip_binds', fvs_s) <- mapAndUnzipM (wrapLocFstM rnIPBind) ip_binds
     return (IPBinds ip_binds' emptyTcEvBinds, plusFVs fvs_s)
 
-rnIPBind :: IPBind RdrName -> RnM (IPBind Name, FreeVars)
+rnIPBind :: IPBind l RdrName -> RnM l (IPBind l Name, FreeVars)
 rnIPBind (IPBind ~(Left n) expr) = do
     (expr',fvExpr) <- rnLExpr expr
     return (IPBind (Left n) expr', fvExpr)
@@ -235,9 +238,9 @@ rnIPBind (IPBind ~(Left n) expr) = do
 \begin{code}
 -- Renaming local binding groups
 -- Does duplicate/shadow check
-rnLocalValBindsLHS :: MiniFixityEnv
-                   -> HsValBinds RdrName
-                   -> RnM ([Name], HsValBindsLR Name RdrName)
+rnLocalValBindsLHS :: (ApiAnnotation l) => MiniFixityEnv l
+                   -> HsValBinds l RdrName
+                   -> RnM l ([Name], HsValBindsLR l Name RdrName)
 rnLocalValBindsLHS fix_env binds
   = do { binds' <- rnValBindsLHS (localRecNameMaker fix_env) binds
 
@@ -268,9 +271,9 @@ rnLocalValBindsLHS fix_env binds
 -- renames the left-hand sides
 -- generic version used both at the top level and for local binds
 -- does some error checking, but not what gets done elsewhere at the top level
-rnValBindsLHS :: NameMaker
-              -> HsValBinds RdrName
-              -> RnM (HsValBindsLR Name RdrName)
+rnValBindsLHS :: (ApiAnnotation l) => NameMaker l
+              -> HsValBinds l RdrName
+              -> RnM l (HsValBindsLR l Name RdrName)
 rnValBindsLHS topP (ValBindsIn mbinds sigs)
   = do { mbinds' <- mapBagM (wrapLocM (rnBindLHS topP doc)) mbinds
        ; return $ ValBindsIn mbinds' sigs }
@@ -284,9 +287,9 @@ rnValBindsLHS _ b = pprPanic "rnValBindsLHSFromDoc" (ppr b)
 -- Assumes the LHS vars are in scope
 --
 -- Does not bind the local fixity declarations
-rnValBindsRHS :: HsSigCtxt
-              -> HsValBindsLR Name RdrName
-              -> RnM (HsValBinds Name, DefUses)
+rnValBindsRHS :: (ApiAnnotation l) => HsSigCtxt
+              -> HsValBindsLR l Name RdrName
+              -> RnM l (HsValBinds l Name, DefUses)
 
 rnValBindsRHS ctxt (ValBindsIn mbinds sigs)
   = do { (sigs', sig_fvs) <- renameSigs ctxt sigs
@@ -309,9 +312,10 @@ rnValBindsRHS _ b = pprPanic "rnValBindsRHS" (ppr b)
 -- it doesn't (and can't: we don't have the thing inside the binds) happen here
 --
 -- The client is also responsible for bringing the fixities into scope
-rnLocalValBindsRHS :: NameSet  -- names bound by the LHSes
-                   -> HsValBindsLR Name RdrName
-                   -> RnM (HsValBinds Name, DefUses)
+rnLocalValBindsRHS :: (ApiAnnotation l)
+                   => NameSet  -- names bound by the LHSes
+                   -> HsValBindsLR l Name RdrName
+                   -> RnM l (HsValBinds l Name, DefUses)
 rnLocalValBindsRHS bound_names binds
   = rnValBindsRHS (LocalBindCtxt bound_names) binds
 
@@ -320,9 +324,9 @@ rnLocalValBindsRHS bound_names binds
 --
 -- here there are no local fixity decls passed in;
 -- the local fixity decls come from the ValBinds sigs
-rnLocalValBindsAndThen :: HsValBinds RdrName
-                       -> (HsValBinds Name -> RnM (result, FreeVars))
-                       -> RnM (result, FreeVars)
+rnLocalValBindsAndThen :: (ApiAnnotation l) => HsValBinds l RdrName
+                       -> (HsValBinds l Name -> RnM l (result, FreeVars))
+                       -> RnM l (result, FreeVars)
 rnLocalValBindsAndThen binds@(ValBindsIn _ sigs) thing_inside
  = do   {     -- (A) Create the local fixity environment
           new_fixities <- makeMiniFixityEnv [L loc sig
@@ -383,7 +387,7 @@ rnLocalValBindsAndThen bs _ = pprPanic "rnLocalValBindsAndThen" (ppr bs)
 -- Note: for local fixity declarations, duplicates would also be checked in
 --       check_sigs below.  But we also use this function at the top level.
 
-makeMiniFixityEnv :: [LFixitySig RdrName] -> RnM MiniFixityEnv
+makeMiniFixityEnv :: (ApiAnnotation l) => [LFixitySig l RdrName] -> RnM l (MiniFixityEnv l)
 
 makeMiniFixityEnv decls = foldlM add_one emptyFsEnv decls
  where
@@ -403,7 +407,7 @@ makeMiniFixityEnv decls = foldlM add_one emptyFsEnv decls
            ; return env}
      }
 
-dupFixityDecl :: SrcSpan -> RdrName -> SDoc
+dupFixityDecl :: (ApiAnnotation l) => l -> RdrName -> SDoc
 dupFixityDecl loc rdr_name
   = vcat [ptext (sLit "Multiple fixity declarations for") <+> quotes (ppr rdr_name),
           ptext (sLit "also at ") <+> ppr loc]
@@ -412,13 +416,13 @@ dupFixityDecl loc rdr_name
 
 -- renaming a single bind
 
-rnBindLHS :: NameMaker
+rnBindLHS :: (ApiAnnotation l) => NameMaker l
           -> SDoc
-          -> HsBind RdrName
+          -> HsBind l RdrName
           -- returns the renamed left-hand side,
           -- and the FreeVars *of the LHS*
           -- (i.e., any free variables of the pattern)
-          -> RnM (HsBindLR Name RdrName)
+          -> RnM l (HsBindLR l Name RdrName)
 
 rnBindLHS name_maker _ bind@(PatBind { pat_lhs = pat })
   = do
@@ -448,18 +452,20 @@ rnBindLHS name_maker _ (PatSynBind psb@PSB{ psb_id = rdrname@(L nameLoc _) })
 
 rnBindLHS _ _ b = pprPanic "rnBindHS" (ppr b)
 
-rnLBind :: (Name -> [Name])             -- Signature tyvar function
-        -> LHsBindLR Name RdrName
-        -> RnM (LHsBind Name, [Name], Uses)
+rnLBind :: (ApiAnnotation l)
+        => (Name -> [Name])             -- Signature tyvar function
+        -> LHsBindLR l Name RdrName
+        -> RnM l (LHsBind l Name, [Name], Uses)
 rnLBind sig_fn (L loc bind)
   = setSrcSpan loc $
     do { (bind', bndrs, dus) <- rnBind sig_fn bind
        ; return (L loc bind', bndrs, dus) }
 
 -- assumes the left-hands-side vars are in scope
-rnBind :: (Name -> [Name])              -- Signature tyvar function
-       -> HsBindLR Name RdrName
-       -> RnM (HsBind Name, [Name], Uses)
+rnBind :: (ApiAnnotation l)
+       => (Name -> [Name])              -- Signature tyvar function
+       -> HsBindLR l Name RdrName
+       -> RnM l (HsBind l Name, [Name], Uses)
 rnBind _ bind@(PatBind { pat_lhs = pat
                        , pat_rhs = grhss
                                    -- pat fvs were stored in bind_fvs
@@ -537,9 +543,10 @@ and we don't want to retain the list bound_names. This showed up in
 trac ticket #1136.
 -}
 
-rnPatSynBind :: (Name -> [Name])                -- Signature tyvar function
-             -> PatSynBind Name RdrName
-             -> RnM (PatSynBind Name Name, [Name], Uses)
+rnPatSynBind :: (ApiAnnotation l)
+             => (Name -> [Name])                -- Signature tyvar function
+             -> PatSynBind l Name RdrName
+             -> RnM l (PatSynBind l Name Name, [Name], Uses)
 rnPatSynBind _sig_fn bind@(PSB { psb_id = L _ name
                                , psb_args = details
                                , psb_def = pat
@@ -626,8 +633,8 @@ P' which is unsound and rejected).
 -}
 
 ---------------------
-depAnalBinds :: Bag (LHsBind Name, [Name], Uses)
-             -> ([(RecFlag, LHsBinds Name)], DefUses)
+depAnalBinds :: Bag (LHsBind l Name, [Name], Uses)
+             -> ([(RecFlag, LHsBinds l Name)], DefUses)
 -- Dependency analysis; this is important so that
 -- unused-binding reporting is accurate
 depAnalBinds binds_w_dus
@@ -659,7 +666,7 @@ depAnalBinds binds_w_dus
 --           (x,y) = e
 --      In e, 'a' will be in scope, and it'll be the one from 'y'!
 
-mkSigTvFn :: [LSig Name] -> (Name -> [Name])
+mkSigTvFn :: [LSig l Name] -> (Name -> [Name])
 -- Return a lookup function that maps an Id Name to the names
 -- of the type variables that should scope over its body..
 mkSigTvFn sigs
@@ -691,10 +698,11 @@ in many ways the @op@ in an instance decl is just like an occurrence, not
 a binder.
 
 \begin{code}
-rnMethodBinds :: Name                   -- Class name
+rnMethodBinds :: (ApiAnnotation l)
+              => Name                   -- Class name
               -> (Name -> [Name])       -- Signature tyvar function
-              -> LHsBinds RdrName
-              -> RnM (LHsBinds Name, FreeVars)
+              -> LHsBinds l RdrName
+              -> RnM l (LHsBinds l Name, FreeVars)
 
 rnMethodBinds cls sig_fn binds
   = do { checkDupRdrNames meth_names
@@ -715,10 +723,10 @@ rnMethodBinds cls sig_fn binds
        = do { (bind', fvs_bind) <- rnMethodBind cls sig_fn bind
             ; return (binds `unionBags` bind', fvs_bind `plusFV` fvs) }
 
-rnMethodBind :: Name
+rnMethodBind :: (ApiAnnotation l) => Name
               -> (Name -> [Name])
-              -> LHsBindLR RdrName RdrName
-              -> RnM (Bag (LHsBindLR Name Name), FreeVars)
+              -> LHsBindLR l RdrName RdrName
+              -> RnM l (Bag (LHsBindLR l Name Name), FreeVars)
 rnMethodBind cls sig_fn
              (L loc bind@(FunBind { fun_id = name, fun_infix = is_infix
                                   , fun_matches = MG { mg_alts = matches
@@ -766,9 +774,9 @@ At the moment we don't gather free-var info from the types in
 signatures.  We'd only need this if we wanted to report unused tyvars.
 
 \begin{code}
-renameSigs :: HsSigCtxt
-           -> [LSig RdrName]
-           -> RnM ([LSig Name], FreeVars)
+renameSigs :: (ApiAnnotation l) => HsSigCtxt
+           -> [LSig l RdrName]
+           -> RnM l ([LSig l Name], FreeVars)
 -- Renames the signatures and performs error checks
 renameSigs ctxt sigs
   = do  { mapM_ dupSigDeclErr (findDupSigs sigs)
@@ -792,7 +800,8 @@ renameSigs ctxt sigs
 -- is in scope.  (I'm assuming that Baz.op isn't in scope unqualified.)
 -- Doesn't seem worth much trouble to sort this.
 
-renameSig :: HsSigCtxt -> Sig RdrName -> RnM (Sig Name, FreeVars)
+renameSig :: (ApiAnnotation l)
+          =>  HsSigCtxt -> Sig l RdrName -> RnM l (Sig l Name, FreeVars)
 -- FixitySig is renamed elsewhere.
 renameSig _ (IdSig x)
   = return (IdSig x, emptyFVs)    -- Actually this never occurs
@@ -854,10 +863,10 @@ renameSig ctxt sig@(PatSynSig v args ty prov req)
         let fvs = plusFVs [fvs1, fvs2, fvs3, fvs4]
         return (PatSynSig v' args' ty' prov' req', fvs)
 
-ppr_sig_bndrs :: [Located RdrName] -> SDoc
+ppr_sig_bndrs :: (ApiAnnotation l) => [GenLocated l RdrName] -> SDoc
 ppr_sig_bndrs bs = quotes (pprWithCommas ppr bs)
 
-okHsSig :: HsSigCtxt -> LSig a -> Bool
+okHsSig :: HsSigCtxt -> LSig l a -> Bool
 okHsSig ctxt (L _ sig)
   = case (sig, ctxt) of
      (GenericSig {}, ClsDeclCtxt {}) -> True
@@ -890,7 +899,7 @@ okHsSig ctxt (L _ sig)
      (MinimalSig {}, _)              -> False
 
 -------------------
-findDupSigs :: [LSig RdrName] -> [[(Located RdrName, Sig RdrName)]]
+findDupSigs :: [LSig l RdrName] -> [[(GenLocated l RdrName, Sig l RdrName)]]
 -- Check for duplicates on RdrName version,
 -- because renamed version has unboundName for
 -- not-in-scope binders, which gives bogus dup-sig errors
@@ -916,7 +925,7 @@ findDupSigs sigs
     mtch _ _ = False
 
 -- Warn about multiple MINIMAL signatures
-checkDupMinimalSigs :: [LSig RdrName] -> RnM ()
+checkDupMinimalSigs :: (ApiAnnotation l) => [LSig l RdrName] -> RnM l ()
 checkDupMinimalSigs sigs
   = case filter isMinimalLSig sigs of
       minSigs@(_:_:_) -> dupMinimalSigErr minSigs
@@ -931,26 +940,32 @@ checkDupMinimalSigs sigs
 %************************************************************************
 
 \begin{code}
-rnMatchGroup :: Outputable (body RdrName) => HsMatchContext Name
-             -> (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-             -> MatchGroup RdrName (Located (body RdrName))
-             -> RnM (MatchGroup Name (Located (body Name)), FreeVars)
+rnMatchGroup :: (ApiAnnotation l,Outputable (body l RdrName))
+             => HsMatchContext Name
+             -> (GenLocated l (body l RdrName)
+                    -> RnM l (GenLocated l (body l Name), FreeVars))
+             -> MatchGroup l RdrName (GenLocated l (body l RdrName))
+             -> RnM l (MatchGroup l Name (GenLocated l (body l Name)), FreeVars)
 rnMatchGroup ctxt rnBody (MG { mg_alts = ms, mg_origin = origin })
   = do { empty_case_ok <- xoptM Opt_EmptyCase
        ; when (null ms && not empty_case_ok) (addErr (emptyCaseErr ctxt))
        ; (new_ms, ms_fvs) <- mapFvRn (rnMatch ctxt rnBody) ms
        ; return (mkMatchGroupName origin new_ms, ms_fvs) }
 
-rnMatch :: Outputable (body RdrName) => HsMatchContext Name
-        -> (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-        -> LMatch RdrName (Located (body RdrName))
-        -> RnM (LMatch Name (Located (body Name)), FreeVars)
+rnMatch :: (ApiAnnotation l,Outputable (body l RdrName))
+        => HsMatchContext Name
+        -> (GenLocated l (body l RdrName)
+                -> RnM l (GenLocated l (body l Name), FreeVars))
+        -> LMatch l RdrName (GenLocated l (body l RdrName))
+        -> RnM l (LMatch l Name (GenLocated l (body l Name)), FreeVars)
 rnMatch ctxt rnBody = wrapLocFstM (rnMatch' ctxt rnBody)
 
-rnMatch' :: Outputable (body RdrName) => HsMatchContext Name
-         -> (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-         -> Match RdrName (Located (body RdrName))
-         -> RnM (Match Name (Located (body Name)), FreeVars)
+rnMatch' :: (ApiAnnotation l, Outputable (body l RdrName))
+         => HsMatchContext Name
+         -> (GenLocated l (body l RdrName)
+                   -> RnM l (GenLocated l (body l Name), FreeVars))
+         -> Match l RdrName (GenLocated l (body l RdrName))
+         -> RnM l (Match l Name (GenLocated l (body l Name)), FreeVars)
 rnMatch' ctxt rnBody match@(Match pats maybe_rhs_sig grhss)
   = do  {       -- Result type signatures are no longer supported
           case maybe_rhs_sig of
@@ -974,8 +989,9 @@ emptyCaseErr ctxt = hang (ptext (sLit "Empty list of alternatives in") <+> pp_ct
                 _ -> ptext (sLit "(unexpected)") <+> pprMatchContextNoun ctxt
 
 
-resSigErr :: Outputable body
-          => HsMatchContext Name -> Match RdrName body -> HsType RdrName -> SDoc
+resSigErr :: (ApiAnnotation l, Outputable body)
+          => HsMatchContext Name -> Match l RdrName body
+          -> HsType l RdrName -> SDoc
 resSigErr ctxt match ty
    = vcat [ ptext (sLit "Illegal result type signature") <+> quotes (ppr ty)
           , nest 2 $ ptext (sLit
@@ -991,25 +1007,28 @@ resSigErr ctxt match ty
 %************************************************************************
 
 \begin{code}
-rnGRHSs :: HsMatchContext Name
-        -> (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-        -> GRHSs RdrName (Located (body RdrName))
-        -> RnM (GRHSs Name (Located (body Name)), FreeVars)
+rnGRHSs :: (ApiAnnotation l) => HsMatchContext Name
+        -> (GenLocated l (body l RdrName)
+             -> RnM l (GenLocated l (body l Name), FreeVars))
+        -> GRHSs l RdrName (GenLocated l (body l RdrName))
+        -> RnM l (GRHSs l Name (GenLocated l (body l Name)), FreeVars)
 rnGRHSs ctxt rnBody (GRHSs grhss binds)
   = rnLocalBindsAndThen binds   $ \ binds' -> do
     (grhss', fvGRHSs) <- mapFvRn (rnGRHS ctxt rnBody) grhss
     return (GRHSs grhss' binds', fvGRHSs)
 
-rnGRHS :: HsMatchContext Name
-       -> (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-       -> LGRHS RdrName (Located (body RdrName))
-       -> RnM (LGRHS Name (Located (body Name)), FreeVars)
+rnGRHS :: (ApiAnnotation l) => HsMatchContext Name
+       -> (GenLocated l (body l RdrName)
+               -> RnM l (GenLocated l (body l Name), FreeVars))
+       -> LGRHS l RdrName (GenLocated l (body l RdrName))
+       -> RnM l (LGRHS l Name (GenLocated l (body l Name)), FreeVars)
 rnGRHS ctxt rnBody = wrapLocFstM (rnGRHS' ctxt rnBody)
 
-rnGRHS' :: HsMatchContext Name
-        -> (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
-        -> GRHS RdrName (Located (body RdrName))
-        -> RnM (GRHS Name (Located (body Name)), FreeVars)
+rnGRHS' :: (ApiAnnotation l) =>  HsMatchContext Name
+        -> (GenLocated l (body l RdrName)
+               -> RnM l (GenLocated l (body l Name), FreeVars))
+        -> GRHS l RdrName (GenLocated l (body l RdrName))
+        -> RnM l (GRHS l Name (GenLocated l (body l Name)), FreeVars)
 rnGRHS' ctxt rnBody (GRHS guards rhs)
   = do  { pattern_guards_allowed <- xoptM Opt_PatternGuards
         ; ((guards', rhs'), fvs) <- rnStmts (PatGuard ctxt) rnLExpr guards $ \ _ ->
@@ -1035,7 +1054,8 @@ rnGRHS' ctxt rnBody (GRHS guards rhs)
 %************************************************************************
 
 \begin{code}
-dupSigDeclErr :: [(Located RdrName, Sig RdrName)] -> RnM ()
+dupSigDeclErr :: (ApiAnnotation l)
+              => [(GenLocated l RdrName, Sig l RdrName)] -> RnM l ()
 dupSigDeclErr pairs@((L loc name, sig) : _)
   = addErrAt loc $
     vcat [ ptext (sLit "Duplicate") <+> what_it_is
@@ -1046,37 +1066,37 @@ dupSigDeclErr pairs@((L loc name, sig) : _)
 
 dupSigDeclErr [] = panic "dupSigDeclErr"
 
-misplacedSigErr :: LSig Name -> RnM ()
+misplacedSigErr :: (ApiAnnotation l) => LSig l Name -> RnM l ()
 misplacedSigErr (L loc sig)
   = addErrAt loc $
     sep [ptext (sLit "Misplaced") <+> hsSigDoc sig <> colon, ppr sig]
 
-defaultSigErr :: Sig RdrName -> SDoc
+defaultSigErr :: (ApiAnnotation l) => Sig l RdrName -> SDoc
 defaultSigErr sig = vcat [ hang (ptext (sLit "Unexpected default signature:"))
                               2 (ppr sig)
                          , ptext (sLit "Use DefaultSignatures to enable default signatures") ]
 
-methodBindErr :: HsBindLR RdrName RdrName -> SDoc
+methodBindErr :: (ApiAnnotation l) => HsBindLR l RdrName RdrName -> SDoc
 methodBindErr mbind
  =  hang (ptext (sLit "Pattern bindings (except simple variables) not allowed in instance declarations"))
        2 (ppr mbind)
 
-bindsInHsBootFile :: LHsBindsLR Name RdrName -> SDoc
+bindsInHsBootFile :: (ApiAnnotation l) => LHsBindsLR l Name RdrName -> SDoc
 bindsInHsBootFile mbinds
   = hang (ptext (sLit "Bindings in hs-boot files are not allowed"))
        2 (ppr mbinds)
 
-nonStdGuardErr :: Outputable body => [LStmtLR Name Name body] -> SDoc
+nonStdGuardErr :: (ApiAnnotation l, Outputable body) => [LStmtLR l Name Name body] -> SDoc
 nonStdGuardErr guards
   = hang (ptext (sLit "accepting non-standard pattern guards (use PatternGuards to suppress this message)"))
        4 (interpp'SP guards)
 
-unusedPatBindWarn :: HsBind Name -> SDoc
+unusedPatBindWarn :: (ApiAnnotation l) => HsBind l Name -> SDoc
 unusedPatBindWarn bind
   = hang (ptext (sLit "This pattern-binding binds no variables:"))
        2 (ppr bind)
 
-dupMinimalSigErr :: [LSig RdrName] -> RnM ()
+dupMinimalSigErr :: (ApiAnnotation l) => [LSig l RdrName] -> RnM l ()
 dupMinimalSigErr sigs@(L loc _ : _)
   = addErrAt loc $
     vcat [ ptext (sLit "Multiple minimal complete definitions")

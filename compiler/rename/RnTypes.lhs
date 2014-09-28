@@ -654,7 +654,7 @@ mkOpAppRn e1@(L _ (OpApp e11 op1 fix1 e12)) op2 fix2 e2
     new_e <- mkOpAppRn e12 op2 fix2 e2
     return (OpApp e11 op1 fix1 (L loc' new_e))
   where
-    loc'= annCombineLocs e12 e2
+    loc'= annCombineSrcSpans e12 e2
     (nofix_error, associate_right) = compareFixity fix1 fix2
 
 ---------------------------
@@ -668,7 +668,7 @@ mkOpAppRn e1@(L _ (NegApp neg_arg neg_name)) op2 fix2 e2
   = do new_e <- mkOpAppRn neg_arg op2 fix2 e2
        return (NegApp (L loc' new_e) neg_name)
   where
-    loc' = annCombineLocs neg_arg e2
+    loc' = annCombineSrcSpans neg_arg e2
     (nofix_error, associate_right) = compareFixity negateFixity fix2
 
 ---------------------------

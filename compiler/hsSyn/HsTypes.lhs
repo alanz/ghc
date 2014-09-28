@@ -447,7 +447,7 @@ Explicit  `plus` _         = Explicit
 _         `plus` Explicit  = Explicit
 _         `plus` _         = Implicit
 
-hsExplicitTvs :: LHsType SrcSpan Name -> [Name]
+hsExplicitTvs :: LHsType l Name -> [Name]
 -- The explicitly-given forall'd type variables of a HsType
 hsExplicitTvs (L _ (HsForAllTy Explicit tvs _ _)) = hsLKiTyVarNames tvs
 hsExplicitTvs _                                   = []

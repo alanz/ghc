@@ -6,6 +6,7 @@ c%
 
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module TcExpr ( tcPolyExpr, tcPolyExprNC, tcMonoExpr, tcMonoExprNC,
                 tcInferRho, tcInferRhoNC,
@@ -74,9 +75,10 @@ import qualified Data.Set as Set
 
 \begin{code}
 tcPolyExpr, tcPolyExprNC
-         :: LHsExpr Name        -- Expression to type check
-         -> TcSigmaType         -- Expected type (could be a polytype)
-         -> TcM (LHsExpr TcId)  -- Generalised expr with expected type
+         :: (ApiAnnotation l)
+         => LHsExpr l Name         -- Expression to type check
+         -> TcSigmaType            -- Expected type (could be a polytype)
+         -> TcM l (LHsExpr l TcId) -- Generalised expr with expected type
 
 -- tcPolyExpr is a convenient place (frequent but not too frequent)
 -- place to add context information.
@@ -95,10 +97,11 @@ tcPolyExprNC expr res_ty
 
 ---------------
 tcMonoExpr, tcMonoExprNC
-    :: LHsExpr Name      -- Expression to type check
+    :: (ApiAnnotation l)
+    => LHsExpr l Name     -- Expression to type check
     -> TcRhoType         -- Expected type (could be a type variable)
                          -- Definitely no foralls at the top
-    -> TcM (LHsExpr TcId)
+    -> TcM l (LHsExpr l TcId)
 
 tcMonoExpr expr res_ty
   = addErrCtxt (exprCtxt expr) $
@@ -111,7 +114,8 @@ tcMonoExprNC (L loc expr) res_ty
         ; return (L loc expr') }
 
 ---------------
-tcInferRho, tcInferRhoNC :: LHsExpr Name -> TcM (LHsExpr TcId, TcRhoType)
+tcInferRho, tcInferRhoNC :: (ApiAnnotation l)
+                         => LHsExpr l Name -> TcM l (LHsExpr l TcId, TcRhoType)
 -- Infer a *rho*-type.  This is, in effect, a special case
 -- for ids and partial applications, so that if
 --     f :: Int -> (forall a. a -> a) -> Int
@@ -127,14 +131,15 @@ tcInferRhoNC (L loc expr)
     do { (expr', rho) <- tcInfExpr expr
        ; return (L loc expr', rho) }
 
-tcInfExpr :: HsExpr Name -> TcM (HsExpr TcId, TcRhoType)
+tcInfExpr :: (ApiAnnotation l)
+          => HsExpr l Name -> TcM l (HsExpr l TcId, TcRhoType)
 tcInfExpr (HsVar f)     = tcInferId f
 tcInfExpr (HsPar e)     = do { (e', ty) <- tcInferRhoNC e
                              ; return (HsPar e', ty) }
 tcInfExpr (HsApp e1 e2) = tcInferApp e1 [e2]
 tcInfExpr e             = tcInfer (tcExpr e)
 
-tcHole :: OccName -> TcRhoType -> TcM (HsExpr TcId)
+tcHole :: (ApiAnnotation l) => OccName -> TcRhoType -> TcM l (HsExpr l TcId)
 tcHole occ res_ty
  = do { ty <- newFlexiTyVarTy liftedTypeKind
       ; name <- newSysName occ
@@ -153,7 +158,8 @@ tcHole occ res_ty
 %************************************************************************
 
 \begin{code}
-tcExpr :: HsExpr Name -> TcRhoType -> TcM (HsExpr TcId)
+tcExpr :: (ApiAnnotation l)
+       => HsExpr l Name -> TcRhoType -> TcM l (HsExpr l TcId)
 tcExpr e res_ty | debugIsOn && isSigmaTy res_ty     -- Sanity check
                 = pprPanic "tcExpr: sigma" (ppr res_ty $$ ppr e)
 
@@ -696,7 +702,7 @@ tcExpr (RecordUpd record_expr rbinds _ _ _) res_ty
         ; let fixed_tvs = getFixedTyVars con1_tvs relevant_cons
               is_fixed_tv tv = tv `elemVarSet` fixed_tvs
 
-              mk_inst_ty :: TvSubst -> (TKVar, TcType) -> TcM (TvSubst, TcType)
+              mk_inst_ty :: TvSubst -> (TKVar, TcType) -> TcM l (TvSubst, TcType)
               -- Deals with instantiation of kind variables
               --   c.f. TcMType.tcInstTyVarsX
               mk_inst_ty subst (tv, result_inst_ty)
@@ -834,8 +840,9 @@ tcExpr other _ = pprPanic "tcMonoExpr" (ppr other)
 %************************************************************************
 
 \begin{code}
-tcArithSeq :: Maybe (SyntaxExpr Name) -> ArithSeqInfo Name -> TcRhoType
-           -> TcM (HsExpr TcId)
+tcArithSeq :: (ApiAnnotation l)
+           => Maybe (SyntaxExpr l Name) -> ArithSeqInfo l Name -> TcRhoType
+           -> TcM l (HsExpr l TcId)
 
 tcArithSeq witness seq@(From expr) res_ty
   = do { (coi, elt_ty, wit') <- arithSeqEltType witness res_ty
@@ -870,8 +877,9 @@ tcArithSeq witness seq@(FromThenTo expr1 expr2 expr3) res_ty
         ; return $ mkHsWrapCo coi (ArithSeq eft wit' (FromThenTo expr1' expr2' expr3')) }
 
 -----------------
-arithSeqEltType :: Maybe (SyntaxExpr Name) -> TcRhoType
-              -> TcM (TcCoercion, TcType, Maybe (SyntaxExpr Id))
+arithSeqEltType :: (ApiAnnotation l)
+              => Maybe (SyntaxExpr l Name) -> TcRhoType
+              -> TcM l (TcCoercion, TcType, Maybe (SyntaxExpr l Id))
 arithSeqEltType Nothing res_ty
   = do { (coi, elt_ty) <- matchExpectedListTy res_ty
        ; return (coi, elt_ty, Nothing) }
@@ -889,8 +897,8 @@ arithSeqEltType (Just fl) res_ty
 %************************************************************************
 
 \begin{code}
-tcApp :: LHsExpr Name -> [LHsExpr Name] -- Function and args
-      -> TcRhoType -> TcM (HsExpr TcId) -- Translated fun and args
+tcApp :: LHsExpr l Name -> [LHsExpr l Name] -- Function and args
+      -> TcRhoType -> TcM l (HsExpr l TcId) -- Translated fun and args
 
 tcApp (L _ (HsPar e)) args res_ty
   = tcApp e args res_ty
@@ -931,13 +939,13 @@ tcApp fun args res_ty
         ; return (unLoc app) }
 
 
-mk_app_msg :: LHsExpr Name -> SDoc
+mk_app_msg :: (ApiAnnotation l) => LHsExpr l Name -> SDoc
 mk_app_msg fun = sep [ ptext (sLit "The function") <+> quotes (ppr fun)
                      , ptext (sLit "is applied to")]
 
 ----------------
-tcInferApp :: LHsExpr Name -> [LHsExpr Name] -- Function and args
-           -> TcM (HsExpr TcId, TcRhoType) -- Translated fun and args
+tcInferApp :: LHsExpr l Name -> [LHsExpr l Name] -- Function and args
+           -> TcM l (HsExpr l TcId, TcRhoType)   -- Translated fun and args
 
 tcInferApp (L _ (HsPar e))     args = tcInferApp e args
 tcInferApp (L _ (HsApp e1 e2)) args = tcInferApp e1 (e2:args)
@@ -953,7 +961,8 @@ tcInferApp fun args
         ; return (unLoc app, actual_res_ty) }
 
 ----------------
-tcInferFun :: LHsExpr Name -> TcM (LHsExpr TcId, TcRhoType)
+tcInferFun :: (ApiAnnotation l)
+           => LHsExpr l Name -> TcM l (LHsExpr l TcId, TcRhoType)
 -- Infer and instantiate the type of a function
 tcInferFun (L loc (HsVar name))
   = do { (fun, ty) <- setSrcSpan loc (tcInferId name)
@@ -972,22 +981,25 @@ tcInferFun fun
        ; return (mkLHsWrap wrap fun, rho) }
 
 ----------------
-tcArgs :: LHsExpr Name                          -- The function (for error messages)
-       -> [LHsExpr Name] -> [TcSigmaType]       -- Actual arguments and expected arg types
-       -> TcM [LHsExpr TcId]                    -- Resulting args
+tcArgs :: (ApiAnnotation l)
+       => LHsExpr l Name                     -- The function (for error messages)
+       -> [LHsExpr l Name] -> [TcSigmaType]  -- Actual arguments and expected arg types
+       -> TcM l [LHsExpr l TcId]             -- Resulting args
 
 tcArgs fun args expected_arg_tys
   = mapM (tcArg fun) (zip3 args expected_arg_tys [1..])
 
 ----------------
-tcArg :: LHsExpr Name                           -- The function (for error messages)
-       -> (LHsExpr Name, TcSigmaType, Int)      -- Actual argument and expected arg type
-       -> TcM (LHsExpr TcId)                    -- Resulting argument
+tcArg :: (ApiAnnotation l)
+       => LHsExpr l Name                      -- The function (for error messages)
+       -> (LHsExpr l Name, TcSigmaType, Int) -- Actual argument and expected arg type
+       -> TcM l (LHsExpr l TcId)             -- Resulting argument
 tcArg fun (arg, ty, arg_no) = addErrCtxt (funAppCtxt fun arg arg_no)
                                          (tcPolyExprNC arg ty)
 
 ----------------
-tcTupArgs :: [HsTupArg Name] -> [TcSigmaType] -> TcM [HsTupArg TcId]
+tcTupArgs :: (ApiAnnotation l)
+          => [HsTupArg l Name] -> [TcSigmaType] -> TcM l [HsTupArg l TcId]
 tcTupArgs args tys
   = ASSERT( equalLength args tys ) mapM go (args `zip` tys)
   where
@@ -996,15 +1008,16 @@ tcTupArgs args tys
                                    ; return (Present expr') }
 
 ----------------
-unifyOpFunTysWrap :: LHsExpr Name -> Arity -> TcRhoType
-                  -> TcM (TcCoercion, [TcSigmaType], TcRhoType)
+unifyOpFunTysWrap :: (ApiAnnotation l) => LHsExpr l Name -> Arity -> TcRhoType
+                  -> TcM l (TcCoercion, [TcSigmaType], TcRhoType)
 -- A wrapper for matchExpectedFunTys
 unifyOpFunTysWrap op arity ty = matchExpectedFunTys herald arity ty
   where
     herald = ptext (sLit "The operator") <+> quotes (ppr op) <+> ptext (sLit "takes")
 
 ---------------------------
-tcSyntaxOp :: CtOrigin -> HsExpr Name -> TcType -> TcM (HsExpr TcId)
+tcSyntaxOp :: (ApiAnnotation l)
+           => CtOrigin l -> HsExpr l Name -> TcType -> TcM l (HsExpr l TcId)
 -- Typecheck a syntax operator, checking that it has the specified type
 -- The operator is always a variable at this stage (i.e. renamer output)
 -- This version assumes res_ty is a monotype
@@ -1046,19 +1059,20 @@ in the other order, the extra signature in f2 is reqd.
 %************************************************************************
 
 \begin{code}
-tcCheckId :: Name -> TcRhoType -> TcM (HsExpr TcId)
+tcCheckId :: (ApiAnnotation l) => Name -> TcRhoType -> TcM l (HsExpr l TcId)
 tcCheckId name res_ty
   = do { (expr, actual_res_ty) <- tcInferId name
        ; addErrCtxtM (funResCtxt False (HsVar name) actual_res_ty res_ty) $
          tcWrapResult expr actual_res_ty res_ty }
 
 ------------------------
-tcInferId :: Name -> TcM (HsExpr TcId, TcRhoType)
+tcInferId :: (ApiAnnotation l) => Name -> TcM l (HsExpr l TcId, TcRhoType)
 -- Infer type, and deeply instantiate
 tcInferId n = tcInferIdWithOrig (OccurrenceOf n) n
 
 ------------------------
-tcInferIdWithOrig :: CtOrigin -> Name -> TcM (HsExpr TcId, TcRhoType)
+tcInferIdWithOrig :: forall l. (ApiAnnotation l)
+                  => CtOrigin l -> Name -> TcM l (HsExpr l TcId, TcRhoType)
 -- Look up an occurrence of an Id, and instantiate it (deeply)
 
 tcInferIdWithOrig orig id_name
@@ -1067,7 +1081,7 @@ tcInferIdWithOrig orig id_name
        ; (wrap, rho) <- deeplyInstantiate orig id_rho
        ; return (mkHsWrap wrap id_expr, rho) }
   where
-    lookup_id :: TcM TcId
+    lookup_id :: (ApiAnnotation l) => TcM l TcId
     lookup_id
        = do { thing <- tcLookup id_name
             ; case thing of
@@ -1099,7 +1113,8 @@ tcInferIdWithOrig orig id_name
       | otherwise                  = return ()
 
 ------------------------
-instantiateOuter :: CtOrigin -> TcId -> TcM (HsExpr TcId, TcSigmaType)
+instantiateOuter :: (ApiAnnotation l)
+                 => CtOrigin l -> TcId -> TcM l (HsExpr l TcId, TcSigmaType)
 -- Do just the first level of instantiation of an Id
 --   a) Deal with method sharing
 --   b) Deal with stupid checks
@@ -1155,9 +1170,9 @@ Current solution: only do the "method sharing" thing for the first type/dict
 application, not for the iterated ones.  A horribly subtle point.
 
 \begin{code}
-doStupidChecks :: TcId
+doStupidChecks :: (ApiAnnotation l) => TcId
                -> [TcType]
-               -> TcM ()
+               -> TcM l ()
 -- Check two tiresome and ad-hoc cases
 -- (a) the "stupid theta" for a data con; add the constraints
 --     from the "stupid theta" of a data constructor (sigh)
@@ -1201,8 +1216,8 @@ constructors of F [Int] but here we have to do it explicitly.
 It's all grotesquely complicated.
 
 \begin{code}
-tcSeq :: SrcSpan -> Name -> LHsExpr Name -> LHsExpr Name
-      -> TcRhoType -> TcM (HsExpr TcId)
+tcSeq :: SrcSpan -> Name -> LHsExpr l Name -> LHsExpr l Name
+      -> TcRhoType -> TcM l (HsExpr l TcId)
 -- (seq e1 e2) :: res_ty
 -- We need a special typing rule because res_ty can be unboxed
 tcSeq loc fun_name arg1 arg2 res_ty
@@ -1213,7 +1228,8 @@ tcSeq loc fun_name arg1 arg2 res_ty
               ty_args = WpTyApp res_ty <.> WpTyApp arg1_ty
         ; return (HsApp (L loc (HsApp fun' arg1')) arg2') }
 
-tcTagToEnum :: SrcSpan -> Name -> LHsExpr Name -> TcRhoType -> TcM (HsExpr TcId)
+tcTagToEnum :: SrcSpan -> Name -> LHsExpr l Name -> TcRhoType
+            -> TcM l (HsExpr l TcId)
 -- tagToEnum# :: forall a. Int# -> a
 -- See Note [tagToEnum#]   Urgh!
 tcTagToEnum loc fun_name arg res_ty
@@ -1260,7 +1276,7 @@ tcTagToEnum loc fun_name arg res_ty
 %************************************************************************
 
 \begin{code}
-checkThLocalId :: Id -> TcM ()
+checkThLocalId :: Id -> TcM l ()
 #ifndef GHCI  /* GHCI and TH is off */
 --------------------------------------
 -- Check for cross-stage lifting
@@ -1375,8 +1391,8 @@ This extends OK when the field types are universally quantified.
 tcRecordBinds
         :: DataCon
         -> [TcType]     -- Expected type for each field
-        -> HsRecordBinds Name
-        -> TcM (HsRecordBinds TcId)
+        -> HsRecordBinds l Name
+        -> TcM l (HsRecordBinds l TcId)
 
 tcRecordBinds data_con arg_tys (HsRecFields rbinds dd)
   = do  { mb_binds <- mapM do_bind rbinds
@@ -1399,7 +1415,8 @@ tcRecordBinds data_con arg_tys (HsRecFields rbinds dd)
       = do { addErrTc (badFieldCon (RealDataCon data_con) field_lbl)
            ; return Nothing }
 
-checkMissingFields :: DataCon -> HsRecordBinds Name -> TcM ()
+checkMissingFields :: (ApiAnnotation l)
+                   => DataCon -> HsRecordBinds l Name -> TcM l ()
 checkMissingFields data_con rbinds
   | null field_labels   -- Not declared as a record;
                         -- But C{} is still valid if no strict fields
@@ -1447,10 +1464,10 @@ checkMissingFields data_con rbinds
 
 Boring and alphabetical:
 \begin{code}
-addExprErrCtxt :: LHsExpr Name -> TcM a -> TcM a
+addExprErrCtxt :: (ApiAnnotation l) => LHsExpr l Name -> TcM l a -> TcM l a
 addExprErrCtxt expr = addErrCtxt (exprCtxt expr)
 
-exprCtxt :: LHsExpr Name -> SDoc
+exprCtxt :: (ApiAnnotation l) => LHsExpr l Name -> SDoc
 exprCtxt expr
   = hang (ptext (sLit "In the expression:")) 2 (ppr expr)
 
@@ -1458,15 +1475,17 @@ fieldCtxt :: Name -> SDoc
 fieldCtxt field_name
   = ptext (sLit "In the") <+> quotes (ppr field_name) <+> ptext (sLit "field of a record")
 
-funAppCtxt :: LHsExpr Name -> LHsExpr Name -> Int -> SDoc
+funAppCtxt :: (ApiAnnotation l)
+           => LHsExpr l Name -> LHsExpr l Name -> Int -> SDoc
 funAppCtxt fun arg arg_no
   = hang (hsep [ ptext (sLit "In the"), speakNth arg_no, ptext (sLit "argument of"),
                     quotes (ppr fun) <> text ", namely"])
        2 (quotes (ppr arg))
 
-funResCtxt :: Bool  -- There is at least one argument
-           -> HsExpr Name -> TcType -> TcType
-           -> TidyEnv -> TcM (TidyEnv, MsgDoc)
+funResCtxt :: (ApiAnnotation l)
+           => Bool  -- There is at least one argument
+           -> HsExpr l Name -> TcType -> TcType
+           -> TidyEnv -> TcM l (TidyEnv, MsgDoc)
 -- When we have a mis-match in the return type of a function
 -- try to give a helpful message about too many/few arguments
 --

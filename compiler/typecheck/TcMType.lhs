@@ -220,7 +220,7 @@ tcSuperSkolTyVar subst tv
     kind   = substTy subst (tyVarKind tv)
     new_tv = mkTcTyVar (tyVarName tv) kind superSkolemTv
 
-tcInstSkolTyVar :: SrcSpan -> Bool -> TvSubst -> TyVar
+tcInstSkolTyVar :: (ApiAnnotation l) => l -> Bool -> TvSubst -> TyVar
                 -> TcRnIf gbl lcl (TvSubst, TcTyVar)
 -- Instantiate the tyvar, using 
 --      * the occ-name and kind of the supplied tyvar, 
@@ -229,7 +229,7 @@ tcInstSkolTyVar :: SrcSpan -> Bool -> TvSubst -> TyVar
 --                     or from the monad (otherwise)
 tcInstSkolTyVar loc overlappable subst tyvar
   = do  { uniq <- newUnique
-        ; let new_name = mkInternalName uniq occ loc
+        ; let new_name = mkInternalName uniq occ (annGetSpan loc)
               new_tv   = mkTcTyVar new_name kind (SkolemTv overlappable)
         ; return (extendTvSubst subst tyvar (mkTyVarTy new_tv), new_tv) }
   where
@@ -259,7 +259,8 @@ tcInstSkolTyVars' isSuperSkol subst tvs
   = do { loc <- getSrcSpanM
        ; mapAccumLM (tcInstSkolTyVar (annGetSpan loc) isSuperSkol) subst tvs }
 
-tcInstSigTyVarsLoc :: SrcSpan -> [TyVar] -> TcRnIf gbl lcl (TvSubst, [TcTyVar])
+tcInstSigTyVarsLoc :: (ApiAnnotation l)
+                   => l -> [TyVar] -> TcRnIf gbl lcl (TvSubst, [TcTyVar])
 -- We specify the location
 tcInstSigTyVarsLoc loc = mapAccumLM (tcInstSkolTyVar loc False) (mkTopTvSubst [])
 

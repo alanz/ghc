@@ -6,6 +6,7 @@ Typecheck arrow notation
 
 \begin{code}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module TcArrows ( tcProc ) where
 
@@ -78,9 +79,10 @@ Note that
 %************************************************************************
 
 \begin{code}
-tcProc :: InPat Name -> LHsCmdTop Name          -- proc pat -> expr
-       -> TcRhoType                             -- Expected type of whole proc expression
-       -> TcM (OutPat TcId, LHsCmdTop TcId, TcCoercion)
+tcProc :: (ApiAnnotation l)
+       => InPat l Name -> LHsCmdTop l Name      -- proc pat -> expr
+       -> TcRhoType                  -- Expected type of whole proc expression
+       -> TcM l (OutPat l TcId, LHsCmdTop l TcId, TcCoercion)
 
 tcProc pat cmd exp_ty
   = newArrowScope $
@@ -114,10 +116,10 @@ mkCmdArrTy :: CmdEnv -> TcTauType -> TcTauType -> TcTauType
 mkCmdArrTy env t1 t2 = mkAppTys (cmd_arr env) [t1, t2]
 
 ---------------------------------------
-tcCmdTop :: CmdEnv 
-         -> LHsCmdTop Name
+tcCmdTop :: (ApiAnnotation l) => CmdEnv
+         -> LHsCmdTop l Name
          -> CmdType
-         -> TcM (LHsCmdTop TcId)
+         -> TcM l (LHsCmdTop l TcId)
 
 tcCmdTop env (L loc (HsCmdTop cmd _ _ names)) cmd_ty@(cmd_stk, res_ty)
   = setSrcSpan loc $
@@ -125,14 +127,16 @@ tcCmdTop env (L loc (HsCmdTop cmd _ _ names)) cmd_ty@(cmd_stk, res_ty)
         ; names' <- mapM (tcSyntaxName ProcOrigin (cmd_arr env)) names
         ; return (L loc $ HsCmdTop cmd' cmd_stk res_ty names') }
 ----------------------------------------
-tcCmd  :: CmdEnv -> LHsCmd Name -> CmdType -> TcM (LHsCmd TcId)
+tcCmd  :: forall l. (ApiAnnotation l)
+       => CmdEnv -> LHsCmd l Name -> CmdType -> TcM l (LHsCmd l TcId)
         -- The main recursive function
 tcCmd env (L loc cmd) res_ty
   = setSrcSpan loc $ do
         { cmd' <- tc_cmd env cmd res_ty
         ; return (L loc cmd') }
 
-tc_cmd :: CmdEnv -> HsCmd Name  -> CmdType -> TcM (HsCmd TcId)
+tc_cmd :: (ApiAnnotation l)
+       => CmdEnv -> HsCmd l Name  -> CmdType -> TcM l (HsCmd l TcId)
 tc_cmd env (HsCmdPar cmd) res_ty
   = do  { cmd' <- tcCmd env cmd res_ty
         ; return (HsCmdPar cmd') }
@@ -299,7 +303,8 @@ tc_cmd env cmd@(HsCmdArrForm expr fixity cmd_args) (cmd_stk, res_ty)
         ; return (HsCmdArrForm expr' fixity cmd_args') }
 
   where
-    tc_cmd_arg :: LHsCmdTop Name -> TcM (LHsCmdTop TcId, TcType)
+    tc_cmd_arg :: (ApiAnnotation l)
+               => LHsCmdTop l Name -> TcM l (LHsCmdTop l TcId, TcType)
     tc_cmd_arg cmd
        = do { arr_ty <- newFlexiTyVarTy arrowTyConKind
             ; stk_ty <- newFlexiTyVarTy liftedTypeKind
@@ -317,7 +322,8 @@ tc_cmd _ cmd _
                       ptext (sLit "was found where an arrow command was expected")])
 
 
-matchExpectedCmdArgs :: Arity -> TcType -> TcM (TcCoercion, [TcType], TcType)
+matchExpectedCmdArgs :: (ApiAnnotation l)
+                     => Arity -> TcType -> TcM l (TcCoercion, [TcType], TcType)
 matchExpectedCmdArgs 0 ty 
   = return (mkTcNomReflCo ty, [], ty)
 matchExpectedCmdArgs n ty
@@ -340,7 +346,7 @@ matchExpectedCmdArgs n ty
 --      (a) RecStmts, and
 --      (b) no rebindable syntax
 
-tcArrDoStmt :: CmdEnv -> TcCmdStmtChecker
+tcArrDoStmt :: (ApiAnnotation l) => CmdEnv -> TcCmdStmtChecker l
 tcArrDoStmt env _ (LastStmt rhs _) res_ty thing_inside
   = do  { rhs' <- tcCmd env rhs (unitTy, res_ty)
         ; thing <- thing_inside (panic "tcArrDoStmt")
@@ -392,7 +398,8 @@ tcArrDoStmt env ctxt (RecStmt { recS_stmts = stmts, recS_later_ids = later_names
 tcArrDoStmt _ _ stmt _ _
   = pprPanic "tcArrDoStmt: unexpected Stmt" (ppr stmt)
 
-tc_arr_rhs :: CmdEnv -> LHsCmd Name -> TcM (LHsCmd TcId, TcType)
+tc_arr_rhs :: (ApiAnnotation l)
+           => CmdEnv -> LHsCmd l Name -> TcM l (LHsCmd l TcId, TcType)
 tc_arr_rhs env rhs = do { ty <- newFlexiTyVarTy liftedTypeKind
                         ; rhs' <- tcCmd env rhs (unitTy, ty)
                         ; return (rhs', ty) }
@@ -422,6 +429,6 @@ arrowTyConKind = mkArrowKinds [liftedTypeKind, liftedTypeKind] liftedTypeKind
 %************************************************************************
 
 \begin{code}
-cmdCtxt :: HsCmd Name -> SDoc
+cmdCtxt :: (ApiAnnotation l) => HsCmd l Name -> SDoc
 cmdCtxt cmd = ptext (sLit "In the command:") <+> ppr cmd
 \end{code}

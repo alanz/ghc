@@ -636,7 +636,7 @@ GADTs).
 
 \begin{code}
 tcFamInstDeclCombined :: Maybe (Class, VarEnv Type) -- the class & mini_env if applicable
-                      -> Located Name -> TcM TyCon
+                      -> GenLocated l Name -> TcM l TyCon
 tcFamInstDeclCombined mb_clsinfo fam_tc_lname
   = do { -- Type family instances require -XTypeFamilies
          -- and can't (currently) be in an hs-boot file
@@ -1021,7 +1021,7 @@ misplacedInstSig name hs_ty
 
 ------------------------------
 tcSpecInstPrags :: DFunId -> InstBindings Name
-                -> TcM ([Located TcSpecPrag], PragFun)
+                -> TcM l ([GenLocated l TcSpecPrag], PragFun)
 tcSpecInstPrags dfun_id (InstBindings { ib_binds = binds, ib_pragmas = uprags })
   = do { spec_inst_prags <- mapM (wrapLocM (tcSpecInst dfun_id)) $
                             filter isSpecInstLSig uprags
@@ -1200,10 +1200,10 @@ tcInstanceMethod
 tcInstanceMethods :: DFunId -> Class -> [TcTyVar]
                   -> [EvVar]
                   -> [TcType]
-                  -> ([Located TcSpecPrag], PragFun)
+                  -> ([GenLocated l TcSpecPrag], PragFun)
                   -> [(Id, DefMeth)]
                   -> InstBindings Name
-                  -> TcM ([Id], [LHsBind Id])
+                  -> TcM l ([Id], [LHsBind l Id])
         -- The returned inst_meth_ids all have types starting
         --      forall tvs. theta => ...
 tcInstanceMethods dfun_id clas tyvars dfun_ev_vars inst_tys
@@ -1537,12 +1537,12 @@ tooFewParmsErr arity
   = ptext (sLit "Family instance has too few parameters; expected") <+>
     ppr arity
 
-assocInClassErr :: Located Name -> SDoc
+assocInClassErr :: GenLocated l Name -> SDoc
 assocInClassErr name
  = ptext (sLit "Associated type") <+> quotes (ppr name) <+>
    ptext (sLit "must be inside a class instance")
 
-badFamInstDecl :: Located Name -> SDoc
+badFamInstDecl :: GenLocated l Name -> SDoc
 badFamInstDecl tc_name
   = vcat [ ptext (sLit "Illegal family instance for") <+>
            quotes (ppr tc_name)
