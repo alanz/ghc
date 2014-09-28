@@ -96,40 +96,42 @@ has a *left-to-right* scoping: it makes the binders in
 p1 scope over p2,p3.
 
 \begin{code}
-newtype CpsRn b = CpsRn { unCpsRn :: forall r. (b -> RnM (r, FreeVars))
-                                            -> RnM (r, FreeVars) }
+newtype CpsRn l b = CpsRn { unCpsRn :: forall r. (b -> RnM l (r, FreeVars))
+                                              -> RnM l (r, FreeVars) }
         -- See Note [CpsRn monad]
 
-instance Functor CpsRn where
+instance Functor (CpsRn l) where
     fmap = liftM
 
-instance Applicative CpsRn where
+instance Applicative (CpsRn l) where
     pure = return
     (<*>) = ap
 
-instance Monad CpsRn where
+instance Monad (CpsRn l) where
   return x = CpsRn (\k -> k x)
   (CpsRn m) >>= mk = CpsRn (\k -> m (\v -> unCpsRn (mk v) k))
 
-runCps :: CpsRn a -> RnM (a, FreeVars)
+runCps :: CpsRn l a -> RnM l (a, FreeVars)
 runCps (CpsRn m) = m (\r -> return (r, emptyFVs))
 
-liftCps :: RnM a -> CpsRn a
+liftCps :: RnM l a -> CpsRn l a
 liftCps rn_thing = CpsRn (\k -> rn_thing >>= k)
 
-liftCpsFV :: RnM (a, FreeVars) -> CpsRn a
+liftCpsFV :: RnM l (a, FreeVars) -> CpsRn l a
 liftCpsFV rn_thing = CpsRn (\k -> do { (v,fvs1) <- rn_thing
                                      ; (r,fvs2) <- k v
                                      ; return (r, fvs1 `plusFV` fvs2) })
 
-wrapSrcSpanCps :: (a -> CpsRn b) -> Located a -> CpsRn (Located b)
+wrapSrcSpanCps :: (ApiAnnotation l)
+               => (a -> CpsRn l b) -> GenLocated l a -> CpsRn l (GenLocated l b)
 -- Set the location, and also wrap it around the value returned
 wrapSrcSpanCps fn (L loc a)
   = CpsRn (\k -> setSrcSpan loc $ 
                  unCpsRn (fn a) $ \v -> 
                  k (L loc v))
 
-lookupConCps :: Located RdrName -> CpsRn (Located Name)
+lookupConCps :: (ApiAnnotation l)
+             => GenLocated l RdrName -> CpsRn l (GenLocated l Name)
 lookupConCps con_rdr 
   = CpsRn (\k -> do { con_name <- lookupLocatedOccRn con_rdr
                     ; (r, fvs) <- k con_name
@@ -175,7 +177,7 @@ Externally abstract type of name makers,
 which is how you go from a RdrName to a Name
 
 \begin{code}
-data NameMaker 
+data NameMaker l
   = LamMk       -- Lambdas 
       Bool      -- True <=> report unused bindings
                 --   (even if True, the warning only comes out 
@@ -184,19 +186,19 @@ data NameMaker
   | LetMk       -- Let bindings, incl top level
                 -- Do *not* check for unused bindings
       TopLevelFlag
-      MiniFixityEnv
+      (MiniFixityEnv l)
 
-topRecNameMaker :: MiniFixityEnv -> NameMaker
+topRecNameMaker :: MiniFixityEnv l -> NameMaker l
 topRecNameMaker fix_env = LetMk TopLevel fix_env
 
-isTopRecNameMaker :: NameMaker -> Bool
+isTopRecNameMaker :: NameMaker l -> Bool
 isTopRecNameMaker (LetMk TopLevel _) = True
 isTopRecNameMaker _ = False
 
-localRecNameMaker :: MiniFixityEnv -> NameMaker
+localRecNameMaker :: MiniFixityEnv l -> NameMaker l
 localRecNameMaker fix_env = LetMk NotTopLevel fix_env 
 
-matchNameMaker :: HsMatchContext a -> NameMaker
+matchNameMaker :: HsMatchContext a -> NameMaker l
 matchNameMaker ctxt = LamMk report_unused
   where
     -- Do not report unused names in interactive contexts
@@ -205,12 +207,13 @@ matchNameMaker ctxt = LamMk report_unused
                       StmtCtxt GhciStmtCtxt -> False
                       _                     -> True
 
-rnHsSigCps :: HsWithBndrs RdrName (LHsType RdrName)
-           -> CpsRn (HsWithBndrs Name (LHsType Name))
+rnHsSigCps :: (ApiAnnotation l) => HsWithBndrs RdrName (LHsType l RdrName)
+           -> CpsRn l (HsWithBndrs Name (LHsType l Name))
 rnHsSigCps sig 
   = CpsRn (rnHsBndrSig PatCtx sig)
 
-newPatName :: NameMaker -> Located RdrName -> CpsRn Name
+newPatName :: (ApiAnnotation l)
+           => NameMaker l -> GenLocated l RdrName -> CpsRn l Name
 newPatName (LamMk report_unused) rdr_name
   = CpsRn (\ thing_inside -> 
         do { name <- newLocalBndrRn rdr_name
@@ -273,10 +276,11 @@ There are various entry points to renaming patterns, depending on
 --   * local namemaker
 --   * unused and duplicate checking
 --   * no fixities
-rnPats :: HsMatchContext Name -- for error messages
-       -> [LPat RdrName] 
-       -> ([LPat Name] -> RnM (a, FreeVars))
-       -> RnM (a, FreeVars)
+rnPats :: (ApiAnnotation l)
+       => HsMatchContext Name -- for error messages
+       -> [LPat l RdrName]
+       -> ([LPat l Name] -> RnM l (a, FreeVars))
+       -> RnM l (a, FreeVars)
 rnPats ctxt pats thing_inside
   = do  { envs_before <- getRdrEnvs
 
@@ -297,15 +301,17 @@ rnPats ctxt pats thing_inside
   where
     doc_pat = ptext (sLit "In") <+> pprMatchContext ctxt
 
-rnPat :: HsMatchContext Name -- for error messages
-      -> LPat RdrName 
-      -> (LPat Name -> RnM (a, FreeVars))
-      -> RnM (a, FreeVars)     -- Variables bound by pattern do not 
-                               -- appear in the result FreeVars 
-rnPat ctxt pat thing_inside 
+rnPat :: (ApiAnnotation l)
+      => HsMatchContext Name -- for error messages
+      -> LPat l RdrName
+      -> (LPat l Name -> RnM l (a, FreeVars))
+      -> RnM l (a, FreeVars)   -- Variables bound by pattern do not
+                               -- appear in the result FreeVars
+rnPat ctxt pat thing_inside
   = rnPats ctxt [pat] (\pats' -> let [pat'] = pats' in thing_inside pat')
 
-applyNameMaker :: NameMaker -> Located RdrName -> RnM Name
+applyNameMaker :: (ApiAnnotation l)
+               => NameMaker l -> GenLocated l RdrName -> RnM l Name
 applyNameMaker mk rdr = do { (n, _fvs) <- runCps (newPatName mk rdr); return n }
 
 -- ----------- Entry point 2: rnBindPat -------------------
@@ -315,9 +321,9 @@ applyNameMaker mk rdr = do { (n, _fvs) <- runCps (newPatName mk rdr); return n }
 --   * local namemaker
 --   * no unused and duplicate checking
 --   * fixities might be coming in
-rnBindPat :: NameMaker
-          -> LPat RdrName
-          -> RnM (LPat Name, FreeVars)
+rnBindPat :: (ApiAnnotation l) => NameMaker l
+          -> LPat l RdrName
+          -> RnM l (LPat l Name, FreeVars)
    -- Returned FreeVars are the free variables of the pattern,
    -- of course excluding variables bound by this pattern 
 
@@ -335,17 +341,20 @@ rnBindPat name_maker pat = runCps (rnLPatAndThen name_maker pat)
 -- ----------- Entry point 3: rnLPatAndThen -------------------
 -- General version: parametrized by how you make new names
 
-rnLPatsAndThen :: NameMaker -> [LPat RdrName] -> CpsRn [LPat Name]
+rnLPatsAndThen :: (ApiAnnotation l)
+               => NameMaker l -> [LPat l RdrName] -> CpsRn l [LPat l Name]
 rnLPatsAndThen mk = mapM (rnLPatAndThen mk)
   -- Despite the map, the monad ensures that each pattern binds
   -- variables that may be mentioned in subsequent patterns in the list
 
 --------------------
 -- The workhorse
-rnLPatAndThen :: NameMaker -> LPat RdrName -> CpsRn (LPat Name)
+rnLPatAndThen :: (ApiAnnotation l)
+              => NameMaker l -> LPat l RdrName -> CpsRn l (LPat l Name)
 rnLPatAndThen nm lpat = wrapSrcSpanCps (rnPatAndThen nm) lpat
 
-rnPatAndThen :: NameMaker -> Pat RdrName -> CpsRn (Pat Name)
+rnPatAndThen :: (ApiAnnotation l)
+             => NameMaker l -> Pat l RdrName -> CpsRn l (Pat l Name)
 rnPatAndThen _  (WildPat _)   = return (WildPat placeHolderType)
 rnPatAndThen mk (ParPat pat)  = do { pat' <- rnLPatAndThen mk pat; return (ParPat pat') }
 rnPatAndThen mk (LazyPat pat) = do { pat' <- rnLPatAndThen mk pat; return (LazyPat pat') }
@@ -394,13 +403,14 @@ rnPatAndThen mk (NPlusKPat rdr lit _ _)
        ; lit'  <- liftCpsFV $ rnOverLit lit
        ; minus <- liftCpsFV $ lookupSyntaxName minusName
        ; ge    <- liftCpsFV $ lookupSyntaxName geName
-       ; return (NPlusKPat (L (nameSrcSpan new_name) new_name) lit' ge minus) }
+       ; return (NPlusKPat (L (annFromSpan $ nameSrcSpan new_name) new_name)
+                           lit' ge minus) }
                 -- The Report says that n+k patterns must be in Integral
 
 rnPatAndThen mk (AsPat rdr pat)
   = do { new_name <- newPatName mk rdr
        ; pat' <- rnLPatAndThen mk pat
-       ; return (AsPat (L (nameSrcSpan new_name) new_name) pat') }
+       ; return (AsPat (L (annFromSpan $ nameSrcSpan new_name) new_name) pat') }
 
 rnPatAndThen mk p@(ViewPat expr pat _ty)
   = do { liftCps $ do { vp_flag <- xoptM Opt_ViewPatterns
@@ -454,10 +464,10 @@ rnPatAndThen _ pat = pprPanic "rnLPatAndThen" (ppr pat)
 
 
 --------------------
-rnConPatAndThen :: NameMaker
-                -> Located RdrName          -- the constructor
-                -> HsConPatDetails RdrName 
-                -> CpsRn (Pat Name)
+rnConPatAndThen :: (ApiAnnotation l) => NameMaker l
+                -> GenLocated l RdrName       -- the constructor
+                -> HsConPatDetails l RdrName
+                -> CpsRn l (Pat l Name)
 
 rnConPatAndThen mk con (PrefixCon pats)
   = do  { con' <- lookupConCps con
@@ -477,10 +487,10 @@ rnConPatAndThen mk con (RecCon rpats)
         ; return (ConPatIn con' (RecCon rpats')) }
 
 --------------------
-rnHsRecPatsAndThen :: NameMaker
-                   -> Located Name      -- Constructor
-                   -> HsRecFields RdrName (LPat RdrName)
-                   -> CpsRn (HsRecFields Name (LPat Name))
+rnHsRecPatsAndThen :: (ApiAnnotation l) => NameMaker l
+                   -> GenLocated l Name      -- Constructor
+                   -> HsRecFields l RdrName (LPat l RdrName)
+                   -> CpsRn l (HsRecFields l Name (LPat l Name))
 rnHsRecPatsAndThen mk (L _ con) hs_rec_fields@(HsRecFields { rec_dotdot = dd })
   = do { flds <- liftCpsFV $ rnHsRecFields (HsRecFieldPat con) VarPat hs_rec_fields
        ; flds' <- mapM rn_field (flds `zip` [1..])
@@ -510,11 +520,11 @@ data HsRecFieldContext
   | HsRecFieldUpd
 
 rnHsRecFields
-    :: forall arg. 
+    :: forall arg l.
        HsRecFieldContext
     -> (RdrName -> arg) -- When punning, use this to build a new field
-    -> HsRecFields RdrName (Located arg)
-    -> RnM ([HsRecField Name (Located arg)], FreeVars)
+    -> HsRecFields l RdrName (GenLocated l arg)
+    -> RnM l ([HsRecField Name l (GenLocated l arg)], FreeVars)
 
 -- This supprisingly complicated pass
 --   a) looks up the field name (possibly using disambiguation)
@@ -570,8 +580,8 @@ rnHsRecFields ctxt mk_arg (HsRecFields { rec_flds = flds, rec_dotdot = dotdot })
     rn_dotdot :: Maybe Int      -- See Note [DotDot fields] in HsPat
               -> Maybe Name     -- The constructor (Nothing for an update
                                 --    or out of scope constructor)
-              -> [HsRecField Name (Located arg)]   -- Explicit fields
-              -> RnM [HsRecField Name (Located arg)]   -- Filled in .. fields
+              -> [HsRecField l Name (Located arg)]   -- Explicit fields
+              -> RnM l [HsRecField l Name (Located arg)]   -- Filled in .. fields
     rn_dotdot Nothing _mb_con _flds     -- No ".." at all
       = return []
     rn_dotdot (Just {}) Nothing _flds   -- ".." on record update
@@ -621,7 +631,7 @@ rnHsRecFields ctxt mk_arg (HsRecFields { rec_flds = flds, rec_dotdot = dotdot })
                     , let fld     = gre_name gre
                           arg_rdr = mkRdrUnqual (nameOccName fld) ] }
 
-    check_disambiguation :: Bool -> Maybe Name -> RnM Parent
+    check_disambiguation :: Bool -> Maybe Name -> RnM l Parent
     -- When disambiguation is on, 
     check_disambiguation disambig_ok mb_con
       | disambig_ok, Just con <- mb_con
@@ -648,7 +658,7 @@ rnHsRecFields ctxt mk_arg (HsRecFields { rec_flds = flds, rec_dotdot = dotdot })
         -- Each list in dup_fields is non-empty
     (_, dup_flds) = removeDups compare (getFieldIds flds)
 
-getFieldIds :: [HsRecField id arg] -> [id]
+getFieldIds :: [HsRecField l id arg] -> [id]
 getFieldIds flds = map (unLoc . hsRecFieldId) flds
 
 needFlagDotDot :: HsRecFieldContext -> SDoc
@@ -689,7 +699,7 @@ that the types and classes they involve
 are made available.
 
 \begin{code}
-rnLit :: HsLit -> RnM ()
+rnLit :: (ApiAnnotation l) => HsLit -> RnM l ()
 rnLit (HsChar c) = checkErr (inCharRange c) (bogusCharError c)
 rnLit _ = return ()
 
@@ -700,7 +710,8 @@ generalizeOverLitVal (HsFractional (FL {fl_value=val}))
     | denominator val == 1 = HsIntegral (numerator val)
 generalizeOverLitVal lit = lit
 
-rnOverLit :: HsOverLit t -> RnM (HsOverLit Name, FreeVars)
+rnOverLit :: (ApiAnnotation l)
+          => HsOverLit l t -> RnM l (HsOverLit l Name, FreeVars)
 rnOverLit origLit
   = do  { opt_NumDecimals <- xoptM Opt_NumDecimals
         ; let { lit@(OverLit {ol_val=val})
@@ -733,7 +744,7 @@ bogusCharError :: Char -> SDoc
 bogusCharError c
   = ptext (sLit "character literal out of range: '\\") <> char c  <> char '\''
 
-badViewPat :: Pat RdrName -> SDoc
+badViewPat :: (ApiAnnotation l) => Pat l RdrName -> SDoc
 badViewPat pat = vcat [ptext (sLit "Illegal view pattern: ") <+> ppr pat,
                        ptext (sLit "Use ViewPatterns to enable view patterns")]
 \end{code}

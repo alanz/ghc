@@ -31,10 +31,10 @@ import FastString
 \end{code}
 
 \begin{code}
-tcDefaults :: [LDefaultDecl Name]
-	   -> TcM (Maybe [Type])    -- Defaulting types to heave
-				    -- into Tc monad for later use
-				    -- in Disambig.
+tcDefaults :: (ApiAnnotation l) => [LDefaultDecl l Name]
+           -> TcM l (Maybe [Type])  -- Defaulting types to heave
+                                    -- into Tc monad for later use
+                                    -- in Disambig.
 
 tcDefaults [] 
   = getDeclaredDefaultTys	-- No default declaration, so get the
@@ -69,7 +69,7 @@ tcDefaults decls@(L locn (DefaultDecl _) : _)
     failWithTc (dupDefaultDeclErr decls)
 
 
-tc_default_ty :: [Class] -> LHsType Name -> TcM Type
+tc_default_ty :: (ApiAnnotation l) => [Class] -> LHsType l Name -> TcM l Type
 tc_default_ty deflt_clss hs_ty 
  = do	{ ty <- tcHsSigType DefaultDeclCtxt hs_ty
 	; checkTc (isTauTy ty) (polyDefErr hs_ty)
@@ -79,7 +79,7 @@ tc_default_ty deflt_clss hs_ty
 	; checkTc (or oks) (badDefaultTy ty deflt_clss)
 	; return ty }
 
-check_instance :: Type -> Class -> TcM Bool
+check_instance :: (ApiAnnotation l) => Type -> Class -> TcM l Bool
   -- Check that ty is an instance of cls
   -- We only care about whether it worked or not; return a boolean
 check_instance ty cls
@@ -89,7 +89,8 @@ check_instance ty cls
 defaultDeclCtxt :: SDoc
 defaultDeclCtxt = ptext (sLit "When checking the types in a default declaration")
 
-dupDefaultDeclErr :: [Located (DefaultDecl Name)] -> SDoc
+dupDefaultDeclErr :: (ApiAnnotation l)
+                  => [GenLocated l (DefaultDecl l Name)] -> SDoc
 dupDefaultDeclErr (L _ (DefaultDecl _) : dup_things)
   = hang (ptext (sLit "Multiple default declarations"))
        2 (vcat (map pp dup_things))
@@ -97,8 +98,8 @@ dupDefaultDeclErr (L _ (DefaultDecl _) : dup_things)
     pp (L locn (DefaultDecl _)) = ptext (sLit "here was another default declaration") <+> ppr locn
 dupDefaultDeclErr [] = panic "dupDefaultDeclErr []"
 
-polyDefErr :: LHsType Name -> SDoc
-polyDefErr ty 
+polyDefErr :: (ApiAnnotation l) => LHsType l Name -> SDoc
+polyDefErr ty
   = hang (ptext (sLit "Illegal polymorphic type in default declaration") <> colon) 2 (ppr ty) 
 
 badDefaultTy :: Type -> [Class] -> SDoc

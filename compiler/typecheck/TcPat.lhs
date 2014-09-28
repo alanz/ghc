@@ -63,10 +63,10 @@ import Control.Monad
 %************************************************************************
 
 \begin{code}
-tcLetPat :: TcSigFun -> LetBndrSpec
-      	 -> LPat Name -> TcSigmaType 
-     	 -> TcM a
-      	 -> TcM (LPat TcId, a)
+tcLetPat :: (ApiAnnotation l) => TcSigFun -> LetBndrSpec l
+         -> LPat l Name -> TcSigmaType
+         -> TcM l a
+         -> TcM l (LPat l TcId, a)
 tcLetPat sig_fn no_gen pat pat_ty thing_inside
   = tc_lpat pat pat_ty penv thing_inside 
   where
@@ -74,11 +74,11 @@ tcLetPat sig_fn no_gen pat pat_ty thing_inside
               , pe_ctxt = LetPat sig_fn no_gen }
 
 -----------------
-tcPats :: HsMatchContext Name
-       -> [LPat Name]		 -- Patterns,
-       -> [TcSigmaType]	         --   and their types
-       -> TcM a                  --   and the checker for the body
-       -> TcM ([LPat TcId], a)
+tcPats :: (ApiAnnotation l) => HsMatchContext Name
+       -> [LPat l Name]          -- Patterns,
+       -> [TcSigmaType]          --   and their types
+       -> TcM l a                --   and the checker for the body
+       -> TcM l ([LPat l TcId], a)
 
 -- This is the externally-callable wrapper function
 -- Typecheck the patterns, extend the environment to bind the variables,
@@ -96,11 +96,11 @@ tcPats ctxt pats pat_tys thing_inside
   where
     penv = PE { pe_lazy = False, pe_ctxt = LamPat ctxt }
 
-tcPat :: HsMatchContext Name
-      -> LPat Name -> TcSigmaType 
-      -> TcM a                 -- Checker for body, given
+tcPat :: (ApiAnnotation l) => HsMatchContext Name
+      -> LPat l Name -> TcSigmaType
+      -> TcM l a               -- Checker for body, given
                                -- its result type
-      -> TcM (LPat TcId, a)
+      -> TcM l (LPat l TcId, a)
 tcPat ctxt pat pat_ty thing_inside
   = tc_lpat pat pat_ty penv thing_inside
   where
@@ -108,38 +108,38 @@ tcPat ctxt pat pat_ty thing_inside
    
 
 -----------------
-data PatEnv
-  = PE { pe_lazy :: Bool	-- True <=> lazy context, so no existentials allowed
-       , pe_ctxt :: PatCtxt   	-- Context in which the whole pattern appears
+data PatEnv l
+  = PE { pe_lazy :: Bool        -- True <=> lazy context, so no existentials allowed
+       , pe_ctxt :: (PatCtxt l) -- Context in which the whole pattern appears
        }
 
-data PatCtxt
+data PatCtxt l
   = LamPat   -- Used for lambdas, case etc
        (HsMatchContext Name) 
 
   | LetPat   -- Used only for let(rec) pattern bindings
     	     -- See Note [Typing patterns in pattern bindings]
        TcSigFun        -- Tells type sig if any
-       LetBndrSpec     -- True <=> no generalisation of this let
+       (LetBndrSpec l) -- True <=> no generalisation of this let
 
-data LetBndrSpec 
+data LetBndrSpec l
   = LetLclBndr		  -- The binder is just a local one;
     			  -- an AbsBinds will provide the global version
 
-  | LetGblBndr TcPragFun  -- Genrealisation plan is NoGen, so there isn't going 
-                          -- to be an AbsBinds; So we must bind the global version
-                          -- of the binder right away.  
-    	       		  -- Oh, and dhhere is the inline-pragma information
+  | LetGblBndr (TcPragFun l) -- Genrealisation plan is NoGen, so there isn't
+                          -- going to be an AbsBinds; So we must bind the global
+                          -- vrsion of the binder right away.
+                          -- Oh, and dhhere is the inline-pragma information
 
-makeLazy :: PatEnv -> PatEnv
+makeLazy :: PatEnv l -> PatEnv l
 makeLazy penv = penv { pe_lazy = True }
 
-patSigCtxt :: PatEnv -> UserTypeCtxt
+patSigCtxt :: PatEnv l -> UserTypeCtxt
 patSigCtxt (PE { pe_ctxt = LetPat {} }) = BindPatSigCtxt
 patSigCtxt (PE { pe_ctxt = LamPat {} }) = LamPatSigCtxt
 
 ---------------
-type TcPragFun = Name -> [LSig Name]
+type TcPragFun l = Name -> [LSig l Name]
 type TcSigFun  = Name -> Maybe TcSigInfo
 
 data TcSigInfo
@@ -160,7 +160,7 @@ data TcSigInfo
     }
 
 findScopedTyVars  -- See Note [Binding scoped type variables]
-  :: LHsType Name             -- The HsType
+  :: LHsType l Name           -- The HsType
   -> TcType                   -- The corresponding Type:
                               --   uses same Names as the HsType
   -> [TcTyVar]                -- The instantiated forall variables of the Type
@@ -242,7 +242,8 @@ res_ty free vars.
 %************************************************************************
 
 \begin{code}
-tcPatBndr :: PatEnv -> Name -> TcSigmaType -> TcM (TcCoercion, TcId)
+tcPatBndr :: (ApiAnnotation l)
+          => PatEnv l -> Name -> TcSigmaType -> TcM l (TcCoercion, TcId)
 -- (coi, xp) = tcPatBndr penv x pat_ty
 -- Then coi : pat_ty ~ typeof(xp)
 --
@@ -265,7 +266,8 @@ tcPatBndr (PE { pe_ctxt = _lam_or_proc }) bndr_name pat_ty
        ; return (mkTcNomReflCo pat_ty, bndr) }
 
 ------------
-newNoSigLetBndr :: LetBndrSpec -> Name -> TcType -> TcM TcId
+newNoSigLetBndr :: (ApiAnnotation l)
+                => LetBndrSpec l -> Name -> TcType -> TcM l TcId
 -- In the polymorphic case (no_gen = LetLclBndr), generate a "monomorphic version" 
 --    of the Id; the original name will be bound to the polymorphic version
 --    by the AbsBinds
@@ -279,7 +281,7 @@ newNoSigLetBndr (LetGblBndr prags) name ty
        ; addInlinePrags id (prags name) }
 
 ----------
-addInlinePrags :: TcId -> [LSig Name] -> TcM TcId
+addInlinePrags :: (ApiAnnotation l) => TcId -> [LSig l Name] -> TcM l TcId
 addInlinePrags poly_id prags
   = do { traceTc "addInlinePrags" (ppr poly_id $$ ppr prags) 
        ; tc_inl inl_sigs }
@@ -295,7 +297,7 @@ addInlinePrags poly_id prags
     warn_dup_inline = warnPrags poly_id inl_sigs $
                       ptext (sLit "Duplicate INLINE pragmas for")
 
-warnPrags :: Id -> [LSig Name] -> SDoc -> TcM ()
+warnPrags :: (ApiAnnotation l) => Id -> [LSig l Name] -> SDoc -> TcM l ()
 warnPrags id bad_sigs herald
   = addWarnTc (hang (herald <+> quotes (ppr id))
                   2 (ppr_sigs bad_sigs))
@@ -303,7 +305,7 @@ warnPrags id bad_sigs herald
     ppr_sigs sigs = vcat (map (ppr . getLoc) sigs)
 
 -----------------
-mkLocalBinder :: Name -> TcType -> TcM TcId
+mkLocalBinder :: Name -> TcType -> TcM l TcId
 mkLocalBinder name ty
   = return (Id.mkLocalId name ty)
 \end{code}
@@ -356,13 +358,13 @@ Hence the getErrCtxt/setErrCtxt stuff in tcMultiple
 
 \begin{code}
 --------------------
-type Checker inp out =  forall r.
-			  inp
-		       -> PatEnv
-		       -> TcM r
-		       -> TcM (out, r)
+type Checker l inp out = forall r l.
+                          inp
+                       -> PatEnv l
+                       -> TcM l r
+                       -> TcM l (out, r)
 
-tcMultiple :: Checker inp out -> Checker [inp] [out]
+tcMultiple :: Checker l inp out -> Checker l [inp] [out]
 tcMultiple tc_pat args penv thing_inside
   = do	{ err_ctxt <- getErrCtxt
 	; let loop _ []
@@ -382,34 +384,34 @@ tcMultiple tc_pat args penv thing_inside
 	; loop penv args }
 
 --------------------
-tc_lpat :: LPat Name 
-	-> TcSigmaType
-	-> PatEnv
-	-> TcM a
-	-> TcM (LPat TcId, a)
+tc_lpat :: (ApiAnnotation l) => LPat l Name
+        -> TcSigmaType
+        -> PatEnv l
+        -> TcM l a
+        -> TcM l (LPat l TcId, a)
 tc_lpat (L span pat) pat_ty penv thing_inside
   = setSrcSpan span $
     do	{ (pat', res) <- maybeWrapPatCtxt pat (tc_pat penv pat pat_ty)
                                           thing_inside
 	; return (L span pat', res) }
 
-tc_lpats :: PatEnv
-	 -> [LPat Name] -> [TcSigmaType]
-       	 -> TcM a	
-       	 -> TcM ([LPat TcId], a)
-tc_lpats penv pats tys thing_inside 
+tc_lpats :: (ApiAnnotation l) => PatEnv l
+         -> [LPat l Name] -> [TcSigmaType]
+         -> TcM l a
+         -> TcM l ([LPat l TcId], a)
+tc_lpats penv pats tys thing_inside
   = ASSERT2( equalLength pats tys, ppr pats $$ ppr tys )
     tcMultiple (\(p,t) -> tc_lpat p t) 
                 (zipEqual "tc_lpats" pats tys)
                 penv thing_inside 
 
 --------------------
-tc_pat	:: PatEnv
-        -> Pat Name 
-        -> TcSigmaType	-- Fully refined result type
-        -> TcM a		-- Thing inside
-        -> TcM (Pat TcId, 	-- Translated pattern
-                a)		-- Result of thing inside
+tc_pat  :: (ApiAnnotation l) => PatEnv l
+        -> Pat l Name
+        -> TcSigmaType  -- Fully refined result type
+        -> TcM l a              -- Thing inside
+        -> TcM l (Pat l TcId,   -- Translated pattern
+                  a)            -- Result of thing inside
 
 tc_pat penv (VarPat name) pat_ty thing_inside
   = do	{ (co, id) <- tcPatBndr penv name pat_ty
@@ -537,7 +539,7 @@ tc_pat penv (TuplePat pats boxity _) pat_ty thing_inside
                                  -- pat_ty /= pat_ty iff coi /= IdCo
 	      possibly_mangled_result
 	        | gopt Opt_IrrefutableTuples dflags &&
-                  isBoxed boxity            = LazyPat (noLoc unmangled_result)
+                  isBoxed boxity            = LazyPat (annNoLoc unmangled_result)
 	        | otherwise		    = unmangled_result
 
  	; ASSERT( length arg_tys == length pats )      -- Syntactically enforced
@@ -596,7 +598,7 @@ tc_pat penv (NPlusKPat (L nm_loc name) lit ge minus) pat_ty thing_inside
 tc_pat _ _other_pat _ _ = panic "tc_pat" 	-- ConPatOut, SigPatOut
 
 ----------------
-unifyPatType :: TcType -> TcType -> TcM TcCoercion
+unifyPatType :: (ApiAnnotation l) => TcType -> TcType -> TcM l TcCoercion
 -- In patterns we want a coercion from the
 -- context type (expected) to the actual pattern type
 -- But we don't want to reverse the args to unifyType because
@@ -694,10 +696,10 @@ to express the local scope of GADT refinements.
 -- MkT :: forall a b c. (a~[b]) => b -> c -> T a
 -- 	 with scrutinee of type (T ty)
 
-tcConPat :: PatEnv -> Located Name 
-	 -> TcRhoType  	       	-- Type of the pattern
-	 -> HsConPatDetails Name -> TcM a
-	 -> TcM (Pat TcId, a)
+tcConPat :: (ApiAnnotation l) => PatEnv l -> GenLocated l Name
+         -> TcRhoType           -- Type of the pattern
+         -> HsConPatDetails l Name -> TcM l a
+         -> TcM l (Pat l TcId, a)
 tcConPat penv con_lname@(L _ con_name) pat_ty arg_pats thing_inside
   = do  { con_like <- tcLookupConLike con_name
         ; case con_like of
@@ -707,10 +709,10 @@ tcConPat penv con_lname@(L _ con_name) pat_ty arg_pats thing_inside
                                              pat_ty arg_pats thing_inside
         }
 
-tcDataConPat :: PatEnv -> Located Name -> DataCon
-	     -> TcRhoType  	       	-- Type of the pattern
-	     -> HsConPatDetails Name -> TcM a
-	     -> TcM (Pat TcId, a)
+tcDataConPat :: (ApiAnnotation l) => PatEnv l -> GenLocated l Name -> DataCon
+             -> TcRhoType               -- Type of the pattern
+             -> HsConPatDetails l Name -> TcM l a
+             -> TcM l (Pat l TcId, a)
 tcDataConPat penv (L con_span con_name) data_con pat_ty arg_pats thing_inside
   = do	{ let tycon = dataConTyCon data_con
          	  -- For data families this is the representation tycon
@@ -786,10 +788,10 @@ tcDataConPat penv (L con_span con_name) data_con pat_ty arg_pats thing_inside
 	; return (mkHsWrapPat wrap res_pat pat_ty, res)
 	} }
 
-tcPatSynPat :: PatEnv -> Located Name -> PatSyn
-	    -> TcRhoType  	       	-- Type of the pattern
-	    -> HsConPatDetails Name -> TcM a
-	    -> TcM (Pat TcId, a)
+tcPatSynPat :: (ApiAnnotation l) => PatEnv l -> GenLocated l Name -> PatSyn
+            -> TcRhoType                -- Type of the pattern
+            -> HsConPatDetails l Name -> TcM l a
+            -> TcM l (Pat l TcId, a)
 tcPatSynPat penv (L con_span _) pat_syn pat_ty arg_pats thing_inside
   = do	{ let (univ_tvs, ex_tvs, prov_theta, req_theta, arg_tys, ty) = patSynSig pat_syn
 
@@ -842,8 +844,8 @@ tcPatSynPat penv (L con_span _) pat_syn pat_ty arg_pats thing_inside
 	; return (mkHsWrapPat wrap res_pat pat_ty, res) }
 
 ----------------------------
-matchExpectedPatTy :: (TcRhoType -> TcM (TcCoercion, a))
-                    -> TcRhoType -> TcM (HsWrapper, a) 
+matchExpectedPatTy :: (ApiAnnotation l) => (TcRhoType -> TcM l (TcCoercion, a))
+                    -> TcRhoType -> TcM l (HsWrapper, a)
 -- See Note [Matching polytyped patterns]
 -- Returns a wrapper : pat_ty ~ inner_ty
 matchExpectedPatTy inner_match pat_ty
@@ -862,10 +864,11 @@ matchExpectedPatTy inner_match pat_ty
     (tvs, theta, tau) = tcSplitSigmaTy pat_ty
 
 ----------------------------
-matchExpectedConTy :: TyCon  	 -- The TyCon that this data 
-		    		 -- constructor actually returns
-		   -> TcRhoType  -- The type of the pattern
-		   -> TcM (TcCoercion, [TcSigmaType])
+matchExpectedConTy :: (ApiAnnotation l)
+                   => TyCon      -- The TyCon that this data
+                                 -- constructor actually returns
+                   -> TcRhoType  -- The type of the pattern
+                   -> TcM l (TcCoercion, [TcSigmaType])
 -- See Note [Matching constructor patterns]
 -- Returns a coercion : T ty1 ... tyn ~ pat_ty
 -- This is the same way round as matchExpectedListTy etc
@@ -921,8 +924,8 @@ Suppose (coi, tys) = matchExpectedConType data_tc pat_ty
    error messages; it's a purely internal thing
 
 \begin{code}
-tcConArgs :: ConLike -> [TcSigmaType]
-	  -> Checker (HsConPatDetails Name) (HsConPatDetails Id)
+tcConArgs :: (ApiAnnotation l) => ConLike -> [TcSigmaType]
+          -> Checker l (HsConPatDetails l Name) (HsConPatDetails l Id)
 
 tcConArgs con_like arg_tys (PrefixCon arg_pats) penv thing_inside
   = do	{ checkTc (con_arity == no_of_args)	-- Check correct arity
@@ -949,13 +952,14 @@ tcConArgs con_like arg_tys (RecCon (HsRecFields rpats dd)) penv thing_inside
   = do	{ (rpats', res) <- tcMultiple tc_field rpats penv thing_inside
 	; return (RecCon (HsRecFields rpats' dd), res) }
   where
-    tc_field :: Checker (HsRecField FieldLabel (LPat Name)) (HsRecField TcId (LPat TcId))
+    tc_field :: Checker l (HsRecField l FieldLabel (LPat l Name))
+                          (HsRecField l TcId (LPat l TcId))
     tc_field (HsRecField field_lbl pat pun) penv thing_inside
       = do { (sel_id, pat_ty) <- wrapLocFstM find_field_ty field_lbl
 	   ; (pat', res) <- tcConArg (pat, pat_ty) penv thing_inside
 	   ; return (HsRecField sel_id pat' pun, res) }
 
-    find_field_ty :: FieldLabel -> TcM (Id, TcType)
+    find_field_ty :: FieldLabel -> TcM l (Id, TcType)
     find_field_ty field_lbl
 	= case [ty | (f,ty) <- field_tys, f == field_lbl] of
 
@@ -985,13 +989,13 @@ conLikeArity :: ConLike -> Arity
 conLikeArity (RealDataCon data_con) = dataConSourceArity data_con
 conLikeArity (PatSynCon   pat_syn)  = patSynArity pat_syn
 
-tcConArg :: Checker (LPat Name, TcSigmaType) (LPat Id)
+tcConArg :: Checker l (LPat l Name, TcSigmaType) (LPat l Id)
 tcConArg (arg_pat, arg_ty) penv thing_inside
   = tc_lpat arg_pat arg_ty penv thing_inside
 \end{code}
 
 \begin{code}
-addDataConStupidTheta :: DataCon -> [TcType] -> TcM ()
+addDataConStupidTheta :: (ApiAnnotation l) => DataCon -> [TcType] -> TcM l ()
 -- Instantiate the "stupid theta" of the data con, and throw 
 -- the constraints into the constraint set
 addDataConStupidTheta data_con inst_tys
@@ -1100,7 +1104,8 @@ Meanwhile, the strategy is:
 %************************************************************************
 
 \begin{code}
-maybeWrapPatCtxt :: Pat Name -> (TcM a -> TcM b) -> TcM a -> TcM b
+maybeWrapPatCtxt :: (ApiAnnotation l)
+                 => Pat l Name -> (TcM l a -> TcM l b) -> TcM l a -> TcM l b
 -- Not all patterns are worth pushing a context
 maybeWrapPatCtxt pat tcm thing_inside 
   | not (worth_wrapping pat) = tcm thing_inside
@@ -1114,8 +1119,8 @@ maybeWrapPatCtxt pat tcm thing_inside
    msg = hang (ptext (sLit "In the pattern:")) 2 (ppr pat)
 
 -----------------------------------------------
-checkExistentials :: [TyVar] -> PatEnv -> TcM ()
-	  -- See Note [Arrows and patterns]
+checkExistentials :: (ApiAnnotation l) => [TyVar] -> PatEnv l -> TcM l ()
+          -- See Note [Arrows and patterns]
 checkExistentials [] _                                 = return ()
 checkExistentials _ (PE { pe_ctxt = LetPat {}})        = failWithTc existentialLetPat
 checkExistentials _ (PE { pe_ctxt = LamPat ProcExpr }) = failWithTc existentialProcPat
@@ -1147,7 +1152,8 @@ polyPatSig sig_ty
   = hang (ptext (sLit "Illegal polymorphic type signature in pattern:"))
        2 (ppr sig_ty)
 
-lazyUnliftedPatErr :: OutputableBndr name => Pat name -> TcM ()
+lazyUnliftedPatErr :: (ApiAnnotation l, OutputableBndr name)
+                   => Pat l name -> TcM l ()
 lazyUnliftedPatErr pat
   = failWithTc $
     hang (ptext (sLit "A lazy (~) pattern cannot contain unlifted types:"))

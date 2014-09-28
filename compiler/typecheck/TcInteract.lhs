@@ -1,5 +1,6 @@
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module TcInteract (
      solveInteractGiven,  -- Solves [EvVar],GivenLoc
@@ -50,6 +51,7 @@ import Unique( hasKey )
 import FastString ( sLit, fsLit )
 import DynFlags
 import Util
+import SrcLoc ( ApiAnnotation )
 \end{code}
 
 **********************************************************************
@@ -82,7 +84,8 @@ If in Step 1 no such element exists, we have exceeded our context-stack
 depth and will simply fail.
 
 \begin{code}
-solveInteractGiven :: CtLoc -> [TcTyVar] -> [EvVar] -> TcS (Bool, [TcTyVar])
+solveInteractGiven :: (ApiAnnotation l)
+                   => CtLoc l -> [TcTyVar] -> [EvVar] -> TcS l (Bool, [TcTyVar])
 solveInteractGiven loc old_fsks givens
   | null givens  -- Shortcut for common case
   = return (True, old_fsks)
@@ -115,7 +118,7 @@ solveInteractGiven loc old_fsks givens
 
 -- The main solver loop implements Note [Basic Simplifier Plan]
 ---------------------------------------------------------------
-solveInteract :: Cts -> TcS (Bag Implication)
+solveInteract :: (ApiAnnotation l) => Cts l -> TcS l (Bag (Implication l))
 -- Returns the final InertSet in TcS
 -- Has no effect on work-list or residual-iplications
 solveInteract cts
@@ -135,23 +138,23 @@ solveInteract cts
               NextWorkItem ct     -- More work, loop around!
                 -> do { runSolverPipeline thePipeline ct; solve_loop max_depth } }
 
-type WorkItem = Ct
-type SimplifierStage = WorkItem -> TcS StopOrContinue
+type WorkItem l = Ct l
+type SimplifierStage l = WorkItem l -> TcS l (StopOrContinue l)
 
-data SelectWorkItem
+data SelectWorkItem l
        = NoWorkRemaining      -- No more work left (effectively we're done!)
-       | MaxDepthExceeded SubGoalCounter Ct
+       | MaxDepthExceeded SubGoalCounter (Ct l)
                               -- More work left to do but this constraint has exceeded
                               -- the maximum depth for one of the subgoal counters and we
                               -- must stop
-       | NextWorkItem Ct      -- More work left, here's the next item to look at
+       | NextWorkItem (Ct l)  -- More work left, here's the next item to look at
 
 selectNextWorkItem :: SubGoalDepth -- Max depth allowed
-                   -> TcS SelectWorkItem
+                   -> TcS l (SelectWorkItem l)
 selectNextWorkItem max_depth
   = updWorkListTcS_return pick_next
   where
-    pick_next :: WorkList -> (SelectWorkItem, WorkList)
+    pick_next :: WorkList l -> (SelectWorkItem l, WorkList l)
     pick_next wl
       = case selectWorkItem wl of
           (Nothing,_)
@@ -162,9 +165,10 @@ selectNextWorkItem max_depth
           (Just ct, new_wl)
               -> (NextWorkItem ct, new_wl)      -- New workitem and worklist
 
-runSolverPipeline :: [(String,SimplifierStage)] -- The pipeline
-                  -> WorkItem                   -- The work item
-                  -> TcS ()
+runSolverPipeline :: (ApiAnnotation l)
+                  => [(String,SimplifierStage l)] -- The pipeline
+                  -> WorkItem l                   -- The work item
+                  -> TcS l ()
 -- Run this item down the pipeline, leaving behind new work and inerts
 runSolverPipeline pipeline workItem
   = do { initial_is <- getTcSInerts
@@ -187,7 +191,9 @@ runSolverPipeline pipeline workItem
                                             , ptext (sLit "inerts     = ") <+> ppr final_is]
                                  ; insertInertItemTcS ct }
        }
-  where run_pipeline :: [(String,SimplifierStage)] -> StopOrContinue -> TcS StopOrContinue
+  where run_pipeline :: (ApiAnnotation l)
+                     => [(String,SimplifierStage l)] -> StopOrContinue l
+                     -> TcS l (StopOrContinue l)
         run_pipeline [] res = return res
         run_pipeline _ Stop = return Stop
         run_pipeline ((stg_name,stg):stgs) (ContinueWith ct)
@@ -223,7 +229,7 @@ React with (a ~ Int)   ==> IR (ContinueWith (F Int ~ b)) True []
 React with (F Int ~ b) ==> IR Stop True []    -- after substituting we re-canonicalize and get nothing
 
 \begin{code}
-thePipeline :: [(String,SimplifierStage)]
+thePipeline :: (ApiAnnotation l) => [(String,SimplifierStage l)]
 thePipeline = [ ("canonicalization",        TcCanonical.canonicalize)
               , ("interact with inerts",    interactWithInertsStage)
               , ("top-level reactions",     topReactionsStage) ]
@@ -266,7 +272,8 @@ or, equivalently,
 
 type StopNowFlag = Bool    -- True <=> stop after this interaction
 
-interactWithInertsStage :: WorkItem -> TcS StopOrContinue
+interactWithInertsStage :: (ApiAnnotation l)
+                        => WorkItem l -> TcS l (StopOrContinue l)
 -- Precondition: if the workitem is a CTyEqCan then it will not be able to
 -- react with anything at this stage.
 
@@ -296,9 +303,10 @@ instance Outputable InteractResult where
   ppr IRReplace = ptext (sLit "replace")
   ppr IRDelete  = ptext (sLit "delete")
 
-solveOneFromTheOther :: CtEvidence  -- Inert
-                     -> CtEvidence  -- WorkItem
-                     -> TcS (InteractResult, StopNowFlag)
+solveOneFromTheOther :: (ApiAnnotation l)
+                     => CtEvidence l -- Inert
+                     -> CtEvidence l -- WorkItem
+                     -> TcS l (InteractResult, StopNowFlag)
 -- Preconditions:
 -- 1) inert and work item represent evidence for the /same/ predicate
 -- 2) ip/class/irred evidence (no coercions) only
@@ -336,7 +344,8 @@ solveOneFromTheOther ev_i ev_w
 -- we can rewrite them. We can never improve using this:
 -- if we want ty1 :: Constraint and have ty2 :: Constraint it clearly does not
 -- mean that (ty1 ~ ty2)
-interactIrred :: InertCans -> Ct -> TcS (Maybe InertCans, StopNowFlag)
+interactIrred :: (ApiAnnotation l)
+              => InertCans l -> Ct l -> TcS l (Maybe (InertCans l), StopNowFlag)
 
 interactIrred inerts workItem@(CIrredEvCan { cc_ev = ev_w })
   | let pred = ctEvPred ev_w
@@ -367,7 +376,8 @@ interactIrred _ wi = pprPanic "interactIrred" (ppr wi)
 *********************************************************************************
 
 \begin{code}
-interactDict :: InertCans -> Ct -> TcS (Maybe InertCans, StopNowFlag)
+interactDict :: (ApiAnnotation l)
+             => InertCans l -> Ct l -> TcS l (Maybe (InertCans l), StopNowFlag)
 interactDict inerts workItem@(CDictCan { cc_ev = ev_w, cc_class = cls, cc_tyargs = tys })
   | let dicts = inert_dicts inerts
   , Just ct_i <- findDict (inert_dicts inerts) cls tys
@@ -393,7 +403,8 @@ interactDict inerts workItem@(CDictCan { cc_ev = ev_w, cc_class = cls, cc_tyargs
 
 interactDict _ wi = pprPanic "interactDict" (ppr wi)
 
-interactGivenIP :: InertCans -> Ct -> TcS (Maybe InertCans, StopNowFlag)
+interactGivenIP :: InertCans l -> Ct l
+                -> TcS l (Maybe (InertCans l), StopNowFlag)
 -- Work item is Given (?x:ty)
 -- See Note [Shadowing of Implicit Parameters]
 interactGivenIP inerts workItem@(CDictCan { cc_class = cls, cc_tyargs = tys@(ip_str:_) })
@@ -412,7 +423,7 @@ interactGivenIP inerts workItem@(CDictCan { cc_class = cls, cc_tyargs = tys@(ip_
 
 interactGivenIP _ wi = pprPanic "interactGivenIP" (ppr wi)
 
-addFunDepWork :: Ct -> Ct -> TcS ()
+addFunDepWork :: (ApiAnnotation l) => Ct l -> Ct l -> TcS l ()
 addFunDepWork work_ct inert_ct
   = do {  let fd_eqns = improveFromAnother (ctPred inert_ct) (ctPred work_ct)
        ; fd_work <- rewriteWithFunDeps fd_eqns (ctLoc work_ct)
@@ -489,7 +500,8 @@ I can think of two ways to fix this:
 *********************************************************************************
 
 \begin{code}
-interactFunEq :: InertCans -> Ct -> TcS (Maybe InertCans, StopNowFlag)
+interactFunEq :: (ApiAnnotation l) => InertCans l -> Ct l
+              -> TcS l (Maybe (InertCans l), StopNowFlag)
 interactFunEq inerts workItem@(CFunEqCan { cc_ev = ev, cc_fun = tc
                                          , cc_tyargs = args, cc_rhs = rhs })
   | (CFunEqCan { cc_ev = ev_i, cc_rhs = rhs_i } : _) <- matching_inerts
@@ -552,11 +564,12 @@ interactFunEq inerts workItem@(CFunEqCan { cc_ev = ev, cc_fun = tc
 interactFunEq _ wi = pprPanic "interactFunEq" (ppr wi)
 
 
-solveFunEq :: CtEvidence    -- From this  :: F tys ~ xi1
+solveFunEq :: (ApiAnnotation l)
+           => CtEvidence l  -- From this  :: F tys ~ xi1
            -> Type
-           -> CtEvidence    -- Solve this :: F tys ~ xi2
+           -> CtEvidence l  -- Solve this :: F tys ~ xi2
            -> Type
-           -> TcS ()
+           -> TcS l ()
 solveFunEq from_this xi1 solve_this xi2
   = do { ctevs <- xCtEvidence solve_this xev
              -- No caching!  See Note [Cache-caused loops]
@@ -667,7 +680,8 @@ test when solving pairwise CFunEqCan.
 *********************************************************************************
 
 \begin{code}
-interactTyVarEq :: InertCans -> Ct -> TcS (Maybe InertCans, StopNowFlag)
+interactTyVarEq :: (ApiAnnotation l) => InertCans l -> Ct l
+                -> TcS l (Maybe (InertCans l), StopNowFlag)
 -- CTyEqCans are always consumed, returning Stop
 interactTyVarEq inerts workItem@(CTyEqCan { cc_tyvar = tv, cc_rhs = rhs , cc_ev = ev })
   | (ev_i : _) <- [ ev_i | CTyEqCan { cc_ev = ev_i, cc_rhs = rhs_i }
@@ -720,7 +734,7 @@ interactTyVarEq inerts workItem@(CTyEqCan { cc_tyvar = tv, cc_rhs = rhs , cc_ev 
 
 interactTyVarEq _ wi = pprPanic "interactTyVarEq" (ppr wi)
 
-givenFlavour :: CtEvidence
+givenFlavour :: CtEvidence l
 -- Used just to pass to kickOutRewritable
 givenFlavour = CtGiven { ctev_pred = panic "givenFlavour:ev"
                        , ctev_evtm = panic "givenFlavour:tm"
@@ -747,11 +761,12 @@ and only record them in the TyBinds of the TcS monad. The flattener is now consu
 these binds /and/ the inerts for potentially unsolved or other given equalities.
 
 \begin{code}
-kickOutRewritable :: CtEvidence   -- Flavour of the equality that is
+kickOutRewritable :: forall l. (ApiAnnotation l)
+                  => CtEvidence l -- Flavour of the equality that is
                                   -- being added to the inert set
                   -> TcTyVar      -- The new equality is tv ~ ty
-                  -> InertCans
-                  -> TcS (Int, InertCans)
+                  -> InertCans l
+                  -> TcS l (Int, InertCans l)
 kickOutRewritable new_ev new_tv
                   inert_cans@(IC { inert_eqs = tv_eqs
                                  , inert_dicts  = dictmap
@@ -792,18 +807,18 @@ kickOutRewritable new_ev new_tv
     (insols_out, insols_in)  = partitionBag     kick_out_ct    insols
       -- Kick out even insolubles; see Note [Kick out insolubles]
 
-    kick_out_ct :: Ct -> Bool
+    kick_out_ct :: Ct l -> Bool
     kick_out_ct ct =  new_ev `canRewrite` ctEvidence ct
                    && new_tv `elemVarSet` tyVarsOfCt ct
          -- See Note [Kicking out inert constraints]
 
-    kick_out_irred :: Ct -> Bool
+    kick_out_irred :: Ct l -> Bool
     kick_out_irred ct =  new_ev `canRewrite` ctEvidence ct
                       && new_tv `elemVarSet` closeOverKinds (tyVarsOfCt ct)
           -- See Note [Kicking out Irreds]
 
-    kick_out_eqs :: EqualCtList -> ([Ct], TyVarEnv EqualCtList) 
-                 -> ([Ct], TyVarEnv EqualCtList)
+    kick_out_eqs :: EqualCtList l -> ([Ct l], TyVarEnv (EqualCtList l))
+                 -> ([Ct l], TyVarEnv (EqualCtList l))
     kick_out_eqs eqs (acc_out, acc_in)
       = (eqs_out ++ acc_out, case eqs_in of
                                []      -> acc_in
@@ -812,7 +827,7 @@ kickOutRewritable new_ev new_tv
         (eqs_out, eqs_in) = partition kick_out_eq eqs
 
 
-    kick_out_eq :: Ct -> Bool
+    kick_out_eq :: Ct l -> Bool
     kick_out_eq (CTyEqCan { cc_tyvar = tv, cc_rhs = rhs, cc_ev = ev })
       =  (new_ev `canRewrite` ev)  -- See Note [Delicate equality kick-out]
       && (new_tv `elemVarSet` kind_vars ||    -- (1)
@@ -907,7 +922,8 @@ data SPSolveResult = SPCantSolve
 
 -- @trySpontaneousSolve wi@ solves equalities where one side is a
 -- touchable unification variable.
-trySpontaneousSolve :: CtEvidence -> TcTyVar -> Xi -> TcS SPSolveResult
+trySpontaneousSolve :: (ApiAnnotation l)
+                    => CtEvidence l -> TcTyVar -> Xi -> TcS l SPSolveResult
 trySpontaneousSolve gw tv1 xi
   | isGiven gw   -- See Note [Touchables and givens]
   = return SPCantSolve
@@ -926,7 +942,8 @@ trySpontaneousSolve gw tv1 xi
                  else return SPCantSolve }
 
 ----------------
-trySpontaneousEqOneWay :: CtEvidence -> TcTyVar -> Xi -> TcS SPSolveResult
+trySpontaneousEqOneWay :: (ApiAnnotation l)
+                       => CtEvidence l -> TcTyVar -> Xi -> TcS l SPSolveResult
 -- tv is a MetaTyVar, not untouchable
 trySpontaneousEqOneWay gw tv xi
   | not (isSigTyVar tv) || isTyVarTy xi
@@ -936,7 +953,9 @@ trySpontaneousEqOneWay gw tv xi
   = return SPCantSolve
 
 ----------------
-trySpontaneousEqTwoWay :: CtEvidence -> TcTyVar -> TcTyVar -> TcS SPSolveResult
+trySpontaneousEqTwoWay :: (ApiAnnotation l)
+                       => CtEvidence l -> TcTyVar -> TcTyVar
+                       -> TcS l SPSolveResult
 -- Both tyvars are *touchable* MetaTyvars so there is only a chance for kind error here
 
 trySpontaneousEqTwoWay gw tv1 tv2
@@ -971,7 +990,8 @@ double unifications is the main reason we disallow touchable
 unification variables as RHS of type family equations: F xis ~ alpha.
 
 \begin{code}
-solveWithIdentity :: CtEvidence -> TcTyVar -> Xi -> TcS SPSolveResult
+solveWithIdentity :: (ApiAnnotation l)
+                  => CtEvidence l -> TcTyVar -> Xi -> TcS l SPSolveResult
 -- Solve with the identity coercion
 -- Precondition: kind(xi) is a sub-kind of kind(tv)
 -- Precondition: CtEvidence is Wanted or Derived
@@ -1353,14 +1373,14 @@ To achieve this required some refactoring of FunDeps.lhs (nicer
 now!).
 
 \begin{code}
-rewriteWithFunDeps :: [Equation] -> CtLoc -> TcS [Ct]
+rewriteWithFunDeps :: (ApiAnnotation l) => [Equation] -> CtLoc l -> TcS l [Ct l]
 -- NB: The returned constraints are all Derived
 -- Post: returns no trivial equalities (identities) and all EvVars returned are fresh
 rewriteWithFunDeps eqn_pred_locs loc
  = do { fd_cts <- mapM (instFunDepEqn loc) eqn_pred_locs
       ; return (concat fd_cts) }
 
-instFunDepEqn :: CtLoc -> Equation -> TcS [Ct]
+instFunDepEqn :: (ApiAnnotation l) => CtLoc l -> Equation -> TcS l [Ct l]
 -- Post: Returns the position index as well as the corresponding FunDep equality
 instFunDepEqn loc (FDEqn { fd_qtvs = tvs, fd_eqs = eqs })
   = do { (subst, _) <- instFlexiTcS tvs  -- Takes account of kind substitution
@@ -1392,7 +1412,7 @@ instFunDepEqn loc (FDEqn { fd_qtvs = tvs, fd_eqs = eqs })
 *********************************************************************************
 
 \begin{code}
-topReactionsStage :: WorkItem -> TcS StopOrContinue
+topReactionsStage :: (ApiAnnotation l) => WorkItem l -> TcS l (StopOrContinue l)
 topReactionsStage wi
  = do { inerts <- getTcSInerts
       ; tir <- doTopReact inerts wi
@@ -1403,12 +1423,13 @@ topReactionsStage wi
                            ptext (sLit "Top react:") <+> text rule
                          ; return what_next } }
 
-data TopInteractResult
+data TopInteractResult l
  = NoTopInt
- | SomeTopInt { tir_rule :: String, tir_new_item :: StopOrContinue }
+ | SomeTopInt { tir_rule :: String, tir_new_item :: (StopOrContinue l) }
 
 
-doTopReact :: InertSet -> WorkItem -> TcS TopInteractResult
+doTopReact :: (ApiAnnotation l)
+           => InertSet l -> WorkItem l -> TcS l (TopInteractResult l)
 -- The work item does not react with the inert set, so try interaction with top-level
 -- instances. Note:
 --
@@ -1432,7 +1453,9 @@ doTopReact inerts workItem
                  return NoTopInt  }
 
 --------------------
-doTopReactDict :: InertSet -> CtEvidence -> Class -> [Xi] -> TcS TopInteractResult
+doTopReactDict :: forall l. (ApiAnnotation l)
+               => InertSet l -> CtEvidence l -> Class -> [Xi]
+               -> TcS l (TopInteractResult l)
 -- Try to use type-class instance declarations to simplify the constraint
 doTopReactDict inerts fl cls xis
   | not (isWanted fl)   -- Never use instances for Given or Derived constraints
@@ -1455,7 +1478,8 @@ doTopReactDict inerts fl cls xis
      pred = mkClassPred cls xis
      loc = ctev_loc fl
 
-     solve_from_instance :: [CtEvidence] -> EvTerm -> TcS TopInteractResult
+     solve_from_instance :: [CtEvidence l] -> EvTerm
+                         -> TcS l (TopInteractResult l)
       -- Precondition: evidence term matches the predicate workItem
      solve_from_instance evs ev_term
         | null evs
@@ -1491,7 +1515,9 @@ doTopReactDict inerts fl cls xis
             ; return NoTopInt }
 
 --------------------
-doTopReactFunEq :: Ct -> CtEvidence -> TyCon -> [Xi] -> Xi -> TcS TopInteractResult
+doTopReactFunEq :: forall l. (ApiAnnotation l)
+                => Ct l -> CtEvidence l -> TyCon -> [Xi] -> Xi
+                -> TcS l (TopInteractResult l)
 doTopReactFunEq _ct fl fun_tc args xi
   = ASSERT(isSynFamilyTyCon fun_tc) -- No associated data families have
                                      -- reached this far
@@ -1527,7 +1553,8 @@ doTopReactFunEq _ct fl fun_tc args xi
       | otherwise
       = return ()
 
-    succeed_with :: String -> TcCoercion -> TcType -> TcS TopInteractResult
+    succeed_with :: String -> TcCoercion -> TcType
+                 -> TcS l (TopInteractResult l)
     succeed_with str co rhs_ty    -- co :: fun_tc args ~ rhs_ty
       = do { ctevs <- xCtEvidence fl xev
            ; traceTcS ("doTopReactFunEq " ++ str) (ppr ctevs)
@@ -1790,16 +1817,18 @@ NB: The desugarer needs be more clever to deal with equalities
     that participate in recursive dictionary bindings.
 
 \begin{code}
-data LookupInstResult
+data LookupInstResult l
   = NoInstance
-  | GenInst [CtEvidence] EvTerm
+  | GenInst [CtEvidence l] EvTerm
 
-instance Outputable LookupInstResult where
+instance Outputable (LookupInstResult l) where
   ppr NoInstance = text "NoInstance"
   ppr (GenInst ev t) = text "GenInst" <+> ppr ev <+> ppr t
 
 
-matchClassInst :: InertSet -> Class -> [Type] -> CtLoc -> TcS LookupInstResult
+matchClassInst :: forall l. (ApiAnnotation l)
+               => InertSet l -> Class -> [Type] -> CtLoc l
+               -> TcS l (LookupInstResult l)
 
 matchClassInst _ clas [ ty ] _
   | className clas == knownNatClassName
@@ -1883,7 +1912,7 @@ matchClassInst inerts clas tys loc
    where
      pred = mkClassPred clas tys
 
-     match_one :: DFunId -> [Maybe TcType] -> TcS LookupInstResult
+     match_one :: DFunId -> [Maybe TcType] -> TcS l (LookupInstResult l)
                   -- See Note [DFunInstType: instantiating types] in InstEnv
      match_one dfun_id mb_inst_tys
        = do { checkWellStagedDFun pred dfun_id loc
@@ -1898,7 +1927,7 @@ matchClassInst inerts clas tys loc
                   dfun_app = EvDFunApp dfun_id tys (getEvTerms evc_vars)
             ; return $ GenInst new_ev_vars dfun_app } }
 
-     givens_for_this_clas :: Cts
+     givens_for_this_clas :: Cts l
      givens_for_this_clas
          = filterBag isGivenCt (findDictsByClass (inert_dicts $ inert_cans inerts) clas)
 
@@ -1924,14 +1953,15 @@ matchClassInst inerts clas tys loc
 
 -- See Note [Coercible Instances]
 -- Changes to this logic should likely be reflected in coercible_msg in TcErrors.
-getCoercibleInst :: CtLoc -> TcType -> TcType -> TcS LookupInstResult
+getCoercibleInst :: forall l. (ApiAnnotation l)
+                 => CtLoc l -> TcType -> TcType -> TcS l (LookupInstResult l)
 getCoercibleInst loc ty1 ty2
   = do { -- Get some global stuff in scope, for nice pattern-guard based code in `go`
          rdr_env <- getGlobalRdrEnvTcS
        ; famenv <- getFamInstEnvs
        ; go famenv rdr_env }
   where
-  go :: FamInstEnvs -> GlobalRdrEnv -> TcS LookupInstResult
+  go :: FamInstEnvs -> GlobalRdrEnv -> TcS l (LookupInstResult l)
   go famenv rdr_env
     -- Also see [Order of Coercible Instances]
 
@@ -2017,7 +2047,7 @@ dataConsInScope rdr_env tc = not hidden_data_cons
                        (isAbstractTyCon tc || any not_in_scope data_con_names)
     not_in_scope dc  = null (lookupGRE_Name rdr_env dc)
 
-markDataConsAsUsed :: GlobalRdrEnv -> TyCon -> TcS ()
+markDataConsAsUsed :: GlobalRdrEnv -> TyCon -> TcS l ()
 markDataConsAsUsed rdr_env tc = addUsedRdrNamesTcS
   [ mkRdrQual (is_as (is_decl imp_spec)) occ
   | dc <- tyConDataCons tc
@@ -2027,7 +2057,8 @@ markDataConsAsUsed rdr_env tc = addUsedRdrNamesTcS
   , not (null gres)
   , Imported (imp_spec:_) <- [gre_prov (head gres)] ]
 
-requestCoercible :: CtLoc -> TcType -> TcType -> TcS MaybeNew
+requestCoercible :: (ApiAnnotation l)
+                 => CtLoc l -> TcType -> TcType -> TcS l (MaybeNew l)
 requestCoercible loc ty1 ty2 =
     ASSERT2( typeKind ty1 `tcEqKind` typeKind ty2, ppr ty1 <+> ppr ty2)
     newWantedEvVarNonrec loc' (mkCoerciblePred ty1 ty2)

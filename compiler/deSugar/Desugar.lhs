@@ -62,7 +62,8 @@ import Control.Monad( when )
 
 \begin{code}
 -- | Main entry point to the desugarer.
-deSugar :: HscEnv -> ModLocation -> TcGblEnv l -> IO (Messages, Maybe ModGuts)
+deSugar :: (ApiAnnotation l)
+        => HscEnv -> ModLocation -> TcGblEnv l -> IO (Messages, Maybe ModGuts)
 -- Can modify PCS by faulting in more declarations
 
 deSugar hsc_env

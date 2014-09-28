@@ -1502,7 +1502,7 @@ badFieldTypes prs
        2 (vcat [ ppr f <+> dcolon <+> ppr ty | (f,ty) <- prs ])
 
 badFieldsUpd
-  :: HsRecFields Name a -- Field names that don't belong to a single datacon
+  :: HsRecFields l Name a -- Field names that don't belong to a single datacon
   -> [DataCon] -- Data cons of the type which the first field name belongs to
   -> SDoc
 badFieldsUpd rbinds data_cons

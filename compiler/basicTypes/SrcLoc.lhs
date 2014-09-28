@@ -76,7 +76,7 @@ module SrcLoc (
 
         -- ** GHC API annotations
         ApiAnnotation(..),
-        annNoLoc, annGetLoc, annSetLoc, annFromSpan
+        annNoLoc, annGetLoc, annSetLoc, annFromSpan, annCombineLocs
 
     ) where
 
@@ -182,6 +182,12 @@ annSetLoc (L l e) ss = L (annSetSpan l ss) e
 
 annFromSpan :: (ApiAnnotation l) => SrcSpan -> l
 annFromSpan s = annSetSpan annNoSpan s
+
+-- ++AZ++ : should there be a Monoid instance for ApiAnnotation and do the right thing here?
+annCombineLocs :: (ApiAnnotation l) => GenLocated l a -> GenLocated l b -> l
+annCombineLocs (L l1 _) (L l2 _)
+  = annFromSpan (combineSrcSpans (annGetSpan l1) (annGetSpan l2))
+
 
 instance ApiAnnotation SrcSpan where
   annGetSpan l = l

@@ -5,6 +5,7 @@
 
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module TcValidity (
   Rank, UserTypeCtxt(..), checkValidType, checkValidMonoType,
@@ -61,7 +62,7 @@ import Data.List        ( (\\) )
 
 
 \begin{code}
-checkAmbiguity :: UserTypeCtxt -> Type -> TcM ()
+checkAmbiguity :: (ApiAnnotation l) => UserTypeCtxt -> Type -> TcM l ()
 checkAmbiguity ctxt ty
   | GhciCtxt <- ctxt    -- Allow ambiguous types in GHCi's :kind command
   = return ()           -- E.g.   type family T a :: *  -- T :: forall k. k -> *
@@ -140,7 +141,7 @@ This might not necessarily show up in kind checking.
 
         
 \begin{code}
-checkValidType :: UserTypeCtxt -> Type -> TcM ()
+checkValidType :: (ApiAnnotation l) => UserTypeCtxt -> Type -> TcM l ()
 -- Checks that the type is valid for the given context
 -- Not used for instance decls; checkValidInstance instead
 checkValidType ctxt ty 
@@ -187,11 +188,11 @@ checkValidType ctxt ty
        ; check_kind ctxt ty
        ; traceTc "checkValidType done" (ppr ty <+> text "::" <+> ppr (typeKind ty)) }
 
-checkValidMonoType :: Type -> TcM ()
+checkValidMonoType :: (ApiAnnotation l) => Type -> TcM l ()
 checkValidMonoType ty = check_mono_type SigmaCtxt MustBeMonoType ty
 
 
-check_kind :: UserTypeCtxt -> TcType -> TcM ()
+check_kind :: (ApiAnnotation l) => UserTypeCtxt -> TcType -> TcM l ()
 -- Check that the type's kind is acceptable for the context
 check_kind ctxt ty
   | TySynCtxt {} <- ctxt
@@ -254,16 +255,16 @@ forAllAllowed (LimitedRank forall_ok _) = forall_ok
 forAllAllowed _                         = False
 
 ----------------------------------------
-check_mono_type :: UserTypeCtxt -> Rank
-                -> KindOrType -> TcM () -- No foralls anywhere
-                                        -- No unlifted types of any kind
+check_mono_type :: (ApiAnnotation l) => UserTypeCtxt -> Rank
+                -> KindOrType -> TcM l () -- No foralls anywhere
+                                          -- No unlifted types of any kind
 check_mono_type ctxt rank ty
   | isKind ty = return ()  -- IA0_NOTE: Do we need to check kinds?
   | otherwise
    = do { check_type ctxt rank ty
         ; checkTc (not (isUnLiftedType ty)) (unliftedArgErr ty) }
 
-check_type :: UserTypeCtxt -> Rank -> Type -> TcM ()
+check_type :: (ApiAnnotation l) => UserTypeCtxt -> Rank -> Type -> TcM l ()
 -- The args say what the *type context* requires, independent
 -- of *flag* settings.  You test the flag settings at usage sites.
 -- 
@@ -303,8 +304,8 @@ check_type _ _ (LitTy {}) = return ()
 check_type _ _ ty = pprPanic "check_type" (ppr ty)
 
 ----------------------------------------
-check_syn_tc_app :: UserTypeCtxt -> Rank -> KindOrType 
-                 -> TyCon -> [KindOrType] -> TcM ()
+check_syn_tc_app :: (ApiAnnotation l) => UserTypeCtxt -> Rank -> KindOrType
+                 -> TyCon -> [KindOrType] -> TcM l ()
 -- Used for type synonyms and type synonym families,
 -- which must be saturated, 
 -- but not data families, which need not be saturated
@@ -342,8 +343,8 @@ check_syn_tc_app ctxt rank ty tc tys
               | otherwise           = check_mono_type ctxt synArgMonoType
          
 ----------------------------------------
-check_ubx_tuple :: UserTypeCtxt -> KindOrType 
-                -> [KindOrType] -> TcM ()
+check_ubx_tuple :: (ApiAnnotation l) => UserTypeCtxt -> KindOrType
+                -> [KindOrType] -> TcM l ()
 check_ubx_tuple ctxt ty tys
   = do  { ub_tuples_allowed <- xoptM Opt_UnboxedTuples
         ; checkTc ub_tuples_allowed (ubxArgTyErr ty)
@@ -356,7 +357,8 @@ check_ubx_tuple ctxt ty tys
         ; mapM_ (check_type ctxt rank') tys }
     
 ----------------------------------------
-check_arg_type :: UserTypeCtxt -> Rank -> KindOrType -> TcM ()
+check_arg_type :: (ApiAnnotation l)
+               => UserTypeCtxt -> Rank -> KindOrType -> TcM l ()
 -- The sort of type that can instantiate a type variable,
 -- or be the argument of a type constructor.
 -- Not an unboxed tuple, but now *can* be a forall (since impredicativity)
@@ -462,12 +464,12 @@ in e.  For example, a constraint Foo [Int] might come out of e, and
 applying the instance decl would show up two uses of ?x.  Trac #8912.
 
 \begin{code}
-checkValidTheta :: UserTypeCtxt -> ThetaType -> TcM ()
+checkValidTheta :: (ApiAnnotation l) => UserTypeCtxt -> ThetaType -> TcM l ()
 checkValidTheta ctxt theta
   = addErrCtxt (checkThetaCtxt ctxt theta) (check_valid_theta ctxt theta)
 
 -------------------------
-check_valid_theta :: UserTypeCtxt -> [PredType] -> TcM ()
+check_valid_theta :: (ApiAnnotation l) => UserTypeCtxt -> [PredType] -> TcM l ()
 check_valid_theta _ []
   = return ()
 check_valid_theta ctxt theta
@@ -479,7 +481,8 @@ check_valid_theta ctxt theta
     (_,dups) = removeDups cmpPred theta
 
 -------------------------
-check_pred_ty :: DynFlags -> UserTypeCtxt -> PredType -> TcM ()
+check_pred_ty :: (ApiAnnotation l)
+              => DynFlags -> UserTypeCtxt -> PredType -> TcM l ()
 -- Check the validity of a predicate in a signature
 -- We look through any type synonyms; any constraint kinded
 -- type synonyms have been checked at their definition site
@@ -492,7 +495,9 @@ check_pred_ty dflags ctxt pred
       IrredPred _       -> check_irred_pred dflags ctxt pred
 
 
-check_class_pred :: DynFlags -> UserTypeCtxt -> PredType -> Class -> [TcType] -> TcM ()
+check_class_pred :: (ApiAnnotation l)
+                 => DynFlags -> UserTypeCtxt -> PredType -> Class -> [TcType]
+                 -> TcM l ()
 check_class_pred dflags ctxt pred cls tys
   = do {        -- Class predicates are valid in all contexts
        ; checkTc (arity == n_tys) arity_err
@@ -523,7 +528,9 @@ badIPPred :: PredType -> SDoc
 badIPPred pred = ptext (sLit "Illegal implicit parameter") <+> quotes (ppr pred)
 
 
-check_eq_pred :: DynFlags -> UserTypeCtxt -> PredType -> TcType -> TcType -> TcM ()
+check_eq_pred :: (ApiAnnotation l)
+              => DynFlags -> UserTypeCtxt -> PredType -> TcType -> TcType
+              -> TcM l ()
 check_eq_pred dflags _ctxt pred ty1 ty2
   = do {        -- Equational constraints are valid in all contexts if type
                 -- families are permitted
@@ -535,7 +542,9 @@ check_eq_pred dflags _ctxt pred ty1 ty2
        ; checkValidMonoType ty2
        }
 
-check_tuple_pred :: DynFlags -> UserTypeCtxt -> PredType -> [PredType] -> TcM ()
+check_tuple_pred :: (ApiAnnotation l)
+                 => DynFlags -> UserTypeCtxt -> PredType -> [PredType]
+                 -> TcM l ()
 check_tuple_pred dflags ctxt pred ts
   = do { checkTc (xopt Opt_ConstraintKinds dflags)
                  (predTupleErr pred)
@@ -543,7 +552,8 @@ check_tuple_pred dflags ctxt pred ts
     -- This case will not normally be executed because 
     -- without -XConstraintKinds tuple types are only kind-checked as *
 
-check_irred_pred :: DynFlags -> UserTypeCtxt -> PredType -> TcM ()
+check_irred_pred :: (ApiAnnotation l)
+                 => DynFlags -> UserTypeCtxt -> PredType -> TcM l ()
 check_irred_pred dflags ctxt pred
     -- The predicate looks like (X t1 t2) or (x t1 t2) :: Constraint
     -- But X is not a synonym; that's been expanded already
@@ -762,7 +772,8 @@ compiled elsewhere). In these cases, we let them go through anyway.
 We can also have instances for functions: @instance Foo (a -> b) ...@.
 
 \begin{code}
-checkValidInstHead :: UserTypeCtxt -> Class -> [Type] -> TcM ()
+checkValidInstHead :: (ApiAnnotation l)
+                   => UserTypeCtxt -> Class -> [Type] -> TcM l ()
 checkValidInstHead ctxt clas cls_args
   = do { dflags <- getDynFlags
 
@@ -860,8 +871,9 @@ validDerivPred tv_set pred
 %************************************************************************
 
 \begin{code}
-checkValidInstance :: UserTypeCtxt -> LHsType Name -> Type
-                   -> TcM ([TyVar], ThetaType, Class, [Type])
+checkValidInstance :: (ApiAnnotation l)
+                   => UserTypeCtxt -> LHsType l Name -> Type
+                   -> TcM l ([TyVar], ThetaType, Class, [Type])
 checkValidInstance ctxt hs_type ty
   | Just (clas,inst_tys) <- getClassPredTys_maybe tau
   , inst_tys `lengthIs` classArity clas
@@ -920,7 +932,8 @@ The underlying idea is that
 
 
 \begin{code}
-checkInstTermination :: [TcType] -> ThetaType -> TcM ()
+checkInstTermination :: forall l. (ApiAnnotation l)
+                     => [TcType] -> ThetaType -> TcM l ()
 -- See Note [Paterson conditions]
 checkInstTermination tys theta
   = check_preds theta
@@ -928,10 +941,10 @@ checkInstTermination tys theta
    fvs  = fvTypes tys
    size = sizeTypes tys
 
-   check_preds :: [PredType] -> TcM ()
+   check_preds :: [PredType] -> TcM l ()
    check_preds preds = mapM_ check preds
 
-   check :: PredType -> TcM ()
+   check :: (ApiAnnotation l) => PredType -> TcM l ()
    check pred 
      = case classifyPredType pred of
          TuplePred preds -> check_preds preds  -- Look inside tuple predicates; Trac #8359
@@ -1038,14 +1051,14 @@ But if the 'b' didn't scope, we would make F's instance too
 poly-kinded.
 
 \begin{code}
-checkConsistentFamInst 
-               :: Maybe ( Class
+checkConsistentFamInst :: forall l. (ApiAnnotation l)
+               => Maybe ( Class
                         , VarEnv Type )  -- ^ Class of associated type
                                          -- and instantiation of class TyVars
                -> TyCon              -- ^ Family tycon
                -> [TyVar]            -- ^ Type variables of the family instance
                -> [Type]             -- ^ Type patterns from instance
-               -> TcM ()
+               -> TcM l ()
 -- See Note [Checking consistent instantiation]
 
 checkConsistentFamInst Nothing _ _ _ = return ()
@@ -1062,7 +1075,7 @@ checkConsistentFamInst (Just (clas, mini_env)) fam_tc at_tvs at_tys
   where
     at_tv_set = mkVarSet at_tvs
 
-    check_arg :: (TyVar, Type) -> TvSubst -> TcM TvSubst
+    check_arg :: (ApiAnnotation l) => (TyVar, Type) -> TvSubst -> TcM l TvSubst
     check_arg (fam_tc_tv, at_ty) subst
       | Just inst_ty <- lookupVarEnv mini_env fam_tc_tv
       = case tcMatchTyX at_tv_set subst at_ty inst_ty of
@@ -1111,12 +1124,12 @@ wrongATArgErr ty instTy =
 -- Check that a "type instance" is well-formed (which includes decidability
 -- unless -XUndecidableInstances is given).
 --
-checkValidTyFamInst :: Maybe ( Class, VarEnv Type )
-                    -> TyCon -> CoAxBranch -> TcM ()
+checkValidTyFamInst :: (ApiAnnotation l) => Maybe ( Class, VarEnv Type )
+                    -> TyCon -> CoAxBranch -> TcM l ()
 checkValidTyFamInst mb_clsinfo fam_tc 
                     (CoAxBranch { cab_tvs = tvs, cab_lhs = typats
                                 , cab_rhs = rhs, cab_loc = loc })
-  = setSrcSpan loc $ 
+  = setSrcSpan (annFromSpan loc) $
     do { checkValidFamPats fam_tc tvs typats
 
          -- The argument patterns, and RHS, are all boxed tau types
@@ -1166,7 +1179,7 @@ checkFamInstRhs lhsTys famInsts
              -- excessive occurrences of *type* variables.
              -- e.g. type instance Demote {T k} a = T (Demote {k} (Any {k}))
 
-checkValidFamPats :: TyCon -> [TyVar] -> [Type] -> TcM ()
+checkValidFamPats :: (ApiAnnotation l) => TyCon -> [TyVar] -> [Type] -> TcM l ()
 -- Patterns in a 'type instance' or 'data instance' decl should
 -- a) contain no type family applications
 --    (vanilla synonyms are fine, though)
@@ -1188,7 +1201,7 @@ checkValidFamPats fam_tc tvs ty_pats
        ; checkTc (null unbound_tvs) (famPatErr fam_tc unbound_tvs ty_pats) }
 
 -- Ensure that no type family instances occur in a type.
-checkTyFamFreeness :: Type -> TcM ()
+checkTyFamFreeness :: (ApiAnnotation l) => Type -> TcM l ()
 checkTyFamFreeness ty
   = checkTc (isTyFamFree ty) $
     tyFamInstIllegalErr ty

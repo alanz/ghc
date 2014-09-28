@@ -654,8 +654,7 @@ mkOpAppRn e1@(L _ (OpApp e11 op1 fix1 e12)) op2 fix2 e2
     new_e <- mkOpAppRn e12 op2 fix2 e2
     return (OpApp e11 op1 fix1 (L loc' new_e))
   where
-    -- ++AZ++ : should there be a Monoid instance for ApiAnnotation and do the right thing here?
-    loc'= annFromSpan $ combineLocs e12 e2
+    loc'= annCombineLocs e12 e2
     (nofix_error, associate_right) = compareFixity fix1 fix2
 
 ---------------------------
@@ -669,7 +668,7 @@ mkOpAppRn e1@(L _ (NegApp neg_arg neg_name)) op2 fix2 e2
   = do new_e <- mkOpAppRn neg_arg op2 fix2 e2
        return (NegApp (L loc' new_e) neg_name)
   where
-    loc' = combineLocs neg_arg e2
+    loc' = annCombineLocs neg_arg e2
     (nofix_error, associate_right) = compareFixity negateFixity fix2
 
 ---------------------------
@@ -888,14 +887,14 @@ warnUnusedForAlls in_doc bound mentioned_rdrs
         vcat [ ptext (sLit "Unused quantified type variable") <+> quotes (ppr tv)
              , in_doc ]
 
-warnContextQuantification :: (ApiAnnotation l)
+warnContextQuantification :: forall l. (ApiAnnotation l)
                           => SDoc -> [LHsTyVarBndr l RdrName] -> TcM l ()
 warnContextQuantification in_doc tvs
   = whenWOptM Opt_WarnContextQuantification $
     mapM_ add_warn tvs
   where
     add_warn (L loc tv)
-      = addWarnAt (annGetLoc loc) $
+      = addWarnAt (annGetSpan loc) $
         vcat [ ptext (sLit "Variable") <+> quotes (ppr tv) <+>
                ptext (sLit "is implicitly quantified due to a context") $$
                ptext (sLit "Use explicit forall syntax instead.") $$

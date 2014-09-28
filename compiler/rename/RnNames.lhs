@@ -166,7 +166,7 @@ rnImports imports = do
           imp_avails1 `plusImportAvails` imp_avails2,
           hpc_usage1 || hpc_usage2 )
 
-rnImportDecl  :: Module -> LImportDecl l RdrName
+rnImportDecl  :: (ApiAnnotation l) => Module -> LImportDecl l RdrName
               -> RnM l (LImportDecl l Name,
                         GlobalRdrEnv, ImportAvails, AnyHpcUsage)
 rnImportDecl this_mod
@@ -226,7 +226,7 @@ rnImportDecl this_mod
 
         qual_mod_name = as_mod `orElse` imp_mod_name
         imp_spec  = ImpDeclSpec { is_mod = imp_mod_name, is_qual = qual_only,
-                                  is_dloc = loc, is_as = qual_mod_name }
+                                  is_dloc = (annGetSpan loc), is_as = qual_mod_name }
 
     -- filter the imports according to the import declaration
     (new_imp_details, gres) <- filterImports iface imp_spec imp_details
@@ -303,7 +303,8 @@ rnImportDecl this_mod
 
         imports   = ImportAvails {
                         imp_mods       = unitModuleEnv imp_mod
-                                        [(qual_mod_name, import_all, loc, mod_safe')],
+                                        [(qual_mod_name, import_all,
+                                         (annGetSpan loc), mod_safe')],
                         imp_orphs      = orphans,
                         imp_finsts     = finsts,
                         imp_dep_mods   = mkModDeps dependent_mods,
@@ -461,7 +462,8 @@ used for source code.
         *** See "THE NAMING STORY" in HsDecls ****
 
 \begin{code}
-getLocalNonValBinders :: MiniFixityEnv l -> HsGroup l RdrName
+getLocalNonValBinders :: forall l. (ApiAnnotation l)
+                      => MiniFixityEnv l -> HsGroup l RdrName
                       -> RnM l ((TcGblEnv l, TcLclEnv l), NameSet)
 -- Get all the top-level binders bound the group *except*
 -- for value bindings, which are treated separately
@@ -504,7 +506,7 @@ getLocalNonValBinders fixity_env
         ; envs <- extendGlobalRdrEnvRn avails fixity_env
         ; return (envs, new_bndrs) } }
   where
-    for_hs_bndrs :: [Located RdrName]
+    for_hs_bndrs :: [GenLocated l RdrName]
     for_hs_bndrs = [ L decl_loc (unLoc nm)
                    | L decl_loc (ForeignImport nm _ _ _) <- foreign_decls]
 
@@ -516,7 +518,7 @@ getLocalNonValBinders fixity_env
 
       -- the SrcSpan attached to the input should be the span of the
       -- declaration, not just the name
-    new_simple :: Located RdrName -> RnM l AvailInfo
+    new_simple :: (ApiAnnotation l) => GenLocated l RdrName -> RnM l AvailInfo
     new_simple rdr_name = do{ nm <- newTopSrcBinder rdr_name
                             ; return (Avail nm) }
 
@@ -542,7 +544,8 @@ getLocalNonValBinders fixity_env
       = return []     -- Do not crash on ill-formed instances
                       -- Eg   instance !Show Int   Trac #3811c
 
-    new_di :: Maybe Name -> DataFamInstDecl l RdrName -> RnM l AvailInfo
+    new_di :: (ApiAnnotation l)
+           => Maybe Name -> DataFamInstDecl l RdrName -> RnM l AvailInfo
     new_di mb_cls ti_decl
         = do { main_name <- lookupFamInstName mb_cls (dfid_tycon ti_decl)
              ; sub_names <- mapM newTopSrcBinder (hsDataFamInstBinders ti_decl)
@@ -601,7 +604,7 @@ Note that the imp_occ_env will have entries for data constructors too,
 although we never look up data constructors.
 
 \begin{code}
-filterImports :: ModIface
+filterImports :: forall l. (ApiAnnotation l) => ModIface
               -> ImpDeclSpec              -- The span for the entire import decl
               -> Maybe (Bool, [LIE l RdrName])    -- Import spec; True => hiding
               -> RnM l (Maybe (Bool, [LIE l Name]), -- Import spec w/ Names
@@ -951,7 +954,8 @@ type ExportOccMap = OccEnv (Name, IE RdrName)
         --   it came from.  It's illegal to export two distinct things
         --   that have the same occurrence name
 
-rnExports :: Bool       -- False => no 'module M(..) where' header at all
+rnExports :: (ApiAnnotation l)
+          => Bool       -- False => no 'module M(..) where' header at all
           -> Maybe [LIE l RdrName]   -- Nothing => no explicit export list
           -> TcGblEnv l
           -> RnM l (TcGblEnv l)
@@ -1304,7 +1308,7 @@ type ImportDeclUsage l
 \end{code}
 
 \begin{code}
-warnUnusedImportDecls :: TcGblEnv l -> RnM l ()
+warnUnusedImportDecls :: forall l. (ApiAnnotation l) => TcGblEnv l -> RnM l ()
 warnUnusedImportDecls gbl_env
   = do { uses <- readMutVar (tcg_used_rdrnames gbl_env)
        ; let user_imports = filterOut (ideclImplicit . unLoc) (tcg_rn_imports gbl_env)
@@ -1313,7 +1317,7 @@ warnUnusedImportDecls gbl_env
                             -- deciding the minimal ones
              rdr_env = tcg_rdr_env gbl_env
 
-       ; let usage :: [ImportDeclUsage l]
+       ; let usage :: (ApiAnnotation l) => [ImportDeclUsage l]
              usage = findImportUsage user_imports rdr_env (Set.elems uses)
 
        ; traceRn (vcat [ ptext (sLit "Uses:") <+> ppr (Set.elems uses)
@@ -1349,7 +1353,7 @@ not normalised).
 \begin{code}
 type ImportMap = Map SrcLoc [AvailInfo]  -- See [The ImportMap]
 
-findImportUsage :: [LImportDecl l Name]
+findImportUsage :: (ApiAnnotation l) => [LImportDecl l Name]
                 -> GlobalRdrEnv
                 -> [RdrName]
                 -> [ImportDeclUsage l]
@@ -1363,7 +1367,7 @@ findImportUsage imports rdr_env rdrs
     unused_decl decl@(L loc (ImportDecl { ideclHiding = imps }))
       = (decl, nubAvails used_avails, nameSetToList unused_imps)
       where
-        used_avails = Map.lookup (srcSpanEnd loc) import_usage `orElse` []
+        used_avails = Map.lookup (srcSpanEnd $ annGetSpan loc) import_usage `orElse` []
                       -- srcSpanEnd: see Note [The ImportMap]
         used_names   = availsToNameSet used_avails
         used_parents = mkNameSet [n | AvailTC n _ <- used_avails]
@@ -1434,7 +1438,7 @@ extendImportMap rdr_env rdr imp_map
 \end{code}
 
 \begin{code}
-warnUnusedImport :: ImportDeclUsage l -> RnM l ()
+warnUnusedImport :: (ApiAnnotation l) => ImportDeclUsage l -> RnM l ()
 warnUnusedImport (L loc decl, used, unused)
   | Just (False,[]) <- ideclHiding decl
                 = return ()            -- Do not warn for 'import M()'
@@ -1673,7 +1677,7 @@ greSrcSpan gre
   where
     name_span = nameSrcSpan (gre_name gre)
 
-addDupDeclErr :: [Name] -> TcRn l ()
+addDupDeclErr :: (ApiAnnotation l) => [Name] -> TcRn l ()
 addDupDeclErr []
   = panic "addDupDeclErr: empty list"
 addDupDeclErr names@(name : _)

@@ -29,6 +29,7 @@ import FastString
 import Util
 import BasicTypes
 import Maybes( catMaybes )
+import SrcLoc ( ApiAnnotation )
 \end{code}
 
 
@@ -74,24 +75,24 @@ simplifier.
 \begin{code}
 
 -- Informative results of canonicalization
-data StopOrContinue
-  = ContinueWith Ct   -- Either no canonicalization happened, or if some did
-                      -- happen, it is still safe to just keep going with this
-                      -- work item.
-  | Stop              -- Some canonicalization happened, extra work is now in
-                      -- the TcS WorkList.
+data StopOrContinue l
+  = ContinueWith (Ct l) -- Either no canonicalization happened, or if some did
+                        -- happen, it is still safe to just keep going with this
+                        -- work item.
+  | Stop                -- Some canonicalization happened, extra work is now in
+                        -- the TcS WorkList.
 
-instance Outputable StopOrContinue where
+instance Outputable (StopOrContinue l) where
   ppr Stop             = ptext (sLit "Stop")
   ppr (ContinueWith w) = ptext (sLit "ContinueWith") <+> ppr w
 
 
-continueWith :: Ct -> TcS StopOrContinue
+continueWith :: Ct l -> TcS l (StopOrContinue l)
 continueWith = return . ContinueWith
 
-andWhenContinue :: TcS StopOrContinue
-                -> (Ct -> TcS StopOrContinue)
-                -> TcS StopOrContinue
+andWhenContinue :: TcS l (StopOrContinue l)
+                -> (Ct l -> TcS l (StopOrContinue l))
+                -> TcS l (StopOrContinue l)
 andWhenContinue tcs1 tcs2
   = do { r <- tcs1
        ; case r of
@@ -158,7 +159,7 @@ EvBinds, so we are again good.
 -- Top-level canonicalization
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-canonicalize :: Ct -> TcS StopOrContinue
+canonicalize :: (ApiAnnotation l) => Ct l -> TcS l (StopOrContinue l)
 canonicalize ct@(CNonCanonical { cc_ev = ev })
   = do { traceTcS "canonicalize (non-canonical)" (ppr ct)
        ; {-# SCC "canEvVar" #-}
@@ -187,7 +188,7 @@ canonicalize (CIrredEvCan { cc_ev = ev })
 canonicalize (CHoleCan { cc_ev = ev, cc_occ = occ })
   = canHole ev occ
 
-canEvNC :: CtEvidence -> TcS StopOrContinue
+canEvNC :: (ApiAnnotation l) => CtEvidence l -> TcS l (StopOrContinue l)
 -- Called only for non-canonical EvVars
 canEvNC ev
   = case classifyPredType (ctEvPred ev) of
@@ -205,7 +206,8 @@ canEvNC ev
 %************************************************************************
 
 \begin{code}
-canTuple :: CtEvidence -> [PredType] -> TcS StopOrContinue
+canTuple :: (ApiAnnotation l)
+         => CtEvidence l -> [PredType] -> TcS l (StopOrContinue l)
 canTuple ev tys
   = do { traceTcS "can_pred" (text "TuplePred!")
        ; let xcomp = EvTupleMk
@@ -222,8 +224,8 @@ canTuple ev tys
 
 \begin{code}
 canClass, canClassNC
-   :: CtEvidence
-   -> Class -> [Type] -> TcS StopOrContinue
+   :: (ApiAnnotation l) => CtEvidence l
+   -> Class -> [Type] -> TcS l (StopOrContinue l)
 -- Precondition: EvVar is class evidence
 
 -- The canClassNC version is used on non-canonical constraints
@@ -248,7 +250,7 @@ canClass ev cls tys
                           CDictCan { cc_ev = new_ev
                                    , cc_tyargs = xis, cc_class = cls } }
 
-emitSuperclasses :: Ct -> TcS StopOrContinue
+emitSuperclasses :: (ApiAnnotation l) => Ct l -> TcS l (StopOrContinue l)
 emitSuperclasses ct@(CDictCan { cc_ev = ev , cc_tyargs = xis_new, cc_class = cls })
             -- Add superclasses of this one here, See Note [Adding superclasses].
             -- But only if we are not simplifying the LHS of a rule.
@@ -324,7 +326,8 @@ By adding superclasses definitely only once, during canonicalisation, this situa
 happen.
 
 \begin{code}
-newSCWorkFromFlavored :: CtEvidence -> Class -> [Xi] -> TcS ()
+newSCWorkFromFlavored :: (ApiAnnotation l)
+                      => CtEvidence l -> Class -> [Xi] -> TcS l ()
 -- Returns superclasses, see Note [Adding superclasses]
 newSCWorkFromFlavored flavor cls xis
   | isDerived flavor
@@ -372,7 +375,7 @@ is_improvement_pty ty = go (classifyPredType ty)
 
 
 \begin{code}
-canIrred :: CtEvidence -> TcS StopOrContinue
+canIrred :: (ApiAnnotation l) => CtEvidence l -> TcS l (StopOrContinue l)
 -- Precondition: ty not a tuple and no other evidence form
 canIrred old_ev
   = do { let old_ty = ctEvPred old_ev
@@ -391,7 +394,8 @@ canIrred old_ev
            _                 -> continueWith $
                                 CIrredEvCan { cc_ev = new_ev } } } }
 
-canHole :: CtEvidence -> OccName -> TcS StopOrContinue
+canHole :: (ApiAnnotation l)
+        => CtEvidence l -> OccName -> TcS l (StopOrContinue l)
 canHole ev occ
   = do { let ty = ctEvPred ev
        ; (xi,co) <- flatten FMFullFlatten ev ty -- co :: xi ~ ty
@@ -453,9 +457,9 @@ data FlattenMode = FMSubstOnly | FMFullFlatten
                    -- See Note [Flattening under a forall]
 
 -- Flatten a bunch of types all at once.
-flattenMany ::  FlattenMode
-            -> CtEvidence
-            -> [Type] -> TcS ([Xi], [TcCoercion])
+flattenMany :: (ApiAnnotation l) => FlattenMode
+            -> CtEvidence l
+            -> [Type] -> TcS l ([Xi], [TcCoercion])
 -- Coercions :: Xi ~ Type
 -- Returns True iff (no flattening happened)
 -- NB: The EvVar inside the 'ctxt :: CtEvidence' is unused,
@@ -469,8 +473,8 @@ flattenMany f ctxt tys
                          ; (xis,cos)  <- go tys
                          ; return (xi:xis,co:cos) }
 
-flatten :: FlattenMode
-        -> CtEvidence -> TcType -> TcS (Xi, TcCoercion)
+flatten :: (ApiAnnotation l) => FlattenMode
+        -> CtEvidence l -> TcType -> TcS l (Xi, TcCoercion)
 -- Flatten a type to get rid of type function applications, returning
 -- the new type-function-free type, and a collection of new equality
 -- constraints.  See Note [Flattening] for more detail.
@@ -578,9 +582,9 @@ because now the 'b' has escaped its scope.  We'd have to flatten to
 and we have not begun to think about how to make that work!
 
 \begin{code}
-flattenNestedFamApp :: FlattenMode -> CtEvidence
+flattenNestedFamApp :: (ApiAnnotation l) => FlattenMode -> CtEvidence l
                     -> TyCon -> [TcType]   -- Exactly-saturated type function application
-                    -> TcS (Xi, TcCoercion)
+                    -> TcS l (Xi, TcCoercion)
 flattenNestedFamApp FMSubstOnly _ tc xi_args
   = do { let fam_ty = mkTyConApp tc xi_args
        ; return (fam_ty, mkTcNomReflCo fam_ty) }
@@ -622,7 +626,8 @@ flattenNestedFamApp FMFullFlatten ctxt tc xi_args  -- Eactly saturated
 \end{code}
 
 \begin{code}
-flattenTyVar :: FlattenMode -> CtEvidence -> TcTyVar -> TcS (Xi, TcCoercion)
+flattenTyVar :: (ApiAnnotation l)
+             => FlattenMode -> CtEvidence l -> TcTyVar -> TcS l (Xi, TcCoercion)
 -- "Flattening" a type variable means to apply the substitution to it
 -- The substitution is actually the union of the substitution in the TyBinds
 -- for the unification variables that have been unified already with the inert
@@ -644,13 +649,13 @@ flattenTyVar f ctxt tv
                                   ; return (ty2, co2 `mkTcTransCo` co1) }
        }
 
-flattenTyVarOuter, flattenTyVarFinal 
-   :: FlattenMode -> CtEvidence
-   -> TcTyVar 
-   -> TcS (Either TyVar (TcType, TcCoercion))
--- Look up the tyvar in 
+flattenTyVarOuter, flattenTyVarFinal
+   :: (ApiAnnotation l) => FlattenMode -> CtEvidence l
+   -> TcTyVar
+   -> TcS l (Either TyVar (TcType, TcCoercion))
+-- Look up the tyvar in
 --   a) the internal MetaTyVar box
---   b) the tyvar binds 
+--   b) the tyvar binds
 --   c) the inerts
 -- Return (Left tv')       if it is not found, tv' has a properly zonked kind
 --        (Right (ty, co)) if found, with co :: ty ~ tv
@@ -732,7 +737,8 @@ Insufficient (non-recursive) rewriting was the reason for #5668.
 %************************************************************************
 
 \begin{code}
-canEvVarsCreated :: [CtEvidence] -> TcS StopOrContinue
+canEvVarsCreated :: (ApiAnnotation l)
+                 => [CtEvidence l] -> TcS l (StopOrContinue l)
 canEvVarsCreated [] = return Stop
     -- Add all but one to the work list
     -- and return the first (if any) for futher processing
@@ -740,7 +746,7 @@ canEvVarsCreated (ev : evs)
   = do { emitWorkNC evs; canEvNC ev }
           -- Note the "NC": these are fresh goals, not necessarily canonical
 
-emitWorkNC :: [CtEvidence] -> TcS ()
+emitWorkNC :: (ApiAnnotation l) => [CtEvidence l] -> TcS l ()
 emitWorkNC evs
   | null evs  = return ()
   | otherwise = do { traceTcS "Emitting fresh work" (vcat (map ppr evs))
@@ -749,15 +755,16 @@ emitWorkNC evs
     mk_nc ev = mkNonCanonical ev
 
 -------------------------
-canEqNC :: CtEvidence -> Type -> Type -> TcS StopOrContinue
+canEqNC :: (ApiAnnotation l)
+        => CtEvidence l -> Type -> Type -> TcS l (StopOrContinue l)
 canEqNC ev ty1 ty2 = can_eq_nc ev ty1 ty1 ty2 ty2
 
 
-can_eq_nc, can_eq_nc' 
-   :: CtEvidence 
-   -> Type -> Type    -- LHS, after and before type-synonym expansion, resp 
-   -> Type -> Type    -- RHS, after and before type-synonym expansion, resp 
-   -> TcS StopOrContinue
+can_eq_nc, can_eq_nc'
+   :: (ApiAnnotation l) => CtEvidence l
+   -> Type -> Type    -- LHS, after and before type-synonym expansion, resp
+   -> Type -> Type    -- RHS, after and before type-synonym expansion, resp
+   -> TcS l (StopOrContinue l)
 
 can_eq_nc ev ty1 ps_ty1 ty2 ps_ty2
   = do { traceTcS "can_eq_nc" $ 
@@ -843,10 +850,10 @@ can_eq_nc' ev _ ps_ty1 _ ps_ty2
 
 ------------
 can_eq_app, can_eq_flat_app
-    :: CtEvidence -> SwapFlag
+    :: (ApiAnnotation l) => CtEvidence l -> SwapFlag
     -> Type -> Type -> Type  -- LHS (s1 t2), after and before type-synonym expansion, resp 
     -> Type -> Type          -- RHS (ty2),   after and before type-synonym expansion, resp 
-    -> TcS StopOrContinue
+    -> TcS l (StopOrContinue l)
 -- See Note [Canonicalising type applications]
 can_eq_app ev swapped s1 t1 ps_ty1 ty2 ps_ty2
   =  do { traceTcS "can_eq_app 1" $
@@ -892,10 +899,10 @@ can_eq_flat_app ev swapped s1 t1 ps_ty1 ty2 ps_ty2
 
 
 ------------------------
-canDecomposableTyConApp :: CtEvidence
+canDecomposableTyConApp :: (ApiAnnotation l) => CtEvidence l
                         -> TyCon -> [TcType]
                         -> TyCon -> [TcType]
-                        -> TcS StopOrContinue
+                        -> TcS l (StopOrContinue l)
 canDecomposableTyConApp ev tc1 tys1 tc2 tys2
   | tc1 /= tc2 || length tys1 /= length tys2
     -- Fail straight away for better error messages
@@ -904,9 +911,9 @@ canDecomposableTyConApp ev tc1 tys1 tc2 tys2
   = do { traceTcS "canDecomposableTyConApp" (ppr ev $$ ppr tc1 $$ ppr tys1 $$ ppr tys2)
        ; canDecomposableTyConAppOK ev tc1 tys1 tys2 }
 
-canDecomposableTyConAppOK :: CtEvidence
+canDecomposableTyConAppOK :: (ApiAnnotation l) => CtEvidence l
                           -> TyCon -> [TcType] -> [TcType]
-                          -> TcS StopOrContinue
+                          -> TcS l (StopOrContinue l)
 
 canDecomposableTyConAppOK ev tc1 tys1 tys2
   = do { let xcomp xs  = EvCoercion (mkTcTyConAppCo Nominal tc1 (map evTermCoercion xs))
@@ -915,7 +922,8 @@ canDecomposableTyConAppOK ev tc1 tys1 tys2
        ; ctevs <- xCtEvidence ev xev
        ; canEvVarsCreated ctevs }
 
-canEqFailure :: CtEvidence -> TcType -> TcType -> TcS StopOrContinue
+canEqFailure :: (ApiAnnotation l)
+             => CtEvidence l -> TcType -> TcType -> TcS l (StopOrContinue l)
 -- See Note [Make sure that insolubles are fully rewritten]
 canEqFailure ev ty1 ty2
   = do { (s1, co1) <- flatten FMSubstOnly ev ty1
@@ -1078,11 +1086,11 @@ inert set is an idempotent subustitution...
     introduce any new ones.
 
 \begin{code}
-canEqLeafFun :: CtEvidence 
+canEqLeafFun :: (ApiAnnotation l) => CtEvidence l
              -> SwapFlag
              -> TyCon -> [TcType]   -- LHS
              -> TcType -> TcType    -- RHS
-             -> TcS StopOrContinue
+             -> TcS l (StopOrContinue l)
 canEqLeafFun ev swapped fn tys1 ty2 ps_ty2
   | length tys1 > tyConArity fn
   = -- Over-saturated type function on LHS: 
@@ -1124,10 +1132,10 @@ canEqLeafFun ev swapped fn tys1 ty2 ps_ty2
                         -> checkKind new_ev fam_head k1 xi2 k2 }
 
 ---------------------
-canEqTyVar :: CtEvidence -> SwapFlag
-           -> TcTyVar 
+canEqTyVar :: (ApiAnnotation l) => CtEvidence l -> SwapFlag
+           -> TcTyVar
            -> TcType -> TcType
-           -> TcS StopOrContinue
+           -> TcS l (StopOrContinue l)
 -- A TyVar on LHS, but so far un-zonked
 canEqTyVar ev swapped tv1 ty2 ps_ty2              -- ev :: tv ~ s2
   = do { traceTcS "canEqTyVar" (ppr tv1 $$ ppr ty2 $$ ppr swapped)
@@ -1147,13 +1155,13 @@ canEqTyVar ev swapped tv1 ty2 ps_ty2              -- ev :: tv ~ s2
                            ; dflags <- getDynFlags
                            ; canEqTyVar2 dflags ev swapped tv1' xi2 co2 } }
 
-canEqTyVar2 :: DynFlags
-            -> CtEvidence   -- olhs ~ orhs (or, if swapped, orhs ~ olhs)
+canEqTyVar2 :: (ApiAnnotation l) => DynFlags
+            -> CtEvidence l -- olhs ~ orhs (or, if swapped, orhs ~ olhs)
             -> SwapFlag
             -> TcTyVar      -- olhs
             -> TcType       -- nrhs
             -> TcCoercion   -- nrhs ~ orhs
-            -> TcS StopOrContinue
+            -> TcS l (StopOrContinue l)
 -- LHS is an inert type variable, 
 -- and RHS is fully rewritten, but with type synonyms
 -- preserved as much as possible
@@ -1195,11 +1203,12 @@ canEqTyVar2 dflags ev swapped tv1 xi2 co2
     co1 = mkTcNomReflCo xi1
 
 
-canEqTyVarTyVar :: CtEvidence       -- tv1 ~ orhs (or orhs ~ tv1, if swapped)
+canEqTyVarTyVar :: (ApiAnnotation l)
+                => CtEvidence l     -- tv1 ~ orhs (or orhs ~ tv1, if swapped)
                 -> SwapFlag
                 -> TyVar -> TyVar   -- tv2, tv2
                 -> TcCoercion       -- tv2 ~ orhs
-                -> TcS StopOrContinue
+                -> TcS l (StopOrContinue l)
 -- Both LHS and RHS rewrote to a type variable,
 canEqTyVarTyVar ev swapped tv1 tv2 co2
   | tv1 == tv2
@@ -1248,10 +1257,11 @@ canEqTyVarTyVar ev swapped tv1 tv2 co2
       | otherwise           = isMetaTyVar tv2 || isFlatSkolTyVar tv2
                             -- Note [Eliminate flat-skols]
 
-checkKind :: CtEvidence         -- t1~t2
+checkKind :: (ApiAnnotation l)
+          => CtEvidence l       -- t1~t2
           -> TcType -> TcKind
           -> TcType -> TcKind   -- s1~s2, flattened and zonked
-          -> TcS StopOrContinue
+          -> TcS l (StopOrContinue l)
 -- LHS and RHS have incompatible kinds, so emit an "irreducible" constraint
 --       CIrredEvCan (NOT CTyEqCan or CFunEqCan)
 -- for the type equality; and continue with the kind equality constraint.

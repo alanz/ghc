@@ -2631,7 +2631,7 @@ data Unlinked
    = DotO FilePath      -- ^ An object file (.o)
    | DotA FilePath      -- ^ Static archive file (.a)
    | DotDLL FilePath    -- ^ Dynamically linked library file (.so, .dll, .dylib)
-   | BCOs CompiledByteCode ModBreaks    -- ^ A byte-code object, lives only in memory
+   | BCOs CompiledByteCode ModBreaks -- ^ A byte-code object, lives only in memory
 
 #ifndef GHCI
 data CompiledByteCode = CompiledByteCodeUndefined

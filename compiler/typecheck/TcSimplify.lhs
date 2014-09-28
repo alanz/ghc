@@ -1,5 +1,6 @@
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module TcSimplify(
        simplifyInfer, quantifyPred,
@@ -41,6 +42,7 @@ import BasicTypes       ( RuleName )
 import Outputable
 import FastString
 import TrieMap () -- DV: for now
+import SrcLoc           ( ApiAnnotation )
 \end{code}
 
 
@@ -51,7 +53,7 @@ import TrieMap () -- DV: for now
 *********************************************************************************
 
 \begin{code}
-simplifyTop :: WantedConstraints -> TcM (Bag EvBind)
+simplifyTop :: (ApiAnnotation l) => WantedConstraints l -> TcM l (Bag EvBind)
 -- Simplify top-level constraints
 -- Usually these will be implications,
 -- but when there is nothing to quantify we don't wrap
@@ -69,14 +71,16 @@ simplifyTop wanteds
 
        ; return (binds1 `unionBags` binds2) }
 
-simpl_top :: WantedConstraints -> TcS WantedConstraints
+simpl_top :: forall l. (ApiAnnotation l)
+          => WantedConstraints l -> TcS l (WantedConstraints l)
     -- See Note [Top-level Defaulting Plan]
 simpl_top wanteds
   = do { wc_first_go <- nestTcS (solve_wanteds_and_drop wanteds)
                             -- This is where the main work happens
        ; try_tyvar_defaulting wc_first_go }
   where
-    try_tyvar_defaulting :: WantedConstraints -> TcS WantedConstraints
+    try_tyvar_defaulting :: (ApiAnnotation l)
+                         => WantedConstraints l -> TcS l (WantedConstraints l)
     try_tyvar_defaulting wc
       | isEmptyWC wc
       = return wc
@@ -95,7 +99,8 @@ simpl_top wanteds
                             -- See Note [Must simplify after defaulting]
                      ; try_class_defaulting wc_residual } }
 
-    try_class_defaulting :: WantedConstraints -> TcS WantedConstraints
+    try_class_defaulting :: (ApiAnnotation l)
+                         => WantedConstraints l -> TcS l (WantedConstraints l)
     try_class_defaulting wc
       | isEmptyWC wc  
       = return wc
@@ -186,7 +191,8 @@ More details in Note [DefaultTyVar].
 
 \begin{code}
 ------------------
-simplifyAmbiguityCheck :: Type -> WantedConstraints -> TcM ()
+simplifyAmbiguityCheck :: (ApiAnnotation l)
+                       => Type -> WantedConstraints l -> TcM l ()
 simplifyAmbiguityCheck ty wanteds
   = do { traceTc "simplifyAmbiguityCheck {" (text "type = " <+> ppr ty $$ text "wanted = " <+> ppr wanteds)
        ; ev_binds_var <- newTcEvBinds
@@ -205,14 +211,16 @@ simplifyAmbiguityCheck ty wanteds
        ; return () }
 
 ------------------
-simplifyInteractive :: WantedConstraints -> TcM (Bag EvBind)
+simplifyInteractive :: (ApiAnnotation l)
+                    => WantedConstraints l -> TcM l (Bag EvBind)
 simplifyInteractive wanteds
   = traceTc "simplifyInteractive" empty >>
     simplifyTop wanteds
 
 ------------------
-simplifyDefault :: ThetaType    -- Wanted; has no type variables in it
-                -> TcM ()       -- Succeeds iff the constraint is soluble
+simplifyDefault :: (ApiAnnotation l)
+                => ThetaType    -- Wanted; has no type variables in it
+                -> TcM l ()     -- Succeeds iff the constraint is soluble
 simplifyDefault theta
   = do { traceTc "simplifyInteractive" empty
        ; wanted <- newFlatWanteds DefaultOrigin theta
@@ -237,17 +245,17 @@ simplifyDefault theta
 ***********************************************************************************
 
 \begin{code}
-simplifyInfer :: Bool
+simplifyInfer :: (ApiAnnotation l) => Bool
               -> Bool                  -- Apply monomorphism restriction
               -> [(Name, TcTauType)]   -- Variables to be generalised,
                                        -- and their tau-types
-              -> WantedConstraints
-              -> TcM ([TcTyVar],    -- Quantify over these type variables
-                      [EvVar],      -- ... and these constraints
-                      Bool,         -- The monomorphism restriction did something
-                                    --   so the results type is not as general as
-                                    --   it could be
-                      TcEvBinds)    -- ... binding these evidence variables
+              -> WantedConstraints l
+              -> TcM l ([TcTyVar], -- Quantify over these type variables
+                        [EvVar],   -- ... and these constraints
+                        Bool,      -- The monomorphism restriction did something
+                                   --   so the results type is not as general as
+                                   --   it could be
+                        TcEvBinds) -- ... binding these evidence variables
 simplifyInfer _top_lvl apply_mr name_taus wanteds
   | isEmptyWC wanteds
   = do { gbl_tvs <- tcGetGlobalTyVars
@@ -539,10 +547,10 @@ So we see whether the simplificaiotn step yielded any type errors,
 and if so refrain from quantifying over *any* equalites.
 
 \begin{code}
-simplifyRule :: RuleName
-             -> WantedConstraints       -- Constraints from LHS
-             -> WantedConstraints       -- Constraints from RHS
-             -> TcM ([EvVar], WantedConstraints)   -- LHS evidence varaibles
+simplifyRule :: (ApiAnnotation l) => RuleName
+             -> WantedConstraints l     -- Constraints from LHS
+             -> WantedConstraints l     -- Constraints from RHS
+             -> TcM l ([EvVar], WantedConstraints l) -- LHS evidence variables
 -- See Note [Simplifying RULE constraints] in TcRule
 simplifyRule name lhs_wanted rhs_wanted
   = do {         -- We allow ourselves to unify environment
@@ -629,10 +637,10 @@ Note that *after* solving the constraints are typically small, so the
 overhead is not great.
 
 \begin{code}
-solveWantedsTcMWithEvBinds :: EvBindsVar
-                           -> WantedConstraints
-                           -> (WantedConstraints -> TcS WantedConstraints)
-                           -> TcM WantedConstraints
+solveWantedsTcMWithEvBinds :: (ApiAnnotation l) => EvBindsVar
+                        -> WantedConstraints l
+                        -> (WantedConstraints l -> TcS l (WantedConstraints l))
+                        -> TcM l (WantedConstraints l)
 -- Returns a *zonked* result
 -- We zonk when we finish primarily to un-flatten out any
 -- flatten-skolems etc introduced by canonicalisation of
@@ -645,7 +653,8 @@ solveWantedsTcMWithEvBinds ev_binds_var wc tcs_action
        ; zonkWC ev_binds_var wc2 }
          -- See Note [Zonk after solving]
 
-solveWantedsTcM :: WantedConstraints -> TcM (WantedConstraints, Bag EvBind)
+solveWantedsTcM :: (ApiAnnotation l) => WantedConstraints l
+                -> TcM l (WantedConstraints l, Bag EvBind)
 -- Zonk the input constraints, and simplify them
 -- Return the evidence binds in the BagEvBinds result
 -- Discards all Derived stuff in result
@@ -656,13 +665,15 @@ solveWantedsTcM wanted
        ; binds <- TcRnMonad.getTcEvBinds ev_binds_var
        ; return (wanteds', binds) }
 
-solve_wanteds_and_drop :: WantedConstraints -> TcS (WantedConstraints)
+solve_wanteds_and_drop :: (ApiAnnotation l)
+                       => WantedConstraints l -> TcS l (WantedConstraints l)
 -- Since solve_wanteds returns the residual WantedConstraints,
 -- it should always be called within a runTcS or something similar,
 solve_wanteds_and_drop wanted = do { wc <- solve_wanteds wanted
                                    ; return (dropDerivedWC wc) }
 
-solve_wanteds :: WantedConstraints -> TcS WantedConstraints
+solve_wanteds :: (ApiAnnotation l)
+              => WantedConstraints l -> TcS l (WantedConstraints l)
 -- so that the inert set doesn't mindlessly propagate.
 -- NB: wc_flats may be wanted /or/ derived now
 solve_wanteds wanted@(WC { wc_flat = flats, wc_impl = implics, wc_insol = insols })
@@ -701,9 +712,9 @@ solve_wanteds wanted@(WC { wc_flat = flats, wc_impl = implics, wc_insol = insols
 
        ; return wc }
 
-simpl_loop :: Int
-           -> Bag Implication
-           -> TcS (Bag Implication)
+simpl_loop :: (ApiAnnotation l) => Int
+           -> Bag (Implication l)
+           -> TcS l (Bag (Implication l))
 simpl_loop n implics
   | n > 10
   = traceTcS "solveWanteds: loop!" empty >> return implics
@@ -723,8 +734,8 @@ simpl_loop n implics
          then return unsolved_implics
          else simpl_loop (n+1) (unsolved_implics `unionBags` impls_from_eqs) } }
 
-solveNestedImplications :: Bag Implication
-                        -> TcS (Cts, Bag Implication)
+solveNestedImplications :: (ApiAnnotation l) => Bag (Implication l)
+                        -> TcS l (Cts l, Bag (Implication l))
 -- Precondition: the TcS inerts may contain unsolved flats which have
 -- to be converted to givens before we go inside a nested implication.
 solveNestedImplications implics
@@ -751,10 +762,11 @@ solveNestedImplications implics
 
        ; return (floated_eqs, unsolved_implics) }
 
-solveImplication :: InertSet
-                 -> Implication    -- Wanted
-                 -> TcS (Cts,      -- All wanted or derived floated equalities: var = type
-                         Bag Implication) -- Unsolved rest (always empty or singleton)
+solveImplication
+  :: (ApiAnnotation l) => InertSet l
+  -> Implication l   -- Wanted
+  -> TcS l (Cts l, -- All wanted or derived floated equalities: var = type
+            Bag (Implication l)) -- Unsolved rest (always empty or singleton)
 -- Precondition: The TcS monad contains an empty worklist and given-only inerts
 -- which after trying to solve this implication we must restore to their original value
 solveImplication inerts
@@ -843,7 +855,7 @@ Consider floated_eqs (all wanted or derived):
     simpl_loop.  So we iterate if there any of these
 
 \begin{code}
-promoteTyVar :: Untouchables -> TcTyVar  -> TcS ()
+promoteTyVar :: (ApiAnnotation l) => Untouchables -> TcTyVar  -> TcS l ()
 -- When we float a constraint out of an implication we must restore
 -- invariant (MetaTvInv) in Note [Untouchable type variables] in TcType
 -- See Note [Promoting unification variables]
@@ -855,7 +867,8 @@ promoteTyVar untch tv
   | otherwise
   = return ()
 
-promoteAndDefaultTyVar :: Untouchables -> TcTyVarSet -> TyVar -> TcS ()
+promoteAndDefaultTyVar :: (ApiAnnotation l)
+                       => Untouchables -> TcTyVarSet -> TyVar -> TcS l ()
 -- See Note [Promote _and_ default when inferring]
 promoteAndDefaultTyVar untch gbl_tvs tv
   = do { tv1 <- if tv `elemVarSet` gbl_tvs
@@ -863,7 +876,7 @@ promoteAndDefaultTyVar untch gbl_tvs tv
                 else defaultTyVar tv
        ; promoteTyVar untch tv1 }
 
-defaultTyVar :: TcTyVar -> TcS TcTyVar
+defaultTyVar :: (ApiAnnotation l) => TcTyVar -> TcS l TcTyVar
 -- Precondition: MetaTyVars only
 -- See Note [DefaultTyVar]
 defaultTyVar the_tv
@@ -879,13 +892,13 @@ defaultTyVar the_tv
 
   | otherwise = return the_tv    -- The common case
 
-approximateWC :: WantedConstraints -> Cts
+approximateWC :: WantedConstraints l -> Cts l
 -- Postcondition: Wanted or Derived Cts
 -- See Note [ApproximateWC]
 approximateWC wc
   = float_wc emptyVarSet wc
   where
-    float_wc :: TcTyVarSet -> WantedConstraints -> Cts
+    float_wc :: TcTyVarSet -> WantedConstraints l -> Cts l
     float_wc trapping_tvs (WC { wc_flat = flats, wc_impl = implics })
       = filterBag is_floatable flats `unionBags`
         do_bag (float_implic new_trapping_tvs) implics
@@ -899,7 +912,7 @@ approximateWC wc
                         where
                           ct_tvs = tyVarsOfCt ct
 
-    float_implic :: TcTyVarSet -> Implication -> Cts
+    float_implic :: TcTyVarSet -> Implication l -> Cts l
     float_implic trapping_tvs imp
       | ic_no_eqs imp                 -- No equalities, so float
       = float_wc new_trapping_tvs (ic_wanted imp)
@@ -1123,8 +1136,8 @@ no evidence for a fundep equality), but equality superclasses do matter (since
 they carry evidence).
 
 \begin{code}
-floatEqualities :: [TcTyVar] -> Bool -> WantedConstraints
-                -> TcS (Cts, WantedConstraints)
+floatEqualities :: (ApiAnnotation l) => [TcTyVar] -> Bool -> WantedConstraints l
+                -> TcS l (Cts l, WantedConstraints l)
 -- Main idea: see Note [Float Equalities out of Implications]
 --
 -- Post: The returned floated constraints (Cts) are only Wanted or Derived
@@ -1151,7 +1164,7 @@ floatEqualities skols no_given_eqs wanteds@(WC { wc_flat = flats })
                                           , text "Ty binds =" <+> ppr ty_binds])
        ; return (float_eqs, wanteds { wc_flat = remaining_flats }) }
   where
-    is_floatable :: Ct -> Bool
+    is_floatable :: Ct l -> Bool
     is_floatable ct
        = case classifyPredType (ctPred ct) of
             EqPred ty1 ty2 -> skol_set `disjointVarSet` tyVarsOfType ty1
@@ -1316,7 +1329,7 @@ to beta[1], and that means the (a ~ beta[1]) will be stuck, as it should be.
 *********************************************************************************
 
 \begin{code}
-applyDefaultingRules :: Cts -> TcS Bool
+applyDefaultingRules :: (ApiAnnotation l) => Cts l -> TcS l Bool
   -- True <=> I did some defaulting, reflected in ty_binds
 
 -- Return some extra derived equalities, which express the
@@ -1343,18 +1356,19 @@ applyDefaultingRules wanteds
 
 \begin{code}
 findDefaultableGroups
-    :: ( [Type]
+    :: forall l.
+       ( [Type]
        , (Bool,Bool) )  -- (Overloaded strings, extended default rules)
-    -> Cts              -- Unsolved (wanted or derived)
-    -> [[(Ct,Class,TcTyVar)]]
+    -> Cts l            -- Unsolved (wanted or derived)
+    -> [[(Ct l,Class,TcTyVar)]]
 findDefaultableGroups (default_tys, (ovl_strings, extended_defaults)) wanteds
   | null default_tys = []
   | otherwise        = defaultable_groups
   where
     defaultable_groups = filter is_defaultable_group groups
     groups             = equivClasses cmp_tv unaries
-    unaries     :: [(Ct, Class, TcTyVar)]  -- (C tv) constraints
-    non_unaries :: [Ct]             -- and *other* constraints
+    unaries     :: [(Ct l, Class, TcTyVar)]  -- (C tv) constraints
+    non_unaries :: [Ct l]             -- and *other* constraints
 
     (unaries, non_unaries) = partitionWith find_unary (bagToList wanteds)
         -- Finds unary type-class constraints
@@ -1399,10 +1413,11 @@ findDefaultableGroups (default_tys, (ovl_strings, extended_defaults)) wanteds
     -- Similarly is_std_class
 
 ------------------------------
-disambigGroup :: [Type]                  -- The default types
-              -> [(Ct, Class, TcTyVar)]  -- All classes of the form (C a)
-                                         --  sharing same type variable
-              -> TcS Bool   -- True <=> something happened, reflected in ty_binds
+disambigGroup :: (ApiAnnotation l)
+              => [Type]                   -- The default types
+              -> [(Ct l, Class, TcTyVar)] -- All classes of the form (C a)
+                                          --  sharing same type variable
+              -> TcS l Bool -- True <=> something happened, reflected in ty_binds
 
 disambigGroup []  _grp
   = return False

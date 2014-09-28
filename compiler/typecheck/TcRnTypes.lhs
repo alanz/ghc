@@ -299,7 +299,7 @@ data TcGblEnv l
         -- The binds, rules and foreign-decl fields are collected
         -- initially in un-zonked form and are finally zonked in tcRnSrcDecls
 
-        tcg_rn_exports :: Maybe [Located (IE Name)],
+        tcg_rn_exports :: Maybe [GenLocated l (IE Name)],
         tcg_rn_imports :: [LImportDecl l Name],
                 -- Keep the renamed imports regardless.  They are not
                 -- voluminous and are needed if you want to report unused imports
