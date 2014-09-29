@@ -7,10 +7,10 @@ module DsMonad (DsM) where
 
 import TcRnTypes
 
-data DsGblEnv
+data DsGblEnv l
 data DsLclEnv l
 
-type DsM l result = TcRnIf DsGblEnv (DsLclEnv l) result
+type DsM l result = TcRnIf l (DsGblEnv l) (DsLclEnv l) result
 
 #if __GLASGOW_HASKELL__ > 706
 type role DsLclEnv nominal

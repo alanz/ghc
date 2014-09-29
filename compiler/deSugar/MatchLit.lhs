@@ -135,7 +135,8 @@ between one type and another when the to- and from- types are the
 same.  Then it's probably (albeit not definitely) the identity
 
 \begin{code}
-warnAboutIdentities :: DynFlags -> CoreExpr -> Type -> DsM l ()
+warnAboutIdentities :: (ApiAnnotation l)
+                    => DynFlags -> CoreExpr -> Type -> DsM l ()
 warnAboutIdentities dflags (Var conv_fn) type_of_conv
   | wopt Opt_WarnIdentities dflags
   , idName conv_fn `elem` conversionNames
@@ -156,7 +157,8 @@ conversionNames
 \end{code}
 
 \begin{code}
-warnAboutOverflowedLiterals :: DynFlags -> HsOverLit l Id -> DsM l ()
+warnAboutOverflowedLiterals :: forall l. (ApiAnnotation l)
+                            => DynFlags -> HsOverLit l Id -> DsM l ()
 warnAboutOverflowedLiterals dflags lit
  | wopt Opt_WarnOverflowedLiterals dflags
  , Just (i, tc) <- getIntegralLit lit
@@ -174,7 +176,8 @@ warnAboutOverflowedLiterals dflags lit
 
   | otherwise = return ()
   where
-    check :: forall a l. (Bounded a, Integral a) => Integer -> Name -> a -> DsM l ()
+    check :: forall a l. (ApiAnnotation l, Bounded a, Integral a)
+          => Integer -> Name -> a -> DsM l ()
     check i tc _proxy
       = when (i < minB || i > maxB) $ do
         warnDs (vcat [ ptext (sLit "Literal") <+> integer i
@@ -202,7 +205,8 @@ We get an erroneous suggestion for
 but perhaps that does not matter too much.
 
 \begin{code}
-warnAboutEmptyEnumerations :: DynFlags -> LHsExpr l Id -> Maybe (LHsExpr l Id)
+warnAboutEmptyEnumerations :: forall l. (ApiAnnotation l)
+                           => DynFlags -> LHsExpr l Id -> Maybe (LHsExpr l Id)
                            -> LHsExpr l Id -> DsM l ()
 -- Warns about [2,3 .. 1] which returns the empty list
 -- Only works for integral types, not floating point
@@ -211,7 +215,7 @@ warnAboutEmptyEnumerations dflags fromExpr mThnExpr toExpr
   , Just (from,tc) <- getLHsIntegralLit fromExpr
   , Just mThn      <- traverse getLHsIntegralLit mThnExpr
   , Just (to,_)    <- getLHsIntegralLit toExpr
-  , let check :: forall a l. (Enum a, Num a) => a -> DsM l ()
+  , let check :: forall a. (ApiAnnotation l, Enum a, Num a) => a -> DsM l ()
         check _proxy
           = when (null enumeration) $
             warnDs (ptext (sLit "Enumeration is empty"))

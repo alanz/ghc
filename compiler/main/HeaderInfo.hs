@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -----------------------------------------------------------------------------
 --
@@ -86,10 +87,10 @@ getImports dflags buf filename source_filename = do
               in
               return (src_idecls, implicit_imports ++ ordinary_imps, mod)
 
-mkPrelImports :: ModuleName
-              -> SrcSpan    -- Attribute the "import Prelude" to this location
-              -> Bool -> [LImportDecl SrcSpan RdrName]
-              -> [LImportDecl SrcSpan RdrName]
+mkPrelImports :: forall l. ModuleName
+              -> l    -- Attribute the "import Prelude" to this location
+              -> Bool -> [LImportDecl l RdrName]
+              -> [LImportDecl l RdrName]
 -- Consruct the implicit declaration "import Prelude" (or not)
 --
 -- NB: opt_NoImplicitPrelude is slightly different to import Prelude ();
@@ -108,7 +109,7 @@ mkPrelImports this_mod loc implicit_prelude import_decls
                           <- import_decls
                       , unLoc mod == pRELUDE_NAME ]
 
-      preludeImportDecl :: LImportDecl SrcSpan RdrName
+      preludeImportDecl :: LImportDecl l RdrName
       preludeImportDecl
         = L loc $ ImportDecl { ideclName      = L loc pRELUDE_NAME,
                                ideclPkgQual   = Nothing,

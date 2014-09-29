@@ -5,18 +5,17 @@ import Name       ( Name )
 import NameSet    ( FreeVars )
 import RdrName    ( RdrName )
 import TcRnTypes
-import SrcLoc     ( GenLocated )
 import Outputable ( Outputable )
+import SrcLoc     ( GenLocated,ApiAnnotation )
 
-rnLExpr :: LHsExpr l RdrName
+rnLExpr :: (ApiAnnotation l) => LHsExpr l RdrName
         -> RnM l (LHsExpr l Name, FreeVars)
 
-rnStmts :: --forall thing body.
-           Outputable (body l RdrName) => HsStmtContext Name
-        -> (GenLocated l (body l RdrName)
-                       -> RnM l (GenLocated l (body l Name),FreeVars))
-        -> [LStmt l RdrName (GenLocated l (body l RdrName))]
+rnStmts :: (ApiAnnotation l, Outputable (body RdrName)) => HsStmtContext Name
+        -> (GenLocated l (body RdrName)
+                            -> RnM l (GenLocated l (body Name),FreeVars))
+        -> [LStmt l RdrName (GenLocated l (body RdrName))]
         -> ([Name] -> RnM l (thing, FreeVars))
-        -> RnM l (([LStmt l Name (GenLocated l (body l Name))], thing), FreeVars)
+        -> RnM l (([LStmt l Name (GenLocated l (body Name))], thing), FreeVars)
 \end{code}
 

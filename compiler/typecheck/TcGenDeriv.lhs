@@ -1990,7 +1990,7 @@ mkCoerceClassMethEqn cls inst_tvs cls_tys rhs_ty id
     changeLast (x:xs) x' = x : changeLast xs x'
 
 
-gen_Newtype_binds :: forall l. (ApiAnnotation l) => SrcSpan
+gen_Newtype_binds :: forall l. (ApiAnnotation l) => l
                   -> Class   -- the class being derived
                   -> [TyVar] -- the tvs in the instance head
                   -> [Type]  -- instance head parameters (incl. newtype)
@@ -2001,11 +2001,10 @@ gen_Newtype_binds loc cls inst_tvs cls_tys rhs_ty
         (classMethods cls)
         (map (mkCoerceClassMethEqn cls inst_tvs cls_tys rhs_ty) (classMethods cls))
   where
-    loc' = annFromSpan loc
     coerce_RDR = getRdrName coerceId
     mk_bind :: Id -> Pair Type -> LHsBind l RdrName
     mk_bind id (Pair tau_ty user_ty)
-      = mkRdrFunBind (L loc' meth_RDR) [mkSimpleMatch [] rhs_expr]
+      = mkRdrFunBind (L loc meth_RDR) [mkSimpleMatch [] rhs_expr]
       where
         meth_RDR = getRdrName id
         rhs_expr

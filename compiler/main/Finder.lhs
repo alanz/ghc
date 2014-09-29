@@ -68,7 +68,7 @@ type BaseName = String  -- Basename of file
 
 -- remove all the home modules from the cache; package modules are
 -- assumed to not move around during a session.
-flushFinderCaches :: HscEnv -> IO ()
+flushFinderCaches :: HscEnv l -> IO ()
 flushFinderCaches hsc_env = do
   -- Ideally the update to both caches be a single atomic operation.
   writeIORef fc_ref emptyUFM
@@ -122,7 +122,7 @@ lookupModLocationCache ref key = do
 -- packages to find the module, if a package is specified then only
 -- that package is searched for the module.
 
-findImportedModule :: HscEnv -> ModuleName -> Maybe FastString -> IO FindResult
+findImportedModule :: HscEnv l -> ModuleName -> Maybe FastString -> IO FindResult
 findImportedModule hsc_env mod_name mb_pkg =
   case mb_pkg of
         Nothing                        -> unqual_import
@@ -143,7 +143,7 @@ findImportedModule hsc_env mod_name mb_pkg =
 -- reading the interface for a module mentioned by another interface,
 -- for example (a "system import").
 
-findExactModule :: HscEnv -> Module -> IO FindResult
+findExactModule :: HscEnv l -> Module -> IO FindResult
 findExactModule hsc_env mod =
     let dflags = hsc_dflags hsc_env
     in if modulePackageKey mod == thisPackage dflags
@@ -172,7 +172,7 @@ orIfNotFound this or_this = do
     _other -> return res
 
 
-homeSearchCache :: HscEnv -> ModuleName -> IO FindResult -> IO FindResult
+homeSearchCache :: HscEnv l -> ModuleName -> IO FindResult -> IO FindResult
 homeSearchCache hsc_env mod_name do_this = do
   m <- lookupFinderCache (hsc_FC hsc_env) mod_name
   case m of
@@ -185,7 +185,7 @@ homeSearchCache hsc_env mod_name do_this = do
            _other        -> return ()
         return result
 
-findExposedPackageModule :: HscEnv -> ModuleName -> Maybe FastString
+findExposedPackageModule :: HscEnv l -> ModuleName -> Maybe FastString
                          -> IO FindResult
 findExposedPackageModule hsc_env mod_name mb_pkg
   = case lookupModuleWithSuggestions (hsc_dflags hsc_env) mod_name mb_pkg of
@@ -204,7 +204,7 @@ findExposedPackageModule hsc_env mod_name mb_pkg
                        , fr_mods_hidden = []
                        , fr_suggestions = suggest })
 
-modLocationCache :: HscEnv -> Module -> IO FindResult -> IO FindResult
+modLocationCache :: HscEnv l -> Module -> IO FindResult -> IO FindResult
 modLocationCache hsc_env mod do_this = do
   mb_loc <- lookupModLocationCache mlc mod
   case mb_loc of
@@ -218,14 +218,14 @@ modLocationCache hsc_env mod do_this = do
   where
     mlc = hsc_MLC hsc_env
 
-addHomeModuleToFinder :: HscEnv -> ModuleName -> ModLocation -> IO Module
+addHomeModuleToFinder :: HscEnv l -> ModuleName -> ModLocation -> IO Module
 addHomeModuleToFinder hsc_env mod_name loc = do
   let mod = mkModule (thisPackage (hsc_dflags hsc_env)) mod_name
   addToFinderCache (hsc_FC hsc_env) mod_name (Found loc mod)
   addToModLocationCache (hsc_MLC hsc_env) mod loc
   return mod
 
-uncacheModule :: HscEnv -> ModuleName -> IO ()
+uncacheModule :: HscEnv l -> ModuleName -> IO ()
 uncacheModule hsc_env mod = do
   let this_pkg = thisPackage (hsc_dflags hsc_env)
   removeFromFinderCache (hsc_FC hsc_env) mod
@@ -235,7 +235,7 @@ uncacheModule hsc_env mod = do
 --      The internal workers
 
 -- | Search for a module in the home package only.
-findHomeModule :: HscEnv -> ModuleName -> IO FindResult
+findHomeModule :: HscEnv l -> ModuleName -> IO FindResult
 findHomeModule hsc_env mod_name =
    homeSearchCache hsc_env mod_name $
    let 
@@ -269,7 +269,7 @@ findHomeModule hsc_env mod_name =
 
 
 -- | Search for a module in external packages only.
-findPackageModule :: HscEnv -> Module -> IO FindResult
+findPackageModule :: HscEnv l -> Module -> IO FindResult
 findPackageModule hsc_env mod = do
   let
         dflags = hsc_dflags hsc_env
@@ -286,7 +286,7 @@ findPackageModule hsc_env mod = do
 -- the 'PackageConfig' must be consistent with the package key in the 'Module'.
 -- The redundancy is to avoid an extra lookup in the package state
 -- for the appropriate config.
-findPackageModule_ :: HscEnv -> Module -> PackageConfig -> IO FindResult
+findPackageModule_ :: HscEnv l -> Module -> PackageConfig -> IO FindResult
 findPackageModule_ hsc_env mod pkg_conf =
   ASSERT( modulePackageKey mod == packageConfigId pkg_conf )
   modLocationCache hsc_env mod $

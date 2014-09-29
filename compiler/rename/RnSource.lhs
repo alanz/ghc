@@ -391,7 +391,7 @@ rnDefaultDecl (DefaultDecl tys)
 rnHsForeignDecl :: (ApiAnnotation l)
                 => ForeignDecl l RdrName -> RnM l (ForeignDecl l Name, FreeVars)
 rnHsForeignDecl (ForeignImport name ty _ spec)
-  = do { topEnv :: HscEnv <- getTopEnv
+  = do { topEnv :: HscEnv l <- getTopEnv
        ; name' <- lookupLocatedTopBndrRn name
        ; (ty', fvs) <- rnLHsType (ForeignDeclCtx name) ty
 
@@ -523,7 +523,7 @@ rnClsInstDecl (ClsInstDecl { cid_poly_ty = inst_ty, cid_binds = mbinds
              --     strange, but should not matter (and it would be more work
              --     to remove the context).
 
-rnFamInstDecl :: HsDocContext l
+rnFamInstDecl :: (ApiAnnotation l) => HsDocContext l
               -> Maybe (Name, [Name])
               -> GenLocated l RdrName
               -> [LHsType l RdrName]
@@ -569,7 +569,7 @@ rnFamInstDecl doc mb_cls tycon pats payload rnPayload
                  all_fvs) }
              -- type instance => use, hence addOneFV
 
-rnTyFamInstDecl :: Maybe (Name, [Name])
+rnTyFamInstDecl ::  (ApiAnnotation l) => Maybe (Name, [Name])
                 -> TyFamInstDecl l RdrName
                 -> RnM l (TyFamInstDecl l Name, FreeVars)
 rnTyFamInstDecl mb_cls (TyFamInstDecl { tfid_eqn = L loc eqn })
@@ -1490,12 +1490,12 @@ Template Haskell splice.  As it does so it
         b) runs any top-level quasi-quotes
 
 \begin{code}
-findSplice :: [LHsDecl l RdrName]
+findSplice ::  (ApiAnnotation l) => [LHsDecl l RdrName]
            -> RnM l (HsGroup l RdrName, Maybe (SpliceDecl l RdrName,
                      [LHsDecl l RdrName]))
 findSplice ds = addl emptyRdrGroup ds
 
-addl :: HsGroup l RdrName -> [LHsDecl l RdrName]
+addl ::  (ApiAnnotation l) => HsGroup l RdrName -> [LHsDecl l RdrName]
      -> RnM l (HsGroup l RdrName, Maybe (SpliceDecl l RdrName,
                [LHsDecl l RdrName]))
 -- This stuff reverses the declarations (again) but it doesn't matter

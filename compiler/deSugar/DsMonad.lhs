@@ -76,8 +76,8 @@ import Control.Monad
 %************************************************************************
 
 \begin{code}
-data DsMatchContext
-  = DsMatchContext (HsMatchContext Name) SrcSpan
+data DsMatchContext l
+  = DsMatchContext (HsMatchContext Name) l
   deriving ()
 
 data EquationInfo l
@@ -124,7 +124,7 @@ a @UniqueSupply@ and some annotations, which
 presumably include source-file location information:
 
 \begin{code}
-type DsM l result = TcRnIf DsGblEnv (DsLclEnv l) result
+type DsM l result = TcRnIf l (DsGblEnv l) (DsLclEnv l) result
 
 -- Compatibility functions
 fixDs :: (a -> DsM l a) -> DsM l a
@@ -154,13 +154,13 @@ data PArrBuiltin
         , enumFromThenToPVar :: Var     -- ^ enumFromThenToP
         }
 
-data DsGblEnv 
+data DsGblEnv l
         = DsGblEnv
         { ds_mod          :: Module             -- For SCC profiling
         , ds_fam_inst_env :: FamInstEnv         -- Like tcg_fam_inst_env
         , ds_unqual  :: PrintUnqualified
         , ds_msgs    :: IORef Messages          -- Warning messages
-        , ds_if_env  :: (IfGblEnv, IfLclEnv)    -- Used for looking up global, 
+        , ds_if_env  :: (IfGblEnv l, IfLclEnv)  -- Used for looking up global, 
                                                 -- possibly-imported things
         , ds_dph_env :: GlobalRdrEnv            -- exported entities of 'Data.Array.Parallel.Prim'
                                                 -- iff '-fvectorise' flag was given as well as
@@ -169,12 +169,12 @@ data DsGblEnv
         , ds_parr_bi :: PArrBuiltin             -- desugarar names for '-XParallelArrays'
         }
 
-instance ContainsModule DsGblEnv where
+instance ContainsModule (DsGblEnv l) where
     extractModule = ds_mod
 
 data DsLclEnv l = DsLclEnv {
         ds_meta    :: DsMetaEnv l, -- Template Haskell bindings
-        ds_loc     :: SrcSpan      -- to put in pattern-matching error msgs
+        ds_loc     :: l            -- to put in pattern-matching error msgs
      }
 
 -- Inside [| |] brackets, the desugarer looks 
@@ -189,7 +189,7 @@ data DsMetaVal l
    | Splice (HsExpr l Id) -- These bindings are introduced by
                         -- the PendingSplices on a HsBracketOut
 
-initDs :: HscEnv
+initDs :: (ApiAnnotation l) => HscEnv l
        -> Module -> GlobalRdrEnv -> TypeEnv -> FamInstEnv
        -> DsM l a
        -> IO (Messages, Maybe a)
@@ -267,7 +267,7 @@ initDs hsc_env mod rdr_env type_env fam_inst_env thing_inside
                       -- module called 'dATA_ARRAY_PARALLEL_NAME'; see also the comments at the top
                       -- of 'base:GHC.PArr' and 'Data.Array.Parallel' in the DPH libraries
 
-initDsTc :: DsM l a -> TcM l a
+initDsTc ::(ApiAnnotation l) =>  DsM l a -> TcM l a
 initDsTc thing_inside
   = do  { this_mod <- getModule
         ; tcg_env  <- getGblEnv
@@ -280,8 +280,9 @@ initDsTc thing_inside
         ; setEnvs ds_envs thing_inside
         }
 
-mkDsEnvs :: DynFlags -> Module -> GlobalRdrEnv -> TypeEnv -> FamInstEnv
-         -> IORef Messages -> (DsGblEnv, DsLclEnv l)
+mkDsEnvs :: (ApiAnnotation l)
+         => DynFlags -> Module -> GlobalRdrEnv -> TypeEnv -> FamInstEnv
+         -> IORef Messages -> (DsGblEnv l, DsLclEnv l)
 mkDsEnvs dflags mod rdr_env type_env fam_inst_env msg_var
   = let if_genv = IfGblEnv { if_rec_types = Just (mod, return type_env) }
         if_lenv = mkIfLclEnv mod (ptext (sLit "GHC error in desugarer lookup in") <+> ppr mod)
@@ -294,7 +295,7 @@ mkDsEnvs dflags mod rdr_env type_env fam_inst_env msg_var
                            , ds_parr_bi = panic "DsMonad: uninitialised ds_parr_bi"
                            }
         lcl_env = DsLclEnv { ds_meta = emptyNameEnv
-                           , ds_loc  = noSrcSpan
+                           , ds_loc  = annNoSpan
                            }
     in (gbl_env, lcl_env)
 
@@ -357,25 +358,25 @@ the @SrcSpan@ being carried around.
 getGhcModeDs :: DsM l GhcMode
 getGhcModeDs =  getDynFlags >>= return . ghcMode
 
-getSrcSpanDs :: DsM l SrcSpan
+getSrcSpanDs :: DsM l l
 getSrcSpanDs = do { env <- getLclEnv; return (ds_loc env) }
 
-putSrcSpanDs :: SrcSpan -> DsM l a -> DsM l a
+putSrcSpanDs :: l -> DsM l a -> DsM l a
 putSrcSpanDs new_loc thing_inside = updLclEnv (\ env -> env {ds_loc = new_loc}) thing_inside
 
-warnDs :: SDoc -> DsM l ()
+warnDs :: (ApiAnnotation l) => SDoc -> DsM l ()
 warnDs warn = do { env <- getGblEnv 
                  ; loc <- getSrcSpanDs
                  ; dflags <- getDynFlags
-                 ; let msg = mkWarnMsg dflags loc (ds_unqual env)  warn
+                 ; let msg = mkWarnMsg dflags (annGetSpan loc) (ds_unqual env)  warn
                  ; updMutVar (ds_msgs env) (\ (w,e) -> (w `snocBag` msg, e)) }
 
-failWithDs :: SDoc -> DsM l a
+failWithDs :: (ApiAnnotation l) => SDoc -> DsM l a
 failWithDs err
   = do  { env <- getGblEnv 
         ; loc <- getSrcSpanDs
         ; dflags <- getDynFlags
-        ; let msg = mkErrMsg dflags loc (ds_unqual env) err
+        ; let msg = mkErrMsg dflags (annGetSpan loc) (ds_unqual env) err
         ; updMutVar (ds_msgs env) (\ (w,e) -> (w, e `snocBag` msg))
         ; failM }
 
@@ -384,7 +385,7 @@ mkPrintUnqualifiedDs = ds_unqual <$> getGblEnv
 \end{code}
 
 \begin{code}
-instance MonadThings (IOEnv (Env DsGblEnv (DsLclEnv l))) where
+instance MonadThings (IOEnv (Env l (DsGblEnv l) (DsLclEnv l))) where
     lookupThing = dsLookupGlobal
 
 dsLookupGlobal :: Name -> DsM l TyThing

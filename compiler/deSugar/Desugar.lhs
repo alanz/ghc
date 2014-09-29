@@ -63,7 +63,7 @@ import Control.Monad( when )
 \begin{code}
 -- | Main entry point to the desugarer.
 deSugar :: (ApiAnnotation l)
-        => HscEnv -> ModLocation -> TcGblEnv l -> IO (Messages, Maybe ModGuts)
+        => HscEnv l -> ModLocation -> TcGblEnv l -> IO (Messages, Maybe ModGuts)
 -- Can modify PCS by faulting in more declarations
 
 deSugar hsc_env
@@ -227,7 +227,7 @@ and Rec the rest.
 
 \begin{code}
 deSugarExpr :: (ApiAnnotation l)
-            => HscEnv -> LHsExpr l Id -> IO (Messages, Maybe CoreExpr)
+            => HscEnv l -> LHsExpr l Id -> IO (Messages, Maybe CoreExpr)
 
 deSugarExpr hsc_env tc_expr
   = do { let dflags       = hsc_dflags hsc_env
@@ -349,7 +349,7 @@ Reason
 
 dsRule :: (ApiAnnotation l) => LRuleDecl l Id -> DsM l (Maybe CoreRule)
 dsRule (L loc (HsRule name act vars lhs _tv_lhs rhs _fv_rhs))
-  = putSrcSpanDs (annGetSpan loc) $
+  = putSrcSpanDs loc $
     do  { let bndrs' = [var | RuleBndr (L _ var) <- vars]
 
         ; lhs' <- unsetGOptM Opt_EnableRewriteRules $
@@ -463,7 +463,7 @@ by simpleOptExpr (for the LHS) resp. the simplifiers (for the RHS).
 \begin{code}
 dsVect :: (ApiAnnotation l) => LVectDecl l Id -> DsM l CoreVect
 dsVect (L loc (HsVect (L _ v) rhs))
-  = putSrcSpanDs (annGetSpan loc) $
+  = putSrcSpanDs loc $
     do { rhs' <- dsLExpr rhs
        ; return $ Vect v rhs'
        }

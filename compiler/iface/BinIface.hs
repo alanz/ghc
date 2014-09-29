@@ -68,7 +68,7 @@ data TraceBinIFaceReading = TraceBinIFaceReading | QuietBinIFaceReading
 
 -- | Read an interface file
 readBinIface :: CheckHiWay -> TraceBinIFaceReading -> FilePath
-             -> TcRnIf a b ModIface
+             -> TcRnIf l a b ModIface
 readBinIface checkHiWay traceBinIFaceReading hi_path = do
     ncu <- mkNameCacheUpdater
     dflags <- getDynFlags

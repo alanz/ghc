@@ -128,7 +128,7 @@ Plan A: mkBootModDetails: omit pragmas, make interfaces small
 -- We don't look at the bindings at all -- there aren't any
 -- for hs-boot files
 
-mkBootModDetailsTc :: HscEnv -> TcGblEnv SrcSpan -> IO ModDetails
+mkBootModDetailsTc :: HscEnv l -> TcGblEnv SrcSpan -> IO ModDetails
 mkBootModDetailsTc hsc_env
         TcGblEnv{ tcg_exports   = exports,
                   tcg_type_env  = type_env, -- just for the Ids
@@ -296,7 +296,7 @@ throughout, including in unfoldings.  We also tidy binders in
 RHSs, so that they print nicely in interfaces.
 
 \begin{code}
-tidyProgram :: HscEnv -> ModGuts -> IO (CgGuts, ModDetails)
+tidyProgram :: ApiAnnotation l => HscEnv l -> ModGuts -> IO (CgGuts, ModDetails)
 tidyProgram hsc_env  (ModGuts { mg_module    = mod
                               , mg_exports   = exports
                               , mg_tcs       = tcs
@@ -604,7 +604,7 @@ type UnfoldEnv  = IdEnv (Name{-new name-}, Bool {-show unfolding-})
   --
   -- Bool => expose unfolding or not.
 
-chooseExternalIds :: HscEnv
+chooseExternalIds :: HscEnv l
                   -> Module
                   -> Bool -> Bool
                   -> [CoreBind]
@@ -1101,7 +1101,7 @@ tidyTopName mod nc_var maybe_ref occ_env id
 --
 --   * subst_env: A Var->Var mapping that substitutes the new Var for the old
 
-tidyTopBinds :: HscEnv
+tidyTopBinds :: ApiAnnotation l => HscEnv l
              -> Module
              -> UnfoldEnv
              -> TidyOccEnv

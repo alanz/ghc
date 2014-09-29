@@ -1,5 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -funbox-strict-fields #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- -----------------------------------------------------------------------------
 --
 -- (c) The University of Glasgow, 2010
@@ -28,6 +30,7 @@ import HscTypes
 import DynFlags
 import Exception
 import ErrUtils
+import SrcLoc (SrcSpan)
 
 import Data.IORef
 
@@ -48,11 +51,11 @@ import Data.IORef
 -- before any call to the GHC API functions can occur.
 --
 class (Functor m, MonadIO m, ExceptionMonad m, HasDynFlags m) => GhcMonad m where
-  getSession :: m HscEnv
-  setSession :: HscEnv -> m ()
+  getSession :: m (HscEnv l)
+  setSession :: HscEnv l -> m ()
 
 -- | Call the argument with the current session.
-withSession :: GhcMonad m => (HscEnv -> m a) -> m a
+withSession :: GhcMonad m => (HscEnv l -> m a) -> m a
 withSession f = getSession >>= f
 
 -- | Grabs the DynFlags from the Session
@@ -61,7 +64,7 @@ getSessionDynFlags = withSession (return . hsc_dflags)
 
 -- | Set the current session to the result of applying the current session to
 -- the argument.
-modifySession :: GhcMonad m => (HscEnv -> HscEnv) -> m ()
+modifySession :: GhcMonad m => (HscEnv l -> HscEnv l) -> m ()
 modifySession f = do h <- getSession
                      setSession $! f h
 
@@ -71,7 +74,7 @@ withSavedSession m = do
   m `gfinally` setSession saved_session
 
 -- | Call an action with a temporarily modified Session.
-withTempSession :: GhcMonad m => (HscEnv -> HscEnv) -> m a -> m a
+withTempSession :: GhcMonad m => (HscEnv l -> HscEnv l) -> m a -> m a
 withTempSession f m =
   withSavedSession $ modifySession f >> m
 
@@ -87,13 +90,13 @@ logWarnings warns = do
 -- | A minimal implementation of a 'GhcMonad'.  If you need a custom monad,
 -- e.g., to maintain additional state consider wrapping this monad or using
 -- 'GhcT'.
-newtype Ghc a = Ghc { unGhc :: Session -> IO a }
+newtype Ghc a = Ghc { unGhc :: Session SrcSpan -> IO a }
 
 -- | The Session is a handle to the complete state of a compilation
 -- session.  A compilation session consists of a set of modules
 -- constituting the current program or library, the context for
 -- interactive evaluation, and various caches.
-data Session = Session !(IORef HscEnv) 
+data Session l = Session !(IORef (HscEnv l))
 
 instance Functor Ghc where
   fmap f m = Ghc $ \s -> f `fmap` unGhc m s
@@ -144,36 +147,36 @@ instance GhcMonad Ghc where
 -- >     libFunc $ \i -> do
 -- >       reflectGhc (ghcFunc i) s
 --
-reflectGhc :: Ghc a -> Session -> IO a
+reflectGhc :: Ghc a -> Session SrcSpan -> IO a
 reflectGhc m = unGhc m
 
 -- > Dual to 'reflectGhc'.  See its documentation.
-reifyGhc :: (Session -> IO a) -> Ghc a
+reifyGhc :: (Session SrcSpan -> IO a) -> Ghc a
 reifyGhc act = Ghc $ act
 
 -- -----------------------------------------------------------------------------
 -- | A monad transformer to add GHC specific features to another monad.
 --
 -- Note that the wrapped monad must support IO and handling of exceptions.
-newtype GhcT m a = GhcT { unGhcT :: Session -> m a }
-liftGhcT :: Monad m => m a -> GhcT m a
+newtype GhcT l m a = GhcT { unGhcT :: Session l -> m a }
+liftGhcT :: Monad m => m a -> GhcT l m a
 liftGhcT m = GhcT $ \_ -> m
 
-instance Functor m => Functor (GhcT m) where
+instance Functor m => Functor (GhcT l m) where
   fmap f m = GhcT $ \s -> f `fmap` unGhcT m s
 
-instance Applicative m => Applicative (GhcT m) where
+instance Applicative m => Applicative (GhcT l m) where
   pure x  = GhcT $ \_ -> pure x
   g <*> m = GhcT $ \s -> unGhcT g s <*> unGhcT m s
 
-instance Monad m => Monad (GhcT m) where
+instance Monad m => Monad (GhcT l m) where
   return x = GhcT $ \_ -> return x
   m >>= k  = GhcT $ \s -> do a <- unGhcT m s; unGhcT (k a) s
 
-instance MonadIO m => MonadIO (GhcT m) where
+instance MonadIO m => MonadIO (GhcT l m) where
   liftIO ioA = GhcT $ \_ -> liftIO ioA
 
-instance ExceptionMonad m => ExceptionMonad (GhcT m) where
+instance ExceptionMonad m => ExceptionMonad (GhcT l m) where
   gcatch act handle =
       GhcT $ \s -> unGhcT act s `gcatch` \e -> unGhcT (handle e) s
   gmask f =
@@ -183,10 +186,10 @@ instance ExceptionMonad m => ExceptionMonad (GhcT m) where
                            in
                               unGhcT (f g_restore) s
 
-instance (Functor m, ExceptionMonad m, MonadIO m) => HasDynFlags (GhcT m) where
+instance (Functor m, ExceptionMonad m, MonadIO m) => HasDynFlags (GhcT l m) where
   getDynFlags = getSessionDynFlags
 
-instance (Functor m, ExceptionMonad m, MonadIO m) => GhcMonad (GhcT m) where
+instance (Functor m, ExceptionMonad m, MonadIO m) => GhcMonad (GhcT l m) where
   getSession = GhcT $ \(Session r) -> liftIO $ readIORef r
   setSession s' = GhcT $ \(Session r) -> liftIO $ writeIORef r s'
 

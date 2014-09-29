@@ -69,7 +69,7 @@ import Panic
 %************************************************************************
 
 \begin{code}
-core2core :: HscEnv -> ModGuts -> IO ModGuts
+core2core :: ApiAnnotation l => HscEnv l -> ModGuts -> IO ModGuts
 core2core hsc_env guts
   = do { us <- mkSplitUniqSupply 's'
        -- make sure all plugins are loaded
@@ -109,7 +109,7 @@ core2core hsc_env guts
 %************************************************************************
 
 \begin{code}
-getCoreToDo :: DynFlags -> [CoreToDo]
+getCoreToDo :: DynFlags -> [CoreToDo l]
 getCoreToDo dflags
   = core_todo
   where
@@ -324,7 +324,7 @@ getCoreToDo dflags
 Loading plugins
 
 \begin{code}
-addPluginPasses :: DynFlags -> [CoreToDo] -> CoreM [CoreToDo]
+addPluginPasses :: DynFlags -> [CoreToDo l] -> CoreM l [CoreToDo l]
 #ifndef GHCI
 addPluginPasses _ builtin_passes = return builtin_passes
 #else
@@ -377,7 +377,7 @@ loadPlugin hsc_env mod_name
 %************************************************************************
 
 \begin{code}
-runCorePasses :: [CoreToDo] -> ModGuts -> CoreM ModGuts
+runCorePasses :: ApiAnnotation l => [CoreToDo l] -> ModGuts -> CoreM l ModGuts
 runCorePasses passes guts
   = foldM do_pass guts passes
   where
@@ -391,7 +391,7 @@ runCorePasses passes guts
             ; liftIO $ endPass hsc_env pass (mg_binds guts') (mg_rules guts')
             ; return guts' }
 
-doCorePass :: CoreToDo -> ModGuts -> CoreM ModGuts
+doCorePass :: ApiAnnotation l => CoreToDo l -> ModGuts -> CoreM l ModGuts
 doCorePass pass@(CoreDoSimplify {})  = {-# SCC "Simplify" #-}
                                        simplifyPgm pass
 
@@ -451,7 +451,7 @@ printCore :: DynFlags -> CoreProgram -> IO ()
 printCore dflags binds
     = Err.dumpIfSet dflags True "Print Core" (pprCoreBindings binds)
 
-ruleCheckPass :: CompilerPhase -> String -> ModGuts -> CoreM ModGuts
+ruleCheckPass :: CompilerPhase -> String -> ModGuts -> CoreM l ModGuts
 ruleCheckPass current_phase pat guts = do
     rb <- getRuleBase
     dflags <- getDynFlags
@@ -461,32 +461,32 @@ ruleCheckPass current_phase pat guts = do
     return guts
 
 
-doPassDUM :: (DynFlags -> UniqSupply -> CoreProgram -> IO CoreProgram) -> ModGuts -> CoreM ModGuts
+doPassDUM :: (DynFlags -> UniqSupply -> CoreProgram -> IO CoreProgram) -> ModGuts -> CoreM l ModGuts
 doPassDUM do_pass = doPassM $ \binds -> do
     dflags <- getDynFlags
     us     <- getUniqueSupplyM
     liftIO $ do_pass dflags us binds
 
-doPassDM :: (DynFlags -> CoreProgram -> IO CoreProgram) -> ModGuts -> CoreM ModGuts
+doPassDM :: (DynFlags -> CoreProgram -> IO CoreProgram) -> ModGuts -> CoreM l ModGuts
 doPassDM do_pass = doPassDUM (\dflags -> const (do_pass dflags))
 
-doPassD :: (DynFlags -> CoreProgram -> CoreProgram) -> ModGuts -> CoreM ModGuts
+doPassD :: (DynFlags -> CoreProgram -> CoreProgram) -> ModGuts -> CoreM l ModGuts
 doPassD do_pass = doPassDM (\dflags -> return . do_pass dflags)
 
-doPassDU :: (DynFlags -> UniqSupply -> CoreProgram -> CoreProgram) -> ModGuts -> CoreM ModGuts
+doPassDU :: (DynFlags -> UniqSupply -> CoreProgram -> CoreProgram) -> ModGuts -> CoreM l ModGuts
 doPassDU do_pass = doPassDUM (\dflags us -> return . do_pass dflags us)
 
-doPassU :: (UniqSupply -> CoreProgram -> CoreProgram) -> ModGuts -> CoreM ModGuts
+doPassU :: (UniqSupply -> CoreProgram -> CoreProgram) -> ModGuts -> CoreM l ModGuts
 doPassU do_pass = doPassDU (const do_pass)
 
-doPassDFM :: (DynFlags -> FamInstEnvs -> CoreProgram -> IO CoreProgram) -> ModGuts -> CoreM ModGuts
+doPassDFM :: (DynFlags -> FamInstEnvs -> CoreProgram -> IO CoreProgram) -> ModGuts -> CoreM l ModGuts
 doPassDFM do_pass guts = do
     dflags <- getDynFlags
     p_fam_env <- getPackageFamInstEnv
     let fam_envs = (p_fam_env, mg_fam_inst_env guts)
     doPassM (liftIO . do_pass dflags fam_envs) guts
 
-doPassDFU :: (DynFlags -> FamInstEnvs -> UniqSupply -> CoreProgram -> CoreProgram) -> ModGuts -> CoreM ModGuts
+doPassDFU :: (DynFlags -> FamInstEnvs -> UniqSupply -> CoreProgram -> CoreProgram) -> ModGuts -> CoreM l ModGuts
 doPassDFU do_pass guts = do
     dflags <- getDynFlags
     us     <- getUniqueSupplyM
@@ -501,11 +501,11 @@ doPassM bind_f guts = do
     binds' <- bind_f (mg_binds guts)
     return (guts { mg_binds = binds' })
 
-doPass :: (CoreProgram -> CoreProgram) -> ModGuts -> CoreM ModGuts
+doPass :: (CoreProgram -> CoreProgram) -> ModGuts -> CoreM l ModGuts
 doPass bind_f guts = return $ guts { mg_binds = bind_f (mg_binds guts) }
 
 -- Observer passes just peek; don't modify the bindings at all
-observe :: (DynFlags -> CoreProgram -> IO a) -> ModGuts -> CoreM ModGuts
+observe :: (DynFlags -> CoreProgram -> IO a) -> ModGuts -> CoreM l ModGuts
 observe do_pass = doPassM $ \binds -> do
     dflags <- getDynFlags
     _ <- liftIO $ do_pass dflags binds
@@ -578,7 +578,7 @@ simplExprGently env expr = do
 %************************************************************************
 
 \begin{code}
-simplifyPgm :: CoreToDo -> ModGuts -> CoreM ModGuts
+simplifyPgm :: CoreToDo l -> ModGuts -> CoreM l ModGuts
 simplifyPgm pass guts
   = do { hsc_env <- getHscEnv
        ; us <- getUniqueSupplyM
@@ -586,8 +586,8 @@ simplifyPgm pass guts
        ; liftIOWithCount $
          simplifyPgmIO pass hsc_env us rb guts }
 
-simplifyPgmIO :: CoreToDo
-              -> HscEnv
+simplifyPgmIO :: CoreToDo l
+              -> HscEnv l
               -> UniqSupply
               -> RuleBase
               -> ModGuts

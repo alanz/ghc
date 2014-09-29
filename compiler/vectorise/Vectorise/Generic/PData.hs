@@ -26,11 +26,12 @@ import Name
 import Util
 import MonadUtils
 import Control.Monad
-
+import SrcLoc ( ApiAnnotation,annFromSpan )
 
 -- buildPDataTyCon ------------------------------------------------------------
 -- | Build the PData instance tycon for a given type constructor.
-buildPDataTyCon :: TyCon -> TyCon -> SumRepr -> VM l FamInst
+buildPDataTyCon :: (ApiAnnotation l)
+                => TyCon -> TyCon -> SumRepr -> VM l FamInst
 buildPDataTyCon orig_tc vect_tc repr
  = fixV $ \fam_inst ->
    do let repr_tc = dataFamInstRepTyCon fam_inst
@@ -41,11 +42,12 @@ buildPDataTyCon orig_tc vect_tc repr
  where
     orig_name = tyConName orig_tc
 
-buildDataFamInst :: Name -> TyCon -> TyCon -> AlgTyConRhs -> VM l FamInst
+buildDataFamInst :: (ApiAnnotation l)
+                 => Name -> TyCon -> TyCon -> AlgTyConRhs -> VM l FamInst
 buildDataFamInst name' fam_tc vect_tc rhs
  = do { axiom_name <- mkDerivedName mkInstTyCoOcc name'
 
-      ; (_, tyvars') <- liftDs $ tcInstSigTyVarsLoc (getSrcSpan name') tyvars
+      ; (_, tyvars') <- liftDs $ tcInstSigTyVarsLoc (annFromSpan $ getSrcSpan name') tyvars
       ; let ax       = mkSingleCoAxiom axiom_name tyvars' fam_tc pat_tys rep_ty
             tys'     = mkTyVarTys tyvars'
             rep_ty   = mkTyConApp rep_tc tys'
@@ -92,7 +94,8 @@ buildPDataDataCon orig_name vect_tc repr_tc repr
 
 -- buildPDatasTyCon -----------------------------------------------------------
 -- | Build the PDatas instance tycon for a given type constructor.
-buildPDatasTyCon :: TyCon -> TyCon -> SumRepr -> VM l FamInst
+buildPDatasTyCon :: (ApiAnnotation l)
+                 => TyCon -> TyCon -> SumRepr -> VM l FamInst
 buildPDatasTyCon orig_tc vect_tc repr
  = fixV $ \fam_inst ->
    do let repr_tc = dataFamInstRepTyCon fam_inst

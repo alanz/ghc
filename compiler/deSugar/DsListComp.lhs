@@ -675,7 +675,7 @@ dsMonadComp stmts = dsMcStmts stmts
 
 dsMcStmts :: (ApiAnnotation l) => [ExprLStmt l Id] -> DsM l CoreExpr
 dsMcStmts []                    = panic "dsMcStmts"
-dsMcStmts (L loc stmt : lstmts) = putSrcSpanDs (annGetSpan loc) (dsMcStmt stmt lstmts)
+dsMcStmts (L loc stmt : lstmts) = putSrcSpanDs loc (dsMcStmt stmt lstmts)
 
 ---------------
 dsMcStmt :: (ApiAnnotation l)

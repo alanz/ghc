@@ -162,7 +162,7 @@ loadInterfaceForModule doc m
 -- | An 'IfM' function to load the home interface for a wired-in thing,
 -- so that we're sure that we see its instance declarations and rules
 -- See Note [Loading instances for wired-in things] in TcIface
-loadWiredInHomeIface :: Name -> IfM lcl ()
+loadWiredInHomeIface :: Name -> IfM l lcl ()
 loadWiredInHomeIface name
   = ASSERT( isWiredInName name )
     do _ <- loadSysInterface doc (nameModule name); return ()
@@ -171,23 +171,23 @@ loadWiredInHomeIface name
 
 ------------------
 -- | Loads a system interface and throws an exception if it fails
-loadSysInterface :: SDoc -> Module -> IfM lcl ModIface
+loadSysInterface :: SDoc -> Module -> IfM l lcl ModIface
 loadSysInterface doc mod_name = loadInterfaceWithException doc mod_name ImportBySystem
 
 ------------------
 -- | Loads a user interface and throws an exception if it fails. The first parameter indicates
 -- whether we should import the boot variant of the module
-loadUserInterface :: Bool -> SDoc -> Module -> IfM lcl ModIface
+loadUserInterface :: Bool -> SDoc -> Module -> IfM l lcl ModIface
 loadUserInterface is_boot doc mod_name 
   = loadInterfaceWithException doc mod_name (ImportByUser is_boot)
 
-loadPluginInterface :: SDoc -> Module -> IfM lcl ModIface
+loadPluginInterface :: SDoc -> Module -> IfM l lcl ModIface
 loadPluginInterface doc mod_name
   = loadInterfaceWithException doc mod_name ImportByPlugin
 
 ------------------
 -- | A wrapper for 'loadInterface' that throws an exception if it fails
-loadInterfaceWithException :: SDoc -> Module -> WhereFrom -> IfM lcl ModIface
+loadInterfaceWithException :: SDoc -> Module -> WhereFrom -> IfM l lcl ModIface
 loadInterfaceWithException doc mod_name where_from
   = do  { mb_iface <- loadInterface doc mod_name where_from
         ; dflags <- getDynFlags
@@ -197,7 +197,7 @@ loadInterfaceWithException doc mod_name where_from
 
 ------------------
 loadInterface :: SDoc -> Module -> WhereFrom
-              -> IfM lcl (MaybeErr MsgDoc ModIface)
+              -> IfM l lcl (MaybeErr MsgDoc ModIface)
 
 -- loadInterface looks in both the HPT and PIT for the required interface
 -- If not found, it loads it, and puts it in the PIT (always). 
@@ -401,7 +401,7 @@ addDeclsToPTE pte things = extendNameEnvList pte things
 
 loadDecls :: Bool
           -> [(Fingerprint, IfaceDecl)]
-          -> IfL [(Name,TyThing)]
+          -> IfL l [(Name,TyThing)]
 loadDecls ignore_prags ver_decls
    = do { mod <- getIfModule
         ; thingss <- mapM (loadDecl ignore_prags mod) ver_decls
@@ -411,7 +411,7 @@ loadDecls ignore_prags ver_decls
 loadDecl :: Bool                    -- Don't load pragmas into the decl pool
          -> Module
           -> (Fingerprint, IfaceDecl)
-          -> IfL [(Name,TyThing)]   -- The list can be poked eagerly, but the
+          -> IfL l [(Name,TyThing)] -- The list can be poked eagerly, but the
                                     -- TyThings are forkM'd thunks
 loadDecl ignore_prags mod (_version, decl)
   = do  {       -- Populate the name cache with final versions of all 
@@ -500,7 +500,7 @@ loadDecl ignore_prags mod (_version, decl)
   where
     doc = ptext (sLit "Declaration for") <+> ppr (ifName decl)
 
-bumpDeclStats :: Name -> IfL ()         -- Record that one more declaration has actually been used
+bumpDeclStats :: Name -> IfL l () -- Record that one more declaration has actually been used
 bumpDeclStats name
   = do  { traceIf (text "Loading decl for" <+> ppr name)
         ; updateEps_ (\eps -> let stats = eps_stats eps
@@ -538,7 +538,7 @@ See Trac #8320.
 findAndReadIface :: SDoc -> Module
                  -> IsBootInterface     -- True  <=> Look for a .hi-boot file
                                         -- False <=> Look for .hi file
-                 -> TcRnIf gbl lcl (MaybeErr MsgDoc (ModIface, FilePath))
+                 -> TcRnIf l gbl lcl (MaybeErr MsgDoc (ModIface, FilePath))
         -- Nothing <=> file not found, or unreadable, or illegible
         -- Just x  <=> successfully found and parsed 
 
@@ -619,7 +619,7 @@ findAndReadIface doc_str mod hi_boot_file
 
 \begin{code}
 readIface :: Module -> FilePath
-          -> TcRnIf gbl lcl (MaybeErr MsgDoc ModIface)
+          -> TcRnIf l gbl lcl (MaybeErr MsgDoc ModIface)
         -- Failed err    <=> file not found, or unreadable, or illegible
         -- Succeeded iface <=> successfully found and parsed 
 
@@ -720,7 +720,7 @@ ifaceStats eps
 
 \begin{code}
 -- | Read binary interface, and print it out
-showIface :: HscEnv -> FilePath -> IO ()
+showIface :: HscEnv l -> FilePath -> IO ()
 showIface hsc_env filename = do
    -- skip the hi way check; we don't want to worry about profiled vs.
    -- non-profiled interfaces, for example.

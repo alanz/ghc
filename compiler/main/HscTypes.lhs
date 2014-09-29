@@ -197,34 +197,34 @@ data HscStatus
 -- -----------------------------------------------------------------------------
 -- The Hsc monad: Passing an environment and warning state
 
-newtype Hsc a = Hsc (HscEnv -> WarningMessages -> IO (a, WarningMessages))
+newtype Hsc l a = Hsc (HscEnv l -> WarningMessages -> IO (a, WarningMessages))
 
-instance Functor Hsc where
+instance Functor (Hsc l) where
     fmap = liftM
 
-instance Applicative Hsc where
+instance Applicative (Hsc l) where
     pure = return
     (<*>) = ap
 
-instance Monad Hsc where
+instance Monad (Hsc l) where
     return a    = Hsc $ \_ w -> return (a, w)
     Hsc m >>= k = Hsc $ \e w -> do (a, w1) <- m e w
                                    case k a of
                                        Hsc k' -> k' e w1
 
-instance MonadIO Hsc where
+instance MonadIO (Hsc l) where
     liftIO io = Hsc $ \_ w -> do a <- io; return (a, w)
 
-instance HasDynFlags Hsc where
+instance HasDynFlags (Hsc l) where
     getDynFlags = Hsc $ \e w -> return (hsc_dflags e, w)
 
-runHsc :: HscEnv -> Hsc a -> IO a
+runHsc :: HscEnv l -> Hsc l a -> IO a
 runHsc hsc_env (Hsc hsc) = do
     (a, w) <- hsc hsc_env emptyBag
     printOrThrowWarnings (hsc_dflags hsc_env) w
     return a
 
-runInteractiveHsc :: HscEnv -> Hsc a -> IO a
+runInteractiveHsc :: HscEnv l -> Hsc l a -> IO a
 -- A variant of runHsc that switches in the DynFlags from the
 -- InteractiveContext before running the Hsc computation.
 runInteractiveHsc hsc_env
@@ -331,7 +331,7 @@ handleFlagWarnings dflags warns
 -- module, the driver would invoke hsc on the source code... so nowadays
 -- we think of hsc as the layer of the compiler that deals with compiling
 -- a single module.
-data HscEnv
+data HscEnv l -- AZ: need this as a phantom type for now, suspect hooks should go here too
   = HscEnv {
         hsc_dflags :: DynFlags,
                 -- ^ The dynamic flag settings
@@ -387,12 +387,12 @@ data HscEnv
                 -- 'TcRunTypes.TcGblEnv'
  }
 
-instance ContainsDynFlags HscEnv where
+instance ContainsDynFlags (HscEnv l) where
     extractDynFlags env = hsc_dflags env
     replaceDynFlags env dflags = env {hsc_dflags = dflags}
 
 -- | Retrieve the ExternalPackageState cache.
-hscEPS :: HscEnv -> IO ExternalPackageState
+hscEPS :: HscEnv l -> IO ExternalPackageState
 hscEPS hsc_env = readIORef (hsc_EPS hsc_env)
 
 -- | A compilation target.
@@ -526,7 +526,7 @@ lookupIfaceByModule _dflags hpt pit mod
 -- the Home Package Table filtered by the provided predicate function.
 -- Used in @tcRnImports@, to select the instances that are in the
 -- transitive closure of imports from the currently compiled module.
-hptInstances :: HscEnv -> (ModuleName -> Bool) -> ([ClsInst], [FamInst])
+hptInstances :: HscEnv l -> (ModuleName -> Bool) -> ([ClsInst], [FamInst])
 hptInstances hsc_env want_this_module
   = let (insts, famInsts) = unzip $ flip hptAllThings hsc_env $ \mod_info -> do
                 guard (want_this_module (moduleName (mi_module (hm_iface mod_info))))
@@ -538,25 +538,25 @@ hptInstances hsc_env want_this_module
 -- contrast to instances and rules, we don't care whether the modules are
 -- "below" us in the dependency sense. The VectInfo of those modules not "below"
 -- us does not affect the compilation of the current module.
-hptVectInfo :: HscEnv -> VectInfo
+hptVectInfo :: HscEnv l -> VectInfo
 hptVectInfo = concatVectInfo . hptAllThings ((: []) . md_vect_info . hm_details)
 
 -- | Get rules from modules "below" this one (in the dependency sense)
-hptRules :: HscEnv -> [(ModuleName, IsBootInterface)] -> [CoreRule]
+hptRules :: HscEnv l -> [(ModuleName, IsBootInterface)] -> [CoreRule]
 hptRules = hptSomeThingsBelowUs (md_rules . hm_details) False
 
 
 -- | Get annotations from modules "below" this one (in the dependency sense)
-hptAnns :: HscEnv -> Maybe [(ModuleName, IsBootInterface)] -> [Annotation]
+hptAnns :: HscEnv l -> Maybe [(ModuleName, IsBootInterface)] -> [Annotation]
 hptAnns hsc_env (Just deps) = hptSomeThingsBelowUs (md_anns . hm_details) False hsc_env deps
 hptAnns hsc_env Nothing = hptAllThings (md_anns . hm_details) hsc_env
 
-hptAllThings :: (HomeModInfo -> [a]) -> HscEnv -> [a]
+hptAllThings :: (HomeModInfo -> [a]) -> HscEnv l -> [a]
 hptAllThings extract hsc_env = concatMap extract (eltsUFM (hsc_HPT hsc_env))
 
 -- | Get things from modules "below" this one (in the dependency sense)
 -- C.f Inst.hptInstances
-hptSomeThingsBelowUs :: (HomeModInfo -> [a]) -> Bool -> HscEnv -> [(ModuleName, IsBootInterface)] -> [a]
+hptSomeThingsBelowUs :: (HomeModInfo -> [a]) -> Bool -> HscEnv l -> [(ModuleName, IsBootInterface)] -> [a]
 hptSomeThingsBelowUs extract include_hi_boot hsc_env deps
   | isOneShot (ghcMode (hsc_dflags hsc_env)) = []
 
@@ -598,7 +598,7 @@ hptObjs hpt = concat (map (maybe [] linkableObjs . hm_linkable) (eltsUFM hpt))
 \begin{code}
 -- | Deal with gathering annotations in from all possible places
 --   and combining them into a single 'AnnEnv'
-prepareAnnotations :: HscEnv -> Maybe ModGuts -> IO AnnEnv
+prepareAnnotations :: HscEnv l -> Maybe ModGuts -> IO AnnEnv
 prepareAnnotations hsc_env mb_guts = do
     eps <- hscEPS hsc_env
     let -- Extract annotations from the module being compiled if supplied one
@@ -1340,7 +1340,7 @@ extendInteractiveContext ictxt new_tythings
 
     new_names = [ nameOccName (getName id) | AnId id <- new_tythings ]
 
-setInteractivePackage :: HscEnv -> HscEnv
+setInteractivePackage :: HscEnv l -> HscEnv l
 -- Set the 'thisPackage' DynFlag to 'interactive'
 setInteractivePackage hsc_env
    = hsc_env { hsc_dflags = (hsc_dflags hsc_env) { thisPackage = interactivePackageKey } }
@@ -1757,7 +1757,7 @@ lookupType dflags hpt pte name
 
 -- | As 'lookupType', but with a marginally easier-to-use interface
 -- if you have a 'HscEnv'
-lookupTypeHscEnv :: HscEnv -> Name -> IO (Maybe TyThing)
+lookupTypeHscEnv :: HscEnv l -> Name -> IO (Maybe TyThing)
 lookupTypeHscEnv hsc_env name = do
     eps <- readIORef (hsc_EPS hsc_env)
     return $! lookupType dflags hpt (eps_PTE eps) name
@@ -2571,8 +2571,8 @@ instance Binary IfaceTrustInfo where
 %************************************************************************
 
 \begin{code}
-data HsParsedModule = HsParsedModule {
-    hpm_module    :: Located (HsModule SrcSpan RdrName),
+data HsParsedModule l= HsParsedModule {
+    hpm_module    :: GenLocated l (HsModule l RdrName),
     hpm_src_files :: [FilePath]
        -- ^ extra source files (e.g. from #includes).  The lexer collects
        -- these from '# <file> <line>' pragmas, which the C preprocessor

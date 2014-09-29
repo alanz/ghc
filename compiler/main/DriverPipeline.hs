@@ -82,7 +82,7 @@ import Data.Char
 -- We return the augmented DynFlags, because they contain the result
 -- of slurping in the OPTIONS pragmas
 
-preprocess :: HscEnv
+preprocess :: HscEnv l
            -> (FilePath, Maybe Phase) -- ^ filename and starting phase
            -> IO (DynFlags, FilePath)
 preprocess hsc_env (filename, mb_phase) =
@@ -104,7 +104,7 @@ preprocess hsc_env (filename, mb_phase) =
 --
 -- NB.  No old interface can also mean that the source has changed.
 
-compileOne :: HscEnv
+compileOne :: HscEnv l
            -> ModSummary      -- ^ summary for module being compiled
            -> Int             -- ^ module N ...
            -> Int             -- ^ ... of M
@@ -115,9 +115,9 @@ compileOne :: HscEnv
 
 compileOne = compileOne' Nothing (Just batchMsg)
 
-compileOne' :: Maybe TcGblEnv
-            -> Maybe Messager
-            -> HscEnv
+compileOne' :: Maybe (TcGblEnv l)
+            -> Maybe (Messager l)
+            -> HscEnv l
             -> ModSummary      -- ^ summary for module being compiled
             -> Int             -- ^ module N ...
             -> Int             -- ^ ... of M
@@ -280,7 +280,7 @@ compileOne' m_tc_result mHscMessage
 -- temporary file, which will be later combined with the main .o file
 -- (see the MergeStubs phase).
 
-compileStub :: HscEnv -> FilePath -> IO FilePath
+compileStub :: HscEnv l -> FilePath -> IO FilePath
 compileStub hsc_env stub_c = do
         (_, stub_o) <- runPipeline StopLn hsc_env (stub_c,Nothing)  Nothing
                                    Temporary Nothing{-no ModLocation-} Nothing
@@ -465,12 +465,12 @@ findHSLib dflags dirs lib = do
 -- -----------------------------------------------------------------------------
 -- Compile files in one-shot mode.
 
-oneShot :: HscEnv -> Phase -> [(String, Maybe Phase)] -> IO ()
+oneShot :: HscEnv l -> Phase -> [(String, Maybe Phase)] -> IO ()
 oneShot hsc_env stop_phase srcs = do
   o_files <- mapM (compileFile hsc_env stop_phase) srcs
   doLink (hsc_dflags hsc_env) stop_phase o_files
 
-compileFile :: HscEnv -> Phase -> (FilePath, Maybe Phase) -> IO FilePath
+compileFile :: HscEnv l -> Phase -> (FilePath, Maybe Phase) -> IO FilePath
 compileFile hsc_env stop_phase (src, mb_phase) = do
    exists <- doesFileExist src
    when (not exists) $
@@ -532,7 +532,7 @@ doLink dflags stop_phase o_files
 -- pipeline.
 runPipeline
   :: Phase                      -- ^ When to stop
-  -> HscEnv                     -- ^ Compilation environment
+  -> HscEnv l                   -- ^ Compilation environment
   -> (FilePath,Maybe PhasePlus) -- ^ Input filename (and maybe -x suffix)
   -> Maybe FilePath             -- ^ original basename (if different from ^^^)
   -> PipelineOutput             -- ^ Output filename
@@ -611,7 +611,7 @@ runPipeline stop_phase hsc_env0 (input_fn, mb_phase)
 
 runPipeline'
   :: PhasePlus                  -- ^ When to start
-  -> HscEnv                     -- ^ Compilation environment
+  -> HscEnv l                   -- ^ Compilation environment
   -> PipeEnv
   -> FilePath                   -- ^ Input filename
   -> Maybe ModLocation          -- ^ A ModLocation, if this is a Haskell module
@@ -629,7 +629,7 @@ runPipeline' start_phase hsc_env env input_fn
 -- outer pipeline loop
 
 -- | pipeLoop runs phases until we reach the stop phase
-pipeLoop :: PhasePlus -> FilePath -> CompPipeline (DynFlags, FilePath)
+pipeLoop :: PhasePlus -> FilePath -> CompPipeline l (DynFlags, FilePath)
 pipeLoop phase input_fn = do
   env <- getPipeEnv
   dflags <- getDynFlags
@@ -682,7 +682,7 @@ pipeLoop phase input_fn = do
            return r
 
 runHookedPhase :: PhasePlus -> FilePath -> DynFlags
-               -> CompPipeline (PhasePlus, FilePath)
+               -> CompPipeline l (PhasePlus, FilePath)
 runHookedPhase pp input dflags =
   lookupHook runPhaseHook runPhase dflags pp input dflags
 
@@ -691,7 +691,7 @@ runHookedPhase pp input dflags =
 -- output.  All the logic about which filenames we generate output
 -- into is embodied in the following function.
 
-phaseOutputFilename :: Phase{-next phase-} -> CompPipeline FilePath
+phaseOutputFilename :: Phase{-next phase-} -> CompPipeline l FilePath
 phaseOutputFilename next_phase = do
   PipeEnv{stop_phase, src_basename, output_spec} <- getPipeEnv
   PipeState{maybe_loc, hsc_env} <- getPipeState
@@ -760,8 +760,8 @@ getOutputFilename stop_phase output basename dflags next_phase maybe_location
 runPhase :: PhasePlus   -- ^ Run this phase
          -> FilePath    -- ^ name of the input file
          -> DynFlags    -- ^ for convenience, we pass the current dflags in
-         -> CompPipeline (PhasePlus,           -- next phase to run
-                          FilePath)            -- output filename
+         -> CompPipeline l (PhasePlus,           -- next phase to run
+                                  FilePath)            -- output filename
 
         -- Invariant: the output filename always contains the output
         -- Interesting case: Hsc when there is no recompilation to do
@@ -1485,13 +1485,13 @@ runPhase (RealPhase MergeStub) input_fn dflags
 runPhase (RealPhase other) _input_fn _dflags =
    panic ("runPhase: don't know how to run phase " ++ show other)
 
-maybeMergeStub :: CompPipeline Phase
+maybeMergeStub :: CompPipeline l Phase
 maybeMergeStub
  = do
      PipeState{maybe_stub_o} <- getPipeState
      if isJust maybe_stub_o then return MergeStub else return StopLn
 
-getLocation :: HscSource -> ModuleName -> CompPipeline ModLocation
+getLocation :: HscSource -> ModuleName -> CompPipeline l ModLocation
 getLocation src_flavour mod_name = do
     dflags <- getDynFlags
 

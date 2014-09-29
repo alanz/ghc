@@ -66,12 +66,12 @@ import Control.Monad
 
 \begin{code}
 -- Defines a binding
-isForeignImport :: LForeignDecl name -> Bool
+isForeignImport :: LForeignDecl l name -> Bool
 isForeignImport (L _ (ForeignImport _ _ _ _)) = True
 isForeignImport _                             = False
 
 -- Exports a binding
-isForeignExport :: LForeignDecl name -> Bool
+isForeignExport :: LForeignDecl l name -> Bool
 isForeignExport (L _ (ForeignExport _ _ _ _)) = True
 isForeignExport _                             = False
 \end{code}
@@ -114,15 +114,15 @@ not yet necessary and so is not yet implemented.
 -- we are only allowed to look through newtypes if the constructor is
 -- in scope.  We return a bag of all the newtype constructors thus found.
 -- Always returns a Representational coercion
-normaliseFfiType :: Type -> TcM (Coercion, Type, Bag GlobalRdrElt)
+normaliseFfiType :: Type -> TcM l (Coercion, Type, Bag GlobalRdrElt)
 normaliseFfiType ty
     = do fam_envs <- tcGetFamInstEnvs
          normaliseFfiType' fam_envs ty
 
-normaliseFfiType' :: FamInstEnvs -> Type -> TcM (Coercion, Type, Bag GlobalRdrElt)
+normaliseFfiType' :: FamInstEnvs -> Type -> TcM l (Coercion, Type, Bag GlobalRdrElt)
 normaliseFfiType' env ty0 = go initRecTc ty0
   where
-    go :: RecTcChecker -> Type -> TcM (Coercion, Type, Bag GlobalRdrElt)
+    go :: RecTcChecker -> Type -> TcM l (Coercion, Type, Bag GlobalRdrElt)
     go rec_nts ty | Just ty' <- coreView ty     -- Expand synonyms
         = go rec_nts ty'
 
@@ -223,19 +223,22 @@ to the module's usages.
 %************************************************************************
 
 \begin{code}
-tcForeignImports :: [LForeignDecl Name] -> TcM ([Id], [LForeignDecl Id], Bag GlobalRdrElt)
+tcForeignImports :: (ApiAnnotation l) => [LForeignDecl l Name]
+                 -> TcM l ([Id], [LForeignDecl l Id], Bag GlobalRdrElt)
 tcForeignImports decls
   = getHooked tcForeignImportsHook tcForeignImports' >>= ($ decls)
 
-tcForeignImports' :: [LForeignDecl Name] -> TcM ([Id], [LForeignDecl Id], Bag GlobalRdrElt)
--- For the (Bag GlobalRdrElt) result, 
+tcForeignImports' :: (ApiAnnotation l) => [LForeignDecl l Name]
+                  -> TcM l ([Id], [LForeignDecl l Id], Bag GlobalRdrElt)
+-- For the (Bag GlobalRdrElt) result,
 -- see Note [Newtype constructor usage in foreign declarations]
 tcForeignImports' decls
   = do { (ids, decls, gres) <- mapAndUnzip3M tcFImport $
                                filter isForeignImport decls
        ; return (ids, decls, unionManyBags gres) }
 
-tcFImport :: LForeignDecl Name -> TcM (Id, LForeignDecl Id, Bag GlobalRdrElt)
+tcFImport :: (ApiAnnotation l) => LForeignDecl l Name
+          -> TcM l (Id, LForeignDecl l Id, Bag GlobalRdrElt)
 tcFImport (L dloc fo@(ForeignImport (L nloc nm) hs_ty _ imp_decl))
   = setSrcSpan dloc $ addErrCtxt (foreignDeclCtxt fo)  $
     do { sig_ty <- tcHsSigType (ForSigCtxt nm) hs_ty
@@ -261,7 +264,8 @@ tcFImport d = pprPanic "tcFImport" (ppr d)
 
 ------------ Checking types for foreign import ----------------------
 \begin{code}
-tcCheckFIType :: [Type] -> Type -> ForeignImport -> TcM ForeignImport
+tcCheckFIType :: (ApiAnnotation l)
+              => [Type] -> Type -> ForeignImport -> TcM l ForeignImport
 
 tcCheckFIType arg_tys res_ty (CImport cconv safety mh l@(CLabel _))
   -- Foreign import label
@@ -333,7 +337,7 @@ tcCheckFIType arg_tys res_ty idecl@(CImport cconv safety mh (CFunction target))
 
 -- This makes a convenient place to check
 -- that the C identifier is valid for C
-checkCTarget :: CCallTarget -> TcM ()
+checkCTarget :: (ApiAnnotation l) => CCallTarget -> TcM l ()
 checkCTarget (StaticTarget str _ _) = do
     checkCg checkCOrAsmOrLlvmOrInterp
     checkTc (isCLabelString str) (badCName str)
@@ -341,7 +345,8 @@ checkCTarget (StaticTarget str _ _) = do
 checkCTarget DynamicTarget = panic "checkCTarget DynamicTarget"
 
 
-checkMissingAmpersand :: DynFlags -> [Type] -> Type -> TcM ()
+checkMissingAmpersand :: (ApiAnnotation l)
+                      => DynFlags -> [Type] -> Type -> TcM l ()
 checkMissingAmpersand dflags arg_tys res_ty
   | null arg_tys && isFunPtrTy res_ty &&
     wopt Opt_WarnDodgyForeignImports dflags
@@ -357,13 +362,15 @@ checkMissingAmpersand dflags arg_tys res_ty
 %************************************************************************
 
 \begin{code}
-tcForeignExports :: [LForeignDecl Name]
-                 -> TcM (LHsBinds TcId, [LForeignDecl TcId], Bag GlobalRdrElt)
+tcForeignExports :: (ApiAnnotation l) => [LForeignDecl l Name]
+                 -> TcM l (LHsBinds l TcId, [LForeignDecl l TcId],
+                           Bag GlobalRdrElt)
 tcForeignExports decls =
   getHooked tcForeignExportsHook tcForeignExports' >>= ($ decls)
 
-tcForeignExports' :: [LForeignDecl Name]
-                 -> TcM (LHsBinds TcId, [LForeignDecl TcId], Bag GlobalRdrElt)
+tcForeignExports' :: (ApiAnnotation l) => [LForeignDecl l Name]
+                 -> TcM l (LHsBinds l TcId, [LForeignDecl l TcId],
+                           Bag GlobalRdrElt)
 -- For the (Bag GlobalRdrElt) result, 
 -- see Note [Newtype constructor usage in foreign declarations]
 tcForeignExports' decls
@@ -373,7 +380,8 @@ tcForeignExports' decls
        (b, f, gres2) <- setSrcSpan loc (tcFExport fe)
        return (b `consBag` binds, L loc f : fs, gres1 `unionBags` gres2)
 
-tcFExport :: ForeignDecl Name -> TcM (LHsBind Id, ForeignDecl Id, Bag GlobalRdrElt)
+tcFExport :: (ApiAnnotation l) => ForeignDecl l Name
+          -> TcM l (LHsBind l Id, ForeignDecl l Id, Bag GlobalRdrElt)
 tcFExport fo@(ForeignExport (L loc nm) hs_ty _ spec)
   = addErrCtxt (foreignDeclCtxt fo) $ do
 
@@ -393,7 +401,7 @@ tcFExport fo@(ForeignExport (L loc nm) hs_ty _ spec)
     -- We need to give a name to the new top-level binding that
     -- is *stable* (i.e. the compiler won't change it later),
     -- because this name will be referred to by the C code stub.
-    id  <- mkStableIdFromName nm sig_ty loc mkForeignExportOcc
+    id  <- mkStableIdFromName nm sig_ty (annGetSpan loc) mkForeignExportOcc
     return (mkVarBind id rhs, ForeignExport (L loc id) undefined norm_co spec', gres)
 tcFExport d = pprPanic "tcFExport" (ppr d)
 \end{code}
@@ -401,7 +409,8 @@ tcFExport d = pprPanic "tcFExport" (ppr d)
 ------------ Checking argument types for foreign export ----------------------
 
 \begin{code}
-tcCheckFEType :: Type -> ForeignExport -> TcM ForeignExport
+tcCheckFEType :: (ApiAnnotation l)
+              => Type -> ForeignExport -> TcM l ForeignExport
 tcCheckFEType sig_ty (CExport (CExportStatic str cconv)) = do
     checkCg checkCOrAsmOrLlvm
     checkTc (isCLabelString str) (badCName str)
@@ -426,7 +435,8 @@ tcCheckFEType sig_ty (CExport (CExportStatic str cconv)) = do
 
 \begin{code}
 ------------ Checking argument types for foreign import ----------------------
-checkForeignArgs :: (Type -> Validity) -> [Type] -> TcM ()
+checkForeignArgs :: (ApiAnnotation l)
+                 => (Type -> Validity) -> [Type] -> TcM l ()
 checkForeignArgs pred tys = mapM_ go tys
   where
     go ty = check (pred ty) (illegalForeignTyErr argument)
@@ -440,7 +450,8 @@ checkForeignArgs pred tys = mapM_ go tys
 -- We also check that the Safe Haskell condition of FFI imports having
 -- results in the IO monad holds.
 --
-checkForeignRes :: Bool -> Bool -> (Type -> Validity) -> Type -> TcM ()
+checkForeignRes :: (ApiAnnotation l)
+                => Bool -> Bool -> (Type -> Validity) -> Type -> TcM l ()
 checkForeignRes non_io_result_ok check_safe pred_res_ty ty
   | Just (_, res_ty) <- tcSplitIOType_maybe ty
   =     -- Got an IO result type, that's always fine!
@@ -497,7 +508,7 @@ checkCOrAsmOrLlvmOrInterp HscInterpreted = IsValid
 checkCOrAsmOrLlvmOrInterp _
   = NotValid (text "requires interpreted, unregisterised, llvm or native code generation")
 
-checkCg :: (HscTarget -> Validity) -> TcM ()
+checkCg :: (ApiAnnotation l) => (HscTarget -> Validity) -> TcM l ()
 checkCg check = do
     dflags <- getDynFlags
     let target = hscTarget dflags
@@ -512,7 +523,7 @@ checkCg check = do
 Calling conventions
 
 \begin{code}
-checkCConv :: CCallConv -> TcM CCallConv
+checkCConv :: (ApiAnnotation l) => CCallConv -> TcM l CCallConv
 checkCConv CCallConv    = return CCallConv
 checkCConv CApiConv     = return CApiConv
 checkCConv StdCallConv  = do dflags <- getDynFlags
@@ -535,7 +546,7 @@ checkCConv JavaScriptCallConv = do dflags <- getDynFlags
 Warnings
 
 \begin{code}
-check :: Validity -> (MsgDoc -> MsgDoc) -> TcM ()
+check :: (ApiAnnotation l) => Validity -> (MsgDoc -> MsgDoc) -> TcM l ()
 check IsValid _             = return ()
 check (NotValid doc) err_fn = addErrTc (err_fn doc)
 
@@ -555,7 +566,7 @@ badCName :: CLabelString -> MsgDoc
 badCName target
   = sep [quotes (ppr target) <+> ptext (sLit "is not a valid C identifier")]
 
-foreignDeclCtxt :: ForeignDecl Name -> SDoc
+foreignDeclCtxt :: (ApiAnnotation l) => ForeignDecl l Name -> SDoc
 foreignDeclCtxt fo
   = hang (ptext (sLit "When checking declaration:"))
        2 (ppr fo)

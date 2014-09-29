@@ -57,7 +57,7 @@ It can not be called matchWrapper because this name already exists :-(
 JJCQ 30-Nov-1997
 
 \begin{code}
-matchCheck ::  (ApiAnnotation l) => DsMatchContext
+matchCheck ::  (ApiAnnotation l) => DsMatchContext l
            -> [Id]             -- Vars rep'ing the exprs we're matching with
            -> Type             -- Type of the case expression
            -> [EquationInfo l] -- Info about patterns, etc. (type synonym below)
@@ -68,7 +68,7 @@ matchCheck ctx vars ty qs
        ; matchCheck_really dflags ctx vars ty qs }
 
 matchCheck_really :: (ApiAnnotation l) => DynFlags
-                  -> DsMatchContext
+                  -> DsMatchContext l
                   -> [Id]
                   -> Type
                   -> [EquationInfo l]
@@ -117,7 +117,7 @@ The next two functions create the warning message.
 
 \begin{code}
 dsShadowWarn :: (ApiAnnotation l)
-             => DsMatchContext -> [EquationInfo l] -> DsM l ()
+             => DsMatchContext l -> [EquationInfo l] -> DsM l ()
 dsShadowWarn ctx@(DsMatchContext kind loc) qs
   = putSrcSpanDs loc (warnDs warn)
   where
@@ -131,7 +131,7 @@ dsShadowWarn ctx@(DsMatchContext kind loc) qs
 
 
 dsIncompleteWarn :: (ApiAnnotation l)
-                 => DsMatchContext -> [ExhaustivePat l] -> DsM l ()
+                 => DsMatchContext l -> [ExhaustivePat l] -> DsM l ()
 dsIncompleteWarn ctx@(DsMatchContext kind loc) pats
   = putSrcSpanDs loc (warnDs warn)
         where
@@ -144,7 +144,7 @@ dsIncompleteWarn ctx@(DsMatchContext kind loc) pats
           dots | pats `lengthExceeds` maximum_output = ptext (sLit "...")
                | otherwise                           = empty
 
-pp_context :: DsMatchContext -> SDoc -> ((SDoc -> SDoc) -> SDoc) -> SDoc
+pp_context :: DsMatchContext l -> SDoc -> ((SDoc -> SDoc) -> SDoc) -> SDoc
 pp_context (DsMatchContext kind _loc) msg rest_of_msg_fun
   = vcat [ptext (sLit "Pattern match(es)") <+> msg,
           sep [ptext (sLit "In") <+> ppr_match <> char ':', nest 4 (rest_of_msg_fun pref)]]

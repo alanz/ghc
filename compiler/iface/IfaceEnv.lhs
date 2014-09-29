@@ -70,7 +70,7 @@ of them.
 
 
 \begin{code}
-newGlobalBinder :: Module -> OccName -> SrcSpan -> TcRnIf a b Name
+newGlobalBinder :: Module -> OccName -> SrcSpan -> TcRnIf l a b Name
 -- Used for source code and interface files, to make the
 -- Name for a thing, given its Module and OccName
 -- See Note [The Name Cache]
@@ -128,9 +128,9 @@ allocateGlobalBinder name_supply mod occ loc
                     new_cache       = extendNameCache (nsNames name_supply) mod occ name
                     new_name_supply = name_supply {nsUniqs = us', nsNames = new_cache}
 
-newImplicitBinder :: Name			-- Base name
-	          -> (OccName -> OccName) 	-- Occurrence name modifier
-	          -> TcRnIf m n Name		-- Implicit name
+newImplicitBinder :: Name                       -- Base name
+                  -> (OccName -> OccName)       -- Occurrence name modifier
+                  -> TcRnIf l m n Name          -- Implicit name
 -- Called in BuildTyCl to allocate the implicit binders of type/class decls
 -- For source type/class decls, this is the first occurrence
 -- For iface ones, the LoadIface has alrady allocated a suitable name in the cache
@@ -146,10 +146,10 @@ newImplicitBinder base_name mk_sys_occ
     occ = mk_sys_occ (nameOccName base_name)
     loc = nameSrcSpan base_name
 
-ifaceExportNames :: [IfaceExport] -> TcRnIf gbl lcl [AvailInfo]
+ifaceExportNames :: [IfaceExport] -> TcRnIf l gbl lcl [AvailInfo]
 ifaceExportNames exports = return exports
 
-lookupOrig :: Module -> OccName ->  TcRnIf a b Name
+lookupOrig :: Module -> OccName ->  TcRnIf l a b Name
 lookupOrig mod occ
   = do 	{ 	-- First ensure that mod and occ are evaluated
 		-- If not, chaos can ensue:
@@ -224,11 +224,11 @@ extendNameCache nc mod occ name
   where
     combine _ occ_env = extendOccEnv occ_env occ name
 
-getNameCache :: TcRnIf a b NameCache
+getNameCache :: TcRnIf l a b NameCache
 getNameCache = do { HscEnv { hsc_NC = nc_var } <- getTopEnv; 
 		    readMutVar nc_var }
 
-updNameCache :: (NameCache -> (NameCache, c)) -> TcRnIf a b c
+updNameCache :: (NameCache -> (NameCache, c)) -> TcRnIf l a b c
 updNameCache upd_fn = do
   HscEnv { hsc_NC = nc_var } <- getTopEnv
   atomicUpdMutVar' nc_var upd_fn
@@ -239,7 +239,7 @@ updNameCache upd_fn = do
 newtype NameCacheUpdater = NCU { updateNameCache :: forall c. (NameCache -> (NameCache, c)) -> IO c }
 
 -- | Return a function to atomically update the name cache.
-mkNameCacheUpdater :: TcRnIf a b NameCacheUpdater
+mkNameCacheUpdater :: TcRnIf l a b NameCacheUpdater
 mkNameCacheUpdater = do
   nc_var <- hsc_NC `fmap` getTopEnv
   let update_nc f = do r <- atomicModifyIORef nc_var f
@@ -268,7 +268,7 @@ initOrigNames names = foldl extendOrigNameCache emptyModuleEnv names
 %************************************************************************
 
 \begin{code}
-tcIfaceLclId :: FastString -> IfL Id
+tcIfaceLclId :: FastString -> IfL l Id
 tcIfaceLclId occ
   = do	{ lcl <- getLclEnv
 	; case (lookupUFM (if_id_env lcl) occ) of
@@ -276,7 +276,7 @@ tcIfaceLclId occ
             Nothing     -> failIfM (text "Iface id out of scope: " <+> ppr occ)
         }
 
-extendIfaceIdEnv :: [Id] -> IfL a -> IfL a
+extendIfaceIdEnv :: [Id] -> IfL l a -> IfL l a
 extendIfaceIdEnv ids thing_inside
   = do	{ env <- getLclEnv
 	; let { id_env' = addListToUFM (if_id_env env) pairs
@@ -284,7 +284,7 @@ extendIfaceIdEnv ids thing_inside
 	; setLclEnv (env { if_id_env = id_env' }) thing_inside }
 
 
-tcIfaceTyVar :: FastString -> IfL TyVar
+tcIfaceTyVar :: FastString -> IfL l TyVar
 tcIfaceTyVar occ
   = do	{ lcl <- getLclEnv
 	; case (lookupUFM (if_tv_env lcl) occ) of
@@ -292,12 +292,12 @@ tcIfaceTyVar occ
             Nothing     -> failIfM (text "Iface type variable out of scope: " <+> ppr occ)
         }
 
-lookupIfaceTyVar :: FastString -> IfL (Maybe TyVar)
+lookupIfaceTyVar :: FastString -> IfL l (Maybe TyVar)
 lookupIfaceTyVar occ
   = do	{ lcl <- getLclEnv
 	; return (lookupUFM (if_tv_env lcl) occ) }
 
-extendIfaceTyVarEnv :: [TyVar] -> IfL a -> IfL a
+extendIfaceTyVarEnv :: [TyVar] -> IfL l a -> IfL l a
 extendIfaceTyVarEnv tyvars thing_inside
   = do	{ env <- getLclEnv
 	; let { tv_env' = addListToUFM (if_tv_env env) pairs
@@ -313,17 +313,17 @@ extendIfaceTyVarEnv tyvars thing_inside
 %************************************************************************
 
 \begin{code}
-lookupIfaceTop :: OccName -> IfL Name
+lookupIfaceTop :: OccName -> IfL l Name
 -- Look up a top-level name from the current Iface module
 lookupIfaceTop occ
   = do	{ env <- getLclEnv; lookupOrig (if_mod env) occ }
 
-newIfaceName :: OccName -> IfL Name
+newIfaceName :: OccName -> IfL l Name
 newIfaceName occ
   = do	{ uniq <- newUnique
 	; return $! mkInternalName uniq occ noSrcSpan }
 
-newIfaceNames :: [OccName] -> IfL [Name]
+newIfaceNames :: [OccName] -> IfL l [Name]
 newIfaceNames occs
   = do	{ uniqs <- newUniqueSupply
 	; return [ mkInternalName uniq occ noSrcSpan

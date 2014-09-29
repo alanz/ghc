@@ -44,6 +44,7 @@ import Outputable
 import DynFlags
 import FastString
 import MonadUtils
+import SrcLoc ( ApiAnnotation )
 
 import Control.Monad
 import Data.Maybe
@@ -160,7 +161,8 @@ import Data.List
 
 -- |Vectorise type constructor including class type constructors.
 --
-vectTypeEnv :: [TyCon]                   -- Type constructors defined in this module
+vectTypeEnv :: (ApiAnnotation l)
+            => [TyCon]                   -- Type constructors defined in this module
             -> [CoreVect]                -- All 'VECTORISE [SCALAR] type' declarations in this module
             -> [CoreVect]                -- All 'VECTORISE class' declarations in this module
             -> VM l ( [TyCon]            -- old TyCons ++ new TyCons

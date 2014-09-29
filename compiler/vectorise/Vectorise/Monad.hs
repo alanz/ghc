@@ -42,11 +42,11 @@ import Id
 import Name
 import ErrUtils
 import Outputable
-
+import SrcLoc (ApiAnnotation)
 
 -- |Run a vectorisation computation.
 --
-initV :: HscEnv
+initV :: (ApiAnnotation l) => HscEnv l
       -> ModGuts
       -> VectInfo
       -> VM l a

@@ -11,11 +11,11 @@ import HscTypes    ( TypeEnv, VectInfo, IfaceVectInfo )
 import Module      ( Module )
 import Annotations ( Annotation )
 
-tcIfaceDecl        :: Bool -> IfaceDecl -> IfL TyThing
-tcIfaceRules       :: Bool -> [IfaceRule] -> IfL [CoreRule]
-tcIfaceVectInfo    :: Module -> TypeEnv -> IfaceVectInfo -> IfL VectInfo
-tcIfaceInst        :: IfaceClsInst -> IfL ClsInst
-tcIfaceFamInst     :: IfaceFamInst -> IfL FamInst
-tcIfaceAnnotations :: [IfaceAnnotation] -> IfL [Annotation]
+tcIfaceDecl        :: Bool -> IfaceDecl -> IfL l TyThing
+tcIfaceRules       :: Bool -> [IfaceRule] -> IfL l [CoreRule]
+tcIfaceVectInfo    :: Module -> TypeEnv -> IfaceVectInfo -> IfL l VectInfo
+tcIfaceInst        :: IfaceClsInst -> IfL l ClsInst
+tcIfaceFamInst     :: IfaceFamInst -> IfL l FamInst
+tcIfaceAnnotations :: [IfaceAnnotation] -> IfL l [Annotation]
 \end{code}
 

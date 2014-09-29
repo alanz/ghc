@@ -99,7 +99,7 @@ dsForeigns' fos = do
              (vcat cs $$ vcat fe_init_code),
             foldr (appOL . toOL) nilOL bindss)
   where
-   do_ldecl (L loc decl) = putSrcSpanDs (annGetSpan loc) (do_decl decl)
+   do_ldecl (L loc decl) = putSrcSpanDs loc (do_decl decl)
 
    do_decl (ForeignImport id _ co spec) = do
       traceIf (text "fi start" <+> ppr id)
@@ -138,7 +138,7 @@ inside returned tuples; but inlining this wrapper is a Really Good Idea
 because it exposes the boxing to the call site.
 
 \begin{code}
-dsFImport :: Id
+dsFImport :: (ApiAnnotation l) => Id
           -> Coercion
           -> ForeignImport
           -> DsM l ([Binding], SDoc, SDoc)
@@ -146,7 +146,7 @@ dsFImport id co (CImport cconv safety mHeader spec) = do
     (ids, h, c) <- dsCImport id co spec cconv safety mHeader
     return (ids, h, c)
 
-dsCImport :: Id
+dsCImport :: (ApiAnnotation l) => Id
           -> Coercion
           -> CImportSpec
           -> CCallConv
@@ -200,7 +200,7 @@ fun_type_arg_stdcall_info _ _other_conv _
 %************************************************************************
 
 \begin{code}
-dsFCall :: Id -> Coercion -> ForeignCall -> Maybe Header
+dsFCall :: (ApiAnnotation l) => Id -> Coercion -> ForeignCall -> Maybe Header
         -> DsM l ([(Id, Expr TyVar)], SDoc, SDoc)
 dsFCall fn_id co fcall mDeclHeader = do
     let
@@ -408,7 +408,7 @@ f_helper(StablePtr s, HsBool b, HsInt i)
 \end{verbatim}
 
 \begin{code}
-dsFExportDynamic :: Id
+dsFExportDynamic :: (ApiAnnotation l) => Id
                  -> Coercion
                  -> CCallConv
                  -> DsM l ([Binding], SDoc, SDoc)

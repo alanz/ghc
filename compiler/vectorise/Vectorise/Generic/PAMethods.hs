@@ -31,9 +31,9 @@ import FastString
 import MonadUtils
 import Control.Monad
 import Outputable
+import SrcLoc( ApiAnnotation )
 
-
-buildPReprTyCon :: TyCon -> TyCon -> SumRepr -> VM l FamInst
+buildPReprTyCon :: (ApiAnnotation l) => TyCon -> TyCon -> SumRepr -> VM l FamInst
 buildPReprTyCon orig_tc vect_tc repr
  = do name      <- mkLocalisedName mkPReprTyConOcc (tyConName orig_tc)
       rhs_ty    <- sumReprType repr

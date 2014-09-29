@@ -18,24 +18,24 @@ import Module
 
 import Control.Monad
 
-newtype CompPipeline a = P { unP :: PipeEnv -> PipeState -> IO (PipeState, a) }
+newtype CompPipeline l a = P { unP :: PipeEnv -> PipeState l -> IO (PipeState l, a) }
 
-evalP :: CompPipeline a -> PipeEnv -> PipeState -> IO a
+evalP :: CompPipeline l a -> PipeEnv -> PipeState l -> IO a
 evalP f env st = liftM snd $ unP f env st
 
-instance Functor CompPipeline where
+instance Functor (CompPipeline l) where
     fmap = liftM
 
-instance Applicative CompPipeline where
+instance Applicative (CompPipeline l) where
     pure = return
     (<*>) = ap
 
-instance Monad CompPipeline where
+instance Monad (CompPipeline l) where
   return a = P $ \_env state -> return (state, a)
   P m >>= k = P $ \env state -> do (state',a) <- m env state
                                    unP (k a) env state'
 
-instance MonadIO CompPipeline where
+instance MonadIO (CompPipeline l) where
     liftIO m = P $ \_env state -> do a <- m; return (state, a)
 
 data PhasePlus = RealPhase Phase
@@ -59,8 +59,8 @@ data PipeEnv = PipeEnv {
   }
 
 -- PipeState: information that might change during a pipeline run
-data PipeState = PipeState {
-       hsc_env   :: HscEnv,
+data PipeState l = PipeState {
+       hsc_env   :: HscEnv l,
           -- ^ only the DynFlags change in the HscEnv.  The DynFlags change
           -- at various points, for example when we read the OPTIONS_GHC
           -- pragmas in the Cpp phase.
@@ -87,23 +87,23 @@ data PipelineOutput
         -- when doing -dynamic-too.
     deriving Show
 
-getPipeEnv :: CompPipeline PipeEnv
+getPipeEnv :: CompPipeline l PipeEnv
 getPipeEnv = P $ \env state -> return (state, env)
 
-getPipeState :: CompPipeline PipeState
+getPipeState :: CompPipeline l (PipeState l)
 getPipeState = P $ \_env state -> return (state, state)
 
-instance HasDynFlags CompPipeline where
+instance HasDynFlags (CompPipeline l) where
     getDynFlags = P $ \_env state -> return (state, hsc_dflags (hsc_env state))
 
-setDynFlags :: DynFlags -> CompPipeline ()
+setDynFlags :: DynFlags -> CompPipeline l ()
 setDynFlags dflags = P $ \_env state ->
   return (state{hsc_env= (hsc_env state){ hsc_dflags = dflags }}, ())
 
-setModLocation :: ModLocation -> CompPipeline ()
+setModLocation :: ModLocation -> CompPipeline l ()
 setModLocation loc = P $ \_env state ->
   return (state{ maybe_loc = Just loc }, ())
 
-setStubO :: FilePath -> CompPipeline ()
+setStubO :: FilePath -> CompPipeline l ()
 setStubO stub_o = P $ \_env state ->
   return (state{ maybe_stub_o = Just stub_o }, ())

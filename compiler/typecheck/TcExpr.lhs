@@ -897,7 +897,8 @@ arithSeqEltType (Just fl) res_ty
 %************************************************************************
 
 \begin{code}
-tcApp :: LHsExpr l Name -> [LHsExpr l Name] -- Function and args
+tcApp :: (ApiAnnotation l)
+      => LHsExpr l Name -> [LHsExpr l Name] -- Function and args
       -> TcRhoType -> TcM l (HsExpr l TcId) -- Translated fun and args
 
 tcApp (L _ (HsPar e)) args res_ty
@@ -944,7 +945,8 @@ mk_app_msg fun = sep [ ptext (sLit "The function") <+> quotes (ppr fun)
                      , ptext (sLit "is applied to")]
 
 ----------------
-tcInferApp :: LHsExpr l Name -> [LHsExpr l Name] -- Function and args
+tcInferApp :: (ApiAnnotation l)
+           => LHsExpr l Name -> [LHsExpr l Name] -- Function and args
            -> TcM l (HsExpr l TcId, TcRhoType)   -- Translated fun and args
 
 tcInferApp (L _ (HsPar e))     args = tcInferApp e args
@@ -1216,7 +1218,7 @@ constructors of F [Int] but here we have to do it explicitly.
 It's all grotesquely complicated.
 
 \begin{code}
-tcSeq :: SrcSpan -> Name -> LHsExpr l Name -> LHsExpr l Name
+tcSeq :: (ApiAnnotation l) => l -> Name -> LHsExpr l Name -> LHsExpr l Name
       -> TcRhoType -> TcM l (HsExpr l TcId)
 -- (seq e1 e2) :: res_ty
 -- We need a special typing rule because res_ty can be unboxed
@@ -1228,7 +1230,7 @@ tcSeq loc fun_name arg1 arg2 res_ty
               ty_args = WpTyApp res_ty <.> WpTyApp arg1_ty
         ; return (HsApp (L loc (HsApp fun' arg1')) arg2') }
 
-tcTagToEnum :: SrcSpan -> Name -> LHsExpr l Name -> TcRhoType
+tcTagToEnum :: (ApiAnnotation l) => l -> Name -> LHsExpr l Name -> TcRhoType
             -> TcM l (HsExpr l TcId)
 -- tagToEnum# :: forall a. Int# -> a
 -- See Note [tagToEnum#]   Urgh!
@@ -1389,7 +1391,7 @@ This extends OK when the field types are universally quantified.
 
 \begin{code}
 tcRecordBinds
-        :: DataCon
+        :: (ApiAnnotation l) => DataCon
         -> [TcType]     -- Expected type for each field
         -> HsRecordBinds l Name
         -> TcM l (HsRecordBinds l TcId)
@@ -1405,7 +1407,7 @@ tcRecordBinds data_con arg_tys (HsRecFields rbinds dd)
         do { rhs' <- tcPolyExprNC rhs field_ty
            ; let field_id = mkUserLocal (nameOccName field_lbl)
                                         (nameUnique field_lbl)
-                                        field_ty loc
+                                        field_ty (annGetSpan loc)
                 -- Yuk: the field_id has the *unique* of the selector Id
                 --          (so we can find it easily)
                 --      but is a LocalId with the appropriate type of the RHS

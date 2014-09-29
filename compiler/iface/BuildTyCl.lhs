@@ -55,7 +55,7 @@ buildSynTyCon :: Name -> [TyVar] -> [Role]
               -> SynTyConRhs
               -> Kind                   -- ^ Kind of the RHS
               -> TyConParent
-              -> TcRnIf m n TyCon
+              -> TcRnIf l m n TyCon
 buildSynTyCon tc_name tvs roles rhs rhs_kind parent 
   = return (mkSynTyCon tc_name kind tvs roles rhs parent)
   where kind = mkPiKinds tvs rhs_kind
@@ -79,7 +79,7 @@ mkDataTyConRhs cons
        = null theta && null arg_tys
 
 
-mkNewTyConRhs :: Name -> TyCon -> DataCon -> TcRnIf m n AlgTyConRhs
+mkNewTyConRhs :: Name -> TyCon -> DataCon -> TcRnIf l m n AlgTyConRhs
 -- ^ Monadic because it makes a Name for the coercion TyCon
 --   We pass the Name of the parent TyCon, as well as the TyCon itself,
 --   because the latter is part of a knot, whereas the former is not.
@@ -126,17 +126,17 @@ mkNewTyConRhs tycon_name tycon con
 				
 
 ------------------------------------------------------
-buildDataCon :: FamInstEnvs 
+buildDataCon :: FamInstEnvs
             -> Name -> Bool
-	    -> [HsBang] 
-	    -> [Name]			-- Field labels
-	    -> [TyVar] -> [TyVar]	-- Univ and ext 
+            -> [HsBang]
+            -> [Name]                   -- Field labels
+            -> [TyVar] -> [TyVar]       -- Univ and ext
             -> [(TyVar,Type)]           -- Equality spec
-	    -> ThetaType		-- Does not include the "stupid theta"
-					-- or the GADT equalities
-	    -> [Type] -> Type		-- Argument and result types
-	    -> TyCon			-- Rep tycon
-	    -> TcRnIf m n DataCon
+            -> ThetaType                -- Does not include the "stupid theta"
+                                        -- or the GADT equalities
+            -> [Type] -> Type           -- Argument and result types
+            -> TyCon                    -- Rep tycon
+            -> TcRnIf l m n DataCon
 -- A wrapper for DataCon.mkDataCon that
 --   a) makes the worker Id
 --   b) makes the wrapper Id if necessary, including
@@ -222,12 +222,12 @@ type TcMethInfo = (Name, DefMethSpec, Type)
         -- tcClassSigs and buildClass.
 
 buildClass :: Name -> [TyVar] -> [Role] -> ThetaType
-	   -> [FunDep TyVar]		   -- Functional dependencies
-	   -> [ClassATItem]		   -- Associated types
-	   -> [TcMethInfo]                 -- Method info
-	   -> ClassMinimalDef              -- Minimal complete definition
-	   -> RecFlag			   -- Info for type constructor
-	   -> TcRnIf m n Class
+           -> [FunDep TyVar]               -- Functional dependencies
+           -> [ClassATItem]                -- Associated types
+           -> [TcMethInfo]                 -- Method info
+           -> ClassMinimalDef              -- Minimal complete definition
+           -> RecFlag                      -- Info for type constructor
+           -> TcRnIf l m n Class
 
 buildClass tycon_name tvs roles sc_theta fds at_items sig_stuff mindef tc_isrec
   = fixM  $ \ rec_clas -> 	-- Only name generation inside loop
@@ -309,7 +309,7 @@ buildClass tycon_name tvs roles sc_theta fds at_items sig_stuff mindef tc_isrec
 	; traceIf (text "buildClass" <+> ppr tycon) 
 	; return result }
   where
-    mk_op_item :: Class -> TcMethInfo -> TcRnIf n m ClassOpItem
+    mk_op_item :: Class -> TcMethInfo -> TcRnIf l n m ClassOpItem
     mk_op_item rec_clas (op_name, dm_spec, _) 
       = do { dm_info <- case dm_spec of
                           NoDM      -> return NoDefMeth

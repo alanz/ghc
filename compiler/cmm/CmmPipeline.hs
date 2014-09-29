@@ -29,8 +29,8 @@ import Platform
 -- | Top level driver for C-- pipeline
 -----------------------------------------------------------------------------
 
-cmmPipeline  :: HscEnv -- Compilation env including
-                       -- dynamic flags: -dcmm-lint -ddump-cps-cmm
+cmmPipeline  :: HscEnv l -- Compilation env including
+                         -- dynamic flags: -dcmm-lint -ddump-cps-cmm
              -> TopSRT     -- SRT table and accumulating list of compiled procs
              -> CmmGroup             -- Input C-- with Procedures
              -> IO (TopSRT, CmmGroup) -- Output CPS transformed C--
@@ -46,7 +46,7 @@ cmmPipeline hsc_env topSRT prog =
      return (topSRT, cmms)
 
 
-cpsTop :: HscEnv -> CmmDecl -> IO (CAFEnv, [CmmDecl])
+cpsTop :: HscEnv l -> CmmDecl -> IO (CAFEnv, [CmmDecl])
 cpsTop _ p@(CmmData {}) = return (mapEmpty, [p])
 cpsTop hsc_env proc =
     do

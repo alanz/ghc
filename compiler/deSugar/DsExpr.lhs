@@ -110,7 +110,7 @@ ds_val_bind (NonRecursive, hsbinds) body
         --       could be dict binds in the 'binds'.  (See the notes
         --       below.  Then pattern-match would fail.  Urk.)
     strictMatchOnly bind
-  = putSrcSpanDs (annGetSpan loc) (dsStrictBind bind body)
+  = putSrcSpanDs loc (dsStrictBind bind body)
 
 -- Ordinary case for bindings; none should be unlifted
 ds_val_bind (_is_rec, binds) body
@@ -190,7 +190,7 @@ strictMatchOnly _ = False -- I hope!  Checked immediately by caller in fact
 \begin{code}
 dsLExpr :: (ApiAnnotation l) => LHsExpr l Id -> DsM l CoreExpr
 
-dsLExpr (L loc e) = putSrcSpanDs (annGetSpan loc) $ dsExpr e
+dsLExpr (L loc e) = putSrcSpanDs loc $ dsExpr e
 
 dsExpr :: (ApiAnnotation l) => HsExpr l Id -> DsM l CoreExpr
 dsExpr (HsPar e)              = dsLExpr e
@@ -754,7 +754,7 @@ dsDo stmts
   = goL stmts
   where
     goL [] = panic "dsDo"
-    goL (L loc stmt:lstmts) = putSrcSpanDs (annGetSpan loc) (go loc stmt lstmts)
+    goL (L loc stmt:lstmts) = putSrcSpanDs loc (go loc stmt lstmts)
   
     go _ (LastStmt body _) stmts
       = ASSERT( null stmts ) dsLExpr body

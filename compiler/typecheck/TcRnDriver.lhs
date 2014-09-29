@@ -6,6 +6,7 @@
 
 \begin{code}
 {-# LANGUAGE CPP, NondecreasingIndentation #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module TcRnDriver (
 #ifdef GHCI
@@ -118,11 +119,11 @@ import Control.Monad
 
 \begin{code}
 -- | Top level entry point for typechecker and renamer
-tcRnModule :: HscEnv
+tcRnModule :: (ApiAnnotation l) => HscEnv l
            -> HscSource
            -> Bool              -- True <=> save renamed syntax
-           -> HsParsedModule
-           -> IO (Messages, Maybe TcGblEnv)
+           -> HsParsedModule l
+           -> IO (Messages, Maybe (TcGblEnv l))
 
 tcRnModule hsc_env hsc_src save_rn_syntax
    parsedModule@HsParsedModule {hpm_module=L loc this_module}
@@ -132,7 +133,7 @@ tcRnModule hsc_env hsc_src save_rn_syntax
             ; pair@(this_mod,_)
                 = case hsmodName this_module of
                     Nothing -- 'module M where' is omitted
-                        ->  (mAIN, srcLocSpan (srcSpanStart loc))
+                        ->  (mAIN, annFromSpan $ srcLocSpan (srcSpanStart $ annGetSpan loc))
 
                     Just (L mod_loc mod)  -- The normal case
                         -> (mkModule this_pkg mod, mod_loc) } ;
@@ -140,11 +141,11 @@ tcRnModule hsc_env hsc_src save_rn_syntax
       ; initTc hsc_env hsc_src save_rn_syntax this_mod $
         tcRnModuleTcRnM hsc_env hsc_src parsedModule pair }
 
-tcRnModuleTcRnM :: HscEnv
+tcRnModuleTcRnM :: ApiAnnotation l => HscEnv l
                 -> HscSource
-                -> HsParsedModule
-                -> (Module, SrcSpan)
-                -> TcRn TcGblEnv
+                -> HsParsedModule l
+                -> (Module, l)
+                -> TcRn l (TcGblEnv l)
 -- Factored out separately so that a Core plugin can
 -- call the type checker directly
 tcRnModuleTcRnM hsc_env hsc_src
@@ -244,7 +245,8 @@ implicitPreludeWarn
 %************************************************************************
 
 \begin{code}
-tcRnImports :: HscEnv -> [LImportDecl RdrName] -> TcM TcGblEnv
+tcRnImports :: (ApiAnnotation l)
+            => HscEnv l -> [LImportDecl l RdrName] -> TcM l (TcGblEnv l)
 tcRnImports hsc_env import_decls
   = do  { (rn_imports, rdr_env, imports, hpc_info) <- rnImports import_decls ;
 
@@ -314,7 +316,8 @@ tcRnImports hsc_env import_decls
 %************************************************************************
 
 \begin{code}
-tcRnSrcDecls :: ModDetails -> [LHsDecl RdrName] -> TcM TcGblEnv
+tcRnSrcDecls :: (ApiAnnotation l)
+             => ModDetails -> [LHsDecl l RdrName] -> TcM l (TcGblEnv l)
         -- Returns the variables free in the decls
         -- Reason: solely to report unused imports and bindings
 tcRnSrcDecls boot_iface decls
@@ -375,9 +378,9 @@ tcRnSrcDecls boot_iface decls
        
    } }
 
-tc_rn_src_decls :: ModDetails
-                -> [LHsDecl RdrName]
-                -> TcM (TcGblEnv, TcLclEnv)
+tc_rn_src_decls :: (ApiAnnotation l) => ModDetails
+                -> [LHsDecl l RdrName]
+                -> TcM l (TcGblEnv l, TcLclEnv l)
 -- Loops around dealing with each top level inter-splice group
 -- in turn, until it's dealt with the entire module
 tc_rn_src_decls boot_details ds
@@ -469,7 +472,8 @@ tc_rn_src_decls boot_details ds
 %************************************************************************
 
 \begin{code}
-tcRnHsBootDecls :: [LHsDecl RdrName] -> TcM TcGblEnv
+tcRnHsBootDecls :: (ApiAnnotation l)
+                => [LHsDecl l RdrName] -> TcM l (TcGblEnv l)
 tcRnHsBootDecls decls
    = do { (first_group, group_tail) <- findSplice decls
 
@@ -526,7 +530,7 @@ tcRnHsBootDecls decls
    }}
    ; traceTc "boot" (ppr lie); return gbl_env }
 
-badBootDecl :: String -> Located decl -> TcM ()
+badBootDecl :: (ApiAnnotation l) => String -> GenLocated l decl -> TcM l ()
 badBootDecl what (L loc _)
   = addErrAt loc (char 'A' <+> text what
       <+> ptext (sLit "declaration is not (currently) allowed in a hs-boot file"))
@@ -536,7 +540,8 @@ Once we've typechecked the body of the module, we want to compare what
 we've found (gathered in a TypeEnv) with the hi-boot details (if any).
 
 \begin{code}
-checkHiBootIface :: TcGblEnv -> ModDetails -> TcM TcGblEnv
+checkHiBootIface :: (ApiAnnotation l)
+                 => TcGblEnv l -> ModDetails -> TcM l (TcGblEnv l)
 -- Compare the hi-boot file for this module (if there is one)
 -- with the type environment we've just come up with
 -- In the common case where there is no hi-boot file, the list
@@ -569,8 +574,9 @@ checkHiBootIface
              -- mentioning one of the dfuns from the boot module, then it
              -- can "see" that boot dfun.   See Trac #4003
 
-checkHiBootIface' :: [ClsInst] -> TypeEnv -> [AvailInfo]
-                  -> ModDetails -> TcM [Maybe (Id, Id)]
+checkHiBootIface' :: forall l. (ApiAnnotation l)
+                  => [ClsInst] -> TypeEnv -> [AvailInfo]
+                  -> ModDetails -> TcM l [Maybe (Id, Id)]
 -- Variant which doesn't require a full TcGblEnv; you could get the
 -- local components from another ModDetails.
 
@@ -608,7 +614,7 @@ checkHiBootIface'
 
         -- Check that the actual module exports the same thing
       | not (null missing_names)
-      = addErrAt (nameSrcSpan (head missing_names))
+      = addErrAt (annFromSpan $ nameSrcSpan (head missing_names))
                  (missingBootThing (head missing_names) "exported by")
 
         -- If the boot module does not *define* the thing, we are done
@@ -620,7 +626,7 @@ checkHiBootIface'
       | Just real_thing <- lookupTypeEnv local_type_env name,
         Just boot_thing <- mb_boot_thing
       = when (not (checkBootDecl boot_thing real_thing))
-            $ addErrAt (nameSrcSpan (getName boot_thing))
+            $ addErrAt (annFromSpan $ nameSrcSpan (getName boot_thing))
                        (bootMisMatch real_thing boot_thing)
 
       | otherwise
@@ -637,7 +643,7 @@ checkHiBootIface'
     local_export_env :: NameEnv AvailInfo
     local_export_env = availsToNameEnv local_exports
 
-    check_inst :: ClsInst -> TcM (Maybe (Id, Id))
+    check_inst :: (ApiAnnotation l) => ClsInst -> TcM l (Maybe (Id, Id))
         -- Returns a pair of the boot dfun in terms of the equivalent real dfun
     check_inst boot_inst
         = case [dfun | inst <- local_insts,
@@ -828,7 +834,8 @@ monad; it augments it and returns the new TcGblEnv.
 
 \begin{code}
 ------------------------------------------------
-rnTopSrcDecls :: [Name] -> HsGroup RdrName -> TcM (TcGblEnv, HsGroup Name)
+rnTopSrcDecls :: (ApiAnnotation l) => [Name] -> HsGroup l RdrName
+              -> TcM l (TcGblEnv l, HsGroup l Name)
 -- Fails if there are any errors
 rnTopSrcDecls extra_deps group
  = do { -- Rename the source decls
@@ -859,7 +866,8 @@ rnTopSrcDecls extra_deps group
 
 
 \begin{code}
-tcTopSrcDecls :: ModDetails -> HsGroup Name -> TcM (TcGblEnv, TcLclEnv)
+tcTopSrcDecls :: (ApiAnnotation l)
+              => ModDetails -> HsGroup l Name -> TcM l (TcGblEnv l, TcLclEnv l)
 tcTopSrcDecls boot_details
         (HsGroup { hs_tyclds = tycl_decls,
                    hs_instds = inst_decls,
@@ -968,14 +976,15 @@ tcTopSrcDecls boot_details
                 occName = nameOccName (gre_name gre)
 
 ---------------------------
-tcTyClsInstDecls :: ModDetails 
-                 -> [TyClGroup Name] 
-                 -> [LInstDecl Name]
-                 -> [LDerivDecl Name]
-                 -> TcM (TcGblEnv,            -- The full inst env
-                         [InstInfo Name],     -- Source-code instance decls to process;
-                                              -- contains all dfuns for this module
-                          HsValBinds Name)    -- Supporting bindings for derived instances
+tcTyClsInstDecls
+   :: (ApiAnnotation l) => ModDetails
+   -> [TyClGroup l Name]
+   -> [LInstDecl l Name]
+   -> [LDerivDecl l Name]
+   -> TcM l (TcGblEnv l,        -- The full inst env
+            [InstInfo l Name],  -- Source-code instance decls to process;
+                                -- contains all dfuns for this module
+             HsValBinds l Name) -- Supporting bindings for derived instances
 
 tcTyClsInstDecls boot_details tycl_decls inst_decls deriv_decls
  = tcExtendKindEnv2 [ (con, APromotionErr FamDataConPE) 
@@ -986,13 +995,13 @@ tcTyClsInstDecls boot_details tycl_decls inst_decls deriv_decls
         tcInstDecls1 (tyClGroupConcat tycl_decls) inst_decls deriv_decls }
   where
     -- get_cons extracts the *constructor* bindings of the declaration
-    get_cons :: LInstDecl Name -> [Name]
+    get_cons :: LInstDecl l Name -> [Name]
     get_cons (L _ (TyFamInstD {}))                     = []
     get_cons (L _ (DataFamInstD { dfid_inst = fid }))  = get_fi_cons fid
     get_cons (L _ (ClsInstD { cid_inst = ClsInstDecl { cid_datafam_insts = fids } }))
       = concatMap (get_fi_cons . unLoc) fids
 
-    get_fi_cons :: DataFamInstDecl Name -> [Name]
+    get_fi_cons :: DataFamInstDecl l Name -> [Name]
     get_fi_cons (DataFamInstDecl { dfid_defn = HsDataDefn { dd_cons = cons } }) 
       = map (unLoc . con_name . unLoc) cons
 \end{code}
@@ -1023,7 +1032,7 @@ type checking 'S' we'll produce a decent error message.
 %************************************************************************
 
 \begin{code}
-checkMain :: TcM TcGblEnv
+checkMain :: (ApiAnnotation l) => TcM l (TcGblEnv l)
 -- If we are in module Main, check that 'main' is defined.
 checkMain
   = do { tcg_env   <- getGblEnv ;
@@ -1031,7 +1040,7 @@ checkMain
          check_main dflags tcg_env
     }
 
-check_main :: DynFlags -> TcGblEnv -> TcM TcGblEnv
+check_main :: (ApiAnnotation l) => DynFlags -> TcGblEnv l -> TcM l (TcGblEnv l)
 check_main dflags tcg_env
  | mod /= main_mod
  = traceTc "checkMain not" (ppr main_mod <+> ppr mod) >>
@@ -1048,7 +1057,7 @@ check_main dflags tcg_env
              Just main_name -> do
 
         { traceTc "checkMain found" (ppr main_mod <+> ppr main_fn)
-        ; let loc = srcLocSpan (getSrcLoc main_name)
+        ; let loc = annFromSpan $ srcLocSpan (getSrcLoc main_name)
         ; ioTyCon <- tcLookupTyCon ioTyConName
         ; res_ty <- newFlexiTyVarTy liftedTypeKind
         ; main_expr
@@ -1100,7 +1109,7 @@ getMainFun dflags = case mainFunIs dflags of
                       Just fn -> mkRdrUnqual (mkVarOccFS (mkFastString fn))
                       Nothing -> main_RDR_Unqual
 
-checkMainExported :: TcGblEnv -> TcM ()
+checkMainExported :: (ApiAnnotation l) => TcGblEnv l -> TcM l ()
 checkMainExported tcg_env
   = case tcg_main tcg_env of
       Nothing -> return () -- not the main module
@@ -1143,7 +1152,8 @@ get two defns for 'main' in the interface file!
 %*********************************************************
 
 \begin{code}
-runTcInteractive :: HscEnv -> TcRn a -> IO (Messages, Maybe a)
+runTcInteractive :: (ApiAnnotation l)
+                 => HscEnv l -> TcRn l a -> IO (Messages, Maybe a)
 -- Initialise the tcg_inst_env with instances from all home modules.
 -- This mimics the more selective call to hptInstances in tcRnImports
 runTcInteractive hsc_env thing_inside
@@ -1663,7 +1673,8 @@ lookup_rdr_name rdr_name = do
 
 #endif
 
-tcRnLookupName :: HscEnv -> Name -> IO (Messages, Maybe TyThing)
+tcRnLookupName :: (ApiAnnotation l)
+               => HscEnv l -> Name -> IO (Messages, Maybe TyThing)
 tcRnLookupName hsc_env name
   = runTcInteractive hsc_env $
     tcRnLookupName' name
@@ -1672,7 +1683,7 @@ tcRnLookupName hsc_env name
 -- as well as the global environment, which is what tcLookup does.
 -- But we also want a TyThing, so we have to convert:
 
-tcRnLookupName' :: Name -> TcRn TyThing
+tcRnLookupName' :: (ApiAnnotation l) => Name -> TcRn l TyThing
 tcRnLookupName' name = do
    tcthing <- tcLookup name
    case tcthing of
@@ -1680,7 +1691,7 @@ tcRnLookupName' name = do
      ATcId{tct_id=id} -> return (AnId id)
      _ -> panic "tcRnLookupName'"
 
-tcRnGetInfo :: HscEnv
+tcRnGetInfo :: (ApiAnnotation l) => HscEnv l
             -> Name
             -> IO (Messages, Maybe (TyThing, Fixity, [ClsInst], [FamInst]))
 
@@ -1704,7 +1715,7 @@ tcRnGetInfo hsc_env name
        ; (cls_insts, fam_insts) <- lookupInsts thing
        ; return (thing, fixity, cls_insts, fam_insts) }
 
-lookupInsts :: TyThing -> TcM ([ClsInst],[FamInst])
+lookupInsts :: TyThing -> TcM l ([ClsInst],[FamInst])
 lookupInsts (ATyCon tc)
   = do  { (pkg_ie, home_ie) <- tcGetInstEnvs
         ; (pkg_fie, home_fie) <- tcGetFamInstEnvs
@@ -1728,7 +1739,7 @@ lookupInsts (ATyCon tc)
 
 lookupInsts _ = return ([],[])
 
-loadUnqualIfaces :: HscEnv -> InteractiveContext -> TcM ()
+loadUnqualIfaces :: HscEnv l -> InteractiveContext -> TcM l ()
 -- Load the interface for everything that is in scope unqualified
 -- This is so that we can accurately report the instances for
 -- something
@@ -1758,11 +1769,11 @@ loadUnqualIfaces hsc_env ictxt
 %************************************************************************
 
 \begin{code}
-rnDump :: SDoc -> TcRn ()
+rnDump :: SDoc -> TcRn l ()
 -- Dump, with a banner, if -ddump-rn
 rnDump doc = do { dumpOptTcRn Opt_D_dump_rn (mkDumpDoc "Renamer" doc) }
 
-tcDump :: TcGblEnv -> TcRn ()
+tcDump :: (ApiAnnotation l) => TcGblEnv l -> TcRn l ()
 tcDump env
  = do { dflags <- getDynFlags ;
 
@@ -1780,7 +1791,7 @@ tcDump env
         --     hence can't show the tc_fords
 
 -- It's unpleasant having both pprModGuts and pprModDetails here
-pprTcGblEnv :: TcGblEnv -> SDoc
+pprTcGblEnv :: (ApiAnnotation l) => TcGblEnv l -> SDoc
 pprTcGblEnv (TcGblEnv { tcg_type_env  = type_env,
                         tcg_insts     = insts,
                         tcg_fam_insts = fam_insts,

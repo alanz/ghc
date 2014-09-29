@@ -77,7 +77,7 @@ module SrcLoc (
         -- ** GHC API annotations
         ApiAnnotation(..),
         annNoLoc, annGetLoc, annSetLoc, annFromSpan, annToLocated,
-        annCombineSrcSpans, annCombineLocs
+        annCombineSrcSpans, annCombineLocs, annAddCLoc, annSortLocated
 
     ) where
 
@@ -196,6 +196,12 @@ annCombineSrcSpans :: (ApiAnnotation l) => l -> l -> l
 annCombineSrcSpans l1 l2
   = annFromSpan (combineSrcSpans (annGetSpan l1) (annGetSpan l2))
 
+-- | Combine locations from two 'Located' things and add them to a third thing
+annAddCLoc ::  (ApiAnnotation l) => GenLocated l a -> GenLocated l b -> c -> GenLocated l c
+annAddCLoc a b c = L (annCombineSrcSpans (getLoc a) (getLoc b)) c
+
+annSortLocated :: (ApiAnnotation l) => [GenLocated l a] -> [GenLocated l a]
+annSortLocated things = sortBy (comparing annGetLoc) things
 
 instance ApiAnnotation SrcSpan where
   annGetSpan l = l

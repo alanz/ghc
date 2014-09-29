@@ -43,6 +43,7 @@ import VarSet
 import DynFlags
 import Outputable
 import Util
+import SrcLoc (ApiAnnotation)
 
 import Data.Maybe
 \end{code}
@@ -83,7 +84,8 @@ follows:
 \end{verbatim}
 
 \begin{code}
-dsCCall :: CLabelString   -- C routine to invoke
+dsCCall :: (ApiAnnotation l)
+        => CLabelString   -- C routine to invoke
         -> [CoreExpr]     -- Arguments (desugared)
         -> Safety         -- Safety of the call
         -> Type           -- Type of the result: IO t
@@ -124,7 +126,8 @@ mkFCall dflags uniq the_fcall val_args res_ty
 \end{code}
 
 \begin{code}
-unboxArg :: CoreExpr                      -- The supplied argument
+unboxArg :: (ApiAnnotation l)
+         => CoreExpr                      -- The supplied argument
          -> DsM l (CoreExpr,              -- To pass as the actual argument
                    CoreExpr -> CoreExpr   -- Wrapper to unbox the arg
                   )

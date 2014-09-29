@@ -126,10 +126,10 @@ revert to SimplCheck when going under an implication.
 
 
 \begin{code}
-tcRules :: [LRuleDecl Name] -> TcM [LRuleDecl TcId]
+tcRules :: (ApiAnnotation l) => [LRuleDecl l Name] -> TcM l [LRuleDecl l TcId]
 tcRules decls = mapM (wrapLocM tcRule) decls
 
-tcRule :: RuleDecl Name -> TcM (RuleDecl TcId)
+tcRule :: (ApiAnnotation l) => RuleDecl l Name -> TcM l (RuleDecl l TcId)
 tcRule (HsRule name act hs_bndrs lhs fv_lhs rhs fv_rhs)
   = addErrCtxt (ruleCtxt name)	$
     do { traceTc "---- Rule ------" (ppr name)
@@ -200,12 +200,12 @@ tcRule (HsRule name act hs_bndrs lhs fv_lhs rhs fv_rhs)
                                   , ic_env    = lcl_env } 
 
        ; return (HsRule name act
-		    (map (RuleBndr . noLoc) (qtkvs ++ tpl_ids))
+		    (map (RuleBndr . annNoLoc) (qtkvs ++ tpl_ids))
 		    (mkHsDictLet (TcEvBinds lhs_binds_var) lhs') fv_lhs
 		    (mkHsDictLet (TcEvBinds rhs_binds_var) rhs') fv_rhs) }
 
-tcRuleBndrs :: [RuleBndr Name] -> TcM [Var]
-tcRuleBndrs [] 
+tcRuleBndrs :: (ApiAnnotation l) => [RuleBndr l Name] -> TcM l [Var]
+tcRuleBndrs []
   = return []
 tcRuleBndrs (RuleBndr (L _ name) : rule_bndrs)
   = do 	{ ty <- newFlexiTyVarTy openTypeKind

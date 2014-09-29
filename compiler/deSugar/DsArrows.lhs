@@ -123,7 +123,7 @@ do_premap :: DsCmdEnv -> Type -> Type -> Type ->
 do_premap ids b_ty c_ty d_ty f g
    = do_compose ids b_ty c_ty d_ty (do_arr ids b_ty c_ty f) g
 
-mkFailExpr :: HsMatchContext Id -> Type -> DsM l CoreExpr
+mkFailExpr :: (ApiAnnotation l) => HsMatchContext Id -> Type -> DsM l CoreExpr
 mkFailExpr ctxt ty
   = mkErrorAppDs pAT_ERROR_ID ty (matchContextErrString ctxt)
 

@@ -4,25 +4,26 @@ import HsSyn    ( HsExpr, LHsExpr )
 import Name     ( Name )
 import TcType   ( TcType, TcRhoType, TcSigmaType )
 import TcRnTypes( TcM, TcId, CtOrigin )
+import SrcLoc   ( ApiAnnotation )
 
-tcPolyExpr ::
-          LHsExpr l Name
+tcPolyExpr :: (ApiAnnotation l)
+       => LHsExpr l Name
        -> TcSigmaType
        -> TcM l (LHsExpr l TcId)
 
-tcMonoExpr, tcMonoExprNC ::
-          LHsExpr l Name
+tcMonoExpr, tcMonoExprNC :: (ApiAnnotation l)
+       => LHsExpr l Name
        -> TcRhoType
        -> TcM l (LHsExpr l TcId)
 
-tcInferRho, tcInferRhoNC ::
-          LHsExpr l Name
+tcInferRho, tcInferRhoNC :: (ApiAnnotation l)
+       => LHsExpr l Name
        -> TcM l (LHsExpr l TcId, TcRhoType)
 
-tcSyntaxOp :: CtOrigin l
+tcSyntaxOp :: (ApiAnnotation l) => CtOrigin l
            -> HsExpr l Name
            -> TcType
            -> TcM l (HsExpr l TcId)
 
-tcCheckId :: Name -> TcRhoType -> TcM l (HsExpr l TcId)
+tcCheckId :: (ApiAnnotation l) => Name -> TcRhoType -> TcM l (HsExpr l TcId)
 \end{code}

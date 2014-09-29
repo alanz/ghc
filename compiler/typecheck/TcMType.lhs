@@ -221,7 +221,7 @@ tcSuperSkolTyVar subst tv
     new_tv = mkTcTyVar (tyVarName tv) kind superSkolemTv
 
 tcInstSkolTyVar :: (ApiAnnotation l) => l -> Bool -> TvSubst -> TyVar
-                -> TcRnIf gbl lcl (TvSubst, TcTyVar)
+                -> TcRnIf l gbl lcl (TvSubst, TcTyVar)
 -- Instantiate the tyvar, using 
 --      * the occ-name and kind of the supplied tyvar, 
 --      * the unique from the monad,
@@ -257,18 +257,19 @@ tcInstSkolTyVars' :: (ApiAnnotation l)
 -- Get the location from the monad; this is a complete freshening operation
 tcInstSkolTyVars' isSuperSkol subst tvs
   = do { loc <- getSrcSpanM
-       ; mapAccumLM (tcInstSkolTyVar (annGetSpan loc) isSuperSkol) subst tvs }
+       ; mapAccumLM (tcInstSkolTyVar loc isSuperSkol) subst tvs }
 
 tcInstSigTyVarsLoc :: (ApiAnnotation l)
-                   => l -> [TyVar] -> TcRnIf gbl lcl (TvSubst, [TcTyVar])
+                   => l -> [TyVar] -> TcRnIf l gbl lcl (TvSubst, [TcTyVar])
 -- We specify the location
 tcInstSigTyVarsLoc loc = mapAccumLM (tcInstSkolTyVar loc False) (mkTopTvSubst [])
 
-tcInstSigTyVars :: [TyVar] -> TcRnIf gbl lcl (TvSubst, [TcTyVar])
+tcInstSigTyVars :: (ApiAnnotation l)
+                => [TyVar] -> TcRnIf l gbl lcl (TvSubst, [TcTyVar])
 -- Get the location from the TyVar itself, not the monad
 tcInstSigTyVars = mapAccumLM inst_tv (mkTopTvSubst [])
   where
-    inst_tv subst tv = tcInstSkolTyVar (getSrcSpan tv) False subst tv
+    inst_tv subst tv = tcInstSkolTyVar (annFromSpan $ getSrcSpan tv) False subst tv
 
 tcInstSkolType :: (ApiAnnotation l)
                => TcType -> TcM l ([TcTyVar], TcThetaType, TcType)

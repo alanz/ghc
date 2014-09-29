@@ -55,7 +55,8 @@ import TysWiredIn       ( nilDataConName )
 %************************************************************************
 
 \begin{code}
-rnExprs :: [LHsExpr l RdrName] -> RnM l ([LHsExpr l Name], FreeVars)
+rnExprs :: (ApiAnnotation l)
+        => [LHsExpr l RdrName] -> RnM l ([LHsExpr l Name], FreeVars)
 rnExprs ls = rnExprs' ls emptyUniqSet
  where
   rnExprs' [] acc = return ([], acc)
@@ -78,7 +79,7 @@ rnLExpr = wrapLocFstM rnExpr
 rnExpr :: (ApiAnnotation l)
        => HsExpr l RdrName -> RnM l (HsExpr l Name, FreeVars)
 
-finishHsVar :: Name -> RnM l (HsExpr l Name, FreeVars)
+finishHsVar :: (ApiAnnotation l) => Name -> RnM l (HsExpr l Name, FreeVars)
 -- Separated from rnExpr because it's also used
 -- when renaming infix expressions
 -- See Note [Adding the implicit parameter to 'assert']
@@ -395,7 +396,8 @@ rnHsRecBinds ctxt rec_binds@(HsRecFields { rec_dotdot = dd })
 %************************************************************************
 
 \begin{code}
-rnCmdArgs :: [LHsCmdTop l RdrName] -> RnM l ([LHsCmdTop l Name], FreeVars)
+rnCmdArgs :: (ApiAnnotation l)
+          => [LHsCmdTop l RdrName] -> RnM l ([LHsCmdTop l Name], FreeVars)
 rnCmdArgs [] = return ([], emptyFVs)
 rnCmdArgs (arg:args)
   = do { (arg',fvArg) <- rnCmdTop arg
@@ -570,7 +572,8 @@ methodNamesStmt (TransStmt {})                   = emptyFVs
 %************************************************************************
 
 \begin{code}
-rnArithSeq :: ArithSeqInfo l RdrName -> RnM l (ArithSeqInfo l Name, FreeVars)
+rnArithSeq :: (ApiAnnotation l)
+           => ArithSeqInfo l RdrName -> RnM l (ArithSeqInfo l Name, FreeVars)
 rnArithSeq (From expr)
  = do { (expr', fvExpr) <- rnLExpr expr
       ; return (From expr', fvExpr) }
@@ -600,12 +603,13 @@ rnArithSeq (FromThenTo expr1 expr2 expr3)
 %************************************************************************
 
 \begin{code}
-rnStmts :: Outputable (body l RdrName) => HsStmtContext Name
-        -> (GenLocated l (body l RdrName)
-                       -> RnM l (GenLocated l (body l Name),FreeVars))
-        -> [LStmt l RdrName (GenLocated l (body l RdrName))]
+rnStmts :: (ApiAnnotation l, Outputable (body RdrName))
+        => HsStmtContext Name
+        -> (GenLocated l (body RdrName)
+                            -> RnM l (GenLocated l (body Name),FreeVars))
+        -> [LStmt l RdrName (GenLocated l (body RdrName))]
         -> ([Name] -> RnM l (thing, FreeVars))
-        -> RnM l (([LStmt l Name (GenLocated l (body l Name))], thing), FreeVars)
+        -> RnM l (([LStmt l Name (GenLocated l (body Name))], thing), FreeVars)
 -- Variables bound by the Stmts, and mentioned in thing_inside,
 -- do not appear in the result FreeVars
 
@@ -617,7 +621,7 @@ rnStmts ctxt _ [] thing_inside
 rnStmts MDoExpr rnBody stmts thing_inside    -- Deal with mdo
   = -- Behave like do { rec { ...all but last... }; last }
     do { ((stmts1, (stmts2, thing)), fvs)
-           <- rnStmt MDoExpr rnBody (noLoc $ mkRecStmt all_but_last) $ \ _ ->
+           <- rnStmt MDoExpr rnBody (annNoLoc $ mkRecStmt all_but_last) $ \ _ ->
               do { last_stmt' <- checkLastStmt MDoExpr last_stmt
                  ; rnStmt MDoExpr rnBody last_stmt' thing_inside }
         ; return (((stmts1 ++ stmts2), thing), fvs) }
@@ -640,12 +644,12 @@ rnStmts ctxt rnBody (lstmt@(L loc _) : lstmts) thing_inside
         ; return (((stmts1 ++ stmts2), thing), fvs) }
 
 ----------------------
-rnStmt :: (ApiAnnotation l, Outputable (body l RdrName)) => HsStmtContext Name
-       -> (GenLocated l (body l RdrName)
-               -> RnM l (GenLocated l (body l Name), FreeVars))
-       -> LStmt l RdrName (GenLocated l (body l RdrName))
+rnStmt :: (ApiAnnotation l, Outputable (body RdrName)) => HsStmtContext Name
+       -> (GenLocated l (body RdrName)
+                         -> RnM l (GenLocated l (body Name), FreeVars))
+       -> LStmt l RdrName (GenLocated l (body RdrName))
        -> ([Name] -> RnM l (thing, FreeVars))
-       -> RnM l (([LStmt l Name (GenLocated l (body l Name))], thing), FreeVars)
+       -> RnM l (([LStmt l Name (GenLocated l (body Name))], thing), FreeVars)
 -- Variables bound by the Stmt, and mentioned in thing_inside,
 -- do not appear in the result FreeVars
 
@@ -753,7 +757,7 @@ rnStmt ctxt _ (L loc (TransStmt { trS_stmts = stmts, trS_by = by, trS_form = for
                                     , trS_ret = return_op, trS_bind = bind_op
                                     , trS_fmap = fmap_op })], thing), all_fvs) }
 
-rnParallelStmts :: forall thing l. HsStmtContext Name
+rnParallelStmts :: forall thing l. (ApiAnnotation l) => HsStmtContext Name
                 -> SyntaxExpr l Name
                 -> [ParStmtBlock l RdrName RdrName]
                 -> ([Name] -> RnM l (thing, FreeVars))
@@ -845,13 +849,13 @@ type Segment stmts = (Defs,
 
 
 -- wrapper that does both the left- and right-hand sides
-rnRecStmtsAndThen :: (ApiAnnotation l, Outputable (body l RdrName))
-                  => (GenLocated l (body l RdrName)
-                          -> RnM l (GenLocated l (body l Name), FreeVars))
-                  -> [LStmt l RdrName (GenLocated l (body l RdrName))]
+rnRecStmtsAndThen :: (ApiAnnotation l, Outputable (body RdrName))
+                  => (GenLocated l (body RdrName)
+                             -> RnM l (GenLocated l (body Name), FreeVars))
+                  -> [LStmt l RdrName (GenLocated l (body RdrName))]
                          -- assumes that the FreeVars returned includes
                          -- the FreeVars of the Segments
-                  -> ([Segment (LStmt l Name (GenLocated l (body l Name)))]
+                  -> ([Segment (LStmt l Name (GenLocated l (body Name)))]
                           -> RnM l (a, FreeVars))
                   -> RnM l (a, FreeVars)
 rnRecStmtsAndThen rnBody s cont
@@ -887,12 +891,14 @@ collectRecStmtsFixities l =
 
 -- left-hand sides
 
-rn_rec_stmt_lhs :: (ApiAnnotation l, Outputable (body l)) => MiniFixityEnv l
-                -> LStmt l RdrName (body l)
+rn_rec_stmt_lhs :: (ApiAnnotation l, Outputable (body RdrName))
+                => MiniFixityEnv l
+                -> LStmt l RdrName (GenLocated l (body RdrName))
                    -- rename LHS, and return its FVs
                    -- Warning: we will only need the FreeVars below in the case of a BindStmt,
                    -- so we don't bother to compute it accurately in the other cases
-                -> RnM l [(LStmtLR l Name RdrName (body l), FreeVars)]
+                -> RnM l [(LStmtLR l Name RdrName (GenLocated l (body RdrName)),
+                           FreeVars)]
 
 rn_rec_stmt_lhs _ (L loc (BodyStmt body a b c))
   = return [(L loc (BodyStmt body a b c), emptyFVs)]
@@ -930,9 +936,11 @@ rn_rec_stmt_lhs _ stmt@(L _ (TransStmt {}))     -- Syntactically illegal in mdo
 rn_rec_stmt_lhs _ (L _ (LetStmt EmptyLocalBinds))
   = panic "rn_rec_stmt LetStmt EmptyLocalBinds"
 
-rn_rec_stmts_lhs :: Outputable body => MiniFixityEnv l
-                 -> [LStmt l RdrName body]
-                 -> RnM l [(LStmtLR l Name RdrName body, FreeVars)]
+rn_rec_stmts_lhs :: (ApiAnnotation l, Outputable (body RdrName))
+                 => MiniFixityEnv l
+                 -> [LStmt l RdrName (GenLocated l (body RdrName))]
+                 -> RnM l [(LStmtLR l Name RdrName (GenLocated l (body RdrName)),
+                           FreeVars)]
 rn_rec_stmts_lhs fix_env stmts
   = do { ls <- concatMapM (rn_rec_stmt_lhs fix_env) stmts
        ; let boundNames = collectLStmtsBinders (map fst ls)
@@ -997,10 +1005,11 @@ rn_rec_stmt _ _ stmt@(L _ (TransStmt {})) _     -- Syntactically illegal in mdo
 rn_rec_stmt _ _ (L _ (LetStmt EmptyLocalBinds)) _
   = panic "rn_rec_stmt: LetStmt EmptyLocalBinds"
 
-rn_rec_stmts :: Outputable (body RdrName) =>
+rn_rec_stmts :: (ApiAnnotation l, Outputable (body RdrName)) =>
                 (GenLocated l (body RdrName) -> RnM l (GenLocated l (body Name), FreeVars))
              -> [Name]
-             -> [(LStmtLR l Name RdrName (GenLocated l (body RdrName)), FreeVars)]
+             -> [(LStmtLR l Name RdrName (GenLocated l (body RdrName)),
+                  FreeVars)]
              -> RnM l [Segment (LStmt l Name (GenLocated l (body Name)))]
 rn_rec_stmts rnBody bndrs stmts
   = do { segs_s <- mapM (uncurry (rn_rec_stmt rnBody bndrs)) stmts
@@ -1167,7 +1176,7 @@ srcSpanPrimLit :: (ApiAnnotation l) => DynFlags -> l -> HsExpr l Name
 srcSpanPrimLit dflags span
     = HsLit (HsStringPrim (unsafeMkByteString (showSDocOneLine dflags (ppr span))))
 
-mkAssertErrorExpr :: RnM l (HsExpr l Name)
+mkAssertErrorExpr :: (ApiAnnotation l) => RnM l (HsExpr l Name)
 -- Return an expression for (assertError "Foo.hs:27")
 mkAssertErrorExpr
   = do sloc <- getSrcSpanM
@@ -1208,10 +1217,10 @@ emptyErr (TransStmtCtxt {}) = ptext (sLit "Empty statement group preceding 'grou
 emptyErr ctxt               = ptext (sLit "Empty") <+> pprStmtContext ctxt
 
 ----------------------
-checkLastStmt :: (ApiAnnotation l, Outputable (body l RdrName))
+checkLastStmt :: (ApiAnnotation l, Outputable (body RdrName))
               => HsStmtContext Name
-              -> LStmt l RdrName (GenLocated l (body l RdrName))
-              -> RnM l (LStmt l RdrName (GenLocated l (body l RdrName)))
+              -> LStmt l RdrName (GenLocated l (body RdrName))
+              -> RnM l (LStmt l RdrName (GenLocated l (body RdrName)))
 checkLastStmt ctxt lstmt@(L loc stmt)
   = case ctxt of
       ListComp  -> check_comp
@@ -1241,7 +1250,7 @@ checkLastStmt ctxt lstmt@(L loc stmt)
 
 -- Checking when a particular Stmt is ok
 checkStmt :: (ApiAnnotation l) => HsStmtContext Name
-          -> LStmt l RdrName (GenLocated l (body l RdrName))
+          -> LStmt l RdrName (GenLocated l (body RdrName))
           -> RnM l ()
 checkStmt ctxt (L _ stmt)
   = do { dflags <- getDynFlags
@@ -1267,7 +1276,7 @@ emptyInvalid = NotValid Outputable.empty
 
 okStmt, okDoStmt, okCompStmt, okParStmt, okPArrStmt
    :: DynFlags -> HsStmtContext Name
-   -> Stmt l RdrName (GenLocated l (body l RdrName)) -> Validity
+   -> Stmt l RdrName (GenLocated l (body RdrName)) -> Validity
 -- Return Nothing if OK, (Just extra) if not ok
 -- The "extra" is an SDoc that is appended to an generic error message
 
@@ -1285,7 +1294,7 @@ okStmt dflags ctxt stmt
       TransStmtCtxt ctxt -> okStmt dflags ctxt stmt
 
 -------------
-okPatGuardStmt :: Stmt l RdrName (GenLocated l (body l RdrName)) -> Validity
+okPatGuardStmt :: Stmt l RdrName (GenLocated l (body RdrName)) -> Validity
 okPatGuardStmt stmt
   = case stmt of
       BodyStmt {} -> IsValid

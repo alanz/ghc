@@ -27,13 +27,14 @@ import DynFlags
 import Outputable
 import Util                 ( zipLazy )
 import MonadUtils
+import SrcLoc               ( ApiAnnotation )
 
 import Control.Monad
 
 
 -- |Vectorise a single module.
 --
-vectorise :: ModGuts -> CoreM ModGuts
+vectorise :: ApiAnnotation l => ModGuts -> CoreM l ModGuts
 vectorise guts
  = do { hsc_env <- getHscEnv
       ; liftIO $ vectoriseIO hsc_env guts
@@ -41,7 +42,7 @@ vectorise guts
 
 -- Vectorise a single monad, given the dynamic compiler flags and HscEnv.
 --
-vectoriseIO :: HscEnv -> ModGuts -> IO ModGuts
+vectoriseIO :: ApiAnnotation l => HscEnv l -> ModGuts -> IO ModGuts
 vectoriseIO hsc_env guts
  = do {   -- Get information about currently loaded external packages.
       ; eps <- hscEPS hsc_env
@@ -56,7 +57,7 @@ vectoriseIO hsc_env guts
 
 -- Vectorise a single module, in the VM monad.
 --
-vectModule :: ModGuts -> VM l ModGuts
+vectModule :: ApiAnnotation l => ModGuts -> VM l ModGuts
 vectModule guts@(ModGuts { mg_tcs        = tycons
                          , mg_binds      = binds
                          , mg_fam_insts  = fam_insts

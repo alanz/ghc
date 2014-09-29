@@ -136,24 +136,25 @@ unguardedGRHSs rhs = GRHSs (unguardedRHS rhs) emptyLocalBinds
 unguardedRHS :: GenLocated l (body id) -> [LGRHS l id (GenLocated l (body id))]
 unguardedRHS rhs@(L loc _) = [L loc (GRHS [] rhs)]
 
-mkMatchGroup :: Origin -> [LMatch l RdrName (GenLocated l (body l RdrName))]
-             -> MatchGroup l RdrName (GenLocated l (body l RdrName))
+mkMatchGroup :: Origin -> [LMatch l RdrName (GenLocated l (body RdrName))]
+             -> MatchGroup l RdrName (GenLocated l (body RdrName))
 mkMatchGroup origin matches = MG { mg_alts = matches, mg_arg_tys = []
                                  , mg_res_ty = placeHolderType
                                  , mg_origin = origin }
 
-mkMatchGroupName :: Origin -> [LMatch l Name (GenLocated l (body l Name))]
-             -> MatchGroup l Name (GenLocated l (body l Name))
+mkMatchGroupName :: Origin -> [LMatch l Name (GenLocated l (body Name))]
+             -> MatchGroup l Name (GenLocated l (body Name))
 mkMatchGroupName origin matches = MG { mg_alts = matches, mg_arg_tys = []
                                      , mg_res_ty = placeHolderType
                                      , mg_origin = origin }
 
-mkHsAppTy :: LHsType SrcSpan name -> LHsType SrcSpan name
-          -> LHsType SrcSpan name
-mkHsAppTy t1 t2 = addCLoc t1 t2 (HsAppTy t1 t2)
+mkHsAppTy :: (ApiAnnotation l) => LHsType l name -> LHsType l name
+          -> LHsType l name
+mkHsAppTy t1 t2 = annAddCLoc t1 t2 (HsAppTy t1 t2)
 
-mkHsApp :: LHsExpr SrcSpan name -> LHsExpr SrcSpan name -> LHsExpr SrcSpan name
-mkHsApp e1 e2 = addCLoc e1 e2 (HsApp e1 e2)
+mkHsApp :: (ApiAnnotation l)
+        => LHsExpr l name -> LHsExpr l name -> LHsExpr l name
+mkHsApp e1 e2 = annAddCLoc e1 e2 (HsApp e1 e2)
 
 mkHsLam :: (ApiAnnotation l) => [LPat l RdrName] -> LHsExpr l RdrName
         -> LHsExpr l RdrName
@@ -173,8 +174,8 @@ mkHsConApp data_con tys args
     mk_app f a = noLoc (HsApp f (noLoc a))
 
 mkSimpleHsAlt :: (ApiAnnotation l)
-              => LPat l id -> (GenLocated l (body l id))
-              -> LMatch l id (GenLocated l (body l id))
+              => LPat l id -> (GenLocated l (body id))
+              -> LMatch l id (GenLocated l (body id))
 -- A simple lambda with a single pattern, no binds, no guards; pre-typechecking
 mkSimpleHsAlt pat expr
   = mkSimpleMatch [pat] expr
@@ -202,21 +203,24 @@ mkHsIntegral   :: Integer -> PostTc RdrName Type -> HsOverLit l RdrName
 mkHsFractional :: FractionalLit -> PostTc RdrName Type -> HsOverLit l RdrName
 mkHsIsString   :: FastString -> PostTc RdrName Type -> HsOverLit l RdrName
 mkHsDo         :: HsStmtContext Name -> [ExprLStmt l RdrName] -> HsExpr l RdrName
-mkHsComp       :: HsStmtContext Name -> [ExprLStmt l RdrName] -> LHsExpr l RdrName
-               -> HsExpr l RdrName
+mkHsComp       :: HsStmtContext Name -> [ExprLStmt l RdrName]
+               -> LHsExpr l RdrName -> HsExpr l RdrName
 
 mkNPat      :: HsOverLit l id -> Maybe (SyntaxExpr l id) -> Pat l id
 mkNPlusKPat :: GenLocated l id -> HsOverLit l id -> Pat l id
 
-mkLastStmt :: GenLocated l (bodyR l idR) -> StmtLR l idL idR (GenLocated l (bodyR l idR))
-mkBodyStmt :: GenLocated l (bodyR l RdrName)
-           -> StmtLR l idL RdrName (GenLocated l (bodyR l RdrName))
-mkBindStmt :: LPat l idL -> GenLocated l (bodyR l idR) -> StmtLR l idL idR (GenLocated l (bodyR l idR))
+mkLastStmt :: GenLocated l (bodyR idR)
+           -> StmtLR l idL idR (GenLocated l (bodyR idR))
+mkBodyStmt :: GenLocated l (bodyR RdrName)
+           -> StmtLR l idL RdrName (GenLocated l (bodyR RdrName))
+mkBindStmt :: LPat l idL -> GenLocated l (bodyR idR)
+           -> StmtLR l idL idR (GenLocated l (bodyR idR))
 
 emptyRecStmt     :: StmtLR l idL  RdrName bodyR
 emptyRecStmtName :: StmtLR l Name Name    bodyR
 emptyRecStmtId   :: StmtLR l Id   Id      bodyR
-mkRecStmt    :: [LStmtLR l idL RdrName bodyR] -> StmtLR l idL RdrName bodyR
+mkRecStmt    :: [LStmtLR l idL RdrName (GenLocated l (bodyR RdrName))]
+              -> StmtLR  l idL RdrName (GenLocated l (bodyR RdrName))
 
 
 mkHsIntegral   i       = OverLit (HsIntegral   i)  noRebindableInfo noSyntaxExpr
@@ -862,10 +866,10 @@ The main purpose is to find names introduced by record wildcards so that we can 
 warning the user when they don't use those names (#4404)
 
 \begin{code}
-lStmtsImplicits :: [LStmtLR l Name idR (GenLocated l (body l idR))] -> NameSet
+lStmtsImplicits :: [LStmtLR l Name idR (GenLocated l (body idR))] -> NameSet
 lStmtsImplicits = hs_lstmts
   where
-    hs_lstmts :: [LStmtLR l Name idR (GenLocated l (body l idR))] -> NameSet
+    hs_lstmts :: [LStmtLR l Name idR (GenLocated l (body idR))] -> NameSet
     hs_lstmts = foldr (\stmt rest -> unionNameSets (hs_stmt (unLoc stmt)) rest) emptyNameSet
 
     hs_stmt (BindStmt pat _ _ _) = lPatImplicits pat

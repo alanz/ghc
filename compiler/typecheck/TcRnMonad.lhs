@@ -73,7 +73,7 @@ import qualified Data.Map as Map
 \begin{code}
 
 -- | Setup the initial typechecking environment
-initTc :: (ApiAnnotation l) => HscEnv
+initTc :: (ApiAnnotation l) => HscEnv l
        -> HscSource
        -> Bool          -- True <=> retain renamed syntax trees
        -> Module
@@ -202,14 +202,15 @@ initTc hsc_env hsc_src keep_rn_syntax mod do_this
     }
 
 
-initTcInteractive :: (ApiAnnotation l) => HscEnv -> TcM l a -> IO (Messages, Maybe a)
+initTcInteractive :: (ApiAnnotation l)
+                  => HscEnv l -> TcM l a -> IO (Messages, Maybe a)
 -- Initialise the type checker monad for use in GHCi
 initTcInteractive hsc_env thing_inside
   = initTc hsc_env HsSrcFile False
            (icInteractiveModule (hsc_IC hsc_env))
            thing_inside
 
-initTcForLookup :: (ApiAnnotation l) => HscEnv -> TcM l a -> IO a
+initTcForLookup :: (ApiAnnotation l) => HscEnv l -> TcM l a -> IO a
 -- The thing_inside is just going to look up something
 -- in the environment, so we don't need much setup
 initTcForLookup hsc_env thing_inside
@@ -230,9 +231,9 @@ initTcForLookup hsc_env thing_inside
 
 \begin{code}
 initTcRnIf :: Char              -- Tag for unique supply
-           -> HscEnv
+           -> HscEnv l
            -> gbl -> lcl
-           -> TcRnIf gbl lcl a
+           -> TcRnIf l gbl lcl a
            -> IO a
 initTcRnIf uniq_tag hsc_env gbl_env lcl_env thing_inside
    = do { us     <- mkSplitUniqSupply uniq_tag ;
@@ -257,33 +258,33 @@ initTcRnIf uniq_tag hsc_env gbl_env lcl_env thing_inside
 discardResult :: TcM l a -> TcM l ()
 discardResult a = a >> return ()
 
-getTopEnv :: TcRnIf gbl lcl HscEnv
+getTopEnv :: TcRnIf l gbl lcl (HscEnv l)
 getTopEnv = do { env <- getEnv; return (env_top env) }
 
-getGblEnv :: TcRnIf gbl lcl gbl
+getGblEnv :: TcRnIf l gbl lcl gbl
 getGblEnv = do { env <- getEnv; return (env_gbl env) }
 
-updGblEnv :: (gbl -> gbl) -> TcRnIf gbl lcl a -> TcRnIf gbl lcl a
+updGblEnv :: (gbl -> gbl) -> TcRnIf l gbl lcl a -> TcRnIf l gbl lcl a
 updGblEnv upd = updEnv (\ env@(Env { env_gbl = gbl }) ->
                           env { env_gbl = upd gbl })
 
-setGblEnv :: gbl -> TcRnIf gbl lcl a -> TcRnIf gbl lcl a
+setGblEnv :: gbl -> TcRnIf l gbl lcl a -> TcRnIf l gbl lcl a
 setGblEnv gbl_env = updEnv (\ env -> env { env_gbl = gbl_env })
 
-getLclEnv :: TcRnIf gbl lcl lcl
+getLclEnv :: TcRnIf l gbl lcl lcl
 getLclEnv = do { env <- getEnv; return (env_lcl env) }
 
-updLclEnv :: (lcl -> lcl) -> TcRnIf gbl lcl a -> TcRnIf gbl lcl a
+updLclEnv :: (lcl -> lcl) -> TcRnIf l gbl lcl a -> TcRnIf l gbl lcl a
 updLclEnv upd = updEnv (\ env@(Env { env_lcl = lcl }) ->
                           env { env_lcl = upd lcl })
 
-setLclEnv :: lcl' -> TcRnIf gbl lcl' a -> TcRnIf gbl lcl a
+setLclEnv :: lcl' -> TcRnIf l gbl lcl' a -> TcRnIf l gbl lcl a
 setLclEnv lcl_env = updEnv (\ env -> env { env_lcl = lcl_env })
 
-getEnvs :: TcRnIf gbl lcl (gbl, lcl)
+getEnvs :: TcRnIf l gbl lcl (gbl, lcl)
 getEnvs = do { env <- getEnv; return (env_gbl env, env_lcl env) }
 
-setEnvs :: (gbl', lcl') -> TcRnIf gbl' lcl' a -> TcRnIf gbl lcl a
+setEnvs :: (gbl', lcl') -> TcRnIf l gbl' lcl' a -> TcRnIf l gbl lcl a
 setEnvs (gbl_env, lcl_env) = updEnv (\ env -> env { env_gbl = gbl_env, env_lcl = lcl_env })
 \end{code}
 
@@ -291,53 +292,53 @@ setEnvs (gbl_env, lcl_env) = updEnv (\ env -> env { env_gbl = gbl_env, env_lcl =
 Command-line flags
 
 \begin{code}
-xoptM :: ExtensionFlag -> TcRnIf gbl lcl Bool
+xoptM :: ExtensionFlag -> TcRnIf l gbl lcl Bool
 xoptM flag = do { dflags <- getDynFlags; return (xopt flag dflags) }
 
-doptM :: DumpFlag -> TcRnIf gbl lcl Bool
+doptM :: DumpFlag -> TcRnIf l gbl lcl Bool
 doptM flag = do { dflags <- getDynFlags; return (dopt flag dflags) }
 
-goptM :: GeneralFlag -> TcRnIf gbl lcl Bool
+goptM :: GeneralFlag -> TcRnIf l gbl lcl Bool
 goptM flag = do { dflags <- getDynFlags; return (gopt flag dflags) }
 
-woptM :: WarningFlag -> TcRnIf gbl lcl Bool
+woptM :: WarningFlag -> TcRnIf l gbl lcl Bool
 woptM flag = do { dflags <- getDynFlags; return (wopt flag dflags) }
 
-setXOptM :: ExtensionFlag -> TcRnIf gbl lcl a -> TcRnIf gbl lcl a
+setXOptM :: ExtensionFlag -> TcRnIf l gbl lcl a -> TcRnIf l gbl lcl a
 setXOptM flag = updEnv (\ env@(Env { env_top = top }) ->
                           env { env_top = top { hsc_dflags = xopt_set (hsc_dflags top) flag}} )
 
-unsetGOptM :: GeneralFlag -> TcRnIf gbl lcl a -> TcRnIf gbl lcl a
+unsetGOptM :: GeneralFlag -> TcRnIf l gbl lcl a -> TcRnIf l gbl lcl a
 unsetGOptM flag = updEnv (\ env@(Env { env_top = top }) ->
                             env { env_top = top { hsc_dflags = gopt_unset (hsc_dflags top) flag}} )
 
-unsetWOptM :: WarningFlag -> TcRnIf gbl lcl a -> TcRnIf gbl lcl a
+unsetWOptM :: WarningFlag -> TcRnIf l gbl lcl a -> TcRnIf l gbl lcl a
 unsetWOptM flag = updEnv (\ env@(Env { env_top = top }) ->
                             env { env_top = top { hsc_dflags = wopt_unset (hsc_dflags top) flag}} )
 
 -- | Do it flag is true
-whenDOptM :: DumpFlag -> TcRnIf gbl lcl () -> TcRnIf gbl lcl ()
+whenDOptM :: DumpFlag -> TcRnIf l gbl lcl () -> TcRnIf l gbl lcl ()
 whenDOptM flag thing_inside = do b <- doptM flag
                                  when b thing_inside
 
-whenGOptM :: GeneralFlag -> TcRnIf gbl lcl () -> TcRnIf gbl lcl ()
+whenGOptM :: GeneralFlag -> TcRnIf l gbl lcl () -> TcRnIf l gbl lcl ()
 whenGOptM flag thing_inside = do b <- goptM flag
                                  when b thing_inside
 
-whenWOptM :: WarningFlag -> TcRnIf gbl lcl () -> TcRnIf gbl lcl ()
+whenWOptM :: WarningFlag -> TcRnIf l gbl lcl () -> TcRnIf l gbl lcl ()
 whenWOptM flag thing_inside = do b <- woptM flag
                                  when b thing_inside
 
-whenXOptM :: ExtensionFlag -> TcRnIf gbl lcl () -> TcRnIf gbl lcl ()
+whenXOptM :: ExtensionFlag -> TcRnIf l gbl lcl () -> TcRnIf l gbl lcl ()
 whenXOptM flag thing_inside = do b <- xoptM flag
                                  when b thing_inside
 
-getGhcMode :: TcRnIf gbl lcl GhcMode
+getGhcMode :: TcRnIf l gbl lcl GhcMode
 getGhcMode = do { env <- getTopEnv; return (ghcMode (hsc_dflags env)) }
 \end{code}
 
 \begin{code}
-withDoDynamicToo :: TcRnIf gbl lcl a -> TcRnIf gbl lcl a
+withDoDynamicToo :: TcRnIf l gbl lcl a -> TcRnIf l gbl lcl a
 withDoDynamicToo m = do env <- getEnv
                         let dflags = extractDynFlags env
                             dflags' = dynamicTooMkDynamicDynFlags dflags
@@ -346,10 +347,10 @@ withDoDynamicToo m = do env <- getEnv
 \end{code}
 
 \begin{code}
-getEpsVar :: TcRnIf gbl lcl (TcRef ExternalPackageState)
+getEpsVar :: TcRnIf l gbl lcl (TcRef ExternalPackageState)
 getEpsVar = do { env <- getTopEnv; return (hsc_EPS env) }
 
-getEps :: TcRnIf gbl lcl ExternalPackageState
+getEps :: TcRnIf l gbl lcl ExternalPackageState
 getEps = do { env <- getTopEnv; readMutVar (hsc_EPS env) }
 
 -- | Update the external package state.  Returns the second result of the
@@ -358,7 +359,7 @@ getEps = do { env <- getTopEnv; readMutVar (hsc_EPS env) }
 -- This is an atomic operation and forces evaluation of the modified EPS in
 -- order to avoid space leaks.
 updateEps :: (ExternalPackageState -> (ExternalPackageState, a))
-          -> TcRnIf gbl lcl a
+          -> TcRnIf l gbl lcl a
 updateEps upd_fn = do
   traceIf (text "updating EPS")
   eps_var <- getEpsVar
@@ -369,16 +370,16 @@ updateEps upd_fn = do
 -- This is an atomic operation and forces evaluation of the modified EPS in
 -- order to avoid space leaks.
 updateEps_ :: (ExternalPackageState -> ExternalPackageState)
-           -> TcRnIf gbl lcl ()
+           -> TcRnIf l gbl lcl ()
 updateEps_ upd_fn = do
   traceIf (text "updating EPS_")
   eps_var <- getEpsVar
   atomicUpdMutVar' eps_var (\eps -> (upd_fn eps, ()))
 
-getHpt :: TcRnIf gbl lcl HomePackageTable
+getHpt :: TcRnIf l gbl lcl HomePackageTable
 getHpt = do { env <- getTopEnv; return (hsc_HPT env) }
 
-getEpsAndHpt :: TcRnIf gbl lcl (ExternalPackageState, HomePackageTable)
+getEpsAndHpt :: TcRnIf l gbl lcl (ExternalPackageState, HomePackageTable)
 getEpsAndHpt = do { env <- getTopEnv; eps <- readMutVar (hsc_EPS env)
                   ; return (eps, hsc_HPT env) }
 \end{code}
@@ -390,7 +391,7 @@ getEpsAndHpt = do { env <- getTopEnv; eps <- readMutVar (hsc_EPS env)
 %************************************************************************
 
 \begin{code}
-newUnique :: TcRnIf gbl lcl Unique
+newUnique :: TcRnIf l gbl lcl Unique
 newUnique
  = do { env <- getEnv ;
         let { u_var = env_us env } ;
@@ -405,7 +406,7 @@ newUnique
    -- is the only place we use that unique.  Using the other half of the split
    -- supply is safer, but slower.
 
-newUniqueSupply :: TcRnIf gbl lcl UniqSupply
+newUniqueSupply :: TcRnIf l gbl lcl UniqSupply
 newUniqueSupply
  = do { env <- getEnv ;
         let { u_var = env_us env } ;
@@ -428,12 +429,12 @@ newSysName occ
   = do { uniq <- newUnique
        ; return (mkSystemName uniq occ) }
 
-newSysLocalIds :: FastString -> [TcType] -> TcRnIf gbl lcl [TcId]
+newSysLocalIds :: FastString -> [TcType] -> TcRnIf l gbl lcl [TcId]
 newSysLocalIds fs tys
   = do  { us <- newUniqueSupply
         ; return (zipWith (mkSysLocal fs) (uniqsFromSupply us) tys) }
 
-instance MonadUnique (IOEnv (Env gbl lcl)) where
+instance MonadUnique (IOEnv (Env l gbl lcl)) where
         getUniqueM = newUnique
         getUniqueSupplyM = newUniqueSupply
 \end{code}
@@ -446,16 +447,16 @@ instance MonadUnique (IOEnv (Env gbl lcl)) where
 %************************************************************************
 
 \begin{code}
-newTcRef :: a -> TcRnIf gbl lcl (TcRef a)
+newTcRef :: a -> TcRnIf l gbl lcl (TcRef a)
 newTcRef = newMutVar
 
-readTcRef :: TcRef a -> TcRnIf gbl lcl a
+readTcRef :: TcRef a -> TcRnIf l gbl lcl a
 readTcRef = readMutVar
 
-writeTcRef :: TcRef a -> a -> TcRnIf gbl lcl ()
+writeTcRef :: TcRef a -> a -> TcRnIf l gbl lcl ()
 writeTcRef = writeMutVar
 
-updTcRef :: TcRef a -> (a -> a) -> TcRnIf gbl lcl ()
+updTcRef :: TcRef a -> (a -> a) -> TcRnIf l gbl lcl ()
 updTcRef = updMutVar
 \end{code}
 
@@ -479,12 +480,12 @@ traceRn, traceSplice :: (ApiAnnotation l) => SDoc -> TcRn l ()
 traceRn      = traceOptTcRn Opt_D_dump_rn_trace
 traceSplice  = traceOptTcRn Opt_D_dump_splices
 
-traceIf, traceHiDiffs :: SDoc -> TcRnIf m n ()
+traceIf, traceHiDiffs :: SDoc -> TcRnIf l m n ()
 traceIf      = traceOptIf Opt_D_dump_if_trace
 traceHiDiffs = traceOptIf Opt_D_dump_hi_diffs
 
 
-traceOptIf :: DumpFlag -> SDoc -> TcRnIf m n ()  -- No RdrEnv available, so qualify everything
+traceOptIf :: DumpFlag -> SDoc -> TcRnIf l m n ()  -- No RdrEnv available, so qualify everything
 traceOptIf flag doc = whenDOptM flag $
                           do dflags <- getDynFlags
                              liftIO (printInfoForUser dflags alwaysQualify doc)
@@ -1253,14 +1254,14 @@ mkIfLclEnv mod loc = IfLclEnv { if_mod     = mod,
                                 if_tv_env  = emptyUFM,
                                 if_id_env  = emptyUFM }
 
-initIfaceTcRn :: IfG a -> TcRn l a
+initIfaceTcRn :: IfG l a -> TcRn l a
 initIfaceTcRn thing_inside
   = do  { tcg_env <- getGblEnv
         ; let { if_env = IfGblEnv { if_rec_types = Just (tcg_mod tcg_env, get_type_env) }
               ; get_type_env = readTcRef (tcg_type_env_var tcg_env) }
         ; setEnvs (if_env, ()) thing_inside }
 
-initIfaceCheck :: HscEnv -> IfG a -> IO a
+initIfaceCheck :: HscEnv l -> IfG l a -> IO a
 -- Used when checking the up-to-date-ness of the old Iface
 -- Initialise the environment with no useful info at all
 initIfaceCheck hsc_env do_this
@@ -1271,7 +1272,7 @@ initIfaceCheck hsc_env do_this
       initTcRnIf 'i' hsc_env gbl_env () do_this
 
 initIfaceTc :: ModIface
-            -> (TcRef TypeEnv -> IfL a) -> TcRnIf gbl lcl a
+            -> (TcRef TypeEnv -> IfL l a) -> TcRnIf l gbl lcl a
 -- Used when type-checking checking an up-to-date interface file
 -- No type envt from the current module, but we do know the module dependencies
 initIfaceTc iface do_this
@@ -1285,15 +1286,15 @@ initIfaceTc iface do_this
     mod = mi_module iface
     doc = ptext (sLit "The interface for") <+> quotes (ppr mod)
 
-initIfaceLcl :: Module -> SDoc -> IfL a -> IfM lcl a
+initIfaceLcl :: Module -> SDoc -> IfL l a -> IfM l lcl a
 initIfaceLcl mod loc_doc thing_inside
   = setLclEnv (mkIfLclEnv mod loc_doc) thing_inside
 
-getIfModule :: IfL Module
+getIfModule :: IfL l Module
 getIfModule = do { env <- getLclEnv; return (if_mod env) }
 
 --------------------
-failIfM :: MsgDoc -> IfL a
+failIfM :: MsgDoc -> IfL l a
 -- The Iface monad doesn't have a place to accumulate errors, so we
 -- just fall over fast if one happens; it "shouldnt happen".
 -- We use IfL here so that we can get context info out of the local env
@@ -1305,7 +1306,7 @@ failIfM msg
         ; failM }
 
 --------------------
-forkM_maybe :: SDoc -> IfL a -> IfL (Maybe a)
+forkM_maybe :: SDoc -> IfL l a -> IfL l (Maybe a)
 -- Run thing_inside in an interleaved thread.
 -- It shares everything with the parent thread, so this is DANGEROUS.
 --
@@ -1343,7 +1344,7 @@ forkM_maybe doc thing_inside
                     ; return Nothing }
         }}
 
-forkM :: SDoc -> IfL a -> IfL a
+forkM :: SDoc -> IfL l a -> IfL l a
 forkM doc thing_inside
  = do   { mb_res <- forkM_maybe doc thing_inside
         ; return (case mb_res of

@@ -147,12 +147,12 @@ type TcId        = Id
 type TcIdSet     = IdSet
 
 
-type TcRnIf a b = IOEnv (Env a b)
-type IfM lcl  = TcRnIf IfGblEnv lcl         -- Iface stuff
+type TcRnIf l a b = IOEnv (Env l a b)
+type IfM l lcl  = TcRnIf l (IfGblEnv l) lcl    -- Iface stuff
 
-type IfG  = IfM ()                          -- Top level
-type IfL  = IfM IfLclEnv                    -- Nested
-type TcRn l = TcRnIf (TcGblEnv l) (TcLclEnv l)
+type IfG l = IfM l ()                          -- Top level
+type IfL l = IfM l IfLclEnv                    -- Nested
+type TcRn l = TcRnIf l (TcGblEnv l) (TcLclEnv l)
 type RnM  l = TcRn l           -- Historical
 type TcM  l = TcRn l           -- Historical
 \end{code}
@@ -180,10 +180,10 @@ instance Outputable TcTyVarBind where
 -- We 'stack' these envs through the Reader like monad infastructure
 -- as we move into an expression (although the change is focused in
 -- the lcl type).
-data Env gbl lcl
+data Env l gbl lcl
   = Env {
-        env_top  :: HscEnv,  -- Top-level stuff that never changes
-                             -- Includes all info about imported things
+        env_top  :: HscEnv l,  -- Top-level stuff that never changes
+                               -- Includes all info about imported things
 
         env_us   :: {-# UNPACK #-} !(IORef UniqSupply),
                              -- Unique supply for local varibles
@@ -194,12 +194,12 @@ data Env gbl lcl
         env_lcl  :: lcl      -- Nested stuff; changes as we go into
     }
 
-instance ContainsDynFlags (Env gbl lcl) where
+instance ContainsDynFlags (Env l gbl lcl) where
     extractDynFlags env = hsc_dflags (env_top env)
     replaceDynFlags env dflags
         = env {env_top = replaceDynFlags (env_top env) dflags}
 
-instance ContainsModule gbl => ContainsModule (Env gbl lcl) where
+instance ContainsModule gbl => ContainsModule (Env l gbl lcl) where
     extractModule env = extractModule (env_gbl env)
 
 -- TcGblEnv describes the top-level of the module at the
@@ -401,14 +401,14 @@ We gather two sorts of usage information
 %************************************************************************
 
 \begin{code}
-data IfGblEnv
+data IfGblEnv l
   = IfGblEnv {
         -- The type environment for the module being compiled,
         -- in case the interface refers back to it via a reference that
         -- was originally a hi-boot file.
         -- We need the module name so we can test when it's appropriate
         -- to look in this env.
-        if_rec_types :: Maybe (Module, IfG TypeEnv)
+        if_rec_types :: Maybe (Module, IfG l TypeEnv)
                 -- Allows a read effect, so it can be in a mutable
                 -- variable; c.f. handling the external package type env
                 -- Nothing => interactive stuff, no loops possible
@@ -618,7 +618,7 @@ the *type checker* we have sorted out the scopes
 
 data ArrowCtxt l
   = NoArrowCtxt
-  | ArrowCtxt (Env (TcGblEnv l) (TcLclEnv l))
+  | ArrowCtxt (Env l (TcGblEnv l) (TcLclEnv l))
 
 -- Record the current environment (outside a proc)
 newArrowScope :: TcM l a -> TcM l a

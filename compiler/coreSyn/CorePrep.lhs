@@ -56,7 +56,7 @@ import Config
 import Data.Bits
 import Data.List        ( mapAccumL )
 import Control.Monad
-import SrcLoc ( SrcSpan )
+import SrcLoc ( ApiAnnotation )
 \end{code}
 
 -- ---------------------------------------------------------------------------
@@ -158,7 +158,8 @@ type CpeRhs  = CoreExpr    -- Non-terminal 'rhs'
 %************************************************************************
 
 \begin{code}
-corePrepPgm :: DynFlags -> HscEnv -> CoreProgram -> [TyCon] -> IO CoreProgram
+corePrepPgm :: ApiAnnotation l
+            => DynFlags -> HscEnv l -> CoreProgram -> [TyCon] -> IO CoreProgram
 corePrepPgm dflags hsc_env binds data_tycons = do
     showPass dflags "CorePrep"
     us <- mkSplitUniqSupply 's'
@@ -176,7 +177,8 @@ corePrepPgm dflags hsc_env binds data_tycons = do
     endPass hsc_env CorePrep binds_out []
     return binds_out
 
-corePrepExpr :: DynFlags -> HscEnv -> CoreExpr -> IO CoreExpr
+corePrepExpr :: ApiAnnotation l
+             => DynFlags -> HscEnv l -> CoreExpr -> IO CoreExpr
 corePrepExpr dflags hsc_env expr = do
     showPass dflags "CorePrep"
     us <- mkSplitUniqSupply 's'
@@ -1114,19 +1116,17 @@ data CorePrepEnv = CPE {
                        cpe_mkIntegerId :: Id
                    }
 
-lookupMkIntegerName :: DynFlags -> HscEnv -> IO Id
+lookupMkIntegerName :: ApiAnnotation l => DynFlags -> HscEnv l -> IO Id
 lookupMkIntegerName dflags hsc_env
     = if thisPackage dflags == primPackageKey
       then return $ panic "Can't use Integer in ghc-prim"
       else if thisPackage dflags == integerPackageKey
       then return $ panic "Can't use Integer in integer"
       else liftM tyThingId
-         $ initTcForLookupSrcSpan hsc_env (tcLookupGlobal mkIntegerName)
-      where
-        initTcForLookupSrcSpan :: HscEnv -> TcM SrcSpan a -> IO a
-        initTcForLookupSrcSpan = initTcForLookup
+         $ initTcForLookup hsc_env (tcLookupGlobal mkIntegerName)
 
-mkInitialCorePrepEnv :: DynFlags -> HscEnv -> IO CorePrepEnv
+mkInitialCorePrepEnv :: ApiAnnotation l
+                     => DynFlags -> HscEnv l -> IO CorePrepEnv
 mkInitialCorePrepEnv dflags hsc_env
     = do mkIntegerId <- lookupMkIntegerName dflags hsc_env
          return $ CPE {

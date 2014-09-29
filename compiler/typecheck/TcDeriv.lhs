@@ -7,6 +7,7 @@ Handles @deriving@ clauses on @data@ declarations.
 
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module TcDeriv ( tcDeriving ) where
 
@@ -85,16 +86,16 @@ Overall plan
 
 \begin{code}
 -- DerivSpec is purely  local to this module
-data DerivSpec theta = DS { ds_loc     :: SrcSpan
-                          , ds_name    :: Name           -- DFun name
-                          , ds_tvs     :: [TyVar]
-                          , ds_theta   :: theta
-                          , ds_cls     :: Class
-                          , ds_tys     :: [Type]
-                          , ds_tc      :: TyCon
-                          , ds_tc_args :: [Type]
-                          , ds_overlap :: Maybe OverlapMode
-                          , ds_newtype :: Bool }
+data DerivSpec l theta = DS { ds_loc     :: l
+                            , ds_name    :: Name           -- DFun name
+                            , ds_tvs     :: [TyVar]
+                            , ds_theta   :: theta
+                            , ds_cls     :: Class
+                            , ds_tys     :: [Type]
+                            , ds_tc      :: TyCon
+                            , ds_tc_args :: [Type]
+                            , ds_overlap :: Maybe OverlapMode
+                            , ds_newtype :: Bool }
         -- This spec implies a dfun declaration of the form
         --       df :: forall tvs. theta => C tys
         -- The Name is the name for the DFun we'll build
@@ -127,17 +128,17 @@ type DerivContext = Maybe ThetaType
    -- Nothing    <=> Vanilla deriving; infer the context of the instance decl
    -- Just theta <=> Standalone deriving: context supplied by programmer
 
-data PredOrigin = PredOrigin PredType CtOrigin
-type ThetaOrigin = [PredOrigin]
+data PredOrigin l = PredOrigin PredType (CtOrigin l)
+type ThetaOrigin l = [PredOrigin l]
 
-mkPredOrigin :: CtOrigin -> PredType -> PredOrigin
+mkPredOrigin :: CtOrigin l -> PredType -> PredOrigin l
 mkPredOrigin origin pred = PredOrigin pred origin
 
-mkThetaOrigin :: CtOrigin -> ThetaType -> ThetaOrigin
+mkThetaOrigin :: CtOrigin l -> ThetaType -> ThetaOrigin l
 mkThetaOrigin origin = map (mkPredOrigin origin)
 
-data EarlyDerivSpec = InferTheta (DerivSpec ThetaOrigin)
-                    | GivenTheta (DerivSpec ThetaType)
+data EarlyDerivSpec l = InferTheta (DerivSpec l (ThetaOrigin l))
+                      | GivenTheta (DerivSpec l ThetaType)
         -- InferTheta ds => the context for the instance should be inferred
         --      In this case ds_theta is the list of all the constraints
         --      needed, such as (Eq [a], Eq a), together with a suitable CtLoc
@@ -148,43 +149,44 @@ data EarlyDerivSpec = InferTheta (DerivSpec ThetaOrigin)
         -- GivenTheta ds => the exact context for the instance is supplied
         --                  by the programmer; it is ds_theta
 
-forgetTheta :: EarlyDerivSpec -> DerivSpec ()
+forgetTheta :: EarlyDerivSpec l -> DerivSpec l ()
 forgetTheta (InferTheta spec) = spec { ds_theta = () }
 forgetTheta (GivenTheta spec) = spec { ds_theta = () }
 
-earlyDSTyCon :: EarlyDerivSpec -> TyCon
+earlyDSTyCon :: EarlyDerivSpec l -> TyCon
 earlyDSTyCon (InferTheta spec) = ds_tc spec
 earlyDSTyCon (GivenTheta spec) = ds_tc spec
 
-earlyDSLoc :: EarlyDerivSpec -> SrcSpan
+earlyDSLoc :: EarlyDerivSpec l -> l
 earlyDSLoc (InferTheta spec) = ds_loc spec
 earlyDSLoc (GivenTheta spec) = ds_loc spec
 
-earlyDSClass :: EarlyDerivSpec -> Class
+earlyDSClass :: EarlyDerivSpec l -> Class
 earlyDSClass (InferTheta spec) = ds_cls spec
 earlyDSClass (GivenTheta spec) = ds_cls spec
 
-splitEarlyDerivSpec :: [EarlyDerivSpec] -> ([DerivSpec ThetaOrigin], [DerivSpec ThetaType])
+splitEarlyDerivSpec :: [EarlyDerivSpec l]
+                    -> ([DerivSpec l (ThetaOrigin l)], [DerivSpec l ThetaType])
 splitEarlyDerivSpec [] = ([],[])
 splitEarlyDerivSpec (InferTheta spec : specs) =
     case splitEarlyDerivSpec specs of (is, gs) -> (spec : is, gs)
 splitEarlyDerivSpec (GivenTheta spec : specs) =
     case splitEarlyDerivSpec specs of (is, gs) -> (is, spec : gs)
 
-pprDerivSpec :: Outputable theta => DerivSpec theta -> SDoc
+pprDerivSpec :: (ApiAnnotation l, Outputable theta) => DerivSpec l theta -> SDoc
 pprDerivSpec (DS { ds_loc = l, ds_name = n, ds_tvs = tvs,
                    ds_cls = c, ds_tys = tys, ds_theta = rhs })
   = parens (hsep [ppr l, ppr n, ppr tvs, ppr c, ppr tys]
             <+> equals <+> ppr rhs)
 
-instance Outputable theta => Outputable (DerivSpec theta) where
+instance (ApiAnnotation l, Outputable theta) => Outputable (DerivSpec l theta) where
   ppr = pprDerivSpec
 
-instance Outputable EarlyDerivSpec where
+instance (ApiAnnotation l) => Outputable (EarlyDerivSpec l) where
   ppr (InferTheta spec) = ppr spec <+> ptext (sLit "(Infer)")
   ppr (GivenTheta spec) = ppr spec <+> ptext (sLit "(Given)")
 
-instance Outputable PredOrigin where
+instance Outputable (PredOrigin l) where
   ppr (PredOrigin ty _) = ppr ty -- The origin is not so interesting when debugging
 \end{code}
 
@@ -350,10 +352,11 @@ both of them.  So we gather defs/uses from deriving just like anything else.
 %************************************************************************
 
 \begin{code}
-tcDeriving  :: [LTyClDecl Name]  -- All type constructors
-            -> [LInstDecl Name]  -- All instance declarations
-            -> [LDerivDecl Name] -- All stand-alone deriving declarations
-            -> TcM (TcGblEnv, Bag (InstInfo Name), HsValBinds Name)
+tcDeriving  :: (ApiAnnotation l)
+            => [LTyClDecl l Name]  -- All type constructors
+            -> [LInstDecl l Name]  -- All instance declarations
+            -> [LDerivDecl l Name] -- All stand-alone deriving declarations
+            -> TcM l (TcGblEnv l, Bag (InstInfo l Name), HsValBinds l Name)
 tcDeriving tycl_decls inst_decls deriv_decls
   = recoverM (do { g <- getGblEnv
                  ; return (g, emptyBag, emptyValBindsOut)}) $
@@ -402,7 +405,8 @@ tcDeriving tycl_decls inst_decls deriv_decls
         ; let all_dus = rn_dus `plusDU` usesOnly (mkFVs $ catMaybes maybe_fvs)
         ; return (addTcgDUs gbl_env all_dus, inst_info, rn_binds) }
   where
-    ddump_deriving :: Bag (InstInfo Name) -> HsValBinds Name
+    ddump_deriving :: (ApiAnnotation l)
+                   => Bag (InstInfo l Name) -> HsValBinds l Name
                    -> Bag TyCon                 -- ^ Empty data constructors
                    -> Bag (FamInst)             -- ^ Rep type family instances
                    -> SDoc
@@ -430,7 +434,8 @@ pprRepTy fi@(FamInst { fi_tys = lhs })
 type CommonAuxiliary = MetaTyCons
 type CommonAuxiliaries = [(TyCon, CommonAuxiliary)] -- NSF what is a more efficient map type?
 
-commonAuxiliaries :: [DerivSpec ()] -> TcM (CommonAuxiliaries, BagDerivStuff)
+commonAuxiliaries :: (ApiAnnotation l) => [DerivSpec l ()]
+                  -> TcM l (CommonAuxiliaries, BagDerivStuff l)
 commonAuxiliaries = foldM snoc ([], emptyBag) where
   snoc acc@(cas, stuff) (DS {ds_name = nm, ds_cls = cls, ds_tc = rep_tycon})
     | getUnique cls `elem` [genClassKey, gen1ClassKey] =
@@ -441,10 +446,10 @@ commonAuxiliaries = foldM snoc ([], emptyBag) where
            | otherwise = do (ca, new_stuff) <- m
                             return $ ((rep_tycon, ca) : cas, stuff `unionBags` new_stuff)
 
-renameDeriv :: Bool
-            -> [InstInfo RdrName]
-            -> Bag (LHsBind RdrName, LSig RdrName)
-            -> TcM (Bag (InstInfo Name), HsValBinds Name, DefUses)
+renameDeriv :: forall l. (ApiAnnotation l) => Bool
+            -> [InstInfo l RdrName]
+            -> Bag (LHsBind l RdrName, LSig l RdrName)
+            -> TcM l (Bag (InstInfo l Name), HsValBinds l Name, DefUses)
 renameDeriv is_boot inst_infos bagBinds
   | is_boot     -- If we are compiling a hs-boot file, don't generate any derived bindings
                 -- The inst-info bindings will all be empty, but it's easier to
@@ -474,7 +479,8 @@ renameDeriv is_boot inst_infos bagBinds
                   dus_aux `plusDU` usesOnly (plusFVs fvs_insts)) } }
 
   where
-    rn_inst_info :: InstInfo RdrName -> TcM (InstInfo Name, FreeVars)
+    rn_inst_info :: (ApiAnnotation l)
+                 => InstInfo l RdrName -> TcM l (InstInfo l Name, FreeVars)
     rn_inst_info
       inst_info@(InstInfo { iSpec = inst
                           , iBinds = InstBindings
@@ -524,11 +530,11 @@ of genInst.
 @makeDerivSpecs@ fishes around to find the info about needed derived instances.
 
 \begin{code}
-makeDerivSpecs :: Bool
-               -> [LTyClDecl Name]
-               -> [LInstDecl Name]
-               -> [LDerivDecl Name]
-               -> TcM [EarlyDerivSpec]
+makeDerivSpecs :: forall l. (ApiAnnotation l) => Bool
+               -> [LTyClDecl l Name]
+               -> [LInstDecl l Name]
+               -> [LDerivDecl l Name]
+               -> TcM l [EarlyDerivSpec l]
 makeDerivSpecs is_boot tycl_decls inst_decls deriv_decls
   = do  { eqns1 <- concatMapM (recoverM (return []) . deriveTyDecl)     tycl_decls
         ; eqns2 <- concatMapM (recoverM (return []) . deriveInstDecl)   inst_decls
@@ -546,12 +552,15 @@ makeDerivSpecs is_boot tycl_decls inst_decls deriv_decls
                  ; return [] }
           else return eqns }
   where
+    add_deriv_err :: EarlyDerivSpec l -> TcRn l () -- ++AZ++
     add_deriv_err eqn
        = setSrcSpan (earlyDSLoc eqn) $
          addErr (hang (ptext (sLit "Deriving not permitted in hs-boot file"))
                     2 (ptext (sLit "Use an instance declaration instead")))
 
-deriveAutoTypeable :: Bool -> [EarlyDerivSpec] -> [LTyClDecl Name] -> TcM [EarlyDerivSpec]
+deriveAutoTypeable :: (ApiAnnotation l)
+                   => Bool -> [EarlyDerivSpec l] -> [LTyClDecl l Name]
+                   -> TcM l [EarlyDerivSpec l]
 -- Runs over *all* TyCl declarations, including classes and data families
 -- i.e. not just data type decls
 deriveAutoTypeable auto_typeable done_specs tycl_decls
@@ -573,7 +582,8 @@ deriveAutoTypeable auto_typeable done_specs tycl_decls
              else mkPolyKindedTypeableEqn cls tc }
 
 ------------------------------------------------------------------
-deriveTyDecl :: LTyClDecl Name -> TcM [EarlyDerivSpec]
+deriveTyDecl :: (ApiAnnotation l)
+             => LTyClDecl l Name -> TcM l [EarlyDerivSpec l]
 deriveTyDecl (L _ decl@(DataDecl { tcdLName = L _ tc_name
                                  , tcdDataDefn = HsDataDefn { dd_derivs = preds } }))
   = tcAddDeclCtxt decl $
@@ -588,7 +598,8 @@ deriveTyDecl (L _ decl@(DataDecl { tcdLName = L _ tc_name
 deriveTyDecl _ = return []
 
 ------------------------------------------------------------------
-deriveInstDecl :: LInstDecl Name -> TcM [EarlyDerivSpec]
+deriveInstDecl :: (ApiAnnotation l)
+               => LInstDecl l Name -> TcM l [EarlyDerivSpec l]
 deriveInstDecl (L _ (TyFamInstD {})) = return []
 deriveInstDecl (L _ (DataFamInstD { dfid_inst = fam_inst }))
   = deriveFamInst fam_inst
@@ -596,7 +607,8 @@ deriveInstDecl (L _ (ClsInstD { cid_inst = ClsInstDecl { cid_datafam_insts = fam
   = concatMapM (deriveFamInst . unLoc) fam_insts
 
 ------------------------------------------------------------------
-deriveFamInst :: DataFamInstDecl Name -> TcM [EarlyDerivSpec]
+deriveFamInst :: (ApiAnnotation l)
+              => DataFamInstDecl l Name -> TcM l [EarlyDerivSpec l]
 deriveFamInst decl@(DataFamInstDecl { dfid_tycon = L _ tc_name, dfid_pats = pats
                                     , dfid_defn = defn@(HsDataDefn { dd_derivs = Just preds }) })
   = tcAddDataFamInstCtxt decl $
@@ -631,7 +643,8 @@ so that we correctly see the instantiation to *.
 
 \begin{code}
 ------------------------------------------------------------------
-deriveStandalone :: LDerivDecl Name -> TcM [EarlyDerivSpec]
+deriveStandalone :: (ApiAnnotation l)
+                 => LDerivDecl l Name -> TcM l [EarlyDerivSpec l]
 -- Standalone deriving declarations
 --  e.g.   deriving instance Show a => Show (T a)
 -- Rather like tcLocalInstDecl
@@ -712,12 +725,13 @@ deriveStandalone (L loc (DerivDecl deriv_ty overlap_mode))
 
 
 ------------------------------------------------------------------
-deriveTyData :: Bool                         -- False <=> data/newtype
+deriveTyData :: (ApiAnnotation l)
+             => Bool                         -- False <=> data/newtype
                                              -- True  <=> data/newtype *instance*
              -> [TyVar] -> TyCon -> [Type]   -- LHS of data or data instance
                                              --   Can be a data instance, hence [Type] args
-             -> LHsType Name                 -- The deriving predicate
-             -> TcM [EarlyDerivSpec]
+             -> LHsType l Name                -- The deriving predicate
+             -> TcM l [EarlyDerivSpec l]
 -- The deriving clause of a data or newtype declaration
 -- I.e. not standalone deriving
 deriveTyData is_instance tvs tc tc_args (L loc deriv_pred)
@@ -790,9 +804,9 @@ deriveTyData is_instance tvs tc tc_args (L loc deriv_pred)
                             cls final_cls_tys tc final_tc_args Nothing 
         ; return [spec] } }
 
-derivePolyKindedTypeable :: Bool -> Class -> [Type]
+derivePolyKindedTypeable :: (ApiAnnotation l) => Bool -> Class -> [Type]
                          -> [TyVar] -> TyCon -> [Type]
-                         -> TcM [EarlyDerivSpec]
+                         -> TcM l [EarlyDerivSpec l]
 -- The deriving( Typeable ) clause of a data/newtype decl
 -- I.e. not standalone deriving
 derivePolyKindedTypeable is_instance cls cls_tys _tvs tc tc_args
@@ -868,13 +882,13 @@ and occurrence sites.
 
 
 \begin{code}
-mkEqnHelp :: Maybe OverlapMode
+mkEqnHelp :: (ApiAnnotation l) => Maybe OverlapMode
           -> [TyVar]
           -> Class -> [Type]
           -> TyCon -> [Type]
           -> DerivContext       -- Just    => context supplied (standalone deriving)
                                 -- Nothing => context inferred (deriving on data decl)
-          -> TcRn EarlyDerivSpec
+          -> TcRn l (EarlyDerivSpec l)
 -- Make the EarlyDerivSpec for an instance
 --      forall tvs. theta => cls (tys ++ [ty])
 -- where the 'theta' is optional (that's the Maybe part)
@@ -996,7 +1010,7 @@ See Note [Eta reduction for data family axioms] in TcInstDcls.
 %************************************************************************
 
 \begin{code}
-mkDataTypeEqn :: DynFlags
+mkDataTypeEqn :: (ApiAnnotation l) => DynFlags
               -> Maybe OverlapMode
               -> [Var]                  -- Universally quantified type variables in the instance
               -> Class                  -- Class for which we need to derive an instance
@@ -1007,7 +1021,7 @@ mkDataTypeEqn :: DynFlags
               -> TyCon                  -- rep of the above (for type families)
               -> [Type]                 -- rep of the above
               -> DerivContext        -- Context of the instance, for standalone deriving
-              -> TcRn EarlyDerivSpec    -- Return 'Nothing' if error
+              -> TcRn l (EarlyDerivSpec l)  -- Return 'Nothing' if error
 
 mkDataTypeEqn dflags overlap_mode tvs cls cls_tys
               tycon tc_args rep_tc rep_tc_args mtheta
@@ -1020,9 +1034,9 @@ mkDataTypeEqn dflags overlap_mode tvs cls cls_tys
     go_for_it    = mk_data_eqn overlap_mode tvs cls tycon tc_args rep_tc rep_tc_args mtheta
     bale_out msg = failWithTc (derivingThingErr False cls cls_tys (mkTyConApp tycon tc_args) msg)
 
-mk_data_eqn :: Maybe OverlapMode -> [TyVar] -> Class
+mk_data_eqn :: (ApiAnnotation l) => Maybe OverlapMode -> [TyVar] -> Class
             -> TyCon -> [TcType] -> TyCon -> [TcType] -> DerivContext
-            -> TcM EarlyDerivSpec
+            -> TcM l (EarlyDerivSpec l)
 mk_data_eqn overlap_mode tvs cls tycon tc_args rep_tc rep_tc_args mtheta
   = do loc                  <- getSrcSpanM
        dfun_name            <- new_dfun_name cls tycon
@@ -1050,9 +1064,9 @@ mk_data_eqn overlap_mode tvs cls tycon tc_args rep_tc rep_tc_args mtheta
     inst_tys = [mkTyConApp tycon tc_args]
 
 ----------------------
-mkOldTypeableEqn :: [TyVar] -> Class
+mkOldTypeableEqn :: (ApiAnnotation l) => [TyVar] -> Class
                     -> TyCon -> [TcType] -> DerivContext
-                    -> TcM EarlyDerivSpec
+                    -> TcM l (EarlyDerivSpec l)
 -- The "old" (pre GHC 7.8 polykinded Typeable) deriving Typeable
 -- used a horrid family of classes: Typeable, Typeable1, Typeable2, ... Typeable7
 mkOldTypeableEqn tvs cls tycon tc_args mtheta
@@ -1086,7 +1100,8 @@ mkOldTypeableEqn tvs cls tycon tc_args mtheta
                      , ds_overlap = Nothing -- Or, Just NoOverlap?
                      , ds_newtype = False })  }
 
-mkPolyKindedTypeableEqn :: Class -> TyCon -> TcM [EarlyDerivSpec]
+mkPolyKindedTypeableEqn :: (ApiAnnotation l)
+                        => Class -> TyCon -> TcM l [EarlyDerivSpec l]
 -- We can arrive here from a 'deriving' clause
 -- or from standalone deriving
 mkPolyKindedTypeableEqn cls tc
@@ -1118,9 +1133,9 @@ mkPolyKindedTypeableEqn cls tc
           tc_args = mkTyVarTys kvs
           tc_app  = mkTyConApp tc tc_args
 
-inferConstraints :: Class -> [TcType]
+inferConstraints :: (ApiAnnotation l) => Class -> [TcType]
                  -> TyCon -> [TcType]
-                 -> TcM ThetaOrigin
+                 -> TcM l (ThetaOrigin l)
 -- Generate a sufficiently large set of constraints that typechecking the
 -- generated method definitions should succeed.   This set will be simplified
 -- before being used in the instance declaration
@@ -1491,10 +1506,10 @@ non_coercible_class cls
 oldTypeableClassKeys :: [Unique]
 oldTypeableClassKeys = map getUnique oldTypeableClassNames
 
-new_dfun_name :: Class -> TyCon -> TcM Name
+new_dfun_name :: (ApiAnnotation l) => Class -> TyCon -> TcM l Name
 new_dfun_name clas tycon        -- Just a simple wrapper
   = do { loc <- getSrcSpanM     -- The location of the instance decl, not of the tycon
-        ; newDFunName clas [mkTyConApp tycon []] loc }
+        ; newDFunName clas [mkTyConApp tycon []] (annGetSpan loc) }
         -- The type passed to newDFunName is only used to generate
         -- a suitable string; hence the empty type arg list
 
@@ -1556,10 +1571,11 @@ a context for the Data instances:
 %************************************************************************
 
 \begin{code}
-mkNewTypeEqn :: DynFlags -> Maybe OverlapMode -> [Var] -> Class
+mkNewTypeEqn :: (ApiAnnotation l)
+             => DynFlags -> Maybe OverlapMode -> [Var] -> Class
              -> [Type] -> TyCon -> [Type] -> TyCon -> [Type]
              -> DerivContext
-             -> TcRn EarlyDerivSpec
+             -> TcRn l (EarlyDerivSpec l)
 mkNewTypeEqn dflags overlap_mode tvs
              cls cls_tys tycon tc_args rep_tycon rep_tc_args mtheta
 -- Want: instance (...) => cls (cls_tys ++ [tycon tc_args]) where ...
@@ -1769,7 +1785,9 @@ ordered by sorting on type varible, tv, (major key) and then class, k,
 \end{itemize}
 
 \begin{code}
-inferInstanceContexts :: OverlapFlag -> [DerivSpec ThetaOrigin] -> TcM [DerivSpec ThetaType]
+inferInstanceContexts :: forall l. (ApiAnnotation l)
+                      => OverlapFlag -> [DerivSpec l (ThetaOrigin l)]
+                      -> TcM l [DerivSpec l ThetaType]
 
 inferInstanceContexts _ [] = return []
 
@@ -1789,7 +1807,7 @@ inferInstanceContexts oflag infer_specs
         -- compares it with the current one; finishes if they are the
         -- same, otherwise recurses with the new solutions.
         -- It fails if any iteration fails
-    iterate_deriv :: Int -> [ThetaType] -> TcM [DerivSpec ThetaType]
+    iterate_deriv :: Int -> [ThetaType] -> TcM l [DerivSpec l ThetaType]
     iterate_deriv n current_solns
       | n > 20  -- Looks as if we are in an infinite loop
                 -- This can happen if we have -XUndecidableInstances
@@ -1813,7 +1831,8 @@ inferInstanceContexts oflag infer_specs
     eqSolution = eqListBy (eqListBy eqType)
 
     ------------------------------------------------------------------
-    gen_soln :: DerivSpec ThetaOrigin -> TcM ThetaType
+    gen_soln :: (ApiAnnotation l)
+             => DerivSpec l (ThetaOrigin l) -> TcM l ThetaType
     gen_soln (DS { ds_loc = loc, ds_tvs = tyvars
                  , ds_cls = clas, ds_tys = inst_tys, ds_theta = deriv_rhs })
       = setSrcSpan loc  $
@@ -1832,7 +1851,8 @@ inferInstanceContexts oflag infer_specs
         the_pred = mkClassPred clas inst_tys
 
 ------------------------------------------------------------------
-mkInstance :: OverlapFlag -> ThetaType -> DerivSpec theta -> TcM ClsInst
+mkInstance :: (ApiAnnotation l)
+           => OverlapFlag -> ThetaType -> DerivSpec l theta -> TcM l ClsInst
 mkInstance overlap_flag theta
            (DS { ds_name = dfun_name
                , ds_tvs = tvs, ds_cls = clas, ds_tys = tys })
@@ -1842,7 +1862,7 @@ mkInstance overlap_flag theta
     dfun = mkDictFunId dfun_name tvs theta clas tys
 
 
-extendLocalInstEnv :: [ClsInst] -> TcM a -> TcM a
+extendLocalInstEnv :: [ClsInst] -> TcM l a -> TcM l a
 -- Add new locally-defined instances; don't bother to check
 -- for functional dependency errors -- that'll happen in TcInstDcls
 extendLocalInstEnv dfuns thing_inside
@@ -1860,10 +1880,10 @@ extendLocalInstEnv dfuns thing_inside
 ***********************************************************************************
 
 \begin{code}
-simplifyDeriv :: PredType
+simplifyDeriv :: (ApiAnnotation l) => PredType
               -> [TyVar]
-              -> ThetaOrigin      -- Wanted
-              -> TcM ThetaType  -- Needed
+              -> ThetaOrigin l    -- Wanted
+              -> TcM l ThetaType  -- Needed
 -- Given  instance (wanted) => C inst_ty
 -- Simplify 'wanted' as much as possibles
 -- Fail if not possible
@@ -1888,7 +1908,7 @@ simplifyDeriv pred tvs theta
 
        ; let (good, bad) = partitionBagWith get_good (wc_flat residual_wanted)
                          -- See Note [Exotic derived instance contexts]
-             get_good :: Ct -> Either PredType Ct
+             get_good :: Ct l -> Either PredType (Ct l)
              get_good ct | validDerivPred skol_set p
                          , isWantedCt ct  = Left p
                          -- NB: residual_wanted may contain unsolved
@@ -2052,11 +2072,12 @@ the renamer.  What a great hack!
 -- Representation tycons differ from the tycon in the instance signature in
 -- case of instances for indexed families.
 --
-genInst :: Bool             -- True <=> standalone deriving
+genInst :: (ApiAnnotation l)
+        => Bool             -- True <=> standalone deriving
         -> OverlapFlag
         -> CommonAuxiliaries
-        -> DerivSpec ThetaType 
-        -> TcM (InstInfo RdrName, BagDerivStuff, Maybe Name)
+        -> DerivSpec l ThetaType
+        -> TcM l (InstInfo l RdrName, BagDerivStuff l, Maybe Name)
 genInst standalone_deriv default_oflag comauxs
         spec@(DS { ds_tvs = tvs, ds_tc = rep_tycon, ds_tc_args = rep_tc_args
                  , ds_theta = theta, ds_newtype = is_newtype, ds_tys = tys
@@ -2093,9 +2114,9 @@ genInst standalone_deriv default_oflag comauxs
     oflag  = setOverlapModeMaybe default_oflag overlap_mode
     rhs_ty = newTyConInstRhs rep_tycon rep_tc_args
 
-genDerivStuff :: SrcSpan -> Class -> Name -> TyCon
+genDerivStuff :: (ApiAnnotation l) => l -> Class -> Name -> TyCon
               -> Maybe CommonAuxiliary
-              -> TcM (LHsBinds RdrName, BagDerivStuff)
+              -> TcM l (LHsBinds l RdrName, BagDerivStuff l)
 genDerivStuff loc clas dfun_name tycon comaux_maybe
   | let ck = classKey clas
   , ck `elem` [genClassKey, gen1ClassKey]   -- Special case because monadic
@@ -2172,7 +2193,7 @@ derivingHiddenErr tc
   = hang (ptext (sLit "The data constructors of") <+> quotes (ppr tc) <+> ptext (sLit "are not all in scope"))
        2 (ptext (sLit "so you cannot derive an instance for it"))
 
-standaloneCtxt :: LHsType Name -> SDoc
+standaloneCtxt :: (ApiAnnotation l) => LHsType l Name -> SDoc
 standaloneCtxt ty = hang (ptext (sLit "In the stand-alone deriving instance for"))
                        2 (quotes (ppr ty))
 

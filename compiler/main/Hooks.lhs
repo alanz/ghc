@@ -69,17 +69,17 @@ data Hooks l = Hooks
                            -> TcM l (LHsBinds l TcId, [LForeignDecl l TcId],
                                     Bag GlobalRdrElt))
 
-  , hscFrontendHook        :: Maybe (ModSummary -> Hsc (TcGblEnv l))
+  , hscFrontendHook        :: Maybe (ModSummary -> Hsc l (TcGblEnv l))
 
-  , hscCompileOneShotHook  :: Maybe (HscEnv -> ModSummary -> SourceModified
+  , hscCompileOneShotHook  :: Maybe (HscEnv l -> ModSummary -> SourceModified
                            -> IO HscStatus)
 
-  , hscCompileCoreExprHook :: Maybe (HscEnv -> l -> CoreExpr -> IO HValue)
+  , hscCompileCoreExprHook :: Maybe (HscEnv l -> l -> CoreExpr -> IO HValue)
 
   , ghcPrimIfaceHook       :: Maybe ModIface
 
   , runPhaseHook           :: Maybe (PhasePlus -> FilePath -> DynFlags
-                           -> CompPipeline (PhasePlus, FilePath))
+                           -> CompPipeline l (PhasePlus, FilePath))
 
   , linkHook               :: Maybe (GhcLink -> DynFlags -> Bool
                            -> HomePackageTable -> IO SuccessFlag)
@@ -90,14 +90,13 @@ data Hooks l = Hooks
   , runRnSpliceHook        :: Maybe (LHsExpr l Name
                            -> RnM l (LHsExpr l Name))
 
-  , getValueSafelyHook     :: Maybe (HscEnv -> Name -> Type
+  , getValueSafelyHook     :: Maybe (HscEnv l -> Name -> Type
                            -> IO (Maybe HValue))
   }
 
 getHooked :: (Functor f, HasDynFlags f) => (Hooks l -> Maybe a) -> a -> f a
 getHooked hook def = fmap (lookupHook hook def) getDynFlags
 
--- lookupHook :: (Hooks l -> Maybe a) -> a -> DynFlags -> a
 lookupHook :: (Hooks l -> Maybe a) -> a -> DynFlags -> a
 lookupHook hook def _ = fromMaybe def . hook $ hooks
 

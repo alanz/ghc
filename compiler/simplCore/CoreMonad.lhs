@@ -82,7 +82,7 @@ import Annotations
 import IOEnv hiding     ( liftIO, failM, failWithM )
 import qualified IOEnv  ( liftIO )
 import TcEnv            ( tcLookupGlobal )
-import TcRnMonad        ( initTcForLookup, TcM )
+import TcRnMonad        ( initTcForLookup )
 import InstEnv          ( instanceDFunId )
 import Type             ( tyVarsOfType )
 import Id               ( idType )
@@ -138,10 +138,10 @@ be, and it makes a conveneint place.  place for them.  They print out
 stuff before and after core passes, and do Core Lint when necessary.
 
 \begin{code}
-showPass :: DynFlags -> CoreToDo -> IO ()
+showPass :: DynFlags -> CoreToDo l -> IO ()
 showPass dflags pass = Err.showPass dflags (showPpr dflags pass)
 
-endPass :: HscEnv -> CoreToDo -> CoreProgram -> [CoreRule] -> IO ()
+endPass :: HscEnv l -> CoreToDo l -> CoreProgram -> [CoreRule] -> IO ()
 endPass hsc_env pass binds rules
   = do { dumpPassResult dflags mb_flag (ppr pass) (pprPassDetails pass) binds rules
        ; lintPassResult hsc_env pass binds }      
@@ -152,7 +152,7 @@ endPass hsc_env pass binds rules
                           | dopt Opt_D_verbose_core2core dflags -> Just flag
                 _ -> Nothing
 
-dumpIfSet :: DynFlags -> Bool -> CoreToDo -> SDoc -> SDoc -> IO ()
+dumpIfSet :: DynFlags -> Bool -> CoreToDo l -> SDoc -> SDoc -> IO ()
 dumpIfSet dflags dump_me pass extra_info doc
   = Err.dumpIfSet dflags dump_me (showSDoc dflags (ppr pass <+> extra_info)) doc
 
@@ -184,7 +184,7 @@ dumpPassResult dflags mb_flag hdr extra_info binds rules
                     , ptext (sLit "------ Local rules for imported ids --------")
                     , pprRules rules ]
 
-lintPassResult :: HscEnv -> CoreToDo -> CoreProgram -> IO ()
+lintPassResult :: HscEnv l -> CoreToDo l -> CoreProgram -> IO ()
 lintPassResult hsc_env pass binds
   | not (gopt Opt_DoCoreLinting dflags)
   = return ()
@@ -195,7 +195,7 @@ lintPassResult hsc_env pass binds
   where 
     dflags = hsc_dflags hsc_env
 
-displayLintResults :: DynFlags -> CoreToDo
+displayLintResults :: DynFlags -> CoreToDo l
                    -> Bag Err.MsgDoc -> Bag Err.MsgDoc -> CoreProgram
                    -> IO ()
 displayLintResults dflags pass warns errs binds
@@ -226,13 +226,13 @@ lint_banner string pass = ptext (sLit "*** Core Lint")      <+> text string
                           <+> ptext (sLit ": in result of") <+> pass
                           <+> ptext (sLit "***")
 
-showLintWarnings :: CoreToDo -> Bool
+showLintWarnings :: CoreToDo l -> Bool
 -- Disable Lint warnings on the first simplifier pass, because
 -- there may be some INLINE knots still tied, which is tiresomely noisy
 showLintWarnings (CoreDoSimplify _ (SimplMode { sm_phase = InitialPhase })) = False
 showLintWarnings _ = True
 
-lintInteractiveExpr :: String -> HscEnv -> CoreExpr -> IO ()
+lintInteractiveExpr :: String -> HscEnv l -> CoreExpr -> IO ()
 lintInteractiveExpr what hsc_env expr
   | not (gopt Opt_DoCoreLinting dflags)
   = return ()
@@ -253,7 +253,7 @@ lintInteractiveExpr what hsc_env expr
                      , ptext (sLit "*** End of Offense ***") ])
            ; Err.ghcExit dflags 1 }
 
-interactiveInScope :: HscEnv -> [Var]
+interactiveInScope :: HscEnv l -> [Var]
 -- In GHCi we may lint expressions, or bindings arising from 'deriving'
 -- clauses, that mention variables bound in the interactive context.
 -- These are Local things (see Note [Interactively-bound Ids in GHCi] in HscTypes).
@@ -291,14 +291,14 @@ interactiveInScope hsc_env
 
 \begin{code}
 
-data CoreToDo           -- These are diff core-to-core passes,
+data CoreToDo l         -- These are diff core-to-core passes,
                         -- which may be invoked in any order,
                         -- as many times as you like.
 
   = CoreDoSimplify      -- The core-to-core simplifier.
         Int                    -- Max iterations
         SimplifierMode
-  | CoreDoPluginPass String PluginPass
+  | CoreDoPluginPass String (PluginPass l)
   | CoreDoFloatInwards
   | CoreDoFloatOutwards FloatOutSwitches
   | CoreLiberateCase
@@ -314,7 +314,7 @@ data CoreToDo           -- These are diff core-to-core passes,
                                            -- matching this string
   | CoreDoVectorisation
   | CoreDoNothing                -- Useful when building up
-  | CoreDoPasses [CoreToDo]      -- lists of these things
+  | CoreDoPasses [CoreToDo l]    -- lists of these things
 
   | CoreDesugar    -- Right after desugaring, no simple optimisation yet!
   | CoreDesugarOpt -- CoreDesugarXXX: Not strictly a core-to-core pass, but produces
@@ -326,7 +326,7 @@ data CoreToDo           -- These are diff core-to-core passes,
 \end{code}
 
 \begin{code}
-coreDumpFlag :: CoreToDo -> Maybe DumpFlag
+coreDumpFlag :: CoreToDo l -> Maybe DumpFlag
 coreDumpFlag (CoreDoSimplify {})      = Just Opt_D_dump_simpl_phases
 coreDumpFlag (CoreDoPluginPass {})    = Just Opt_D_dump_core_pipeline
 coreDumpFlag CoreDoFloatInwards       = Just Opt_D_verbose_core2core
@@ -350,7 +350,7 @@ coreDumpFlag (CoreDoRuleCheck {})    = Nothing
 coreDumpFlag CoreDoNothing           = Nothing
 coreDumpFlag (CoreDoPasses {})       = Nothing
 
-instance Outputable CoreToDo where
+instance Outputable (CoreToDo l) where
   ppr (CoreDoSimplify _ _)     = ptext (sLit "Simplifier")
   ppr (CoreDoPluginPass s _)   = ptext (sLit "Core plugin: ") <+> text s
   ppr CoreDoFloatInwards       = ptext (sLit "Float inwards")
@@ -373,7 +373,7 @@ instance Outputable CoreToDo where
   ppr CoreDoNothing            = ptext (sLit "CoreDoNothing")
   ppr (CoreDoPasses {})        = ptext (sLit "CoreDoPasses")
 
-pprPassDetails :: CoreToDo -> SDoc
+pprPassDetails :: CoreToDo l -> SDoc
 pprPassDetails (CoreDoSimplify n md) = vcat [ ptext (sLit "Max iterations =") <+> int n 
                                             , ppr md ]
 pprPassDetails _ = Outputable.empty
@@ -435,11 +435,11 @@ pprFloatOutSwitches sw
      , ptext (sLit "OverSatApps =")   <+> ppr (floatOutOverSatApps sw) ])
 
 -- The core-to-core pass ordering is derived from the DynFlags:
-runWhen :: Bool -> CoreToDo -> CoreToDo
+runWhen :: Bool -> CoreToDo l -> CoreToDo l
 runWhen True  do_this = do_this
 runWhen False _       = CoreDoNothing
 
-runMaybe :: Maybe a -> (a -> CoreToDo) -> CoreToDo
+runMaybe :: Maybe a -> (a -> CoreToDo l) -> CoreToDo l
 runMaybe (Just x) f = f x
 runMaybe Nothing  _ = CoreDoNothing
 
@@ -506,8 +506,8 @@ type CommandLineOption = String
 -- compatability when we add fields to this.
 --
 -- Nonetheless, this API is preliminary and highly likely to change in the future.
-data Plugin = Plugin { 
-        installCoreToDos :: [CommandLineOption] -> [CoreToDo] -> CoreM [CoreToDo]
+data Plugin l = Plugin { 
+        installCoreToDos :: [CommandLineOption] -> [CoreToDo l] -> CoreM l [CoreToDo l]
                 -- ^ Modify the Core pipeline that will be used for compilation. 
                 -- This is called as the Core pipeline is built for every module
                 --  being compiled, and plugins get the opportunity to modify 
@@ -516,15 +516,16 @@ data Plugin = Plugin {
 
 -- | Default plugin: does nothing at all! For compatability reasons you should base all your
 -- plugin definitions on this default value.
-defaultPlugin :: Plugin
+defaultPlugin :: Plugin l
 defaultPlugin = Plugin {
         installCoreToDos = const return
     }
 
 -- | A description of the plugin pass itself
-type PluginPass = ModGuts -> CoreM ModGuts
+type PluginPass l = ModGuts -> CoreM l ModGuts
 
-bindsOnlyPass :: (CoreProgram -> CoreM CoreProgram) -> ModGuts -> CoreM ModGuts
+bindsOnlyPass :: (CoreProgram -> CoreM l CoreProgram) -> ModGuts
+              -> CoreM l ModGuts
 bindsOnlyPass pass guts
   = do { binds' <- pass (mg_binds guts)
        ; return (guts { mg_binds = binds' }) }
@@ -783,8 +784,8 @@ newtype CoreState = CoreState {
         cs_uniq_supply :: UniqSupply
 }
 
-data CoreReader = CoreReader {
-        cr_hsc_env :: HscEnv,
+data CoreReader l = CoreReader {
+        cr_hsc_env :: HscEnv l,
         cr_rule_base :: RuleBase,
         cr_module :: Module,
 #ifdef GHCI
@@ -810,18 +811,18 @@ plusWriter w1 w2 = CoreWriter {
         cw_simpl_count = (cw_simpl_count w1) `plusSimplCount` (cw_simpl_count w2)
     }
 
-type CoreIOEnv = IOEnv CoreReader
+type CoreIOEnv l = IOEnv (CoreReader l)
 
 -- | The monad used by Core-to-Core passes to access common state, register simplification
 -- statistics and so on
-newtype CoreM a = CoreM { unCoreM :: CoreState -> CoreIOEnv (a, CoreState, CoreWriter) }
+newtype CoreM l a = CoreM { unCoreM :: CoreState -> CoreIOEnv l (a, CoreState, CoreWriter) }
 
-instance Functor CoreM where
+instance Functor (CoreM l) where
     fmap f ma = do
         a <- ma
         return (f a)
 
-instance Monad CoreM where
+instance Monad (CoreM l) where
     return x = CoreM (\s -> nop s x)
     mx >>= f = CoreM $ \s -> do
             (x, s', w1) <- unCoreM mx s
@@ -829,21 +830,21 @@ instance Monad CoreM where
             let w = w1 `plusWriter` w2 -- forcing w before returning avoids a space leak (Trac #7702)
             return $ seq w (y, s'', w)
 
-instance A.Applicative CoreM where
+instance A.Applicative (CoreM l) where
     pure = return
     (<*>) = ap
 
-instance MonadPlus IO => A.Alternative CoreM where
+instance MonadPlus IO => A.Alternative (CoreM l) where
     empty = mzero
     (<|>) = mplus
 
 -- For use if the user has imported Control.Monad.Error from MTL
 -- Requires UndecidableInstances
-instance MonadPlus IO => MonadPlus CoreM where
+instance MonadPlus IO => MonadPlus (CoreM l) where
     mzero = CoreM (const mzero)
     m `mplus` n = CoreM (\rs -> unCoreM m rs `mplus` unCoreM n rs)
 
-instance MonadUnique CoreM where
+instance MonadUnique (CoreM l) where
     getUniqueSupplyM = do
         us <- getS cs_uniq_supply
         let (us1, us2) = splitUniqSupply us
@@ -856,11 +857,11 @@ instance MonadUnique CoreM where
         modifyS (\s -> s { cs_uniq_supply = us' })
         return u
 
-runCoreM :: HscEnv
+runCoreM :: HscEnv l
          -> RuleBase
          -> UniqSupply
          -> Module
-         -> CoreM a
+         -> CoreM l a
          -> IO (a, SimplCount)
 runCoreM hsc_env rule_base us mod m = do
         glbls <- saveLinkerGlobals
@@ -890,21 +891,21 @@ runCoreM hsc_env rule_base us mod m = do
 
 \begin{code}
 
-nop :: CoreState -> a -> CoreIOEnv (a, CoreState, CoreWriter)
+nop :: CoreState -> a -> CoreIOEnv l (a, CoreState, CoreWriter)
 nop s x = do
     r <- getEnv
     return (x, s, emptyWriter $ (hsc_dflags . cr_hsc_env) r)
 
-read :: (CoreReader -> a) -> CoreM a
+read :: (CoreReader l -> a) -> CoreM l a
 read f = CoreM (\s -> getEnv >>= (\r -> nop s (f r)))
 
-getS :: (CoreState -> a) -> CoreM a
+getS :: (CoreState -> a) -> CoreM l a
 getS f = CoreM (\s -> nop s (f s))
 
-modifyS :: (CoreState -> CoreState) -> CoreM ()
+modifyS :: (CoreState -> CoreState) -> CoreM l ()
 modifyS f = CoreM (\s -> nop (f s) ())
 
-write :: CoreWriter -> CoreM ()
+write :: CoreWriter -> CoreM l ()
 write w = CoreM (\s -> return ((), s, w))
 
 \end{code}
@@ -914,14 +915,14 @@ write w = CoreM (\s -> return ((), s, w))
 \begin{code}
 
 -- | Lift an 'IOEnv' operation into 'CoreM'
-liftIOEnv :: CoreIOEnv a -> CoreM a
+liftIOEnv :: CoreIOEnv l a -> CoreM l a
 liftIOEnv mx = CoreM (\s -> mx >>= (\x -> nop s x))
 
-instance MonadIO CoreM where
+instance MonadIO (CoreM l) where
     liftIO = liftIOEnv . IOEnv.liftIO
 
 -- | Lift an 'IO' operation into 'CoreM' while consuming its 'SimplCount'
-liftIOWithCount :: IO (SimplCount, a) -> CoreM a
+liftIOWithCount :: IO (SimplCount, a) -> CoreM l a
 liftIOWithCount what = liftIO what >>= (\(count, x) -> addSimplCount count >> return x)
 
 \end{code}
@@ -934,31 +935,31 @@ liftIOWithCount what = liftIO what >>= (\(count, x) -> addSimplCount count >> re
 %************************************************************************
 
 \begin{code}
-getHscEnv :: CoreM HscEnv
+getHscEnv :: CoreM l (HscEnv l)
 getHscEnv = read cr_hsc_env
 
-getRuleBase :: CoreM RuleBase
+getRuleBase :: CoreM l RuleBase
 getRuleBase = read cr_rule_base
 
-addSimplCount :: SimplCount -> CoreM ()
+addSimplCount :: SimplCount -> CoreM l ()
 addSimplCount count = write (CoreWriter { cw_simpl_count = count })
 
 -- Convenience accessors for useful fields of HscEnv
 
-instance HasDynFlags CoreM where
+instance HasDynFlags (CoreM l) where
     getDynFlags = fmap hsc_dflags getHscEnv
 
-instance HasModule CoreM where
+instance HasModule (CoreM l) where
     getModule = read cr_module
 
 -- | The original name cache is the current mapping from 'Module' and
 -- 'OccName' to a compiler-wide unique 'Name'
-getOrigNameCache :: CoreM OrigNameCache
+getOrigNameCache :: CoreM l OrigNameCache
 getOrigNameCache = do
     nameCacheRef <- fmap hsc_NC getHscEnv
     liftIO $ fmap nsNames $ readIORef nameCacheRef
 
-getPackageFamInstEnv :: CoreM PackageFamInstEnv
+getPackageFamInstEnv :: CoreM l PackageFamInstEnv
 getPackageFamInstEnv = do
     hsc_env <- getHscEnv
     eps <- liftIO $ hscEPS hsc_env
@@ -1010,7 +1011,7 @@ argument to the plugin function so that we can turn this function into
 (return ()) without breaking any plugins when we eventually get 1. working.
 
 \begin{code}
-reinitializeGlobals :: CoreM ()
+reinitializeGlobals :: CoreM l ()
 reinitializeGlobals = do
     linker_globals <- read cr_globals
     hsc_env <- getHscEnv
@@ -1034,14 +1035,14 @@ reinitializeGlobals = do
 -- annotations.
 --
 -- See Note [Annotations]
-getAnnotations :: Typeable a => ([Word8] -> a) -> ModGuts -> CoreM (UniqFM [a])
+getAnnotations :: Typeable a => ([Word8] -> a) -> ModGuts -> CoreM l (UniqFM [a])
 getAnnotations deserialize guts = do
      hsc_env <- getHscEnv
      ann_env <- liftIO $ prepareAnnotations hsc_env (Just guts)
      return (deserializeAnns deserialize ann_env)
 
 -- | Get at most one annotation of a given type per Unique.
-getFirstAnnotations :: Typeable a => ([Word8] -> a) -> ModGuts -> CoreM (UniqFM a)
+getFirstAnnotations :: Typeable a => ([Word8] -> a) -> ModGuts -> CoreM l (UniqFM a)
 getFirstAnnotations deserialize guts
   = liftM (mapUFM head . filterUFM (not . null))
   $ getAnnotations deserialize guts
@@ -1074,45 +1075,45 @@ we aren't using annotations heavily.
 
 \begin{code}
 
-msg :: (DynFlags -> SDoc -> IO ()) -> SDoc -> CoreM ()
+msg :: (DynFlags -> SDoc -> IO ()) -> SDoc -> CoreM l ()
 msg how doc = do
         dflags <- getDynFlags
         liftIO $ how dflags doc
 
 -- | Output a String message to the screen
-putMsgS :: String -> CoreM ()
+putMsgS :: String -> CoreM l ()
 putMsgS = putMsg . text
 
 -- | Output a message to the screen
-putMsg :: SDoc -> CoreM ()
+putMsg :: SDoc -> CoreM l ()
 putMsg = msg Err.putMsg
 
 -- | Output a string error to the screen
-errorMsgS :: String -> CoreM ()
+errorMsgS :: String -> CoreM l ()
 errorMsgS = errorMsg . text
 
 -- | Output an error to the screen
-errorMsg :: SDoc -> CoreM ()
+errorMsg :: SDoc -> CoreM l ()
 errorMsg = msg Err.errorMsg
 
 -- | Output a fatal string error to the screen. Note this does not by itself cause the compiler to die
-fatalErrorMsgS :: String -> CoreM ()
+fatalErrorMsgS :: String -> CoreM l ()
 fatalErrorMsgS = fatalErrorMsg . text
 
 -- | Output a fatal error to the screen. Note this does not by itself cause the compiler to die
-fatalErrorMsg :: SDoc -> CoreM ()
+fatalErrorMsg :: SDoc -> CoreM l ()
 fatalErrorMsg = msg Err.fatalErrorMsg
 
 -- | Output a string debugging message at verbosity level of @-v@ or higher
-debugTraceMsgS :: String -> CoreM ()
+debugTraceMsgS :: String -> CoreM l ()
 debugTraceMsgS = debugTraceMsg . text
 
 -- | Outputs a debugging message at verbosity level of @-v@ or higher
-debugTraceMsg :: SDoc -> CoreM ()
+debugTraceMsg :: SDoc -> CoreM l ()
 debugTraceMsg = msg (flip Err.debugTraceMsg 3)
 
 -- | Show some labelled 'SDoc' if a particular flag is set or at a verbosity level of @-v -ddump-most@ or higher
-dumpIfSet_dyn :: DumpFlag -> String -> SDoc -> CoreM ()
+dumpIfSet_dyn :: DumpFlag -> String -> SDoc -> CoreM l ()
 dumpIfSet_dyn flag str = msg (\dflags -> Err.dumpIfSet_dyn dflags flag str)
 \end{code}
 
@@ -1124,13 +1125,10 @@ dumpIfSet_dyn flag str = msg (\dflags -> Err.dumpIfSet_dyn dflags flag str)
 %************************************************************************
 
 \begin{code}
-instance MonadThings CoreM where
+instance (ApiAnnotation l) => MonadThings (CoreM l) where
     lookupThing name = do
         hsc_env <- getHscEnv
-        liftIO $ initTcForLookupSrcSpan hsc_env (tcLookupGlobal name)
-        where
-         initTcForLookupSrcSpan :: HscEnv -> TcM SrcSpan TyThing -> IO TyThing
-         initTcForLookupSrcSpan = initTcForLookup
+        liftIO $ initTcForLookup hsc_env (tcLookupGlobal name)
 \end{code}
 
 %************************************************************************

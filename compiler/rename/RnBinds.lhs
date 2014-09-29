@@ -222,7 +222,8 @@ rnIPBinds (IPBinds ip_binds _no_dict_binds) = do
     (ip_binds', fvs_s) <- mapAndUnzipM (wrapLocFstM rnIPBind) ip_binds
     return (IPBinds ip_binds' emptyTcEvBinds, plusFVs fvs_s)
 
-rnIPBind :: IPBind l RdrName -> RnM l (IPBind l Name, FreeVars)
+rnIPBind :: (ApiAnnotation l)
+         => IPBind l RdrName -> RnM l (IPBind l Name, FreeVars)
 rnIPBind (IPBind ~(Left n) expr) = do
     (expr',fvExpr) <- rnLExpr expr
     return (IPBind (Left n) expr', fvExpr)
@@ -940,32 +941,32 @@ checkDupMinimalSigs sigs
 %************************************************************************
 
 \begin{code}
-rnMatchGroup :: (ApiAnnotation l,Outputable (body l RdrName))
+rnMatchGroup :: (ApiAnnotation l,Outputable (body RdrName))
              => HsMatchContext Name
-             -> (GenLocated l (body l RdrName)
-                    -> RnM l (GenLocated l (body l Name), FreeVars))
-             -> MatchGroup l RdrName (GenLocated l (body l RdrName))
-             -> RnM l (MatchGroup l Name (GenLocated l (body l Name)), FreeVars)
+             -> (GenLocated l (body RdrName)
+                        -> RnM l (GenLocated l (body Name), FreeVars))
+             -> MatchGroup l RdrName (GenLocated l (body RdrName))
+             -> RnM l (MatchGroup l Name (GenLocated l (body Name)), FreeVars)
 rnMatchGroup ctxt rnBody (MG { mg_alts = ms, mg_origin = origin })
   = do { empty_case_ok <- xoptM Opt_EmptyCase
        ; when (null ms && not empty_case_ok) (addErr (emptyCaseErr ctxt))
        ; (new_ms, ms_fvs) <- mapFvRn (rnMatch ctxt rnBody) ms
        ; return (mkMatchGroupName origin new_ms, ms_fvs) }
 
-rnMatch :: (ApiAnnotation l,Outputable (body l RdrName))
+rnMatch :: (ApiAnnotation l,Outputable (body RdrName))
         => HsMatchContext Name
-        -> (GenLocated l (body l RdrName)
-                -> RnM l (GenLocated l (body l Name), FreeVars))
-        -> LMatch l RdrName (GenLocated l (body l RdrName))
-        -> RnM l (LMatch l Name (GenLocated l (body l Name)), FreeVars)
+        -> (GenLocated l (body RdrName)
+                   -> RnM l (GenLocated l (body Name), FreeVars))
+        -> LMatch l RdrName (GenLocated l (body RdrName))
+        -> RnM l (LMatch l Name (GenLocated l (body Name)), FreeVars)
 rnMatch ctxt rnBody = wrapLocFstM (rnMatch' ctxt rnBody)
 
-rnMatch' :: (ApiAnnotation l, Outputable (body l RdrName))
+rnMatch' :: (ApiAnnotation l, Outputable (body RdrName))
          => HsMatchContext Name
-         -> (GenLocated l (body l RdrName)
-                   -> RnM l (GenLocated l (body l Name), FreeVars))
-         -> Match l RdrName (GenLocated l (body l RdrName))
-         -> RnM l (Match l Name (GenLocated l (body l Name)), FreeVars)
+         -> (GenLocated l (body RdrName)
+                         -> RnM l (GenLocated l (body Name), FreeVars))
+         -> Match l RdrName (GenLocated l (body RdrName))
+         -> RnM l (Match l Name (GenLocated l (body Name)), FreeVars)
 rnMatch' ctxt rnBody match@(Match pats maybe_rhs_sig grhss)
   = do  {       -- Result type signatures are no longer supported
           case maybe_rhs_sig of
@@ -1008,27 +1009,27 @@ resSigErr ctxt match ty
 
 \begin{code}
 rnGRHSs :: (ApiAnnotation l) => HsMatchContext Name
-        -> (GenLocated l (body l RdrName)
-             -> RnM l (GenLocated l (body l Name), FreeVars))
-        -> GRHSs l RdrName (GenLocated l (body l RdrName))
-        -> RnM l (GRHSs l Name (GenLocated l (body l Name)), FreeVars)
+        -> (GenLocated l (body RdrName)
+                      -> RnM l (GenLocated l (body Name), FreeVars))
+        -> GRHSs l RdrName (GenLocated l (body RdrName))
+        -> RnM l (GRHSs l Name (GenLocated l (body Name)), FreeVars)
 rnGRHSs ctxt rnBody (GRHSs grhss binds)
   = rnLocalBindsAndThen binds   $ \ binds' -> do
     (grhss', fvGRHSs) <- mapFvRn (rnGRHS ctxt rnBody) grhss
     return (GRHSs grhss' binds', fvGRHSs)
 
 rnGRHS :: (ApiAnnotation l) => HsMatchContext Name
-       -> (GenLocated l (body l RdrName)
-               -> RnM l (GenLocated l (body l Name), FreeVars))
-       -> LGRHS l RdrName (GenLocated l (body l RdrName))
-       -> RnM l (LGRHS l Name (GenLocated l (body l Name)), FreeVars)
+       -> (GenLocated l (body RdrName)
+                   -> RnM l (GenLocated l (body Name), FreeVars))
+       -> LGRHS l RdrName (GenLocated l (body RdrName))
+       -> RnM l (LGRHS l Name (GenLocated l (body Name)), FreeVars)
 rnGRHS ctxt rnBody = wrapLocFstM (rnGRHS' ctxt rnBody)
 
 rnGRHS' :: (ApiAnnotation l) =>  HsMatchContext Name
-        -> (GenLocated l (body l RdrName)
-               -> RnM l (GenLocated l (body l Name), FreeVars))
-        -> GRHS l RdrName (GenLocated l (body l RdrName))
-        -> RnM l (GRHS l Name (GenLocated l (body l Name)), FreeVars)
+        -> (GenLocated l (body RdrName)
+                     -> RnM l (GenLocated l (body Name), FreeVars))
+        -> GRHS l RdrName (GenLocated l (body RdrName))
+        -> RnM l (GRHS l Name (GenLocated l (body Name)), FreeVars)
 rnGRHS' ctxt rnBody (GRHS guards rhs)
   = do  { pattern_guards_allowed <- xoptM Opt_PatternGuards
         ; ((guards', rhs'), fvs) <- rnStmts (PatGuard ctxt) rnLExpr guards $ \ _ ->

@@ -1375,7 +1375,7 @@ getInstEnvs = wrapTcS $ Inst.tcGetInstEnvs
 getFamInstEnvs :: TcS l (FamInstEnv, FamInstEnv)
 getFamInstEnvs = wrapTcS $ FamInst.tcGetFamInstEnvs
 
-getTopEnv :: TcS l HscEnv
+getTopEnv :: TcS l (HscEnv l)
 getTopEnv = wrapTcS $ TcM.getTopEnv
 
 getGblEnv :: TcS l (TcGblEnv l)

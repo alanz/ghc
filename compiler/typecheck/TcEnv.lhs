@@ -233,7 +233,7 @@ tcLookupInstance cls tys
 
 \begin{code}
 instance (ApiAnnotation l) =>
-          MonadThings (IOEnv (Env (TcGblEnv l) (TcLclEnv l))) where
+          MonadThings (IOEnv (Env l (TcGblEnv l) (TcLclEnv l))) where
     lookupThing = tcLookupGlobal
 \end{code}
 

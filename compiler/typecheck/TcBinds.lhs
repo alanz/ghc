@@ -1320,7 +1320,8 @@ instTcTySigFromId loc id
     -- those type variables to refer to the class decl, rather to
     -- the instance decl
 
-instTcTySig :: LHsType l Name -> TcType    -- HsType and corresponding TcType
+instTcTySig :: (ApiAnnotation l)
+            => LHsType l Name -> TcType    -- HsType and corresponding TcType
             -> Name -> TcM l (TcSigInfo l)
 instTcTySig hs_ty@(L loc _) sigma_ty name
   = do { (inst_tvs, theta, tau) <- tcInstType tcInstSigTyVars sigma_ty

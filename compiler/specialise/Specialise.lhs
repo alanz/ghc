@@ -571,7 +571,7 @@ Hence, the invariant is this:
 %************************************************************************
 
 \begin{code}
-specProgram :: ModGuts -> CoreM ModGuts
+specProgram :: ModGuts -> CoreM l ModGuts
 specProgram guts@(ModGuts { mg_module = this_mod
                           , mg_rules = local_rules
                           , mg_binds = binds })
@@ -613,8 +613,8 @@ specImports :: DynFlags
             -> RuleBase         -- Rules from this module and the home package
                                 -- (but not external packages, which can change)
             -> UsageDetails     -- Calls for imported things, and floating bindings
-            -> CoreM ( [CoreRule]   -- New rules
-                     , [CoreBind] ) -- Specialised bindings and floating bindings
+            -> CoreM l ( [CoreRule]   -- New rules
+                       , [CoreBind] ) -- Specialised bindings and floating bindings
 specImports dflags this_mod done rule_base uds
   = do { let import_calls = varEnvElts (ud_calls uds)
        ; (rules, spec_binds) <- go rule_base import_calls
@@ -633,8 +633,8 @@ specImport :: DynFlags
                                     -- See Note [Avoiding recursive specialisation]
            -> RuleBase              -- Rules from this module
            -> Id -> [CallInfo]      -- Imported function and calls for it
-           -> CoreM ( [CoreRule]    -- New rules
-                    , [CoreBind] )  -- Specialised bindings
+           -> CoreM l ( [CoreRule]    -- New rules
+                      , [CoreBind] )  -- Specialised bindings
 specImport dflags this_mod done rb fn calls_for_fn
   | fn `elemVarSet` done
   = return ([], [])     -- No warning.  This actually happens all the time
@@ -1990,7 +1990,7 @@ instance MonadUnique SpecM where
 instance HasDynFlags SpecM where
     getDynFlags = SpecM $ liftM spec_dflags get
 
-runSpecM :: DynFlags -> SpecM a -> CoreM a
+runSpecM :: DynFlags -> SpecM a -> CoreM l a
 runSpecM dflags (SpecM spec)
     = do us <- getUniqueSupplyM
          let initialState = SpecState {

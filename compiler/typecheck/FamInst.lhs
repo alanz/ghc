@@ -58,12 +58,13 @@ import qualified Data.Map as Map
 -- It is defined here to avoid a dependency from FamInstEnv on the monad
 -- code.
 
-newFamInst :: FamFlavor -> CoAxiom Unbranched -> TcRnIf gbl lcl FamInst
+newFamInst :: (ApiAnnotation l)
+           => FamFlavor -> CoAxiom Unbranched -> TcRnIf l gbl lcl FamInst
 -- Freshen the type variables of the FamInst branches
 -- Called from the vectoriser monad too, hence the rather general type
 newFamInst flavor axiom@(CoAxiom { co_ax_branches = FirstBranch branch
                                  , co_ax_tc = fam_tc })
-  = do { (subst, tvs') <- tcInstSigTyVarsLoc loc tvs
+  = do { (subst, tvs') <- tcInstSigTyVarsLoc (annFromSpan loc) tvs
        ; return (FamInst { fi_fam      = fam_tc_name
                          , fi_flavor   = flavor
                          , fi_tcs      = roughMatchTcs lhs

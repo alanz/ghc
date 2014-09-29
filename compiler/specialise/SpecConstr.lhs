@@ -660,7 +660,7 @@ unbox the strict fields, because T is polymorphic!)
 %************************************************************************
 
 \begin{code}
-specConstrProgram :: ModGuts -> CoreM ModGuts
+specConstrProgram :: ModGuts -> CoreM l ModGuts
 specConstrProgram guts
   = do
       dflags <- getDynFlags

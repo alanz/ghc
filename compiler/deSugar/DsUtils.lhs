@@ -464,10 +464,11 @@ mkPArrCase dflags var ty sorted_alts fail = do
 %************************************************************************
 
 \begin{code}
-mkErrorAppDs :: Id 		-- The error function
-	     -> Type		-- Type to which it should be applied
-	     -> SDoc		-- The error message string to pass
-	     -> DsM l CoreExpr
+mkErrorAppDs :: (ApiAnnotation l)
+             => Id              -- The error function
+             -> Type            -- Type to which it should be applied
+             -> SDoc            -- The error message string to pass
+             -> DsM l CoreExpr
 
 mkErrorAppDs err_id ty msg = do
     src_loc <- getSrcSpanDs

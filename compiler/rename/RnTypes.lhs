@@ -654,7 +654,7 @@ mkOpAppRn e1@(L _ (OpApp e11 op1 fix1 e12)) op2 fix2 e2
     new_e <- mkOpAppRn e12 op2 fix2 e2
     return (OpApp e11 op1 fix1 (L loc' new_e))
   where
-    loc'= annCombineSrcSpans e12 e2
+    loc'= annCombineLocs e12 e2
     (nofix_error, associate_right) = compareFixity fix1 fix2
 
 ---------------------------
@@ -668,7 +668,7 @@ mkOpAppRn e1@(L _ (NegApp neg_arg neg_name)) op2 fix2 e2
   = do new_e <- mkOpAppRn neg_arg op2 fix2 e2
        return (NegApp (L loc' new_e) neg_name)
   where
-    loc' = annCombineSrcSpans neg_arg e2
+    loc' = annCombineLocs neg_arg e2
     (nofix_error, associate_right) = compareFixity negateFixity fix2
 
 ---------------------------
@@ -794,7 +794,7 @@ checkPrecMatch op (MG { mg_alts = ms })
         -- second eqn.
 
 checkPrec :: (ApiAnnotation l) => Name -> Pat l Name -> Bool
-          -> IOEnv (Env (TcGblEnv l) (TcLclEnv l)) ()
+          -> IOEnv (Env l (TcGblEnv l) (TcLclEnv l)) ()
 checkPrec op (ConPatIn op1 (InfixCon _ _)) right = do
     op_fix@(Fixity op_prec  op_dir) <- lookupFixityRn op
     op1_fix@(Fixity op1_prec op1_dir) <- lookupFixityRn (unLoc op1)

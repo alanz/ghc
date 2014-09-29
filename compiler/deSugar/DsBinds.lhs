@@ -100,7 +100,7 @@ ds_lhs_binds binds = do { ds_bs <- mapBagM dsLHsBind binds
                         ; return (foldBag appOL id nilOL ds_bs) }
 
 dsLHsBind :: (ApiAnnotation l) => LHsBind l Id -> DsM l (OrdList (Id,CoreExpr))
-dsLHsBind (L loc bind) = putSrcSpanDs (annGetSpan loc) $ dsHsBind bind
+dsLHsBind (L loc bind) = putSrcSpanDs loc $ dsHsBind bind
 
 dsHsBind :: (ApiAnnotation l) => HsBind l Id -> DsM l (OrdList (Id,CoreExpr))
 
@@ -435,7 +435,7 @@ dsSpec :: (ApiAnnotation l)
        -> DsM l (Maybe (OrdList (Id,CoreExpr), CoreRule))
 dsSpec mb_poly_rhs (L loc (SpecPrag poly_id spec_co spec_inl))
   | isJust (isClassOpId_maybe poly_id)
-  = putSrcSpanDs (annGetSpan loc) $
+  = putSrcSpanDs loc $
     do { warnDs (ptext (sLit "Ignoring useless SPECIALISE pragma for class method selector") 
                  <+> quotes (ppr poly_id))
        ; return Nothing  }  -- There is no point in trying to specialise a class op
@@ -443,14 +443,14 @@ dsSpec mb_poly_rhs (L loc (SpecPrag poly_id spec_co spec_inl))
 			    -- (it would be Just 0) and that in turn makes makeCorePair bleat
 
   | no_act_spec && isNeverActive rule_act
-  = putSrcSpanDs (annGetSpan loc) $
+  = putSrcSpanDs loc $
     do { warnDs (ptext (sLit "Ignoring useless SPECIALISE pragma for NOINLINE function:")
                  <+> quotes (ppr poly_id))
        ; return Nothing  }  -- Function is NOINLINE, and the specialiation inherits that
        	 		    -- See Note [Activation pragmas for SPECIALISE]
 
   | otherwise
-  = putSrcSpanDs (annGetSpan loc) $
+  = putSrcSpanDs loc $
     do { uniq <- newUnique
        ; let poly_name = idName poly_id
              spec_occ  = mkSpecOcc (getOccName poly_name)

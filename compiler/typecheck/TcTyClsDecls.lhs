@@ -919,7 +919,8 @@ kcTyFamInstEqn fam_tc_shape
     discardResult $
     tc_fam_ty_pats fam_tc_shape pats (discardResult . (tcCheckLHsType hs_ty))
 
-tcTyFamInstEqn :: FamTyConShape -> LTyFamInstEqn l Name -> TcM l CoAxBranch
+tcTyFamInstEqn ::  (ApiAnnotation l)
+               => FamTyConShape -> LTyFamInstEqn l Name -> TcM l CoAxBranch
 -- Needs to be here, not in TcInstDcls, because closed families
 -- (typechecked here) have TyFamInstEqns
 tcTyFamInstEqn fam_tc_shape@(fam_tc_name,_,_)
@@ -935,7 +936,7 @@ tcTyFamInstEqn fam_tc_shape@(fam_tc_name,_,_)
        ; rhs_ty <- zonkTcTypeToType emptyZonkEnv rhs_ty
        ; traceTc "tcTyFamInstEqn" (ppr fam_tc_name <+> ppr tvs')
           -- don't print out the pats here, as they might be zonked inside the knot
-       ; return (mkCoAxBranch tvs' pats' rhs_ty loc) }
+       ; return (mkCoAxBranch tvs' pats' rhs_ty (annGetSpan loc)) }
 
 kcDataDefn :: (ApiAnnotation l) => HsDataDefn l Name -> TcKind -> TcM l ()
 -- Used for 'data instance' only
@@ -1410,7 +1411,7 @@ checkClassCycleErrs cls
 
 checkValidTyCl :: (ApiAnnotation l) => TyThing -> TcM l ()
 checkValidTyCl thing
-  = setSrcSpan (getSrcSpan thing) $
+  = setSrcSpan (annFromSpan $ getSrcSpan thing) $
     addTyThingCtxt thing $
     case thing of
       ATyCon tc -> checkValidTyCon tc
@@ -1542,9 +1543,10 @@ checkFieldCompat fld con1 con2 tvs1 res1 res2 fty1 fty2
     mb_subst2 = tcMatchTyX tvs1 (expectJust "checkFieldCompat" mb_subst1) fty1 fty2
 
 -------------------------------
-checkValidDataCon :: DynFlags -> Bool -> TyCon -> DataCon -> TcM l ()
+checkValidDataCon ::  (ApiAnnotation l)
+                  => DynFlags -> Bool -> TyCon -> DataCon -> TcM l ()
 checkValidDataCon dflags existential_ok tc con
-  = setSrcSpan (srcLocSpan (getSrcLoc con))     $
+  = setSrcSpan (annFromSpan $ srcLocSpan (getSrcLoc con))     $
     addErrCtxt (dataConCtxt con)                $
     do  { -- Check that the return type of the data constructor
           -- matches the type constructor; eg reject this:
@@ -1889,7 +1891,7 @@ must bring the default method Ids into scope first (so they can be seen
 when typechecking the [d| .. |] quote, and typecheck them later.
 
 \begin{code}
-mkRecSelBinds :: [TyThing] -> HsValBinds l Name
+mkRecSelBinds :: (ApiAnnotation l) => [TyThing] -> HsValBinds l Name
 -- NB We produce *un-typechecked* bindings, rather like 'deriving'
 --    This makes life easier, because the later type checking will add
 --    all necessary type abstractions and applications
@@ -1901,11 +1903,12 @@ mkRecSelBinds tycons
                                 | ATyCon tc <- tycons
                                 , fld <- tyConFields tc ]
 
-mkRecSelBind :: (TyCon, FieldLabel) -> (LSig l Name, LHsBinds l Name)
+mkRecSelBind :: (ApiAnnotation l)
+             => (TyCon, FieldLabel) -> (LSig l Name, LHsBinds l Name)
 mkRecSelBind (tycon, sel_name)
   = (L loc (IdSig sel_id), unitBag (L loc sel_bind))
   where
-    loc    = getSrcSpan sel_name
+    loc    = annFromSpan $ getSrcSpan sel_name
     sel_id = mkExportedLocalId rec_details sel_name sel_ty
     rec_details = RecSelId { sel_tycon = tycon, sel_naughty = is_naughty }
 
@@ -1943,7 +1946,8 @@ mkRecSelBind (tycon, sel_name)
                             , hsRecFieldArg = L loc (VarPat field_var)
                             , hsRecPun = False }
     sel_lname = L loc sel_name
-    field_var = mkInternalName (mkBuiltinUnique 1) (getOccName sel_name) loc
+    field_var = mkInternalName (mkBuiltinUnique 1) (getOccName sel_name)
+                               (annGetSpan loc)
 
     -- Add catch-all default case unless the case is exhaustive
     -- We do this explicitly so that we get a nice error message that
@@ -2136,13 +2140,13 @@ noClassTyVarErr clas what
          ptext (sLit "mentions none of the type or kind variables of the class") <+>
                 quotes (ppr clas <+> hsep (map ppr (classTyVars clas)))]
 
-recSynErr :: [LTyClDecl l Name] -> TcRn l ()
+recSynErr :: (ApiAnnotation l) => [LTyClDecl l Name] -> TcRn l ()
 recSynErr syn_decls
   = setSrcSpan (getLoc (head sorted_decls)) $
     addErr (sep [ptext (sLit "Cycle in type synonym declarations:"),
                  nest 2 (vcat (map ppr_decl sorted_decls))])
   where
-    sorted_decls = sortLocated syn_decls
+    sorted_decls = annSortLocated syn_decls
     ppr_decl (L loc decl) = ppr loc <> colon <+> ppr decl
 
 recClsErr :: (ApiAnnotation l) => [TyCon] -> TcRn l ()
