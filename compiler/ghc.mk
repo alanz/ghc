@@ -539,6 +539,7 @@ compiler_stage2_dll0_MODULES = \
 	HsImpExp \
 	HsLit \
 	PlaceHolder \
+	ApiAnnotation \
 	HsPat \
 	HsSyn \
 	HsTypes \

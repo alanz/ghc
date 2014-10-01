@@ -372,7 +372,8 @@ hscParse' mod_summary = do
 
             return HsParsedModule {
                       hpm_module    = rdr_module,
-                      hpm_src_files = srcs2
+                      hpm_src_files = srcs2,
+                      hpm_annotations = (annotations pst)
                    }
 
 -- XXX: should this really be a Maybe X?  Check under which circumstances this

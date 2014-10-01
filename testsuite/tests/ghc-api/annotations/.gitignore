@@ -1,0 +1,5 @@
+annotations
+*.hi
+*.o
+*.run.*
+*.normalised

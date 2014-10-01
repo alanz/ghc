@@ -63,6 +63,7 @@ import BooleanFormula   ( BooleanFormula, mkAnd, mkOr, mkTrue, mkVar )
 import FastString
 import Maybes           ( orElse )
 import Outputable
+import ApiAnnotation
 
 import Control.Monad    ( unless, liftM )
 import GHC.Exts
@@ -1535,7 +1536,8 @@ exp10 :: { LHsExpr RdrName }
                         { LL $ HsLam (mkMatchGroup FromSource [LL $ Match ($2:$3) $4
                                                                 (unguardedGRHSs $6)
                                                               ]) }
-        | 'let' binds 'in' exp                  { LL $ HsLet (unLoc $2) $4 }
+  --      | 'let' binds 'in' exp                  { LL $ HsLet (unLoc $2) $4 }
+        | 'let' binds 'in' exp          {% mkAnnHsLet $1 $3 (LL $ HsLet (unLoc $2) $4) }
         | '\\' 'lcase' altslist
             { LL $ HsLamCase placeHolderType (mkMatchGroup FromSource (unLoc $3)) }
         | 'if' exp optSemi 'then' exp optSemi 'else' exp
@@ -2371,4 +2373,18 @@ hintExplicitForall span = do
       , text "Perhaps you intended to use RankNTypes or a similar language"
       , text "extension to enable explicit-forall syntax: \x2200 <tvs>. <type>"
       ]
+
+{-
+%************************************************************************
+%*                                                                      *
+        Helper functions for generating annotations in the parser
+%*                                                                      *
+%************************************************************************
+-}
+
+mkAnnHsLet :: Located a -> Located b -> LHsExpr RdrName -> P (LHsExpr RdrName)
+mkAnnHsLet (L l_let _) (L l_in _) e = do
+   addAnnotation (mkApiAnnKey e) (AnnHsLet l_let l_in)
+   return e;
+
 }
