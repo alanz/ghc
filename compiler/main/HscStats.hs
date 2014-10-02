@@ -78,7 +78,7 @@ ppSourceStats short (L _ (HsModule _ exports imports ldecls _ _))
     default_ds = count (\ x -> case x of { DefD{} -> True; _ -> False}) decls
     val_decls  = [d | ValD d <- decls]
 
-    real_exports = case exports of { Nothing -> []; Just es -> es }
+    real_exports = case exports of { Nothing -> []; Just (L _ es) -> es }
     n_exports    = length real_exports
     export_ms    = count (\ e -> case unLoc e of { IEModuleContents{} -> True;_ -> False})
                          real_exports

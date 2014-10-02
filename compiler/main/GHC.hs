@@ -319,7 +319,6 @@ import ApiAnnotation
 import System.Directory ( doesFileExist )
 import Data.Maybe
 import Data.List        ( find )
-import Data.Dynamic     ( Dynamic )
 import Data.Time
 import Data.Typeable    ( Typeable )
 import Data.Word        ( Word8 )
@@ -720,7 +719,7 @@ data ParsedModule =
   ParsedModule { pm_mod_summary   :: ModSummary
                , pm_parsed_source :: ParsedSource
                , pm_extra_src_files :: [FilePath]
-               , pm_annotations :: [(ApiAnnKey,Dynamic)] }
+               , pm_annotations :: ApiAnns }
 
 instance ParsedMod ParsedModule where
   modSummary m    = pm_mod_summary m

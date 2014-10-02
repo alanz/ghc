@@ -41,8 +41,8 @@ testOneFile libdir fileName = do
                         -- liftIO (putStr (showSDocDebug (ppr ts)))
                         return (pm_annotations p)
 
-        let anns = Map.fromList p
-            AK l _ = fst $ head p
+        let anns = p
+            AK l _ = fst $ head $ Map.toList p
             annLet = (getAnnotation anns l) :: Maybe AnnHsLet
 
         print (anns,annLet,l)

@@ -164,6 +164,7 @@ import Data.Maybe
 import Data.IORef
 import System.FilePath as FilePath
 import System.Directory
+import qualified Data.Map as Map
 
 #include "HsVersions.h"
 
@@ -373,7 +374,7 @@ hscParse' mod_summary = do
             return HsParsedModule {
                       hpm_module    = rdr_module,
                       hpm_src_files = srcs2,
-                      hpm_annotations = (annotations pst)
+                      hpm_annotations = (Map.fromList $ annotations pst)
                    }
 
 -- XXX: should this really be a Maybe X?  Check under which circumstances this

@@ -949,7 +949,7 @@ type ExportOccMap = OccEnv (Name, IE RdrName)
         --   that have the same occurrence name
 
 rnExports :: Bool       -- False => no 'module M(..) where' header at all
-          -> Maybe [LIE RdrName]        -- Nothing => no explicit export list
+          -> Maybe (Located [LIE RdrName]) -- Nothing => no explicit export list
           -> TcGblEnv
           -> RnM TcGblEnv
 
@@ -976,7 +976,7 @@ rnExports explicit_mod exports
         ; let real_exports
                  | explicit_mod = exports
                  | ghcLink dflags == LinkInMemory = Nothing
-                 | otherwise = Just [noLoc (IEVar main_RDR_Unqual)]
+                 | otherwise = Just $ noLoc [noLoc (IEVar main_RDR_Unqual)]
                         -- ToDo: the 'noLoc' here is unhelpful if 'main'
                         --       turns out to be out of scope
 
@@ -992,7 +992,7 @@ rnExports explicit_mod exports
                             tcg_dus = tcg_dus tcg_env `plusDU`
                                       usesOnly (availsToNameSet final_avails) }) }
 
-exports_from_avail :: Maybe [LIE RdrName]
+exports_from_avail :: Maybe (Located [LIE RdrName])
                          -- Nothing => no explicit export list
                    -> GlobalRdrEnv
                    -> ImportAvails
@@ -1009,7 +1009,7 @@ exports_from_avail Nothing rdr_env _imports _this_mod
    in
    return (Nothing, avails)
 
-exports_from_avail (Just rdr_items) rdr_env imports this_mod
+exports_from_avail (Just (L _ rdr_items)) rdr_env imports this_mod
   = do (ie_names, _, exports) <- foldlM do_litem emptyExportAccum rdr_items
 
        return (Just ie_names, exports)
@@ -1239,7 +1239,7 @@ dupExport_ok n ie1 ie2
 %*********************************************************
 
 \begin{code}
-reportUnusedNames :: Maybe [LIE RdrName]    -- Export list
+reportUnusedNames :: Maybe (Located [LIE RdrName]) -- Export list
                   -> TcGblEnv -> RnM ()
 reportUnusedNames _export_decls gbl_env
   = do  { traceRn ((text "RUN") <+> (ppr (tcg_dus gbl_env)))

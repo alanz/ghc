@@ -420,8 +420,8 @@ identifier :: { Located RdrName }
 module  :: { Located (HsModule RdrName) }
         : maybedocheader 'module' modid maybemodwarning maybeexports 'where' body
                 {% fileSrcSpan >>= \ loc ->
-                   return (L loc (HsModule (Just $3) $5 (fst $7) (snd $7) $4 $1
-                          ) )}
+                   aa (L loc (HsModule (Just $3) $5 (fst $7) (snd $7) $4 $1
+                          ) ) (AnnHsModule (gl $2) (gl $6) ) }
         | body2
                 {% fileSrcSpan >>= \ loc ->
                    return (L loc (HsModule Nothing Nothing
@@ -462,8 +462,8 @@ cvtopdecls :: { [LHsDecl RdrName] }
 header  :: { Located (HsModule RdrName) }
         : maybedocheader 'module' modid maybemodwarning maybeexports 'where' header_body
                 {% fileSrcSpan >>= \ loc ->
-                   return (L loc (HsModule (Just $3) $5 $7 [] $4 $1
-                          ))}
+                   aa (L loc (HsModule (Just $3) $5 $7 [] $4 $1
+                          )) (AnnHsModule (gl $2) (gl $6)) }
         | header_body2
                 {% fileSrcSpan >>= \ loc ->
                    return (L loc (HsModule Nothing Nothing $1 [] Nothing
@@ -480,8 +480,9 @@ header_body2 :: { [LImportDecl RdrName] }
 -----------------------------------------------------------------------------
 -- The Export List
 
-maybeexports :: { Maybe [LIE RdrName] }
-        :  '(' exportlist ')'                   { Just (fromOL $2) }
+maybeexports :: { Maybe (Located [LIE RdrName]) }
+        :  '(' exportlist ')'                   {% aj (Just (L (comb2 $1 $3) (fromOL $2)))
+                                                      (AnnLIEs (gl $1) (gl $3)) }
         |  {- empty -}                          { Nothing }
 
 exportlist :: { OrdList (LIE RdrName) }
@@ -1536,8 +1537,7 @@ exp10 :: { LHsExpr RdrName }
                         { LL $ HsLam (mkMatchGroup FromSource [LL $ Match ($2:$3) $4
                                                                 (unguardedGRHSs $6)
                                                               ]) }
-  --      | 'let' binds 'in' exp                  { LL $ HsLet (unLoc $2) $4 }
-        | 'let' binds 'in' exp          {% mkAnnHsLet $1 $3 (LL $ HsLet (unLoc $2) $4) }
+        | 'let' binds 'in' exp          {% aa (LL $ HsLet (unLoc $2) $4) (AnnHsLet (gl $1) (gl $3)) }
         | '\\' 'lcase' altslist
             { LL $ HsLamCase placeHolderType (mkMatchGroup FromSource (unLoc $3)) }
         | 'if' exp optSemi 'then' exp optSemi 'else' exp
@@ -2381,6 +2381,13 @@ hintExplicitForall span = do
 %*                                                                      *
 %************************************************************************
 -}
+
+gl = getLoc
+
+-- aa :: (Typeable a) => Located a -> b -> P ()
+aa a@(L l _) b = addAnnotation l b >> return a
+
+aj a@(Just (L l _)) b = addAnnotation l b >> return a
 
 mkAnnHsLet :: Located a -> Located b -> LHsExpr RdrName -> P (LHsExpr RdrName)
 mkAnnHsLet (L l_let _) (L l_in _) e@(L l _) = do

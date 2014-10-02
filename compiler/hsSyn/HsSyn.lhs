@@ -63,7 +63,7 @@ data HsModule name
       hsmodName :: Maybe (Located ModuleName),
         -- ^ @Nothing@: \"module X where\" is omitted (in which case the next
         --     field is Nothing too)
-      hsmodExports :: Maybe [LIE name],
+      hsmodExports :: Maybe (Located [LIE name]), -- Located for annotation
         -- ^ Export list
         --
         --  - @Nothing@: export list omitted, so export everything
@@ -101,7 +101,7 @@ instance (OutputableBndr name, HasOccName name)
               Nothing -> pp_header (ptext (sLit "where"))
               Just es -> vcat [
                            pp_header lparen,
-                           nest 8 (fsep (punctuate comma (map ppr es))),
+                           nest 8 (fsep (punctuate comma (map ppr (unLoc es)))),
                            nest 4 (ptext (sLit ") where"))
                           ],
             pp_nonnull imports,
