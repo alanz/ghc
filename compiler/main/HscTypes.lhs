@@ -177,6 +177,7 @@ import Util
 
 import Control.Monad    ( guard, liftM, when, ap )
 import Data.Array       ( Array, array )
+import Data.Dynamic     ( Dynamic )
 import Data.IORef
 import Data.Time
 import Data.Word
@@ -2580,7 +2581,7 @@ data HsParsedModule = HsParsedModule {
        -- leaves behind.  These files and their timestamps are stored in
        -- the .hi file, so that we can force recompilation if any of
        -- them change (#3589)
-    hpm_annotations :: [(ApiAnnKey,ApiAnn)]
+    hpm_annotations :: [(ApiAnnKey,Dynamic)]
   }
 \end{code}
 

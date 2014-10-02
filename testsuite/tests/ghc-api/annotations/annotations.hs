@@ -8,11 +8,14 @@ module Main where
 import Data.Data
 import System.IO
 import GHC
+import ApiAnnotation -- AZ needs to be in GHC
 import MonadUtils
 import Outputable
 import Bag (filterBag,isEmptyBag)
 import System.Directory (removeFile)
 import System.Environment( getArgs )
+import qualified Data.Map as Map
+import Data.Dynamic ( fromDynamic,Dynamic )
 
 main::IO()
 main = do
@@ -38,5 +41,8 @@ testOneFile libdir fileName = do
                         -- liftIO (putStr (showSDocDebug (ppr ts)))
                         return (pm_annotations p)
 
-        print p
+        let anns = Map.fromList p
+            AK l _ = fst $ head p
+            annLet = (getAnnotation1 anns l) :: Maybe AnnHsLet
 
+        print (anns,annLet,l)

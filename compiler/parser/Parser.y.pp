@@ -2383,8 +2383,8 @@ hintExplicitForall span = do
 -}
 
 mkAnnHsLet :: Located a -> Located b -> LHsExpr RdrName -> P (LHsExpr RdrName)
-mkAnnHsLet (L l_let _) (L l_in _) e = do
-   addAnnotation (mkApiAnnKey e) (AnnHsLet l_let l_in)
+mkAnnHsLet (L l_let _) (L l_in _) e@(L l _) = do
+   addAnnotation l (AnnHsLet l_let l_in)
    return e;
 
 }

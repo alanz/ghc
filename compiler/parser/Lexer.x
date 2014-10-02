@@ -100,6 +100,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Ratio
 import Data.Word
+import Data.Dynamic
 }
 
 
@@ -1666,7 +1667,7 @@ data PState = PState {
         -- token doesn't need to close anything:
         alr_justClosedExplicitLetBlock :: Bool,
 
-        annotations :: [(ApiAnnKey,ApiAnn)]
+        annotations :: [(ApiAnnKey,Dynamic)]
         -- Annotations giving the locations of 'noise' tokens in the
         -- source, so that users of the GHC API can do source to
         -- source conversions.
@@ -2521,9 +2522,9 @@ clean_pragma prag = canon_ws (map toLower (unprefix prag))
 %************************************************************************
 -}
 
-addAnnotation :: ApiAnnKey -> ApiAnn -> P ()
-addAnnotation k v = P $ \s -> POk s {
-  annotations = (k,v) : annotations s
+addAnnotation :: (Typeable a) => SrcSpan -> a -> P ()
+addAnnotation l v = P $ \s -> POk s {
+  annotations = (AK l (typeOf (Just v)), toDyn v) : annotations s
   } ()
 
 }

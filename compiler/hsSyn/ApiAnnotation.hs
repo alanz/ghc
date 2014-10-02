@@ -13,23 +13,40 @@ See https://ghc.haskell.org/trac/ghc/wiki/GhcAstAnnotations
 -}
 {-# LANGUAGE DeriveDataTypeable #-}
 module ApiAnnotation (
-        ApiAnnKey(..), mkApiAnnKey,
-        ApiAnn(..)
+    ApiAnnKey(..), mkApiAnnKey,
+    -- ApiAnn(..),
+
+    getAnnotation,
+
+    AnnHsLet(..),AnnHsDo(..)
+
     ) where
 
 import Data.Data
+import Data.Dynamic
 import SrcLoc
 
-data ApiAnnKey = AK SrcSpan Int
+import qualified Data.Map as Map
+
+data ApiAnnKey = AK SrcSpan TypeRep
                   deriving (Eq,Ord,Show)
 
-mkApiAnnKey :: (Typeable e) => (Located e) -> ApiAnnKey
-mkApiAnnKey (L l _) = AK l 3
+mkApiAnnKey :: (Typeable a) => SrcSpan -> a -> ApiAnnKey
+mkApiAnnKey l a = AK l (typeOf (Just a))
 
-data ApiAnn = AnnHsLet    SrcSpan -- of the word "let"
-                          SrcSpan -- of the word "in"
+data AnnHsLet = AnnHsLet { ahslet_let, ahslet_in ::  SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
 
-            | AnnHsDo     SrcSpan -- of the word "do"
+data AnnHsDo =  AnnHsDo { ahsdo_do :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
 
+-- ---------------------------------------------------------------------
+
+
+getAnnotation :: (Typeable a)
+              => Map.Map ApiAnnKey Dynamic -> SrcSpan -> Maybe a
+getAnnotation anns span = res
+  where res = case  Map.lookup (AK span (typeOf res)) anns of
+                       Nothing -> Nothing
+                       Just d -> fromDynamic d
