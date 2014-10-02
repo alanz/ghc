@@ -43,6 +43,6 @@ testOneFile libdir fileName = do
 
         let anns = Map.fromList p
             AK l _ = fst $ head p
-            annLet = (getAnnotation1 anns l) :: Maybe AnnHsLet
+            annLet = (getAnnotation anns l) :: Maybe AnnHsLet
 
         print (anns,annLet,l)
