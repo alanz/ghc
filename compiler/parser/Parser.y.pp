@@ -440,18 +440,18 @@ maybemodwarning :: { Maybe WarningTxt }
     | '{-# WARNING' strings '#-}'    { Just (WarningTxt $ unLoc $2) }
     |  {- empty -}                  { Nothing }
 
-body    :: { ([LImportDecl RdrName], [LHsDecl RdrName]) }
+body    :: { (HsCommaList (LImportDecl RdrName), [LHsDecl RdrName]) }
         :  '{'            top '}'               { $2 }
         |      vocurly    top close             { $2 }
 
-body2   :: { ([LImportDecl RdrName], [LHsDecl RdrName]) }
+body2   :: { (HsCommaList (LImportDecl RdrName), [LHsDecl RdrName]) }
         :  '{' top '}'                          { $2 }
         |  missing_module_keyword top close     { $2 }
 
-top     :: { ([LImportDecl RdrName], [LHsDecl RdrName]) }
-        : importdecls                           { (reverse $1,[]) }
-        | importdecls ';' cvtopdecls            { (reverse $1,$3) }
-        | cvtopdecls                            { ([],$1) }
+top     :: { (HsCommaList (LImportDecl RdrName), [LHsDecl RdrName]) }
+        : importdecls                           { (reverseCL $1,[]) }
+        | importdecls ';' cvtopdecls            { (reverseCL $1,$3) }
+        | cvtopdecls                            { (nilCL,$1) }
 
 cvtopdecls :: { [LHsDecl RdrName] }
         : topdecls                              { cvTopDecls $1 }
@@ -469,48 +469,48 @@ header  :: { Located (HsModule RdrName) }
                    return (L loc (HsModule Nothing Nothing $1 [] Nothing
                           Nothing)) }
 
-header_body :: { [LImportDecl RdrName] }
+header_body :: { HsCommaList (LImportDecl RdrName) }
         :  '{'            importdecls           { $2 }
         |      vocurly    importdecls           { $2 }
 
-header_body2 :: { [LImportDecl RdrName] }
+header_body2 :: { HsCommaList (LImportDecl RdrName) }
         :  '{' importdecls                      { $2 }
         |  missing_module_keyword importdecls   { $2 }
 
 -----------------------------------------------------------------------------
 -- The Export List
 
-maybeexports :: { Maybe (Located [LIE RdrName]) }
-        :  '(' exportlist ')'                   {% aj (Just (L (comb2 $1 $3) (fromOL $2)))
+maybeexports :: { Maybe (Located (HsCommaList (LIE RdrName))) }
+        :  '(' exportlist ')'                   {% aj (Just (L (comb2 $1 $3) ($2)))
                                                       (AnnLIEs (gl $1) (gl $3)) }
         |  {- empty -}                          { Nothing }
 
-exportlist :: { OrdList (LIE RdrName) }
-        : expdoclist ',' expdoclist             { $1 `appOL` $3 }
+exportlist :: { HsCommaList (LIE RdrName) }
+        : expdoclist ',' expdoclist             { $1 `appCL` $3 }
         | exportlist1                           { $1 }
 
-exportlist1 :: { OrdList (LIE RdrName) }
-        : expdoclist export expdoclist ',' exportlist1 { $1 `appOL` $2 `appOL` $3 `appOL` $5 }
-        | expdoclist export expdoclist                 { $1 `appOL` $2 `appOL` $3 }
+exportlist1 :: { HsCommaList (LIE RdrName) }
+        : expdoclist export expdoclist ',' exportlist1 { $1 `appCL` $2 `appCL` $3 `appCL` $5 }
+        | expdoclist export expdoclist                 { $1 `appCL` $2 `appCL` $3 }
         | expdoclist                                   { $1 }
 
-expdoclist :: { OrdList (LIE RdrName) }
-        : exp_doc expdoclist                           { $1 `appOL` $2 }
-        | {- empty -}                                  { nilOL }
+expdoclist :: { HsCommaList (LIE RdrName) }
+        : exp_doc expdoclist                           { $1 `appCL` $2 }
+        | {- empty -}                                  { nilCL }
 
-exp_doc :: { OrdList (LIE RdrName) }
-        : docsection    { unitOL (L1 (case (unLoc $1) of (n, doc) -> IEGroup n doc)) }
-        | docnamed      { unitOL (L1 (IEDocNamed ((fst . unLoc) $1))) }
-        | docnext       { unitOL (L1 (IEDoc (unLoc $1))) }
+exp_doc :: { HsCommaList (LIE RdrName) }
+        : docsection    { unitCL (L1 (case (unLoc $1) of (n, doc) -> IEGroup n doc)) }
+        | docnamed      { unitCL (L1 (IEDocNamed ((fst . unLoc) $1))) }
+        | docnext       { unitCL (L1 (IEDoc (unLoc $1))) }
 
 
    -- No longer allow things like [] and (,,,) to be exported
    -- They are built in syntax, always available
-export  :: { OrdList (LIE RdrName) }
-        : qcname_ext export_subspec     { unitOL (LL (mkModuleImpExp (unLoc $1)
+export  :: { HsCommaList (LIE RdrName) }
+        : qcname_ext export_subspec     { unitCL (LL (mkModuleImpExp (unLoc $1)
                                                                      (unLoc $2))) }
-        |  'module' modid               { unitOL (LL (IEModuleContents (unLoc $2))) }
-        |  'pattern' qcon               { unitOL (LL (IEVar (unLoc $2))) }
+        |  'module' modid               { unitCL (LL (IEModuleContents (unLoc $2))) }
+        |  'pattern' qcon               { unitCL (LL (IEVar (unLoc $2))) }
 
 export_subspec :: { Located ImpExpSubSpec }
         : {- empty -}                   { L0 ImpExpAbs }
@@ -538,11 +538,11 @@ qcname  :: { Located RdrName }  -- Variable or data constructor
 -- import decls can be *empty*, or even just a string of semicolons
 -- whereas topdecls must contain at least one topdecl.
 
-importdecls :: { [LImportDecl RdrName] }
-        : importdecls ';' importdecl            { $3 : $1 }
+importdecls :: { HsCommaList (LImportDecl RdrName) }
+        : importdecls ';' importdecl            { ((unitCL $3) `appCL` $1) }
         | importdecls ';'                       { $1 }
-        | importdecl                            { [ $1 ] }
-        | {- empty -}                           { [] }
+        | importdecl                            { unitCL $1 }
+        | {- empty -}                           { nilCL }
 
 importdecl :: { LImportDecl RdrName }
         : 'import' maybe_src maybe_safe optqualified maybe_pkg modid maybeas maybeimpspec
@@ -572,13 +572,13 @@ maybeas :: { Located (Maybe ModuleName) }
         : 'as' modid                            { LL (Just (unLoc $2)) }
         | {- empty -}                           { noLoc Nothing }
 
-maybeimpspec :: { Located (Maybe (Bool, [LIE RdrName])) }
+maybeimpspec :: { Located (Maybe (Bool, HsCommaList (LIE RdrName))) }
         : impspec                               { L1 (Just (unLoc $1)) }
         | {- empty -}                           { noLoc Nothing }
 
-impspec :: { Located (Bool, [LIE RdrName]) }
-        :  '(' exportlist ')'                   { LL (False, fromOL $2) }
-        |  'hiding' '(' exportlist ')'          { LL (True,  fromOL $3) }
+impspec :: { Located (Bool, HsCommaList (LIE RdrName)) }
+        :  '(' exportlist ')'                   { LL (False, $2) }
+        |  'hiding' '(' exportlist ')'          { LL (True,  $3) }
 
 -----------------------------------------------------------------------------
 -- Fixity Declarations

@@ -7,6 +7,7 @@ HsImpExp: Abstract syntax: imports, exports, interfaces
 
 \begin{code}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module HsImpExp where
 
@@ -41,7 +42,8 @@ data ImportDecl name
       ideclQualified :: Bool,               -- ^ True => qualified
       ideclImplicit  :: Bool,               -- ^ True => implicit import (of Prelude)
       ideclAs        :: Maybe ModuleName,   -- ^ as Module
-      ideclHiding    :: Maybe (Bool, [LIE name]) -- ^ (True => hiding, names)
+      ideclHiding    :: Maybe (Bool, HsCommaList (LIE name))
+                            -- ^ (True => hiding, names)
     } deriving (Data, Typeable)
 
 simpleImportDecl :: ModuleName -> ImportDecl name
@@ -86,8 +88,9 @@ instance (OutputableBndr name, HasOccName name) => Outputable (ImportDecl name) 
         ppr_imp False = empty
 
         pp_spec Nothing             = empty
-        pp_spec (Just (False, ies)) = ppr_ies ies
-        pp_spec (Just (True,  ies)) = ptext (sLit "hiding") <+> ppr_ies ies
+        pp_spec (Just (False, ies)) = ppr_ies (fromCL ies)
+        pp_spec (Just (True,  ies)) = ptext (sLit "hiding")
+                                   <+> ppr_ies (fromCL ies)
 
         ppr_ies []  = ptext (sLit "()")
         ppr_ies ies = char '(' <+> interpp'SP ies <+> char ')'
@@ -157,3 +160,56 @@ instance (HasOccName name, OutputableBndr name) => Outputable (IE name) where
 \end{code}
 
 
+\begin{code}
+-- | A comma separated list that can cope with extra commas in it, for
+-- example in tuple sections or imports
+
+-- AZ: Naming: in the import declarations this captures semicolons.
+data HsCommaList a
+  = Empty
+  | ExtraComma (HsCommaList a)
+  | Cons a     (HsCommaList a)
+  deriving (Data,Typeable)
+deriving instance (Eq a) => Eq (HsCommaList a)
+
+infixl 5  `appCL`
+
+appCL :: HsCommaList a -> HsCommaList a -> HsCommaList a
+
+l1    `appCL` Empty = l1
+Empty `appCL` l2    = l2
+ExtraComma ls `appCL` l2 = ExtraComma (ls `appCL` l2)
+Cons l     ls `appCL` l2 = Cons l     (ls `appCL` l2)
+
+reverseCL ::  HsCommaList a -> HsCommaList a
+reverseCL = toCL . reverse . fromCL
+
+consCL :: a -> HsCommaList a -> HsCommaList a
+consCL l ls = Cons l ls
+
+nilCL :: HsCommaList a
+nilCL = Empty
+
+unitCL :: a -> HsCommaList a
+unitCL v = Cons v Empty
+
+fromCL :: HsCommaList a -> [a]
+fromCL Empty = []
+fromCL (ExtraComma ls) = fromCL ls
+fromCL (Cons l ls) = l : fromCL ls
+
+toCL :: [a] -> HsCommaList a
+toCL [] = Empty
+toCL (x:xs) = Cons x (toCL xs)
+
+isNilCL :: HsCommaList a -> Bool
+isNilCL Empty = True
+isNilCL _ = False
+\end{code}
+
+\begin{code}
+instance (Outputable a) => Outputable (HsCommaList a) where
+    ppr (Empty) = empty
+    ppr (ExtraComma cl) = comma <+> ppr cl
+    ppr (Cons a cl)     = ppr a <> comma <+> ppr cl
+\end{code}

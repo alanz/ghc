@@ -18,7 +18,7 @@ module ApiAnnotation (
 
     getAnnotation,
 
-    AnnHsModule(..),AnnLIEs(..),
+    AnnHsModule(..),AnnLIEs(..),AnnHsCommaList(..),
     AnnHsLet(..),AnnHsDo(..)
 
     ) where
@@ -91,8 +91,8 @@ data AnnHsModule = AnnHsModule { ahsmodule_module, ahsmodule_where :: SrcSpan }
 data AnnLIEs = AnnLIEs { alie_oparen, alie_cparen :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
-
-
+data AnnHsCommaList = AnnHsCommaList { ahscommalist_comma :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
 
 data AnnHsLet = AnnHsLet { ahslet_let, ahslet_in ::  SrcSpan }
             deriving (Eq,Data,Typeable,Show)

@@ -290,7 +290,7 @@ rnImportDecl this_mod
 
         -- True <=> import M ()
         import_all = case imp_details of
-                        Just (is_hiding, ls) -> not is_hiding && null ls
+                        Just (is_hiding, ls) -> not is_hiding && isNilCL ls
                         _                    -> False
 
         -- should the import be safe?
@@ -598,11 +598,12 @@ Note that the imp_occ_env will have entries for data constructors too,
 although we never look up data constructors.
 
 \begin{code}
-filterImports :: ModIface
-              -> ImpDeclSpec                    -- The span for the entire import decl
-              -> Maybe (Bool, [LIE RdrName])    -- Import spec; True => hiding
-              -> RnM (Maybe (Bool, [LIE Name]), -- Import spec w/ Names
-                      [GlobalRdrElt])           -- Same again, but in GRE form
+filterImports
+    :: ModIface
+    -> ImpDeclSpec                    -- The span for the entire import decl
+    -> Maybe (Bool, HsCommaList (LIE RdrName)) -- Import spec; True => hiding
+    -> RnM (Maybe (Bool, HsCommaList (LIE Name)), -- Import spec w/ Names
+            [GlobalRdrElt])           -- Same again, but in GRE form
 filterImports iface decl_spec Nothing
   = return (Nothing, gresFromAvails prov (mi_exports iface))
   where
@@ -611,7 +612,7 @@ filterImports iface decl_spec Nothing
 
 filterImports iface decl_spec (Just (want_hiding, import_items))
   = do  -- check for errors, convert RdrNames to Names
-        items1 <- mapM lookup_lie import_items
+        items1 <- mapM lookup_lie $ fromCL import_items
 
         let items2 :: [(LIE Name, AvailInfo)]
             items2 = concat items1
@@ -626,7 +627,7 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
             gres | want_hiding = gresFromAvails hiding_prov pruned_avails
                  | otherwise   = concatMap (gresFromIE decl_spec) items2
 
-        return (Just (want_hiding, map fst items2), gres)
+        return (Just (want_hiding, toCL $ map fst items2), gres)
   where
     all_avails = mi_exports iface
 
@@ -949,7 +950,8 @@ type ExportOccMap = OccEnv (Name, IE RdrName)
         --   that have the same occurrence name
 
 rnExports :: Bool       -- False => no 'module M(..) where' header at all
-          -> Maybe (Located [LIE RdrName]) -- Nothing => no explicit export list
+          -> Maybe (Located (HsCommaList (LIE RdrName)))
+                         -- Nothing => no explicit export list
           -> TcGblEnv
           -> RnM TcGblEnv
 
@@ -976,7 +978,8 @@ rnExports explicit_mod exports
         ; let real_exports
                  | explicit_mod = exports
                  | ghcLink dflags == LinkInMemory = Nothing
-                 | otherwise = Just $ noLoc [noLoc (IEVar main_RDR_Unqual)]
+                 | otherwise =
+                        Just $ noLoc (unitCL $ noLoc (IEVar main_RDR_Unqual))
                         -- ToDo: the 'noLoc' here is unhelpful if 'main'
                         --       turns out to be out of scope
 
@@ -992,7 +995,7 @@ rnExports explicit_mod exports
                             tcg_dus = tcg_dus tcg_env `plusDU`
                                       usesOnly (availsToNameSet final_avails) }) }
 
-exports_from_avail :: Maybe (Located [LIE RdrName])
+exports_from_avail :: Maybe (Located (HsCommaList (LIE RdrName)))
                          -- Nothing => no explicit export list
                    -> GlobalRdrEnv
                    -> ImportAvails
@@ -1010,7 +1013,8 @@ exports_from_avail Nothing rdr_env _imports _this_mod
    return (Nothing, avails)
 
 exports_from_avail (Just (L _ rdr_items)) rdr_env imports this_mod
-  = do (ie_names, _, exports) <- foldlM do_litem emptyExportAccum rdr_items
+  = do (ie_names, _, exports)
+                  <- foldlM do_litem emptyExportAccum $ fromCL rdr_items
 
        return (Just ie_names, exports)
   where
@@ -1239,7 +1243,7 @@ dupExport_ok n ie1 ie2
 %*********************************************************
 
 \begin{code}
-reportUnusedNames :: Maybe (Located [LIE RdrName]) -- Export list
+reportUnusedNames :: Maybe (Located (HsCommaList (LIE RdrName))) -- Export list
                   -> TcGblEnv -> RnM ()
 reportUnusedNames _export_decls gbl_env
   = do  { traceRn ((text "RUN") <+> (ppr (tcg_dus gbl_env)))
@@ -1366,7 +1370,8 @@ findImportUsage imports rdr_env rdrs
 
         unused_imps   -- Not trivial; see eg Trac #7454
           = case imps of
-              Just (False, imp_ies) -> foldr (add_unused . unLoc) emptyNameSet imp_ies
+              Just (False, imp_ies) ->
+                    foldr (add_unused . unLoc) emptyNameSet (fromCL imp_ies)
               _other -> emptyNameSet -- No explicit import list => no unused-name list
 
         add_unused :: IE Name -> NameSet -> NameSet
@@ -1432,11 +1437,11 @@ extendImportMap rdr_env rdr imp_map
 \begin{code}
 warnUnusedImport :: ImportDeclUsage -> RnM ()
 warnUnusedImport (L loc decl, used, unused)
-  | Just (False,[]) <- ideclHiding decl
+  | Just (False,Empty) <- ideclHiding decl
                 = return ()            -- Do not warn for 'import M()'
 
   | Just (True, hides) <- ideclHiding decl
-  , not (null hides)
+  , not (isNilCL hides)
   , pRELUDE_NAME == unLoc (ideclName decl)
                 = return ()            -- Note [Do not warn about Prelude hiding]
   | null used   = addWarnAt loc msg1   -- Nothing used; drop entire decl
@@ -1512,7 +1517,7 @@ printMinimalImports imports_w_usage
                             , ideclPkgQual = mb_pkg } = decl
            ; iface <- loadSrcInterface doc mod_name is_boot mb_pkg
            ; let lies = map (L l) (concatMap (to_ie iface) used)
-           ; return (L l (decl { ideclHiding = Just (False, lies) })) }
+           ; return (L l (decl { ideclHiding = Just (False, toCL lies) })) }
       where
         doc = text "Compute minimal imports for" <+> ppr decl
 
