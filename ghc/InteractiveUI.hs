@@ -1945,10 +1945,10 @@ iiSubsumes (IIDecl d1) (IIDecl d2)      -- A bit crude
      && (not (ideclQualified d1) || ideclQualified d2)
      && (ideclHiding d1 `hidingSubsumes` ideclHiding d2)
   where
-     _                `hidingSubsumes` Just (False,Empty) = True
-     Just (False, xs) `hidingSubsumes` Just (False,ys) = all (`elem` (fromCL xs))
-                                                             (fromCL ys)
-     h1               `hidingSubsumes` h2              = h1 == h2
+    _                `hidingSubsumes` Just (False,Empty) = True
+    Just (False, xs) `hidingSubsumes` Just (False,ys) = all (`elem` (fromCL xs))
+                                                            (fromCL ys)
+    h1               `hidingSubsumes` h2              = h1 == h2
 iiSubsumes _ _ = False
 
 
