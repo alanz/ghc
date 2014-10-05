@@ -92,7 +92,8 @@ instance (OutputableBndr name, HasOccName name)
         => Outputable (HsModule name) where
 
     ppr (HsModule Nothing _ imports decls _ mbDoc)
-      = pp_mb mbDoc $$ pp_nonnull (fromCL imports) $$ pp_nonnull decls
+      = pp_mb mbDoc $$ pp_nonnull (fromCL imports)
+                    $$ pp_nonnull decls
 
     ppr (HsModule (Just name) exports imports decls deprec mbDoc)
       = vcat [

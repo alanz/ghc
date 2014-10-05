@@ -167,7 +167,8 @@ instance (HasOccName name, OutputableBndr name) => Outputable (IE name) where
 -- AZ: Naming: in the import declarations this captures semicolons.
 data HsCommaList a
   = Empty
-  | ExtraComma (HsCommaList a)
+  | ExtraComma SrcSpan (HsCommaList a)
+       -- ^ We need a SrcSpan for the annotation
   | Cons a     (HsCommaList a)
   deriving (Data,Typeable)
 deriving instance (Eq a) => Eq (HsCommaList a)
@@ -178,8 +179,8 @@ appCL :: HsCommaList a -> HsCommaList a -> HsCommaList a
 
 l1    `appCL` Empty = l1
 Empty `appCL` l2    = l2
-ExtraComma ls `appCL` l2 = ExtraComma (ls `appCL` l2)
-Cons l     ls `appCL` l2 = Cons l     (ls `appCL` l2)
+ExtraComma s ls `appCL` l2 = ExtraComma s (ls `appCL` l2)
+Cons l       ls `appCL` l2 = Cons l       (ls `appCL` l2)
 
 reverseCL ::  HsCommaList a -> HsCommaList a
 reverseCL = toCL . reverse . fromCL
@@ -193,9 +194,12 @@ nilCL = Empty
 unitCL :: a -> HsCommaList a
 unitCL v = Cons v Empty
 
+extraCL :: SrcSpan -> HsCommaList a -> HsCommaList a
+extraCL mss l = ExtraComma mss l
+
 fromCL :: HsCommaList a -> [a]
 fromCL Empty = []
-fromCL (ExtraComma ls) = fromCL ls
+fromCL (ExtraComma _ ls) = fromCL ls
 fromCL (Cons l ls) = l : fromCL ls
 
 toCL :: [a] -> HsCommaList a
@@ -210,6 +214,6 @@ isNilCL _ = False
 \begin{code}
 instance (Outputable a) => Outputable (HsCommaList a) where
     ppr (Empty) = empty
-    ppr (ExtraComma cl) = comma <+> ppr cl
+    ppr (ExtraComma _ cl) = comma <+> ppr cl
     ppr (Cons a cl)     = ppr a <> comma <+> ppr cl
 \end{code}

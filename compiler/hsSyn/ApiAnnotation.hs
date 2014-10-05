@@ -19,6 +19,7 @@ module ApiAnnotation (
     getAnnotation,
 
     AnnHsModule(..),AnnLIEs(..),AnnHsCommaList(..),
+    AnnImportDecls(..),
     AnnHsLet(..),AnnHsDo(..)
 
     ) where
@@ -85,7 +86,13 @@ getAnnotation anns span = res
 -- of the type being annotated.
 
 -- This annotation will only be present if there is a module header
-data AnnHsModule = AnnHsModule { ahsmodule_module, ahsmodule_where :: SrcSpan }
+data AnnHsModule = AnnHsModule
+       { ahsmodule_module_where :: Maybe (SrcSpan,SrcSpan)
+       , ahsmodule_braces :: Maybe (SrcSpan,SrcSpan)
+         -- ^ '{' '}' surrounding imports/decls, if present
+       , ahsmodule_semi :: Maybe SrcSpan
+         -- ^ ';' between imports and decls, if present
+       }
             deriving (Eq,Data,Typeable,Show)
 
 data AnnLIEs = AnnLIEs { alie_oparen, alie_cparen :: SrcSpan }
@@ -94,10 +101,12 @@ data AnnLIEs = AnnLIEs { alie_oparen, alie_cparen :: SrcSpan }
 data AnnHsCommaList = AnnHsCommaList { ahscommalist_comma :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
+data AnnImportDecls = AnnImportDecls { aimportdecls_semi :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+
 data AnnHsLet = AnnHsLet { ahslet_let, ahslet_in ::  SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
 data AnnHsDo =  AnnHsDo { ahsdo_do :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
-
-

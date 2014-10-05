@@ -420,12 +420,12 @@ identifier :: { Located RdrName }
 module  :: { Located (HsModule RdrName) }
         : maybedocheader 'module' modid maybemodwarning maybeexports 'where' body
                 {% fileSrcSpan >>= \ loc ->
-                   aa (L loc (HsModule (Just $3) $5 (fst $7) (snd $7) $4 $1
-                          ) ) (AnnHsModule (gl $2) (gl $6) ) }
+                   aa (L loc (HsModule (Just $3) $5 (fst $ snd $7) (snd $ snd $7) $4 $1
+                          ) ) (AnnHsModule (Just ((gl $2),(gl $6))) (fst $ fst $7) (snd $ fst $7) ) }
         | body2
                 {% fileSrcSpan >>= \ loc ->
                    return (L loc (HsModule Nothing Nothing
-                          (fst $1) (snd $1) Nothing Nothing
+                          (fst $ snd $1) (snd $ snd $1) Nothing Nothing
                           )) }
 
 maybedocheader :: { Maybe LHsDocString }
@@ -440,18 +440,21 @@ maybemodwarning :: { Maybe WarningTxt }
     | '{-# WARNING' strings '#-}'    { Just (WarningTxt $ unLoc $2) }
     |  {- empty -}                  { Nothing }
 
-body    :: { (HsCommaList (LImportDecl RdrName), [LHsDecl RdrName]) }
-        :  '{'            top '}'               { $2 }
-        |      vocurly    top close             { $2 }
+body    :: { ((Maybe (SrcSpan,SrcSpan),Maybe SrcSpan)
+             ,(HsCommaList (LImportDecl RdrName), [LHsDecl RdrName])) }
+        :  '{'            top '}'      { ((Just (gl $1,gl $3),fst $2), snd $2) }
+        |      vocurly    top close    { ((Nothing,Nothing), snd $2) }
 
-body2   :: { (HsCommaList (LImportDecl RdrName), [LHsDecl RdrName]) }
-        :  '{' top '}'                          { $2 }
-        |  missing_module_keyword top close     { $2 }
+body2   :: { ((Maybe (SrcSpan,SrcSpan),Maybe SrcSpan)
+             ,(HsCommaList (LImportDecl RdrName), [LHsDecl RdrName])) }
+        :  '{' top '}'                          { ((Just (gl $1,gl $3),fst $2), snd $2) }
+        |  missing_module_keyword top close     { ((Nothing,Nothing),snd $2) }
 
-top     :: { (HsCommaList (LImportDecl RdrName), [LHsDecl RdrName]) }
-        : importdecls                           { (reverseCL $1,[]) }
-        | importdecls ';' cvtopdecls            { (reverseCL $1,$3) }
-        | cvtopdecls                            { (nilCL,$1) }
+top     :: { (Maybe SrcSpan
+             ,(HsCommaList (LImportDecl RdrName), [LHsDecl RdrName])) }
+        : importdecls                           { (Nothing,(reverseCL $1,[])) }
+        | importdecls ';' cvtopdecls            { (Just (gl $2),(reverseCL $1,$3)) }
+        | cvtopdecls                            { (Nothing,(nilCL,$1)) }
 
 cvtopdecls :: { [LHsDecl RdrName] }
         : topdecls                              { cvTopDecls $1 }
@@ -463,7 +466,7 @@ header  :: { Located (HsModule RdrName) }
         : maybedocheader 'module' modid maybemodwarning maybeexports 'where' header_body
                 {% fileSrcSpan >>= \ loc ->
                    aa (L loc (HsModule (Just $3) $5 $7 [] $4 $1
-                          )) (AnnHsModule (gl $2) (gl $6)) }
+                          )) (AnnHsModule (Just ((gl $2),(gl $6))) Nothing Nothing) }
         | header_body2
                 {% fileSrcSpan >>= \ loc ->
                    return (L loc (HsModule Nothing Nothing $1 [] Nothing
@@ -539,10 +542,11 @@ qcname  :: { Located RdrName }  -- Variable or data constructor
 -- whereas topdecls must contain at least one topdecl.
 
 importdecls :: { HsCommaList (LImportDecl RdrName) }
-        : importdecls ';' importdecl            { ((unitCL $3) `appCL` $1) }
-        | importdecls ';'                       { $1 }
-        | importdecl                            { unitCL $1 }
-        | {- empty -}                           { nilCL }
+        : importdecls ';' importdecl     {% aa $3 (AnnImportDecls (gl $2))
+                                            >> return ((unitCL $3) `appCL` $1) }
+        | importdecls ';'                { extraCL (gl $2) $1 }
+        | importdecl                     { unitCL $1 }
+        | {- empty -}                    { nilCL }
 
 importdecl :: { LImportDecl RdrName }
         : 'import' maybe_src maybe_safe optqualified maybe_pkg modid maybeas maybeimpspec
@@ -2388,10 +2392,5 @@ gl = getLoc
 aa a@(L l _) b = addAnnotation l b >> return a
 
 aj a@(Just (L l _)) b = addAnnotation l b >> return a
-
-mkAnnHsLet :: Located a -> Located b -> LHsExpr RdrName -> P (LHsExpr RdrName)
-mkAnnHsLet (L l_let _) (L l_in _) e@(L l _) = do
-   addAnnotation l (AnnHsLet l_let l_in)
-   return e;
 
 }
