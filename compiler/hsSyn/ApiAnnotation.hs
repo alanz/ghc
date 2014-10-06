@@ -28,7 +28,6 @@ module ApiAnnotation (
     ) where
 
 import Data.Data
--- import Data.Dynamic
 import Data.Maybe
 import Outputable
 import SrcLoc
@@ -78,29 +77,13 @@ mkApiAnnKey l a = AK l (typeOf (Just a))
 -- Based on
 -- https://github.com/ndmitchell/shake/blob/master/Development/Shake/Value.hs
 
-
--- We deliberately avoid Typeable instances on Key/Value to stop them
--- accidentally being used inside themselves
-
-newtype Key = Key Value
-  deriving (Eq)
-
 data Value = forall a . (Eq a, Show a, Typeable a, Outputable a) => Value a
-
--- newKey :: (Eq a, Show a, Typeable a, Outputable a) => a -> Key
--- newKey = Key . newValue
 
 newValue :: (Eq a, Show a, Typeable a, Outputable a) => a -> Value
 newValue = Value
 
--- typeKey :: Key -> TypeRep
--- typeKey (Key v) = typeValue v
-
 typeValue :: Value -> TypeRep
 typeValue (Value x) = typeOf x
-
--- fromKey :: Typeable a => Key -> a
--- fromKey (Key v) = fromValue v
 
 fromValue :: Typeable a => Value -> a
 fromValue (Value x) = fromMaybe (error errMsg) $ res
