@@ -550,39 +550,40 @@ importdecls :: { HsCommaList (LImportDecl RdrName) }
 
 importdecl :: { LImportDecl RdrName }
         : 'import' maybe_src maybe_safe optqualified maybe_pkg modid maybeas maybeimpspec
-                { L (comb4 $1 $6 $7 $8) $
-                  ImportDecl { ideclName = $6, ideclPkgQual = $5
-                             , ideclSource = $2, ideclSafe = $3
-                             , ideclQualified = $4, ideclImplicit = False
-                             , ideclAs = unLoc $7, ideclHiding = unLoc $8 } }
+                {% aa (L (comb4 $1 $6 (snd $7) (snd $8)) $
+                  ImportDecl { ideclName = $6, ideclPkgQual = snd $5
+                             , ideclSource = snd $2, ideclSafe = snd $3
+                             , ideclQualified = snd $4, ideclImplicit = False
+                             , ideclAs = unLoc (snd $7), ideclHiding = unLoc (snd $8) })
+                   (AnnImportDecl (fst $2) (fst $3) (fst $4) (fst $5) (fst $7) (fst $8) ) }
 
-maybe_src :: { IsBootInterface }
-        : '{-# SOURCE' '#-}'                    { True }
-        | {- empty -}                           { False }
+maybe_src :: { (Maybe (SrcSpan,SrcSpan),IsBootInterface) }
+        : '{-# SOURCE' '#-}'                    { (Just ((gl $1),(gl $2)),True) }
+        | {- empty -}                           { (Nothing,False) }
 
-maybe_safe :: { Bool }
-        : 'safe'                                { True }
-        | {- empty -}                           { False }
+maybe_safe :: { (Maybe SrcSpan,Bool) }
+        : 'safe'                                { (Just (gl $1),True) }
+        | {- empty -}                           { (Nothing,False) }
 
-maybe_pkg :: { Maybe FastString }
-        : STRING                                { Just (getSTRING $1) }
-        | {- empty -}                           { Nothing }
+maybe_pkg :: { (Maybe SrcSpan,Maybe FastString) }
+        : STRING                                { (Just (gl $1),Just (getSTRING $1)) }
+        | {- empty -}                           { (Nothing,Nothing) }
 
-optqualified :: { Bool }
-        : 'qualified'                           { True  }
-        | {- empty -}                           { False }
+optqualified :: { (Maybe SrcSpan,Bool) }
+        : 'qualified'                           { (Just (gl $1),True)  }
+        | {- empty -}                           { (Nothing,False) }
 
-maybeas :: { Located (Maybe ModuleName) }
-        : 'as' modid                            { LL (Just (unLoc $2)) }
-        | {- empty -}                           { noLoc Nothing }
+maybeas :: { (Maybe SrcSpan,Located (Maybe ModuleName)) }
+        : 'as' modid                            { (Just (gl $1),LL (Just (unLoc $2))) }
+        | {- empty -}                           { (Nothing,noLoc Nothing) }
 
-maybeimpspec :: { Located (Maybe (Bool, HsCommaList (LIE RdrName))) }
-        : impspec                               { L1 (Just (unLoc $1)) }
-        | {- empty -}                           { noLoc Nothing }
+maybeimpspec :: { (Maybe SrcSpan,Located (Maybe (Bool, HsCommaList (LIE RdrName)))) }
+        : impspec                               { (fst $1,L (gl (snd $1)) (Just (unLoc (snd $1)))) }
+        | {- empty -}                           { (Nothing,noLoc Nothing) }
 
-impspec :: { Located (Bool, HsCommaList (LIE RdrName)) }
-        :  '(' exportlist ')'                   { LL (False, $2) }
-        |  'hiding' '(' exportlist ')'          { LL (True,  $3) }
+impspec :: { (Maybe SrcSpan,Located (Bool, HsCommaList (LIE RdrName))) }
+        :  '(' exportlist ')'                   { (Nothing,LL (False, $2)) }
+        |  'hiding' '(' exportlist ')'          { (Just (gl $1),LL (True,  $3)) }
 
 -----------------------------------------------------------------------------
 -- Fixity Declarations

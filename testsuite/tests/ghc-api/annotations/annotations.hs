@@ -6,8 +6,10 @@ module Main where
 
 -- import Data.Generics
 import Data.Data
+import Data.List
 import System.IO
 import GHC
+import DynFlags
 import ApiAnnotation -- AZ needs to be in GHC
 import MonadUtils
 import Outputable
@@ -45,4 +47,20 @@ testOneFile libdir fileName = do
             AK l _ = fst $ head $ Map.toList p
             annLet = (getAnnotation anns l) :: Maybe AnnHsLet
 
-        print (anns,annLet,l)
+        putStrLn (intercalate "\n" [showAnns anns,pp annLet,pp l])
+
+showAnns anns = "[\n" ++ (intercalate "\n"
+   $ map (\(AK s k,v)
+              -> ("(AK " ++ pp s ++ " " ++ show k ++",\n " ++ pp v ++ ")\n"))
+   $ Map.toList anns)
+    ++ "]\n"
+
+pp a = showPpr unsafeGlobalDynFlags a
+
+-- | Retrieve an annotation based on the SrcSpan of the annotated AST
+-- element, and the known type of the annotation.
+getAnnotation1 :: (Typeable a) => ApiAnns -> SrcSpan -> Maybe a
+getAnnotation1 anns span = res
+  where res = case  Map.lookup (AK span (typeOf res)) anns of
+                       Nothing -> Nothing
+                       Just d -> Just $ fromValue d

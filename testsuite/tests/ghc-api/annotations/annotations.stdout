@@ -1,1 +1,17 @@
-(fromList [(AK (RealSrcSpan (SrcSpanPoint {srcSpanFile = "./AnnotationLet.hs", srcSpanLine = 1, srcSpanCol = 1})) (Maybe AnnHsModule),<<AnnHsModule>>),(AK (RealSrcSpan (SrcSpanOneLine {srcSpanFile = "./AnnotationLet.hs", srcSpanLine = 1, srcSpanSCol = 22, srcSpanECol = 27})) (Maybe AnnLIEs),<<AnnLIEs>>),(AK (RealSrcSpan (SrcSpanMultiLine {srcSpanFile = "./AnnotationLet.hs", srcSpanSLine = 3, srcSpanSCol = 7, srcSpanELine = 6, srcSpanECol = 15})) (Maybe AnnHsLet),<<AnnHsLet>>)],Nothing,RealSrcSpan (SrcSpanPoint {srcSpanFile = "./AnnotationLet.hs", srcSpanLine = 1, srcSpanCol = 1}))
+[
+(AK AnnotationLet.hs:1:1 Maybe AnnHsModule,
+ AnnHsModule Just (AnnotationLet.hs:1:1-6,
+                  AnnotationLet.hs:1:28-32) Nothing Nothing)
+
+(AK AnnotationLet.hs:1:22-26 Maybe AnnLIEs,
+ AnnLIEs AnnotationLet.hs:1:22 AnnotationLet.hs:1:26)
+
+(AK AnnotationLet.hs:3:1-32 Maybe AnnImportDecl,
+ AnnImportDecl Nothing Nothing Just AnnotationLet.hs:3:8-16 Nothing Just AnnotationLet.hs:3:28-29 Nothing)
+
+(AK AnnotationLet.hs:(5,7)-(8,14) Maybe AnnHsLet,
+ AnnHsLet AnnotationLet.hs:5:7-9 AnnotationLet.hs:8:7-8)
+]
+
+Nothing
+AnnotationLet.hs:1:1
