@@ -45,9 +45,10 @@ testOneFile libdir fileName = do
 
         let anns = p
             AK l _ = fst $ head $ Map.toList p
+            annModule = (getAnnotation anns l) :: Maybe AnnHsModule
             annLet = (getAnnotation anns l) :: Maybe AnnHsLet
 
-        putStrLn (intercalate "\n" [showAnns anns,pp annLet,pp l])
+        putStrLn (intercalate "\n" [showAnns anns,pp annModule,pp annLet,pp l])
 
 showAnns anns = "[\n" ++ (intercalate "\n"
    $ map (\(AK s k,v)
@@ -56,11 +57,3 @@ showAnns anns = "[\n" ++ (intercalate "\n"
     ++ "]\n"
 
 pp a = showPpr unsafeGlobalDynFlags a
-
--- | Retrieve an annotation based on the SrcSpan of the annotated AST
--- element, and the known type of the annotation.
-getAnnotation1 :: (Typeable a) => ApiAnns -> SrcSpan -> Maybe a
-getAnnotation1 anns span = res
-  where res = case  Map.lookup (AK span (typeOf res)) anns of
-                       Nothing -> Nothing
-                       Just d -> Just $ fromValue d

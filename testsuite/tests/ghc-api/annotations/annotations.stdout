@@ -13,5 +13,7 @@
  AnnHsLet AnnotationLet.hs:5:7-9 AnnotationLet.hs:8:7-8)
 ]
 
+Just AnnHsModule Just (AnnotationLet.hs:1:1-6,
+                       AnnotationLet.hs:1:28-32) Nothing Nothing
 Nothing
 AnnotationLet.hs:1:1
