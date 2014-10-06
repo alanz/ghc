@@ -78,7 +78,6 @@ import OccName          ( srcDataName, varName, isDataOcc, isTcOcc,
 import PrelNames        ( forall_tv_RDR, allNameStrings )
 import DynFlags
 import SrcLoc
-import OrdList          ( OrdList, fromOL )
 import Bag              ( emptyBag, consBag )
 import Outputable
 import FastString
@@ -123,7 +122,7 @@ mkInstD (L loc d) = L loc (InstD d)
 mkClassDecl :: SrcSpan
             -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
             -> Located [Located (FunDep RdrName)]
-            -> Located (OrdList (LHsDecl RdrName))
+            -> Located (HsCommaList (LHsDecl RdrName))
             -> P (LTyClDecl RdrName)
 
 mkClassDecl loc (L _ (mcxt, tycl_hdr)) fds where_cls
@@ -298,8 +297,8 @@ analyser.
 
 \begin{code}
 --  | Groups together bindings for a single function
-cvTopDecls :: OrdList (LHsDecl RdrName) -> [LHsDecl RdrName]
-cvTopDecls decls = go (fromOL decls)
+cvTopDecls :: HsCommaList (LHsDecl RdrName) -> [LHsDecl RdrName]
+cvTopDecls decls = go (fromCL decls)
   where
     go :: [LHsDecl RdrName] -> [LHsDecl RdrName]
     go []                   = []
@@ -308,20 +307,20 @@ cvTopDecls decls = go (fromOL decls)
     go (d : ds)             = d : go ds
 
 -- Declaration list may only contain value bindings and signatures.
-cvBindGroup :: OrdList (LHsDecl RdrName) -> HsValBinds RdrName
+cvBindGroup :: HsCommaList (LHsDecl RdrName) -> HsValBinds RdrName
 cvBindGroup binding
   = case cvBindsAndSigs binding of
       (mbs, sigs, fam_ds, tfam_insts, dfam_insts, _) 
          -> ASSERT( null fam_ds && null tfam_insts && null dfam_insts)
             ValBindsIn mbs sigs
 
-cvBindsAndSigs :: OrdList (LHsDecl RdrName)
+cvBindsAndSigs :: HsCommaList (LHsDecl RdrName)
   -> (LHsBinds RdrName, [LSig RdrName], [LFamilyDecl RdrName]
           , [LTyFamInstDecl RdrName], [LDataFamInstDecl RdrName], [LDocDecl])
 -- Input decls contain just value bindings and signatures
 -- and in case of class or instance declarations also
 -- associated type declarations. They might also contain Haddock comments.
-cvBindsAndSigs  fb = go (fromOL fb)
+cvBindsAndSigs  fb = go (fromCL fb)
   where
     go []                  = (emptyBag, [], [], [], [], [])
     go (L l (SigD s) : ds) = (bs, L l s : ss, ts, tfis, dfis, docs)
@@ -446,9 +445,9 @@ recordPatSynErr loc pat =
     text "record syntax not supported for pattern synonym declarations:" $$
     ppr pat
 
-toPatSynMatchGroup :: Located RdrName -> Located (OrdList (LHsDecl RdrName)) -> P (MatchGroup RdrName (LHsExpr RdrName))
+toPatSynMatchGroup :: Located RdrName -> Located (HsCommaList (LHsDecl RdrName)) -> P (MatchGroup RdrName (LHsExpr RdrName))
 toPatSynMatchGroup (L _ patsyn_name) (L _ decls) =
-    do { matches <- mapM fromDecl (fromOL decls)
+    do { matches <- mapM fromDecl (fromCL decls)
        ; return $ mkMatchGroup FromSource matches }
   where
     fromDecl (L loc decl@(ValD (PatBind pat@(L _ (ConPatIn (L _ name) details)) rhs _ _ _))) =

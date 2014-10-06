@@ -1,19 +1,21 @@
 [
 (AK AnnotationLet.hs:1:1 Maybe AnnHsModule,
  AnnHsModule Just (AnnotationLet.hs:1:1-6,
-                  AnnotationLet.hs:1:28-32) Nothing Nothing)
+                  AnnotationLet.hs:1:28-32) Just (AnnotationLet.hs:3:1,
+                                                  AnnotationLet.hs:10:1) Just AnnotationLet.hs:5:1)
 
 (AK AnnotationLet.hs:1:22-26 Maybe AnnLIEs,
  AnnLIEs AnnotationLet.hs:1:22 AnnotationLet.hs:1:26)
 
-(AK AnnotationLet.hs:3:1-32 Maybe AnnImportDecl,
- AnnImportDecl Nothing Nothing Just AnnotationLet.hs:3:8-16 Nothing Just AnnotationLet.hs:3:28-29 Nothing)
+(AK AnnotationLet.hs:4:1-32 Maybe AnnImportDecl,
+ AnnImportDecl Nothing Nothing Just AnnotationLet.hs:4:8-16 Nothing Just AnnotationLet.hs:4:28-29 Nothing)
 
-(AK AnnotationLet.hs:(5,7)-(8,14) Maybe AnnHsLet,
- AnnHsLet AnnotationLet.hs:5:7-9 AnnotationLet.hs:8:7-8)
+(AK AnnotationLet.hs:(6,7)-(9,14) Maybe AnnHsLet,
+ AnnHsLet AnnotationLet.hs:6:7-9 AnnotationLet.hs:9:7-8)
 ]
 
 Just AnnHsModule Just (AnnotationLet.hs:1:1-6,
-                       AnnotationLet.hs:1:28-32) Nothing Nothing
+                       AnnotationLet.hs:1:28-32) Just (AnnotationLet.hs:3:1,
+                                                       AnnotationLet.hs:10:1) Just AnnotationLet.hs:5:1
 Nothing
 AnnotationLet.hs:1:1

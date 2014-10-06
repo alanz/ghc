@@ -421,12 +421,13 @@ module  :: { Located (HsModule RdrName) }
         : maybedocheader 'module' modid maybemodwarning maybeexports 'where' body
                 {% fileSrcSpan >>= \ loc ->
                    aa (L loc (HsModule (Just $3) $5 (fst $ snd $7) (snd $ snd $7) $4 $1
-                          ) ) (AnnHsModule (Just ((gl $2),(gl $6))) (fst $ fst $7) (snd $ fst $7) ) }
+                      ) )
+                     (AnnHsModule (Just ((gl $2),(gl $6))) (fst $ fst $7) (snd $ fst $7) ) }
         | body2
                 {% fileSrcSpan >>= \ loc ->
-                   return (L loc (HsModule Nothing Nothing
-                          (fst $ snd $1) (snd $ snd $1) Nothing Nothing
-                          )) }
+                   aa (L loc (HsModule Nothing Nothing
+                               (fst $ snd $1) (snd $ snd $1) Nothing Nothing))
+                     (AnnHsModule Nothing (fst $ fst $1) (snd $ fst $1) ) }
 
 maybedocheader :: { Maybe LHsDocString }
         : moduleheader            { $1 }
@@ -604,45 +605,45 @@ ops     :: { Located [Located RdrName] }
 -----------------------------------------------------------------------------
 -- Top-Level Declarations
 
-topdecls :: { OrdList (LHsDecl RdrName) }
-        : topdecls ';' topdecl                  { $1 `appOL` $3 }
-        | topdecls ';'                          { $1 }
+topdecls :: { HsCommaList (LHsDecl RdrName) }
+        : topdecls ';' topdecl                  { $1 `appCL` $3 }
+        | topdecls ';'                          { extraCL (gl $2) $1 }
         | topdecl                               { $1 }
 
-topdecl :: { OrdList (LHsDecl RdrName) }
-        : cl_decl                               { unitOL (L1 (TyClD (unLoc $1))) }
-        | ty_decl                               { unitOL (L1 (TyClD (unLoc $1))) }
-        | inst_decl                             { unitOL (L1 (InstD (unLoc $1))) }
-        | stand_alone_deriving                  { unitOL (LL (DerivD (unLoc $1))) }
-        | role_annot                            { unitOL (L1 (RoleAnnotD (unLoc $1))) }
-        | 'default' '(' comma_types0 ')'        { unitOL (LL $ DefD (DefaultDecl $3)) }
-        | 'foreign' fdecl                       { unitOL (LL (unLoc $2)) }
+topdecl :: { HsCommaList (LHsDecl RdrName) }
+        : cl_decl                               { unitCL (L1 (TyClD (unLoc $1))) }
+        | ty_decl                               { unitCL (L1 (TyClD (unLoc $1))) }
+        | inst_decl                             { unitCL (L1 (InstD (unLoc $1))) }
+        | stand_alone_deriving                  { unitCL (LL (DerivD (unLoc $1))) }
+        | role_annot                            { unitCL (L1 (RoleAnnotD (unLoc $1))) }
+        | 'default' '(' comma_types0 ')'        { unitCL (LL $ DefD (DefaultDecl $3)) }
+        | 'foreign' fdecl                       { unitCL (LL (unLoc $2)) }
         | '{-# DEPRECATED' deprecations '#-}'   { $2 }
         | '{-# WARNING' warnings '#-}'          { $2 }
         | '{-# RULES' rules '#-}'               { $2 }
-        | '{-# VECTORISE' qvar '=' exp '#-}'    { unitOL $ LL $ VectD (HsVect       $2 $4) }
-        | '{-# NOVECTORISE' qvar '#-}'          { unitOL $ LL $ VectD (HsNoVect     $2) }
+        | '{-# VECTORISE' qvar '=' exp '#-}'    { unitCL $ LL $ VectD (HsVect       $2 $4) }
+        | '{-# NOVECTORISE' qvar '#-}'          { unitCL $ LL $ VectD (HsNoVect     $2) }
         | '{-# VECTORISE' 'type' gtycon '#-}'
-                                                { unitOL $ LL $
+                                                { unitCL $ LL $
                                                     VectD (HsVectTypeIn False $3 Nothing) }
         | '{-# VECTORISE_SCALAR' 'type' gtycon '#-}'
-                                                { unitOL $ LL $
+                                                { unitCL $ LL $
                                                     VectD (HsVectTypeIn True $3 Nothing) }
         | '{-# VECTORISE' 'type' gtycon '=' gtycon '#-}'
-                                                { unitOL $ LL $
+                                                { unitCL $ LL $
                                                     VectD (HsVectTypeIn False $3 (Just $5)) }
         | '{-# VECTORISE_SCALAR' 'type' gtycon '=' gtycon '#-}'
-                                                { unitOL $ LL $
+                                                { unitCL $ LL $
                                                     VectD (HsVectTypeIn True $3 (Just $5)) }
-        | '{-# VECTORISE' 'class' gtycon '#-}'  { unitOL $ LL $ VectD (HsVectClassIn $3) }
-        | annotation { unitOL $1 }
+        | '{-# VECTORISE' 'class' gtycon '#-}'  { unitCL $ LL $ VectD (HsVectClassIn $3) }
+        | annotation { unitCL $1 }
         | decl_no_th                            { unLoc $1 }
 
         -- Template Haskell Extension
         -- The $(..) form is one possible form of infixexp
         -- but we treat an arbitrary expression just as if
         -- it had a $(..) wrapped around it
-        | infixexp                              { unitOL (LL $ mkSpliceDecl $1) }
+        | infixexp                              { unitCL (LL $ mkSpliceDecl $1) }
 
 -- Type classes
 --
@@ -870,7 +871,7 @@ pattern_synonym_decl :: { LHsDecl RdrName }
                     mkPatSynBind name args $4 (ExplicitBidirectional mg)
                   }}
 
-where_decls :: { Located (OrdList (LHsDecl RdrName)) }
+where_decls :: { Located (HsCommaList (LHsDecl RdrName)) }
         : 'where' '{' decls '}'       { $3 }
         | 'where' vocurly decls close { $3 }
 
@@ -883,73 +884,73 @@ vars0 :: { [Located RdrName] }
 
 -- Declaration in class bodies
 --
-decl_cls  :: { Located (OrdList (LHsDecl RdrName)) }
-decl_cls  : at_decl_cls                 { LL (unitOL $1) }
+decl_cls  :: { Located (HsCommaList (LHsDecl RdrName)) }
+decl_cls  : at_decl_cls                 { LL (unitCL $1) }
           | decl                        { $1 }
 
           -- A 'default' signature used with the generic-programming extension
           | 'default' infixexp '::' sigtypedoc
                     {% do { (TypeSig l ty) <- checkValSig $2 $4
-                          ; return (LL $ unitOL (LL $ SigD (GenericSig l ty))) } }
+                          ; return (LL $ unitCL (LL $ SigD (GenericSig l ty))) } }
 
-decls_cls :: { Located (OrdList (LHsDecl RdrName)) }    -- Reversed
-          : decls_cls ';' decl_cls      { LL (unLoc $1 `appOL` unLoc $3) }
+decls_cls :: { Located (HsCommaList (LHsDecl RdrName)) }    -- Reversed
+          : decls_cls ';' decl_cls      { LL (unLoc $1 `appCL` unLoc $3) }
           | decls_cls ';'               { LL (unLoc $1) }
           | decl_cls                    { $1 }
-          | {- empty -}                 { noLoc nilOL }
+          | {- empty -}                 { noLoc nilCL }
 
 
 decllist_cls
-        :: { Located (OrdList (LHsDecl RdrName)) }      -- Reversed
+        :: { Located (HsCommaList (LHsDecl RdrName)) }      -- Reversed
         : '{'         decls_cls '}'     { LL (unLoc $2) }
         |     vocurly decls_cls close   { $2 }
 
 -- Class body
 --
-where_cls :: { Located (OrdList (LHsDecl RdrName)) }    -- Reversed
+where_cls :: { Located (HsCommaList (LHsDecl RdrName)) }    -- Reversed
                                 -- No implicit parameters
                                 -- May have type declarations
         : 'where' decllist_cls          { LL (unLoc $2) }
-        | {- empty -}                   { noLoc nilOL }
+        | {- empty -}                   { noLoc nilCL }
 
 -- Declarations in instance bodies
 --
-decl_inst  :: { Located (OrdList (LHsDecl RdrName)) }
-decl_inst  : at_decl_inst               { LL (unitOL (L1 (InstD (unLoc $1)))) }
+decl_inst  :: { Located (HsCommaList (LHsDecl RdrName)) }
+decl_inst  : at_decl_inst               { LL (unitCL (L1 (InstD (unLoc $1)))) }
            | decl                       { $1 }
 
-decls_inst :: { Located (OrdList (LHsDecl RdrName)) }   -- Reversed
-           : decls_inst ';' decl_inst   { LL (unLoc $1 `appOL` unLoc $3) }
+decls_inst :: { Located (HsCommaList (LHsDecl RdrName)) }   -- Reversed
+           : decls_inst ';' decl_inst   { LL (unLoc $1 `appCL` unLoc $3) }
            | decls_inst ';'             { LL (unLoc $1) }
            | decl_inst                  { $1 }
-           | {- empty -}                { noLoc nilOL }
+           | {- empty -}                { noLoc nilCL }
 
 decllist_inst
-        :: { Located (OrdList (LHsDecl RdrName)) }      -- Reversed
+        :: { Located (HsCommaList (LHsDecl RdrName)) }      -- Reversed
         : '{'         decls_inst '}'    { LL (unLoc $2) }
         |     vocurly decls_inst close  { $2 }
 
 -- Instance body
 --
-where_inst :: { Located (OrdList (LHsDecl RdrName)) }   -- Reversed
+where_inst :: { Located (HsCommaList (LHsDecl RdrName)) }   -- Reversed
                                 -- No implicit parameters
                                 -- May have type declarations
         : 'where' decllist_inst         { LL (unLoc $2) }
-        | {- empty -}                   { noLoc nilOL }
+        | {- empty -}                   { noLoc nilCL }
 
 -- Declarations in binding groups other than classes and instances
 --
-decls   :: { Located (OrdList (LHsDecl RdrName)) }
+decls   :: { Located (HsCommaList (LHsDecl RdrName)) }
         : decls ';' decl                { let { this = unLoc $3;
                                     rest = unLoc $1;
-                                    these = rest `appOL` this }
+                                    these = rest `appCL` this }
                               in rest `seq` this `seq` these `seq`
                                     LL these }
         | decls ';'                     { LL (unLoc $1) }
         | decl                          { $1 }
-        | {- empty -}                   { noLoc nilOL }
+        | {- empty -}                   { noLoc nilCL }
 
-decllist :: { Located (OrdList (LHsDecl RdrName)) }
+decllist :: { Located (HsCommaList (LHsDecl RdrName)) }
         : '{'            decls '}'      { LL (unLoc $2) }
         |     vocurly    decls close    { $2 }
 
@@ -970,11 +971,11 @@ wherebinds :: { Located (HsLocalBinds RdrName) }        -- May have implicit par
 -----------------------------------------------------------------------------
 -- Transformation Rules
 
-rules   :: { OrdList (LHsDecl RdrName) }
-        :  rules ';' rule                       { $1 `snocOL` $3 }
-        |  rules ';'                            { $1 }
-        |  rule                                 { unitOL $1 }
-        |  {- empty -}                          { nilOL }
+rules   :: { HsCommaList (LHsDecl RdrName) }
+        :  rules ';' rule                       { $1 `snocCL` $3 } -- AZ: TODO aa
+        |  rules ';'                            { extraCL (gl $2) $1 }
+        |  rule                                 { unitCL $1 }
+        |  {- empty -}                          { nilCL }
 
 rule    :: { LHsDecl RdrName }
         : STRING rule_activation rule_forall infixexp '=' exp
@@ -1007,28 +1008,28 @@ rule_var :: { RuleBndr RdrName }
 -----------------------------------------------------------------------------
 -- Warnings and deprecations (c.f. rules)
 
-warnings :: { OrdList (LHsDecl RdrName) }
-        : warnings ';' warning          { $1 `appOL` $3 }
+warnings :: { HsCommaList (LHsDecl RdrName) }
+        : warnings ';' warning          { $1 `appCL` $3 }
         | warnings ';'                  { $1 }
-        | warning                               { $1 }
-        | {- empty -}                           { nilOL }
+        | warning                       { $1 }
+        | {- empty -}                   { nilCL }
 
 -- SUP: TEMPORARY HACK, not checking for `module Foo'
-warning :: { OrdList (LHsDecl RdrName) }
+warning :: { HsCommaList (LHsDecl RdrName) }
         : namelist strings
-                { toOL [ LL $ WarningD (Warning n (WarningTxt $ unLoc $2))
+                { toCL [ LL $ WarningD (Warning n (WarningTxt $ unLoc $2))
                        | n <- unLoc $1 ] }
 
-deprecations :: { OrdList (LHsDecl RdrName) }
-        : deprecations ';' deprecation          { $1 `appOL` $3 }
+deprecations :: { HsCommaList (LHsDecl RdrName) }
+        : deprecations ';' deprecation          { $1 `appCL` $3 }
         | deprecations ';'                      { $1 }
         | deprecation                           { $1 }
-        | {- empty -}                           { nilOL }
+        | {- empty -}                           { nilCL }
 
 -- SUP: TEMPORARY HACK, not checking for `module Foo'
-deprecation :: { OrdList (LHsDecl RdrName) }
+deprecation :: { HsCommaList (LHsDecl RdrName) }
         : namelist strings
-                { toOL [ LL $ WarningD (Warning n (DeprecatedTxt $ unLoc $2))
+                { toCL [ LL $ WarningD (Warning n (DeprecatedTxt $ unLoc $2))
                        | n <- unLoc $1 ] }
 
 strings :: { Located [FastString] }
@@ -1437,12 +1438,12 @@ docdecld :: { LDocDecl }
         | docnamed                              { L1 (case (unLoc $1) of (n, doc) -> DocCommentNamed n doc) }
         | docsection                            { L1 (case (unLoc $1) of (n, doc) -> DocGroup n doc) }
 
-decl_no_th :: { Located (OrdList (LHsDecl RdrName)) }
+decl_no_th :: { Located (HsCommaList (LHsDecl RdrName)) }
         : sigdecl               { $1 }
 
         | '!' aexp rhs          {% do { let { e = LL (SectionR (LL (HsVar bang_RDR)) $2) };
                                         pat <- checkPattern empty e;
-                                        return $ LL $ unitOL $ LL $ ValD $
+                                        return $ LL $ unitCL $ LL $ ValD $
                                                PatBind pat (unLoc $3)
                                                        placeHolderType
                                                        placeHolderNames
@@ -1452,17 +1453,17 @@ decl_no_th :: { Located (OrdList (LHsDecl RdrName)) }
 
         | infixexp opt_sig rhs  {% do { r <- checkValDef empty $1 $2 $3;
                                         let { l = comb2 $1 $> };
-                                        return $! (sL l (unitOL $! (sL l $ ValD r))) } }
-        | pattern_synonym_decl  { LL $ unitOL $1 }
-        | docdecl               { LL $ unitOL $1 }
+                                        return $! (sL l (unitCL $! (sL l $ ValD r))) } }
+        | pattern_synonym_decl  { LL $ unitCL $1 }
+        | docdecl               { LL $ unitCL $1 }
 
-decl    :: { Located (OrdList (LHsDecl RdrName)) }
+decl    :: { Located (HsCommaList (LHsDecl RdrName)) }
         : decl_no_th            { $1 }
 
         -- Why do we only allow naked declaration splices in top-level
         -- declarations and not here? Short answer: because readFail009
         -- fails terribly with a panic in cvBindsAndSigs otherwise.
-        | splice_exp            { LL $ unitOL (LL $ mkSpliceDecl $1) }
+        | splice_exp            { LL $ unitCL (LL $ mkSpliceDecl $1) }
 
 rhs     :: { Located (GRHSs RdrName (LHsExpr RdrName)) }
         : '=' exp wherebinds    { sL (comb3 $1 $2 $3) $ GRHSs (unguardedRHS $2) (unLoc $3) }
@@ -1475,30 +1476,30 @@ gdrhs :: { Located [LGRHS RdrName (LHsExpr RdrName)] }
 gdrh :: { LGRHS RdrName (LHsExpr RdrName) }
         : '|' guardquals '=' exp        { sL (comb2 $1 $>) $ GRHS (unLoc $2) $4 }
 
-sigdecl :: { Located (OrdList (LHsDecl RdrName)) }
+sigdecl :: { Located (HsCommaList (LHsDecl RdrName)) }
         :
         -- See Note [Declaration/signature overlap] for why we need infixexp here
           infixexp '::' sigtypedoc
                         {% do s <- checkValSig $1 $3
-                        ; return (LL $ unitOL (LL $ SigD s)) }
+                        ; return (LL $ unitCL (LL $ SigD s)) }
         | var ',' sig_vars '::' sigtypedoc
-                                { LL $ toOL [ LL $ SigD (TypeSig ($1 : reverse (unLoc $3)) $5) ] }
-        | infix prec ops        { LL $ toOL [ LL $ SigD (FixSig (FixitySig n (Fixity $2 (unLoc $1))))
+                                { LL $ toCL [ LL $ SigD (TypeSig ($1 : reverse (unLoc $3)) $5) ] }
+        | infix prec ops        { LL $ toCL [ LL $ SigD (FixSig (FixitySig n (Fixity $2 (unLoc $1))))
                                              | n <- unLoc $3 ] }
         | '{-# INLINE' activation qvar '#-}'
-                { LL $ unitOL (LL $ SigD (InlineSig $3 (mkInlinePragma (getINLINE $1) $2))) }
+                { LL $ unitCL (LL $ SigD (InlineSig $3 (mkInlinePragma (getINLINE $1) $2))) }
         | '{-# SPECIALISE' activation qvar '::' sigtypes1 '#-}'
                 { let inl_prag = mkInlinePragma (EmptyInlineSpec, FunLike) $2
-                  in LL $ toOL [ LL $ SigD (SpecSig $3 t inl_prag)
+                  in LL $ toCL [ LL $ SigD (SpecSig $3 t inl_prag)
                                | t <- $5] }
         | '{-# SPECIALISE_INLINE' activation qvar '::' sigtypes1 '#-}'
-                { LL $ toOL [ LL $ SigD (SpecSig $3 t (mkInlinePragma (getSPEC_INLINE $1) $2))
+                { LL $ toCL [ LL $ SigD (SpecSig $3 t (mkInlinePragma (getSPEC_INLINE $1) $2))
                             | t <- $5] }
         | '{-# SPECIALISE' 'instance' inst_type '#-}'
-                { LL $ unitOL (LL $ SigD (SpecInstSig $3)) }
+                { LL $ unitCL (LL $ SigD (SpecInstSig $3)) }
         -- A minimal complete definition
         | '{-# MINIMAL' name_boolformula_opt '#-}'
-                { LL $ unitOL (LL $ SigD (MinimalSig $2)) }
+                { LL $ unitCL (LL $ SigD (MinimalSig $2)) }
 
 activation :: { Maybe Activation }
         : {- empty -}                           { Nothing }

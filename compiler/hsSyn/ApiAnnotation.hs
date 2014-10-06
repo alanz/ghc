@@ -92,9 +92,6 @@ fromValue (Value x) = fromMaybe (error errMsg) $ res
     errMsg = "fromValue, bad cast from " ++ show (typeOf x)
                 ++ " to " ++ show (typeOf res)
 
-instance Show Key where
-  show (Key a) = show a
-
 instance Show Value where
   show (Value a) = show a
 
