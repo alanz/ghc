@@ -37,6 +37,7 @@ import Var
 import Bag
 import FastString
 import BooleanFormula (BooleanFormula)
+import HsImpExp
 
 import Data.Data hiding ( Fixity )
 import Data.List
@@ -407,7 +408,7 @@ plusHsValBinds _ _
 getTypeSigNames :: HsValBinds a -> NameSet
 -- Get the names that have a user type sig
 getTypeSigNames (ValBindsOut _ sigs)
-  = mkNameSet [unLoc n | L _ (TypeSig names _) <- sigs, n <- names]
+  = mkNameSet [unLoc n | L _ (TypeSig names _) <- sigs, n <- fromCL names]
 getTypeSigNames _
   = panic "HsBinds.getTypeSigNames"
 \end{code}
@@ -565,7 +566,7 @@ type LSig name = Located (Sig name)
 data Sig name
   =   -- | An ordinary type signature
       -- @f :: Num a => a -> a@
-    TypeSig [Located name] (LHsType name)
+    TypeSig (HsCommaList (Located name)) (LHsType name)
 
       -- | A pattern synonym type signature
       -- @pattern (Eq b) => P a b :: (Num a) => T a
@@ -579,7 +580,7 @@ data Sig name
         --
         -- > default eq :: (Representable0 a, GEq (Rep0 a)) => a -> a -> Bool
         --
-  | GenericSig [Located name] (LHsType name)
+  | GenericSig (HsCommaList (Located name)) (LHsType name)
 
         -- | A type signature in generated code, notably the code
         -- generated for record selectors.  We simply record
@@ -722,8 +723,9 @@ instance (OutputableBndr name) => Outputable (Sig name) where
     ppr sig = ppr_sig sig
 
 ppr_sig :: OutputableBndr name => Sig name -> SDoc
-ppr_sig (TypeSig vars ty)         = pprVarSig (map unLoc vars) (ppr ty)
-ppr_sig (GenericSig vars ty)      = ptext (sLit "default") <+> pprVarSig (map unLoc vars) (ppr ty)
+ppr_sig (TypeSig vars ty)         = pprVarSig (map unLoc $ fromCL vars) (ppr ty)
+ppr_sig (GenericSig vars ty)      = ptext (sLit "default") <+> pprVarSig
+                                       (map unLoc $ fromCL vars) (ppr ty)
 ppr_sig (IdSig id)                = pprVarSig [id] (ppr (varType id))
 ppr_sig (FixSig fix_sig)          = ppr fix_sig
 ppr_sig (SpecSig var ty inl)      = pragBrackets (pprSpec (unLoc var) (ppr ty) inl)

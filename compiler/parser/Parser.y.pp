@@ -1135,9 +1135,9 @@ sigtypedoc :: { LHsType RdrName }       -- Always a HsForAllTy
         : ctypedoc                      { L1 (mkImplicitHsForAllTy (noLoc []) $1) }
         -- Wrap an Implicit forall if there isn't one there already
 
-sig_vars :: { Located [Located RdrName] }  -- Returned in reversed order
-         : sig_vars ',' var             { LL ($3 : unLoc $1) }
-         | var                          { L1 [$1] }
+sig_vars :: { Located (HsCommaList (Located RdrName)) } -- Returned in reversed order
+         : sig_vars ',' var             { LL ($3 `consCL` (unLoc $1)) }
+         | var                          { L1 (unitCL $1) }
 
 sigtypes1 :: { [LHsType RdrName] }      -- Always HsForAllTys
         : sigtype                       { [ $1 ] }
@@ -1425,7 +1425,7 @@ fielddecls1 :: { [ConDeclField RdrName] }
 
 fielddecl :: { [ConDeclField RdrName] }    -- A list because of   f,g :: Int
         : maybe_docnext sig_vars '::' ctype maybe_docprev      { [ ConDeclField fld $4 ($1 `mplus` $5)
-                                                                 | fld <- reverse (unLoc $2) ] }
+                                                                 | fld <- reverse $ fromCL (unLoc $2) ] }
 
 -- We allow the odd-looking 'inst_type' in a deriving clause, so that
 -- we can do deriving( forall a. C [a] ) in a newtype (GHC extension).
@@ -1502,15 +1502,18 @@ decl    :: { Located (HsCommaList (LHsDecl RdrName)) }
         | splice_exp            { LL $ unitCL (LL $ mkSpliceDecl $1) }
 
 rhs     :: { Located (GRHSs RdrName (LHsExpr RdrName)) }
-        : '=' exp wherebinds    { sL (comb3 $1 $2 $3) $ GRHSs (unguardedRHS $2) (unLoc $3) }
-        | gdrhs wherebinds      { LL $ GRHSs (reverse (unLoc $1)) (unLoc $2) }
+        : '=' exp wherebinds    {% aa (sL (comb3 $1 $2 $3) $ GRHSs (unguardedRHS $2) (unLoc $3))
+                                      (AnnGRHSs (Just (gl $1))) }
+        | gdrhs wherebinds      {% aa (LL $ GRHSs (reverse (unLoc $1)) (unLoc $2))
+                                      (AnnGRHSs Nothing) }
 
 gdrhs :: { Located [LGRHS RdrName (LHsExpr RdrName)] }
         : gdrhs gdrh            { LL ($2 : unLoc $1) }
         | gdrh                  { L1 [$1] }
 
 gdrh :: { LGRHS RdrName (LHsExpr RdrName) }
-        : '|' guardquals '=' exp        { sL (comb2 $1 $>) $ GRHS (unLoc $2) $4 }
+        : '|' guardquals '=' exp   {% aa (sL (comb2 $1 $>) $ GRHS (unLoc $2) $4)
+                                         (AnnGRHS (gl $1) (gl $3)) }
 
 sigdecl :: { Located (HsCommaList (LHsDecl RdrName)) }
         :
@@ -1519,7 +1522,7 @@ sigdecl :: { Located (HsCommaList (LHsDecl RdrName)) }
                         {% do s <- checkValSig $1 $3
                         ; return (LL $ unitCL (LL $ SigD s)) }
         | var ',' sig_vars '::' sigtypedoc
-                                { LL $ toCL [ LL $ SigD (TypeSig ($1 : reverse (unLoc $3)) $5) ] }
+                                { LL $ toCL [ LL $ SigD (TypeSig (unitCL $1 `appCL` extraCL (gl $2) (reverseCL (unLoc $3))) $5) ] }
         | infix prec ops        { LL $ toCL [ LL $ SigD (FixSig (FixitySig n (Fixity $2 (unLoc $1))))
                                              | n <- unLoc $3 ] }
         | '{-# INLINE' activation qvar '#-}'

@@ -55,6 +55,10 @@ module ApiAnnotation (
     -- * HsBind
     AnnPatSynBind(..),
 
+    -- * 
+    AnnGRHSs(..),
+    AnnGRHS(..),
+
     -- * HsExpr
     AnnHsLet(..),AnnHsDo(..)
 
@@ -292,6 +296,14 @@ data AnnHsVectClassIn = AnnHsVectClassIn
 data AnnPatSynBind = AnnPatSynBind
         { apatsynbind_pat, apatsynbind_op :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
+--
+
+data AnnGRHSs = AnnGRHSs { agrhss_meq :: Maybe SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnGRHS = AnnGRHS { agrhs_g,agrhs_eq :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
 
 -- HsExpr
 data AnnHsLet = AnnHsLet { ahslet_let, ahslet_in ::  SrcSpan }
@@ -408,6 +420,12 @@ instance Outputable AnnHsVectClassIn where
 instance Outputable AnnPatSynBind where
   ppr (AnnPatSynBind p o) = text "AnnPatSynBind" <+> ppr p <+> ppr o
 
+--
+instance Outputable AnnGRHSs where
+  ppr (AnnGRHSs me) = text "AnnGRHSs" <+> ppr me
+
+instance Outputable AnnGRHS where
+  ppr (AnnGRHS g e) = text "AnnGRHS" <+> ppr g <+> ppr e
 --
 instance Outputable AnnHsLet where
   ppr (AnnHsLet l i) = text "AnnHsLet" <+> ppr l <+> ppr i

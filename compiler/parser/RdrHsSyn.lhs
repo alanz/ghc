@@ -831,7 +831,7 @@ checkValSig
         -> P (Sig RdrName)
 checkValSig (L l (HsVar v)) ty
   | isUnqual v && not (isDataOcc (rdrNameOcc v))
-  = return (TypeSig [L l v] ty)
+  = return (TypeSig (unitCL (L l v)) ty)
 checkValSig lhs@(L l _) ty
   = parseErrorSDoc l ((text "Invalid type signature:" <+>
                        ppr lhs <+> text "::" <+> ppr ty)

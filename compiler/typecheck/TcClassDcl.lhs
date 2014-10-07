@@ -122,7 +122,7 @@ tcClassSigs clas sigs def_methods
       = do { traceTc "ClsSig 1" (ppr op_names)
            ; op_ty <- tcClassSigType op_hs_ty   -- Class tyvars already in scope
            ; traceTc "ClsSig 2" (ppr op_names)
-           ; return [ (op_name, f op_name, op_ty) | L _ op_name <- op_names ] }
+           ; return [ (op_name, f op_name, op_ty) | L _ op_name <- fromCL op_names ] }
            where
              f nm | nm `elemNameEnv` genop_env = GenericDM
                   | nm `elem` dm_bind_names    = VanillaDM
@@ -130,7 +130,7 @@ tcClassSigs clas sigs def_methods
 
     tc_gen_sig (op_names, gen_hs_ty)
       = do { gen_op_ty <- tcClassSigType gen_hs_ty
-           ; return [ (op_name, gen_op_ty) | L _ op_name <- op_names ] }
+           ; return [ (op_name, gen_op_ty) | L _ op_name <- fromCL op_names ] }
 \end{code}
 
 
@@ -313,7 +313,7 @@ emptyHsSigs = emptyNameEnv
 mkHsSigFun :: [LSig Name] -> HsSigFun
 mkHsSigFun sigs = mkNameEnv [(n, hs_ty)
                             | L _ (TypeSig ns hs_ty) <- sigs
-                            , L _ n <- ns ]
+                            , L _ n <- fromCL ns ]
 
 lookupHsSig :: HsSigFun -> Name -> Maybe (LHsType Name)
 lookupHsSig = lookupNameEnv

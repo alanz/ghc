@@ -669,7 +669,7 @@ mkSigTvFn sigs
     env = mkNameEnv [ (name, hsLKiTyVarNames ltvs)  -- Kind variables and type variables
                     | L _ (TypeSig names
                                    (L _ (HsForAllTy Explicit ltvs _ _))) <- sigs
-                    , (L _ name) <- names]
+                    , (L _ name) <- fromCL names]
         -- Note the pattern-match on "Explicit"; we only bind
         -- type variables from signatures with an explicit top-level for-all
 \end{code}
@@ -798,16 +798,16 @@ renameSig _ (IdSig x)
   = return (IdSig x, emptyFVs)    -- Actually this never occurs
 
 renameSig ctxt sig@(TypeSig vs ty)
-  = do  { new_vs <- mapM (lookupSigOccRn ctxt sig) vs
+  = do  { new_vs <- mapM (lookupSigOccRn ctxt sig) $ fromCL vs
         ; (new_ty, fvs) <- rnHsSigType (ppr_sig_bndrs vs) ty
-        ; return (TypeSig new_vs new_ty, fvs) }
+        ; return (TypeSig (toCL new_vs) new_ty, fvs) }
 
 renameSig ctxt sig@(GenericSig vs ty)
   = do  { defaultSigs_on <- xoptM Opt_DefaultSignatures
         ; unless defaultSigs_on (addErr (defaultSigErr sig))
-        ; new_v <- mapM (lookupSigOccRn ctxt sig) vs
+        ; new_v <- mapM (lookupSigOccRn ctxt sig) $ fromCL vs
         ; (new_ty, fvs) <- rnHsSigType (ppr_sig_bndrs vs) ty
-        ; return (GenericSig new_v new_ty, fvs) }
+        ; return (GenericSig (toCL new_v) new_ty, fvs) }
 
 renameSig _ (SpecInstSig ty)
   = do  { (new_ty, fvs) <- rnLHsType SpecInstSigCtx ty
@@ -854,8 +854,8 @@ renameSig ctxt sig@(PatSynSig v args ty prov req)
         let fvs = plusFVs [fvs1, fvs2, fvs3, fvs4]
         return (PatSynSig v' args' ty' prov' req', fvs)
 
-ppr_sig_bndrs :: [Located RdrName] -> SDoc
-ppr_sig_bndrs bs = quotes (pprWithCommas ppr bs)
+ppr_sig_bndrs :: HsCommaList (Located RdrName) -> SDoc
+ppr_sig_bndrs bs = quotes (pprWithCommas ppr $ fromCL bs)
 
 okHsSig :: HsSigCtxt -> LSig a -> Bool
 okHsSig ctxt (L _ sig)
@@ -904,8 +904,8 @@ findDupSigs sigs
   where
     expand_sig sig@(FixSig (FixitySig n _)) = [(n,sig)]
     expand_sig sig@(InlineSig n _)          = [(n,sig)]
-    expand_sig sig@(TypeSig  ns _)   = [(n,sig) | n <- ns]
-    expand_sig sig@(GenericSig ns _) = [(n,sig) | n <- ns]
+    expand_sig sig@(TypeSig  ns _)   = [(n,sig) | n <- fromCL ns]
+    expand_sig sig@(GenericSig ns _) = [(n,sig) | n <- fromCL ns]
     expand_sig _ = []
 
     matching_sig (L _ n1,sig1) (L _ n2,sig2) = n1 == n2 && mtch sig1 sig2
