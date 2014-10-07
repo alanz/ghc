@@ -21,8 +21,41 @@ module ApiAnnotation (
 
     getAnnotation,
 
-    AnnHsModule(..),AnnLIEs(..),AnnHsCommaList(..),
+    AnnHsModule(..),AnnLIEs(..),
     AnnImportDecls(..),AnnImportDecl(..),
+
+    -- * IE
+    AnnIEModuleContents(..),AnnIEVar(..),
+
+    -- * ImpExpSubSpec
+    AnnImpExpAll(..),AnnImpExpList(..),
+
+    -- * TyClDecl
+    AnnClassDecl(..),AnnSynDecl(..),AnnFamDecl(..),AnnDataDecl(..),
+
+    AnnClsInstDecl(..),
+    AnnTyFamInstDecl(..),
+    AnnDataFamInstDecl(..),
+    AnnDerivDecl(..),
+    AnnRoleAnnotDecl(..),
+    AnnDefaultDecl(..),
+    AnnForeignDecl(..),
+
+    AnnDeprecations(..),
+    AnnWarnings(..),
+    AnnRules(..),
+    AnnHsAnnotation(..),
+
+    -- * VectDecl
+    AnnHsVect(..),
+    AnnHsNoVect(..),
+    AnnHsVectTypeIn(..),
+    AnnHsVectClassIn(..),
+
+    -- * HsBind
+    AnnPatSynBind(..),
+
+    -- * HsExpr
     AnnHsLet(..),AnnHsDo(..)
 
     ) where
@@ -131,9 +164,6 @@ data AnnHsModule = AnnHsModule
 data AnnLIEs = AnnLIEs { alie_oparen, alie_cparen :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
-data AnnHsCommaList = AnnHsCommaList { ahscommalist_comma :: SrcSpan }
-            deriving (Eq,Data,Typeable,Show)
-
 data AnnImportDecls = AnnImportDecls { aimportdecls_semi :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
@@ -143,6 +173,127 @@ data AnnImportDecl = AnnImportDecl
        , aimportdecl_as,aimportdecl_hiding :: Maybe SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
+-- IE
+data AnnIEModuleContents = AnnIEModuleContents
+         { aiemodulecontents_m :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnIEVar = AnnIEVar { aiemodulecontents_o :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+-- ImpExpSubSpec
+data AnnImpExpAll = AnnImpExpAll
+      { aimpexpall_op,aimpexpall_dd,aimpexpall_cp :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnImpExpList = AnnImpExpList
+      { aimpexplist_op,aimpexplist_cp :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+-- TyClDecl
+data AnnClassDecl = AnnClassDecl { aclassdecl_class :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnSynDecl = AnnSynDecl { asyndecl_type,asyndecl_eq :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnFamDecl = AnnFamDecl { afamdecl_type,afamdecl_family :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnDataDecl = AnnDataDecl { adatadecl_dn :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+--
+
+data AnnClsInstDecl = AnnClsInstDecl { aclsinstdecl_instance :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+--
+
+data AnnTyFamInstDecl = AnnTyFamInstDecl
+         { atyfaminstdecl_type,atyfaminstdecl_inst :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+--
+
+data AnnDataFamInstDecl = AnnDataFamInstDecl
+         { adatafaminstdecl_type,adatafaminstdecl_inst :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+--
+
+data AnnDerivDecl = AnnDerivDecl
+         { aderivdecl_deriving,aderivdecl_inst :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+--
+
+data AnnRoleAnnotDecl = AnnRoleAnnotDecl
+         { aroleannotdecl_type,aroleannotdecl_role :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+--
+
+data AnnDefaultDecl = AnnDefaultDecl
+         { adefaultdecl_def,adefaultdecl_op,adefaultdecl_cp :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+--
+
+data AnnForeignDecl = AnnForeignDecl { aforeigndecl_f :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+--
+
+data AnnDeprecations = AnnDeprecations
+         { adeprecations_open,adeprecations_close :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+--
+
+data AnnWarnings = AnnWarnings
+         { awarnings_open,awarnings_close :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+--
+
+data AnnRules = AnnRules { arules_open,arules_close :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+--
+
+data AnnHsAnnotation = AnnHsAnnotation
+        { ahsannotation_open  :: SrcSpan,
+          ahsannotation_mkw   :: Maybe SrcSpan,
+          ahsannotation_close :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+
+-- VectDecl
+data AnnHsVect = AnnHsVect { ahsvect_open, ahsvect_eq,ahsvect_close :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsNoVect = AnnHsNoVect { ahsnovect_open,ahsnovect_close :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsVectTypeIn = AnnHsVectTypeIn
+       { ahsvecttypein_open,ahsvecttypein_type :: SrcSpan,
+         ahsvecttypein_meq   :: Maybe SrcSpan,
+         ahsvecttypein_close :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsVectClassIn = AnnHsVectClassIn
+        { ahsvectclassin_open,ahsvectclassin_class,
+          ahsvectclassin_close :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+-- HsBind
+
+data AnnPatSynBind = AnnPatSynBind
+        { apatsynbind_pat, apatsynbind_op :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+-- HsExpr
 data AnnHsLet = AnnHsLet { ahslet_let, ahslet_in ::  SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
@@ -156,9 +307,6 @@ instance Outputable AnnHsModule where
 instance Outputable AnnLIEs where
   ppr (AnnLIEs op cp) = text "AnnLIEs" <+> ppr op <+> ppr cp
 
-instance Outputable AnnHsCommaList where
-  ppr (AnnHsCommaList c) = text "AnnHsCommaList" <+> ppr c
-
 instance Outputable AnnImportDecls where
   ppr (AnnImportDecls s) = text "AnnImportDecls" <+> ppr s
 
@@ -166,7 +314,101 @@ instance Outputable AnnImportDecl where
   ppr (AnnImportDecl src asafe qual pkg aas ahiding)
     = text "AnnImportDecl" <+> ppr src <+> ppr asafe <+> ppr qual <+> ppr pkg
                            <+> ppr aas <+> ppr ahiding
+--
+instance Outputable AnnIEModuleContents where
+  ppr (AnnIEModuleContents m) = text "AnnIEModuleContents" <+> ppr m
 
+instance Outputable AnnIEVar where
+  ppr (AnnIEVar p) = text "AnnIEVar" <+> ppr p
+
+--
+instance Outputable AnnImpExpAll where
+  ppr (AnnImpExpAll op dd cp) = text "AnnImpExpAll" <+> ppr op <+> ppr dd
+                                                    <+> ppr cp
+
+instance Outputable AnnImpExpList where
+  ppr (AnnImpExpList op cp) = text "AnnImpExpList" <+> ppr op <+> ppr cp
+
+--
+instance Outputable AnnClassDecl where
+  ppr (AnnClassDecl c) = text "AnnClassDecl" <+> ppr c
+
+instance Outputable AnnSynDecl where
+  ppr (AnnSynDecl t e) = text "AnnSynDecl" <+> ppr t <+> ppr e
+
+instance Outputable AnnFamDecl where
+  ppr (AnnFamDecl t f) = text "AnnFamDecl" <+> ppr t <+> ppr f
+
+instance Outputable AnnDataDecl where
+  ppr (AnnDataDecl d) = text "AnnDataDecl" <+> ppr d
+
+--
+instance Outputable AnnClsInstDecl where
+  ppr (AnnClsInstDecl i) = text "AnnClsInstDecl" <+> ppr i
+
+--
+instance Outputable AnnTyFamInstDecl where
+  ppr (AnnTyFamInstDecl t i) = text "AnnTyFamInstDecl" <+> ppr t <+> ppr i
+
+--
+instance Outputable AnnDataFamInstDecl where
+  ppr (AnnDataFamInstDecl t i) = text "AnnDataFamInstDecl" <+> ppr t <+> ppr i
+
+--
+instance Outputable AnnDerivDecl where
+  ppr (AnnDerivDecl d i) = text "AnnDerivDecl" <+> ppr d <+> ppr i
+
+--
+instance Outputable AnnRoleAnnotDecl where
+  ppr (AnnRoleAnnotDecl t r) = text "AnnRoleAnnotDecl" <+> ppr t <+> ppr r
+
+--
+instance Outputable AnnDefaultDecl where
+  ppr (AnnDefaultDecl d op cp) = text "AnnDefaultDecl" <+> ppr d
+                                                       <+> ppr op <+> ppr cp
+
+--
+instance Outputable AnnForeignDecl where
+  ppr (AnnForeignDecl f) = text "AnnForeignDecl" <+> ppr f
+
+--
+instance Outputable AnnDeprecations where
+  ppr (AnnDeprecations o c) = text "AnnDeprecations" <+> ppr o <+> ppr c
+
+--
+instance Outputable AnnWarnings where
+  ppr (AnnWarnings o c) = text "AnnWarnings" <+> ppr o <+> ppr c
+
+--
+instance Outputable AnnRules where
+  ppr (AnnRules o c) = text "AnnRules" <+> ppr o <+> ppr c
+
+instance Outputable AnnHsAnnotation where
+  ppr (AnnHsAnnotation o k c) = text "AnnHsAnnotation" <+> ppr o <+> ppr k
+                                                       <+> ppr c
+
+--
+instance Outputable AnnHsVect where
+  ppr (AnnHsVect o e c) = text "AnnHsVect" <+> ppr o <+> ppr e <+> ppr c
+
+--
+instance Outputable AnnHsNoVect where
+  ppr (AnnHsNoVect o c) = text "AnnHsNoVect" <+> ppr o <+> ppr c
+
+--
+instance Outputable AnnHsVectTypeIn where
+  ppr (AnnHsVectTypeIn o t me c) = text "AnnHsVectTypeIn" <+> ppr o <+> ppr t
+                                                          <+> ppr me <+> ppr c
+--
+instance Outputable AnnHsVectClassIn where
+  ppr (AnnHsVectClassIn o k c) = text "AnnHsVectClassIn" <+> ppr o <+> ppr k
+                                                         <+> ppr c
+
+--
+instance Outputable AnnPatSynBind where
+  ppr (AnnPatSynBind p o) = text "AnnPatSynBind" <+> ppr p <+> ppr o
+
+--
 instance Outputable AnnHsLet where
   ppr (AnnHsLet l i) = text "AnnHsLet" <+> ppr l <+> ppr i
 

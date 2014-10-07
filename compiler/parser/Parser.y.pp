@@ -490,11 +490,11 @@ maybeexports :: { Maybe (Located (HsCommaList (LIE RdrName))) }
         |  {- empty -}                          { Nothing }
 
 exportlist :: { HsCommaList (LIE RdrName) }
-        : expdoclist ',' expdoclist             { $1 `appCL` $3 }
+        : expdoclist ',' expdoclist             { (extraCL (gl $2) $1) `appCL` $3 }
         | exportlist1                           { $1 }
 
 exportlist1 :: { HsCommaList (LIE RdrName) }
-        : expdoclist export expdoclist ',' exportlist1 { $1 `appCL` $2 `appCL` $3 `appCL` $5 }
+        : expdoclist export expdoclist ',' exportlist1 { $1 `appCL` $2 `appCL` (extraCL (gl $4) $3) `appCL` $5 }
         | expdoclist export expdoclist                 { $1 `appCL` $2 `appCL` $3 }
         | expdoclist                                   { $1 }
 
@@ -513,18 +513,23 @@ exp_doc :: { HsCommaList (LIE RdrName) }
 export  :: { HsCommaList (LIE RdrName) }
         : qcname_ext export_subspec     { unitCL (LL (mkModuleImpExp (unLoc $1)
                                                                      (unLoc $2))) }
-        |  'module' modid               { unitCL (LL (IEModuleContents (unLoc $2))) }
-        |  'pattern' qcon               { unitCL (LL (IEVar (unLoc $2))) }
+        |  'module' modid               {% au (LL (IEModuleContents (unLoc $2)))
+                                              (AnnIEModuleContents (gl $1)) }
+        |  'pattern' qcon               {% au (LL (IEVar (unLoc $2)))
+                                              (AnnIEVar (gl $1)) }
 
 export_subspec :: { Located ImpExpSubSpec }
         : {- empty -}                   { L0 ImpExpAbs }
-        | '(' '..' ')'                  { LL ImpExpAll }
-        | '(' ')'                       { LL (ImpExpList []) }
-        | '(' qcnames ')'               { LL (ImpExpList (reverse $2)) }
+        | '(' '..' ')'                  {% aa (LL ImpExpAll)
+                                              (AnnImpExpAll (gl $1) (gl $2) (gl $3)) }
+        | '(' ')'                       {% aa (LL (ImpExpList nilCL))
+                                              (AnnImpExpList (gl $1) (gl $2)) }
+        | '(' qcnames ')'               {% aa (LL (ImpExpList (reverseCL $2)))
+                                              (AnnImpExpList (gl $1) (gl $3)) }
 
-qcnames :: { [RdrName] }     -- A reversed list
-        :  qcnames ',' qcname_ext       { unLoc $3 : $1 }
-        |  qcname_ext                   { [unLoc $1]  }
+qcnames :: { HsCommaList (Located RdrName) }     -- A reversed list
+        :  qcnames ',' qcname_ext       {  $3 `consCL` (extraCL (gl $2) $1) }
+        |  qcname_ext                   { unitCL $1  }
 
 qcname_ext :: { Located RdrName }       -- Variable or data constructor
                                         -- or tagged type constructor
@@ -606,7 +611,7 @@ ops     :: { Located [Located RdrName] }
 -- Top-Level Declarations
 
 topdecls :: { HsCommaList (LHsDecl RdrName) }
-        : topdecls ';' topdecl                  { $1 `appCL` $3 }
+        : topdecls ';' topdecl                  { (extraCL (gl $2) $1) `appCL` $3 }
         | topdecls ';'                          { extraCL (gl $2) $1 }
         | topdecl                               { $1 }
 
@@ -616,26 +621,38 @@ topdecl :: { HsCommaList (LHsDecl RdrName) }
         | inst_decl                             { unitCL (L1 (InstD (unLoc $1))) }
         | stand_alone_deriving                  { unitCL (LL (DerivD (unLoc $1))) }
         | role_annot                            { unitCL (L1 (RoleAnnotD (unLoc $1))) }
-        | 'default' '(' comma_types0 ')'        { unitCL (LL $ DefD (DefaultDecl $3)) }
-        | 'foreign' fdecl                       { unitCL (LL (unLoc $2)) }
-        | '{-# DEPRECATED' deprecations '#-}'   { $2 }
-        | '{-# WARNING' warnings '#-}'          { $2 }
-        | '{-# RULES' rules '#-}'               { $2 }
-        | '{-# VECTORISE' qvar '=' exp '#-}'    { unitCL $ LL $ VectD (HsVect       $2 $4) }
-        | '{-# NOVECTORISE' qvar '#-}'          { unitCL $ LL $ VectD (HsNoVect     $2) }
+        | 'default' '(' comma_types0 ')'        {% au (LL $ DefD (DefaultDecl $3))
+                                                      (AnnDefaultDecl (gl $1) (gl $2) (gl $4)) }
+        | 'foreign' fdecl                       {% au (LL (unLoc $2))
+                                                      (AnnForeignDecl (gl $1)) }
+        | '{-# DEPRECATED' deprecations '#-}'   {% acl $2 (AnnDeprecations (gl $1) (gl $3)) }
+        | '{-# WARNING' warnings '#-}'          {% acl $2 (AnnWarnings (gl $1) (gl $3)) }
+        | '{-# RULES' rules '#-}'               {% acl $2 (AnnRules (gl $1) (gl $3)) }
+        | '{-# VECTORISE' qvar '=' exp '#-}'    {% au (LL $ VectD (HsVect       $2 $4))
+                                                       (AnnHsVect (gl $1) (gl $3) (gl $5))  }
+        | '{-# NOVECTORISE' qvar '#-}'          {% au (LL $ VectD (HsNoVect     $2))
+                                                       (AnnHsNoVect (gl $1) (gl $3)) }
         | '{-# VECTORISE' 'type' gtycon '#-}'
-                                                { unitCL $ LL $
-                                                    VectD (HsVectTypeIn False $3 Nothing) }
+                                                {% au (LL $
+                                                    VectD (HsVectTypeIn False $3 Nothing))
+                                                    (AnnHsVectTypeIn (gl $1) (gl $2) Nothing (gl $4)) }
+
         | '{-# VECTORISE_SCALAR' 'type' gtycon '#-}'
-                                                { unitCL $ LL $
-                                                    VectD (HsVectTypeIn True $3 Nothing) }
+                                                {% au (LL $
+                                                    VectD (HsVectTypeIn True $3 Nothing))
+                                                    (AnnHsVectTypeIn (gl $1) (gl $2) Nothing (gl $4)) }
+
         | '{-# VECTORISE' 'type' gtycon '=' gtycon '#-}'
-                                                { unitCL $ LL $
-                                                    VectD (HsVectTypeIn False $3 (Just $5)) }
+                                                {% au (LL $
+                                                    VectD (HsVectTypeIn False $3 (Just $5)))
+                                                    (AnnHsVectTypeIn (gl $1) (gl $2) (Just (gl $4)) (gl $6)) }
         | '{-# VECTORISE_SCALAR' 'type' gtycon '=' gtycon '#-}'
-                                                { unitCL $ LL $
-                                                    VectD (HsVectTypeIn True $3 (Just $5)) }
-        | '{-# VECTORISE' 'class' gtycon '#-}'  { unitCL $ LL $ VectD (HsVectClassIn $3) }
+                                                {% au (LL $
+                                                    VectD (HsVectTypeIn True $3 (Just $5)))
+                                                    (AnnHsVectTypeIn (gl $1) (gl $2) (Just (gl $4)) (gl $6)) }
+
+        | '{-# VECTORISE' 'class' gtycon '#-}'  {% au (LL $ VectD (HsVectClassIn $3))
+                                                      (AnnHsVectClassIn (gl $1) (gl $2) (gl $4)) }
         | annotation { unitCL $1 }
         | decl_no_th                            { unLoc $1 }
 
@@ -648,7 +665,8 @@ topdecl :: { HsCommaList (LHsDecl RdrName) }
 -- Type classes
 --
 cl_decl :: { LTyClDecl RdrName }
-        : 'class' tycl_hdr fds where_cls        {% mkClassDecl (comb4 $1 $2 $3 $4) $2 $3 $4 }
+        : 'class' tycl_hdr fds where_cls        {% am (mkClassDecl (comb4 $1 $2 $3 $4) $2 $3 $4)
+                                                      (AnnClassDecl (gl $1)) }
 
 -- Type declarations (toplevel)
 --
@@ -662,13 +680,15 @@ ty_decl :: { LTyClDecl RdrName }
                 --
                 -- Note the use of type for the head; this allows
                 -- infix type constructors to be declared
-                {% mkTySynonym (comb2 $1 $4) $2 $4 }
+                {% am (mkTySynonym (comb2 $1 $4) $2 $4)
+                      (AnnSynDecl (gl $1) (gl $3)) }
 
            -- type family declarations
         | 'type' 'family' type opt_kind_sig where_type_family
                 -- Note the use of type for the head; this allows
                 -- infix type constructors to be declared
-                {% mkFamDecl (comb4 $1 $3 $4 $5) (unLoc $5) $3 (unLoc $4) }
+                {% am (mkFamDecl (comb4 $1 $3 $4 $5) (unLoc $5) $3 (unLoc $4))
+                      (AnnFamDecl (gl $1) (gl $2)) }
 
           -- ordinary data type or newtype declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
@@ -681,39 +701,46 @@ ty_decl :: { LTyClDecl RdrName }
         | data_or_newtype capi_ctype tycl_hdr opt_kind_sig
                  gadt_constrlist
                  deriving
-                {% mkTyData (comb4 $1 $3 $5 $6) (unLoc $1) $2 $3
-                            (unLoc $4) (unLoc $5) (unLoc $6) }
+            {% am (mkTyData (comb4 $1 $3 $5 $6) (unLoc $1) $2 $3
+                            (unLoc $4) (unLoc $5) (unLoc $6) )
                                    -- We need the location on tycl_hdr in case
                                    -- constrs and deriving are both empty
+                  (AnnDataDecl (gl $1)) }
 
           -- data/newtype family
         | 'data' 'family' type opt_kind_sig
-                {% mkFamDecl (comb3 $1 $2 $4) DataFamily $3 (unLoc $4) }
+                {% am (mkFamDecl (comb3 $1 $2 $4) DataFamily $3 (unLoc $4))
+                      (AnnFamDecl (gl $1) (gl $2)) }
 
 inst_decl :: { LInstDecl RdrName }
         : 'instance' overlap_pragma inst_type where_inst
-                 { let (binds, sigs, _, ats, adts, _) = cvBindsAndSigs (unLoc $4) in
+               {% do
+                   let (binds, sigs, _, ats, adts, _) = cvBindsAndSigs (unLoc $4)
                    let cid = ClsInstDecl { cid_poly_ty = $3, cid_binds = binds
                                          , cid_sigs = sigs, cid_tyfam_insts = ats
                                          , cid_overlap_mode = $2
                                          , cid_datafam_insts = adts }
-                   in L (comb3 $1 $3 $4) (ClsInstD { cid_inst = cid }) }
+                   aa (L (comb3 $1 $3 $4) (ClsInstD { cid_inst = cid }))
+                      (AnnClsInstDecl (gl $1)) }
 
            -- type instance declarations
         | 'type' 'instance' ty_fam_inst_eqn
-                {% mkTyFamInst (comb2 $1 $3) $3 }
+                {% am (mkTyFamInst (comb2 $1 $3) $3)
+                      (AnnTyFamInstDecl (gl $1) (gl $2)) }
 
           -- data/newtype instance declaration
         | data_or_newtype 'instance' capi_ctype tycl_hdr constrs deriving
-                {% mkDataFamInst (comb4 $1 $4 $5 $6) (unLoc $1) $3 $4
-                                      Nothing (reverse (unLoc $5)) (unLoc $6) }
+            {% am (mkDataFamInst (comb4 $1 $4 $5 $6) (unLoc $1) $3 $4
+                                      Nothing (reverse (unLoc $5)) (unLoc $6))
+                  (AnnDataFamInstDecl (gl $1) (gl $2)) }
 
           -- GADT instance declaration
         | data_or_newtype 'instance' capi_ctype tycl_hdr opt_kind_sig
                  gadt_constrlist
                  deriving
-                {% mkDataFamInst (comb4 $1 $4 $6 $7) (unLoc $1) $3 $4
-                                     (unLoc $5) (unLoc $6) (unLoc $7) }
+            {% am (mkDataFamInst (comb4 $1 $4 $6 $7) (unLoc $1) $3 $4
+                                     (unLoc $5) (unLoc $6) (unLoc $7))
+                  (AnnDataFamInstDecl (gl $1) (gl $2)) }
 
 overlap_pragma :: { Maybe OverlapMode }
   : '{-# OVERLAPPABLE'    '#-}' { Just Overlappable }
@@ -829,14 +856,17 @@ capi_ctype : '{-# CTYPE' STRING STRING '#-}' { Just (CType (Just (Header (getSTR
 
 -- Glasgow extension: stand-alone deriving declarations
 stand_alone_deriving :: { LDerivDecl RdrName }
-  : 'deriving' 'instance' overlap_pragma inst_type { LL (DerivDecl $4 $3) }
+  : 'deriving' 'instance' overlap_pragma inst_type
+                                       {% aa (LL (DerivDecl $4 $3))
+                                             (AnnDerivDecl (gl $1) (gl $2)) }
 
 -----------------------------------------------------------------------------
 -- Role annotations
 
 role_annot :: { LRoleAnnotDecl RdrName }
 role_annot : 'type' 'role' oqtycon maybe_roles
-              {% mkRoleAnnotDecl (comb3 $1 $3 $4) $3 (reverse (unLoc $4)) }
+          {% am (mkRoleAnnotDecl (comb3 $1 $3 $4) $3 (reverse (unLoc $4)))
+                (AnnRoleAnnotDecl (gl $1) (gl $2)) }
 
 -- Reversed!
 maybe_roles :: { Located [Located (Maybe FastString)] }
@@ -858,17 +888,20 @@ role : VARID             { L1 $ Just $ getVARID $1 }
 pattern_synonym_decl :: { LHsDecl RdrName }
         : 'pattern' pat '=' pat
             {% do { (name, args) <- splitPatSyn $2
-                  ; return $ LL . ValD $ mkPatSynBind name args $4 ImplicitBidirectional
+                  ; aa (LL . ValD $ mkPatSynBind name args $4 ImplicitBidirectional)
+                       (AnnPatSynBind (gl $1) (gl $3))
                   }}
         | 'pattern' pat '<-' pat
             {% do { (name, args) <- splitPatSyn $2
-                  ; return $ LL . ValD $ mkPatSynBind name args $4 Unidirectional
+                  ; aa (LL . ValD $ mkPatSynBind name args $4 Unidirectional)
+                       (AnnPatSynBind (gl $1) (gl $3))
                   }}
         | 'pattern' pat '<-' pat where_decls
             {% do { (name, args) <- splitPatSyn $2
                   ; mg <- toPatSynMatchGroup name $5
-                  ; return $ LL . ValD $
-                    mkPatSynBind name args $4 (ExplicitBidirectional mg)
+                  ; aa (LL . ValD $
+                    mkPatSynBind name args $4 (ExplicitBidirectional mg))
+                       (AnnPatSynBind (gl $1) (gl $3))
                   }}
 
 where_decls :: { Located (HsCommaList (LHsDecl RdrName)) }
@@ -1009,8 +1042,8 @@ rule_var :: { RuleBndr RdrName }
 -- Warnings and deprecations (c.f. rules)
 
 warnings :: { HsCommaList (LHsDecl RdrName) }
-        : warnings ';' warning          { $1 `appCL` $3 }
-        | warnings ';'                  { $1 }
+        : warnings ';' warning          { (extraCL (gl $2) $1) `appCL` $3 }
+        | warnings ';'                  { (extraCL (gl $2) $1) }
         | warning                       { $1 }
         | {- empty -}                   { nilCL }
 
@@ -1021,8 +1054,8 @@ warning :: { HsCommaList (LHsDecl RdrName) }
                        | n <- unLoc $1 ] }
 
 deprecations :: { HsCommaList (LHsDecl RdrName) }
-        : deprecations ';' deprecation          { $1 `appCL` $3 }
-        | deprecations ';'                      { $1 }
+        : deprecations ';' deprecation          { (extraCL (gl $2) $1) `appCL` $3 }
+        | deprecations ';'                      { (extraCL (gl $2) $1) }
         | deprecation                           { $1 }
         | {- empty -}                           { nilCL }
 
@@ -1043,9 +1076,12 @@ stringlist :: { Located (OrdList FastString) }
 -----------------------------------------------------------------------------
 -- Annotations
 annotation :: { LHsDecl RdrName }
-    : '{-# ANN' name_var aexp '#-}'      { LL (AnnD $ HsAnnotation (ValueAnnProvenance (unLoc $2)) $3) }
-    | '{-# ANN' 'type' tycon aexp '#-}'  { LL (AnnD $ HsAnnotation (TypeAnnProvenance (unLoc $3)) $4) }
-    | '{-# ANN' 'module' aexp '#-}'      { LL (AnnD $ HsAnnotation ModuleAnnProvenance $3) }
+    : '{-# ANN' name_var aexp '#-}'      {% aa (LL (AnnD $ HsAnnotation (ValueAnnProvenance (unLoc $2)) $3))
+                                               (AnnHsAnnotation (gl $1) Nothing (gl $4)) }
+    | '{-# ANN' 'type' tycon aexp '#-}'  {% aa (LL (AnnD $ HsAnnotation (TypeAnnProvenance (unLoc $3)) $4))
+                                               (AnnHsAnnotation (gl $1) (Just (gl $2)) (gl $4)) }
+    | '{-# ANN' 'module' aexp '#-}'      {% aa (LL (AnnD $ HsAnnotation ModuleAnnProvenance $3))
+                                               (AnnHsAnnotation (gl $1) (Just (gl $2)) (gl $4)) }
 
 
 -----------------------------------------------------------------------------
@@ -2393,6 +2429,17 @@ gl = getLoc
 -- aa :: (Typeable a) => Located a -> b -> P ()
 aa a@(L l _) b = addAnnotation l b >> return a
 
+am a b = do
+  av@(L l _) <- a
+  addAnnotation l b
+  return av
+
+au a@(L l _) b = addAnnotation l b >> return (unitCL a)
+
 aj a@(Just (L l _)) b = addAnnotation l b >> return a
 
+acl cl b = do
+  let l = firstLocCL cl
+  addAnnotation l b
+  return cl
 }

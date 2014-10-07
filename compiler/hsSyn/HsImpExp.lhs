@@ -110,7 +110,8 @@ data IE name
   = IEVar               name
   | IEThingAbs          name             -- ^ Class/Type (can't tell)
   | IEThingAll          name             -- ^ Class/Type plus all methods/constructors
-  | IEThingWith         name [name]      -- ^ Class/Type plus some methods/constructors
+  | IEThingWith         name (HsCommaList (Located name))
+                 -- ^ Class/Type plus some methods/constructors
   | IEModuleContents    ModuleName       -- ^ (Export Only)
   | IEGroup             Int HsDocString  -- ^ Doc section heading
   | IEDoc               HsDocString      -- ^ Some documentation
@@ -130,7 +131,7 @@ ieNames :: IE a -> [a]
 ieNames (IEVar            n   ) = [n]
 ieNames (IEThingAbs       n   ) = [n]
 ieNames (IEThingAll       n   ) = [n]
-ieNames (IEThingWith      n ns) = n : ns
+ieNames (IEThingWith      n ns) = n : map unLoc (fromCL ns)
 ieNames (IEModuleContents _   ) = []
 ieNames (IEGroup          _ _ ) = []
 ieNames (IEDoc            _   ) = []
@@ -151,7 +152,7 @@ instance (HasOccName name, OutputableBndr name) => Outputable (IE name) where
     ppr (IEThingAbs     thing)  = pprImpExp thing
     ppr (IEThingAll     thing)  = hcat [pprImpExp thing, text "(..)"]
     ppr (IEThingWith thing withs)
-        = pprImpExp thing <> parens (fsep (punctuate comma (map pprImpExp withs)))
+        = pprImpExp thing <> parens (fsep (punctuate comma (map pprImpExp $ map unLoc $ fromCL withs)))
     ppr (IEModuleContents mod')
         = ptext (sLit "module") <+> ppr mod'
     ppr (IEGroup n _)           = text ("<IEGroup: " ++ (show n) ++ ">")
@@ -235,6 +236,13 @@ toCLWithCommas (Right x:xs) = Cons x       (toCLWithCommas xs)
 isNilCL :: HsCommaList a -> Bool
 isNilCL Empty = True
 isNilCL _ = False
+
+firstLocCL :: HsCommaList (Located a) -> SrcSpan
+firstLocCL Empty            = noSrcSpan
+firstLocCL (Cons (L l _) _) = l
+firstLocCL (ExtraComma _ a) = firstLocCL a
+firstLocCL (Snoc b _)       = firstLocCL b
+firstLocCL (Two a _)        = firstLocCL a
 \end{code}
 
 \begin{code}

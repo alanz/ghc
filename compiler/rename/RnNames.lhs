@@ -744,13 +744,13 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
 
            case mb_parent of
              -- non-associated ty/cls
-             Nothing     -> return ([(IEThingWith name children,
-                                      AvailTC name (name:children))],
+             Nothing     -> return ([(IEThingWith name (toCL children),
+                                      AvailTC name (name:map unLoc children))],
                                     [])
              -- associated ty
-             Just parent -> return ([(IEThingWith name children,
-                                      AvailTC name children),
-                                     (IEThingWith name children,
+             Just parent -> return ([(IEThingWith name (toCL children),
+                                      AvailTC name (map unLoc children)),
+                                     (IEThingWith name (toCL children),
                                       AvailTC parent [name])],
                                     [])
 
@@ -862,7 +862,8 @@ mkChildEnv gres = foldr add emptyNameEnv gres
 findChildren :: NameEnv [Name] -> Name -> [Name]
 findChildren env n = lookupNameEnv env n `orElse` []
 
-lookupChildren :: [Name] -> [RdrName] -> [Maybe Name]
+lookupChildren :: [Name] -> HsCommaList (Located RdrName)
+               -> [Maybe (Located Name)]
 -- (lookupChildren all_kids rdr_items) maps each rdr_item to its
 -- corresponding Name all_kids, if the former exists
 -- The matching is done by FastString, not OccName, so that
@@ -871,8 +872,12 @@ lookupChildren :: [Name] -> [RdrName] -> [Maybe Name]
 -- the RdrName for AssocTy may have a (bogus) DataName namespace
 -- (Really the rdr_items should be FastStrings in the first place.)
 lookupChildren all_kids rdr_items
-  = map (lookupFsEnv kid_env . occNameFS . rdrNameOcc) rdr_items
+  -- = map (lookupFsEnv kid_env . occNameFS . rdrNameOcc) (fromCL rdr_items)
+  = map doOne (fromCL rdr_items)
   where
+    doOne (L l r) = case (lookupFsEnv kid_env . occNameFS . rdrNameOcc) r of
+      Just n -> Just (L l n)
+      Nothing -> Nothing
     kid_env = mkFsEnv [(occNameFS (nameOccName n), n) | n <- all_kids]
 
 -- | Combines 'AvailInfo's from the same family
@@ -1112,15 +1117,15 @@ exports_from_avail (Just (L _ rdr_items)) rdr_env imports this_mod
     lookup_ie ie@(IEThingWith rdr sub_rdrs)
         = do name <- lookupGlobalOccRn rdr
              if isUnboundName name
-                then return (IEThingWith name [], AvailTC name [name])
+                then return (IEThingWith name nilCL, AvailTC name [name])
                 else do
              let mb_names = lookupChildren (findChildren kids_env name) sub_rdrs
              if any isNothing mb_names
                 then do addErr (exportItemErr ie)
-                        return (IEThingWith name [], AvailTC name [name])
+                        return (IEThingWith name nilCL, AvailTC name [name])
                 else do let names = catMaybes mb_names
-                        addUsedKids rdr names
-                        return (IEThingWith name names, AvailTC name (name:names))
+                        addUsedKids rdr (map unLoc names)
+                        return (IEThingWith name (toCL names), AvailTC name (name:map unLoc names))
 
     lookup_ie _ = panic "lookup_ie"    -- Other cases covered earlier
 
@@ -1378,7 +1383,7 @@ findImportUsage imports rdr_env rdrs
         add_unused (IEVar n)          acc = add_unused_name n acc
         add_unused (IEThingAbs n)     acc = add_unused_name n acc
         add_unused (IEThingAll n)     acc = add_unused_all  n acc
-        add_unused (IEThingWith p ns) acc = add_unused_with p ns acc
+        add_unused (IEThingWith p ns) acc = add_unused_with p (map unLoc $ fromCL ns) acc
         add_unused _                  acc = acc
 
         add_unused_name n acc
@@ -1535,7 +1540,7 @@ printMinimalImports imports_w_usage
                  , x `elem` xs    -- Note [Partial export]
                  ] of
            [xs] | all_used xs -> [IEThingAll n]
-                | otherwise   -> [IEThingWith n (filter (/= n) ns)]
+                | otherwise   -> [IEThingWith n (toCL $ map noLoc (filter (/= n) ns))]
            _other             -> map IEVar ns
         where
           all_used avail_occs = all (`elem` ns) avail_occs
