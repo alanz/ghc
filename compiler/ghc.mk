@@ -71,6 +71,10 @@ compiler/stage%/build/Config.hs : mk/config.mk mk/project.mk | $$(dir $$@)/.
 	@echo 'cProjectVersionInt    = "$(ProjectVersionInt)"'              >> $@
 	@echo 'cProjectPatchLevel    :: String'                             >> $@
 	@echo 'cProjectPatchLevel    = "$(ProjectPatchLevel)"'              >> $@
+	@echo 'cProjectPatchLevel1   :: String'                             >> $@
+	@echo 'cProjectPatchLevel1   = "$(ProjectPatchLevel1)"'             >> $@
+	@echo 'cProjectPatchLevel2   :: String'                             >> $@
+	@echo 'cProjectPatchLevel2   = "$(ProjectPatchLevel2)"'             >> $@
 	@echo 'cBooterVersion        :: String'                             >> $@
 	@echo 'cBooterVersion        = "$(GhcVersion)"'                     >> $@
 	@echo 'cStage                :: String'                             >> $@
@@ -259,10 +263,10 @@ compiler_CPP_OPTS += ${GhcCppOpts}
 define preprocessCompilerFiles
 # $0 = stage
 compiler/stage$1/build/Parser.y: compiler/parser/Parser.y.pp
-	$$(CPP) $$(RAWCPP_FLAGS) -P $$(compiler_CPP_OPTS) -x c $$< | grep -v '^#pragma GCC' > $$@
+	$$(CPP) -P $$(compiler_CPP_OPTS) -x c $$< | grep -v '^#pragma GCC' > $$@
 
 compiler/stage$1/build/primops.txt: compiler/prelude/primops.txt.pp compiler/stage$1/$$(PLATFORM_H)
-	$$(CPP) $$(RAWCPP_FLAGS) -P $$(compiler_CPP_OPTS) -Icompiler/stage$1 -x c $$< | grep -v '^#pragma GCC' > $$@
+	$$(CPP) -P $$(compiler_CPP_OPTS) -Icompiler/stage$1 -x c $$< | grep -v '^#pragma GCC' > $$@
 
 compiler/stage$1/build/primop-data-decl.hs-incl: compiler/stage$1/build/primops.txt $$$$(genprimopcode_INPLACE)
 	"$$(genprimopcode_INPLACE)" --data-decl          < $$< > $$@
