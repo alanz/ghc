@@ -89,6 +89,7 @@ import Coercion
 import ForeignCall
 import PlaceHolder ( PostTc,PostRn,PlaceHolder(..),DataId )
 import NameSet
+import HsImpExp
 
 -- others:
 import InstEnv
@@ -529,7 +530,7 @@ data FamilyInfo name
   | OpenTypeFamily
      -- this list might be empty, if we're in an hs-boot file and the user
      -- said "type family Foo x where .."
-  | ClosedTypeFamily [LTyFamInstEqn name]
+  | ClosedTypeFamily (HsCommaList (LTyFamInstEqn name))
   deriving( Typeable )
 deriving instance (DataId name) => Data (FamilyInfo name)
 
@@ -723,9 +724,9 @@ instance (OutputableBndr name) => Outputable (FamilyDecl name) where
                       Just kind -> dcolon <+> ppr kind
           (pp_where, pp_eqns) = case info of
             ClosedTypeFamily eqns -> ( ptext (sLit "where")
-                                     , if null eqns
+                                     , if isNilCL eqns
                                        then ptext (sLit "..")
-                                       else vcat $ map ppr_fam_inst_eqn eqns )
+                                       else vcat $ map ppr_fam_inst_eqn $ fromCL eqns )
             _                     -> (empty, empty)
 
 pprFlavour :: FamilyInfo name -> SDoc
@@ -781,7 +782,7 @@ data HsDataDefn name   -- The payload of a data type defn
     -- @
     HsDataDefn { dd_ND     :: NewOrData,
                  dd_ctxt   :: LHsContext name,           -- ^ Context
-                 dd_cType  :: Maybe CType,
+                 dd_cType  :: Maybe (Located CType),
                  dd_kindSig:: Maybe (LHsKind name),
                      -- ^ Optional kind signature.
                      --

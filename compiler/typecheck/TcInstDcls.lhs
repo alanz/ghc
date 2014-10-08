@@ -728,7 +728,7 @@ tcDataFamInstDecl mb_clsinfo
                                                (mkTyConApp rep_tc (mkTyVarTys eta_tvs))
                     parent   = FamInstTyCon axiom fam_tc pats'
                     roles    = map (const Nominal) tvs'
-                    rep_tc   = buildAlgTyCon rep_tc_name tvs' roles cType stupid_theta tc_rhs
+                    rep_tc   = buildAlgTyCon rep_tc_name tvs' roles (fmap unLoc cType) stupid_theta tc_rhs
                                              Recursive
                                              False      -- No promotable to the kind level
                                              gadt_syntax parent

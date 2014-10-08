@@ -519,13 +519,13 @@ export  :: { HsCommaList (LIE RdrName) }
                                               (AnnIEVar (gl $1)) }
 
 export_subspec :: { Located ImpExpSubSpec }
-        : {- empty -}                   { L0 ImpExpAbs }
-        | '(' '..' ')'                  {% aa (LL ImpExpAll)
-                                              (AnnImpExpAll (gl $1) (gl $2) (gl $3)) }
-        | '(' ')'                       {% aa (LL (ImpExpList nilCL))
-                                              (AnnImpExpList (gl $1) (gl $2)) }
-        | '(' qcnames ')'               {% aa (LL (ImpExpList (reverseCL $2)))
-                                              (AnnImpExpList (gl $1) (gl $3)) }
+        : {- empty -}             { L0 ImpExpAbs }
+        | '(' '..' ')'            {% aa (LL ImpExpAll)
+                                        (AnnImpExpAll (gl $1) (gl $2) (gl $3)) }
+        | '(' ')'                 {% aa (LL (ImpExpList nilCL))
+                                        (AnnImpExpList (gl $1) (gl $2)) }
+        | '(' qcnames ')'         {% aa (LL (ImpExpList (reverseCL $2)))
+                                        (AnnImpExpList (gl $1) (gl $3)) }
 
 qcnames :: { HsCommaList (Located RdrName) }     -- A reversed list
         :  qcnames ',' qcname_ext       {  $3 `consCL` (extraCL (gl $2) $1) }
@@ -548,8 +548,7 @@ qcname  :: { Located RdrName }  -- Variable or data constructor
 -- whereas topdecls must contain at least one topdecl.
 
 importdecls :: { HsCommaList (LImportDecl RdrName) }
-        : importdecls ';' importdecl     {% aa $3 (AnnImportDecls (gl $2))
-                                            >> return ((unitCL $3) `appCL` $1) }
+        : importdecls ';' importdecl     { (unitCL $3) `appCL` (extraCL (gl $2) $1) }
         | importdecls ';'                { extraCL (gl $2) $1 }
         | importdecl                     { unitCL $1 }
         | {- empty -}                    { nilCL }
@@ -603,9 +602,9 @@ infix   :: { Located FixityDirection }
         | 'infixl'                              { L1 InfixL  }
         | 'infixr'                              { L1 InfixR }
 
-ops     :: { Located [Located RdrName] }
-        : ops ',' op                            { LL ($3 : unLoc $1) }
-        | op                                    { L1 [$1] }
+ops     :: { Located (HsCommaList (Located RdrName)) }
+        : ops ',' op                            { LL (unitCL $3 `appCL` (extraCL (gl $2) (unLoc $1))) }
+        | op                                    { L1 (unitCL $1) }
 
 -----------------------------------------------------------------------------
 -- Top-Level Declarations
@@ -688,14 +687,15 @@ ty_decl :: { LTyClDecl RdrName }
                 -- Note the use of type for the head; this allows
                 -- infix type constructors to be declared
                 {% am (mkFamDecl (comb4 $1 $3 $4 $5) (unLoc $5) $3 (unLoc $4))
-                      (AnnFamDecl (gl $1) (gl $2)) }
+                      (AnnFamDecl (gl $1) (Just (gl $2))) }
 
           -- ordinary data type or newtype declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
-                {% mkTyData (comb4 $1 $3 $4 $5) (unLoc $1) $2 $3
-                            Nothing (reverse (unLoc $4)) (unLoc $5) }
+                {% am (mkTyData (comb4 $1 $3 $4 $5) (unLoc $1) $2 $3
+                            Nothing (reverse (unLoc $4)) (unLoc $5))
                                    -- We need the location on tycl_hdr in case
                                    -- constrs and deriving are both empty
+                      (AnnDataDecl (gl $1)) }
 
           -- ordinary GADT declaration
         | data_or_newtype capi_ctype tycl_hdr opt_kind_sig
@@ -710,7 +710,7 @@ ty_decl :: { LTyClDecl RdrName }
           -- data/newtype family
         | 'data' 'family' type opt_kind_sig
                 {% am (mkFamDecl (comb3 $1 $2 $4) DataFamily $3 (unLoc $4))
-                      (AnnFamDecl (gl $1) (gl $2)) }
+                      (AnnFamDecl (gl $1) (Just (gl $2))) }
 
 inst_decl :: { LInstDecl RdrName }
         : 'instance' overlap_pragma inst_type where_inst
@@ -718,21 +718,21 @@ inst_decl :: { LInstDecl RdrName }
                    let (binds, sigs, _, ats, adts, _) = cvBindsAndSigs (unLoc $4)
                    let cid = ClsInstDecl { cid_poly_ty = $3, cid_binds = binds
                                          , cid_sigs = sigs, cid_tyfam_insts = ats
-                                         , cid_overlap_mode = $2
+                                         , cid_overlap_mode = snd $2
                                          , cid_datafam_insts = adts }
                    aa (L (comb3 $1 $3 $4) (ClsInstD { cid_inst = cid }))
-                      (AnnClsInstDecl (gl $1)) }
+                      (AnnClsInstDecl (gl $1) (fst $2)) }
 
            -- type instance declarations
         | 'type' 'instance' ty_fam_inst_eqn
                 {% am (mkTyFamInst (comb2 $1 $3) $3)
-                      (AnnTyFamInstDecl (gl $1) (gl $2)) }
+                      (AnnTyFamInstDecl (gl $1) (Just (gl $2))) }
 
           -- data/newtype instance declaration
         | data_or_newtype 'instance' capi_ctype tycl_hdr constrs deriving
             {% am (mkDataFamInst (comb4 $1 $4 $5 $6) (unLoc $1) $3 $4
                                       Nothing (reverse (unLoc $5)) (unLoc $6))
-                  (AnnDataFamInstDecl (gl $1) (gl $2)) }
+                  (AnnDataFamInstDecl (gl $1) (Just (gl $2))) }
 
           -- GADT instance declaration
         | data_or_newtype 'instance' capi_ctype tycl_hdr opt_kind_sig
@@ -740,40 +740,42 @@ inst_decl :: { LInstDecl RdrName }
                  deriving
             {% am (mkDataFamInst (comb4 $1 $4 $6 $7) (unLoc $1) $3 $4
                                      (unLoc $5) (unLoc $6) (unLoc $7))
-                  (AnnDataFamInstDecl (gl $1) (gl $2)) }
+                  (AnnDataFamInstDecl (gl $1) (Just (gl $2))) }
 
-overlap_pragma :: { Maybe OverlapMode }
-  : '{-# OVERLAPPABLE'    '#-}' { Just Overlappable }
-  | '{-# OVERLAPPING'     '#-}' { Just Overlapping }
-  | '{-# OVERLAPS'        '#-}' { Just Overlaps }
-  | '{-# INCOHERENT'      '#-}' { Just Incoherent }
-  | {- empty -}                 { Nothing }
+overlap_pragma :: { (Maybe (SrcSpan,SrcSpan),Maybe OverlapMode) }
+  : '{-# OVERLAPPABLE'    '#-}' { (Just (gl $1,gl $2), Just Overlappable) }
+  | '{-# OVERLAPPING'     '#-}' { (Just (gl $1,gl $2), Just Overlapping) }
+  | '{-# OVERLAPS'        '#-}' { (Just (gl $1,gl $2), Just Overlaps) }
+  | '{-# INCOHERENT'      '#-}' { (Just (gl $1,gl $2), Just Incoherent) }
+  | {- empty -}                 { (Nothing,Nothing) }
 
 
 -- Closed type families
 
-where_type_family :: { Located (FamilyInfo RdrName) }
+where_type_family :: { (Located (FamilyInfo RdrName)) }
         : {- empty -}                      { noLoc OpenTypeFamily }
         | 'where' ty_fam_inst_eqn_list
-               { LL (ClosedTypeFamily (reverse (unLoc $2))) }
+               {% aa (LL (ClosedTypeFamily (reverseCL (snd $ snd $ unLoc $2))))
+                     (AnnClosedTypeFamily (gl $1) (fst $ unLoc $2) (fst $ snd $ unLoc $2)) }
 
-ty_fam_inst_eqn_list :: { Located [LTyFamInstEqn RdrName] }
-        :     '{' ty_fam_inst_eqns '}'     { LL (unLoc $2) }
-        | vocurly ty_fam_inst_eqns close   { $2 }
-        |     '{' '..' '}'                 { LL [] }
-        | vocurly '..' close               { let L loc _ = $2 in L loc [] }
+ty_fam_inst_eqn_list :: { Located (Maybe (SrcSpan,SrcSpan),(Maybe SrcSpan
+                          , (HsCommaList (LTyFamInstEqn RdrName)))) }
+        :     '{' ty_fam_inst_eqns '}'     { LL (Just (gl $1,gl $3), (Nothing,(unLoc $2))) }
+        | vocurly ty_fam_inst_eqns close   { let L loc _ = $2 in L loc (Nothing,(Nothing,unLoc $2)) }
+        |     '{' '..' '}'                 { LL (Just (gl $1,gl $3), (Just (gl $2),nilCL)) }
+        | vocurly '..' close               { let L loc _ = $2 in L loc (Nothing,(Just (gl $2),nilCL)) }
 
-ty_fam_inst_eqns :: { Located [LTyFamInstEqn RdrName] }
-        : ty_fam_inst_eqns ';' ty_fam_inst_eqn   { LL ($3 : unLoc $1) }
-        | ty_fam_inst_eqns ';'                   { LL (unLoc $1) }
-        | ty_fam_inst_eqn                        { LL [$1] }
+ty_fam_inst_eqns :: { Located (HsCommaList (LTyFamInstEqn RdrName)) }
+        : ty_fam_inst_eqns ';' ty_fam_inst_eqn   { LL ((unitCL $3) `appCL` extraCL (gl $2) (unLoc $1)) }
+        | ty_fam_inst_eqns ';'                   { LL (extraCL (gl $2) (unLoc $1)) }
+        | ty_fam_inst_eqn                        { LL (unitCL $1) }
 
 ty_fam_inst_eqn :: { LTyFamInstEqn RdrName }
         : type '=' ctype
                 -- Note the use of type for the head; this allows
                 -- infix type constructors and type patterns
               {% do { eqn <- mkTyFamInstEqn $1 $3
-                    ; return (LL eqn) } }
+                    ; aa (LL eqn) (AnnTyFamInstEqn (gl $2)) } }
 
 -- Associated type family declarations
 --
@@ -787,25 +789,31 @@ ty_fam_inst_eqn :: { LTyFamInstEqn RdrName }
 at_decl_cls :: { LHsDecl RdrName }
         :  -- data family declarations, with optional 'family' keyword
           'data' opt_family type opt_kind_sig
-                {% liftM mkTyClD (mkFamDecl (comb3 $1 $3 $4) DataFamily $3 (unLoc $4)) }
+                {% am (liftM mkTyClD (mkFamDecl (comb3 $1 $3 $4) DataFamily $3 (unLoc $4)))
+                      (AnnFamDecl (gl $1) $2) }
 
            -- type family declarations, with optional 'family' keyword
            -- (can't use opt_instance because you get shift/reduce errors
         | 'type' type opt_kind_sig
-                {% liftM mkTyClD (mkFamDecl (comb3 $1 $2 $3) OpenTypeFamily $2 (unLoc $3)) }
+                {% am (liftM mkTyClD (mkFamDecl (comb3 $1 $2 $3) OpenTypeFamily $2 (unLoc $3)))
+                      (AnnFamDecl (gl $1) Nothing)  }
         | 'type' 'family' type opt_kind_sig
-                {% liftM mkTyClD (mkFamDecl (comb3 $1 $3 $4) OpenTypeFamily $3 (unLoc $4)) }
+                {% am (liftM mkTyClD (mkFamDecl (comb3 $1 $3 $4) OpenTypeFamily $3 (unLoc $4)))
+                      (AnnFamDecl (gl $1) (Just (gl $2))) }
 
            -- default type instances, with optional 'instance' keyword
         | 'type' ty_fam_inst_eqn
-                {% liftM mkInstD (mkTyFamInst (comb2 $1 $2) $2) }
+                {% am (liftM mkInstD (mkTyFamInst (comb2 $1 $2) $2))
+                      (AnnTyFamInstDecl (gl $1) Nothing ) }
         | 'type' 'instance' ty_fam_inst_eqn
-                {% liftM mkInstD (mkTyFamInst (comb2 $1 $3) $3) }
+                {% am (liftM mkInstD (mkTyFamInst (comb2 $1 $3) $3))
+                      (AnnTyFamInstDecl (gl $1) (Just (gl $2)) ) }
 
-opt_family   :: { () }
-              : {- empty -}   { () }
-              | 'family'      { () }
+opt_family   :: { Maybe SrcSpan }
+              : {- empty -}   { Nothing }
+              | 'family'      { Just (gl $1) }
 
+-- ++AZ++ up to here
 -- Associated type instances
 --
 at_decl_inst :: { LInstDecl RdrName }
@@ -813,12 +821,14 @@ at_decl_inst :: { LInstDecl RdrName }
         : 'type' ty_fam_inst_eqn
                 -- Note the use of type for the head; this allows
                 -- infix type constructors and type patterns
-                {% mkTyFamInst (comb2 $1 $2) $2 }
+                {% am (mkTyFamInst (comb2 $1 $2) $2)
+                      (AnnTyFamInstDecl (gl $1) Nothing) }
 
         -- data/newtype instance declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
-                {% mkDataFamInst (comb4 $1 $3 $4 $5) (unLoc $1) $2 $3
-                                 Nothing (reverse (unLoc $4)) (unLoc $5) }
+                {% am (mkDataFamInst (comb4 $1 $3 $4 $5) (unLoc $1) $2 $3
+                                     Nothing (reverse (unLoc $4)) (unLoc $5))
+                      (AnnDataFamInstDecl (gl $1) Nothing) }
 
         -- GADT instance declaration
         | data_or_newtype capi_ctype tycl_hdr opt_kind_sig
@@ -846,9 +856,9 @@ tycl_hdr :: { Located (Maybe (LHsContext RdrName), LHsType RdrName) }
         : context '=>' type             { LL (Just $1, $3) }
         | type                          { L1 (Nothing, $1) }
 
-capi_ctype :: { Maybe CType }
-capi_ctype : '{-# CTYPE' STRING STRING '#-}' { Just (CType (Just (Header (getSTRING $2))) (getSTRING $3)) }
-           | '{-# CTYPE'        STRING '#-}' { Just (CType Nothing                        (getSTRING $2)) }
+capi_ctype :: { Maybe (Located CType) }
+capi_ctype : '{-# CTYPE' STRING STRING '#-}' { Just (LL (CType (Just (Header (getSTRING $2))) (getSTRING $3))) }
+           | '{-# CTYPE'        STRING '#-}' { Just (LL (CType Nothing                        (getSTRING $2))) }
            |                                 { Nothing }
 
 -----------------------------------------------------------------------------
@@ -857,8 +867,8 @@ capi_ctype : '{-# CTYPE' STRING STRING '#-}' { Just (CType (Just (Header (getSTR
 -- Glasgow extension: stand-alone deriving declarations
 stand_alone_deriving :: { LDerivDecl RdrName }
   : 'deriving' 'instance' overlap_pragma inst_type
-                                       {% aa (LL (DerivDecl $4 $3))
-                                             (AnnDerivDecl (gl $1) (gl $2)) }
+                                       {% aa (LL (DerivDecl $4 (snd $3)))
+                                             (AnnDerivDecl (gl $1) (gl $2) (fst $3)) }
 
 -----------------------------------------------------------------------------
 -- Role annotations
@@ -1524,7 +1534,7 @@ sigdecl :: { Located (HsCommaList (LHsDecl RdrName)) }
         | var ',' sig_vars '::' sigtypedoc
                                 { LL $ toCL [ LL $ SigD (TypeSig (unitCL $1 `appCL` extraCL (gl $2) (reverseCL (unLoc $3))) $5) ] }
         | infix prec ops        { LL $ toCL [ LL $ SigD (FixSig (FixitySig n (Fixity $2 (unLoc $1))))
-                                             | n <- unLoc $3 ] }
+                                             | n <- fromCL $ unLoc $3 ] }
         | '{-# INLINE' activation qvar '#-}'
                 { LL $ unitCL (LL $ SigD (InlineSig $3 (mkInlinePragma (getINLINE $1) $2))) }
         | '{-# SPECIALISE' activation qvar '::' sigtypes1 '#-}'

@@ -6,8 +6,12 @@
 HsImpExp: Abstract syntax: imports, exports, interfaces
 
 \begin{code}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveFunctor      #-}
+{-# LANGUAGE DeriveFoldable     #-}
+{-# LANGUAGE DeriveTraversable  #-}
 
 module HsImpExp where
 
@@ -20,6 +24,10 @@ import FastString
 import SrcLoc
 
 import Data.Data
+#if __GLASGOW_HASKELL__ < 709
+import Data.Foldable ( Foldable )
+import Data.Traversable ( Traversable )
+#endif
 \end{code}
 
 %************************************************************************
@@ -169,13 +177,14 @@ instance (HasOccName name, OutputableBndr name) => Outputable (IE name) where
 data HsCommaList a
   = Empty
   | Cons a (HsCommaList a)
+-- AZ : currently abusing ExtraComma to capture all commas.
   | ExtraComma SrcSpan (HsCommaList a)
        -- ^ We need a SrcSpan for the annotation
   | Snoc (HsCommaList a) a
   | Two (HsCommaList a) -- Invariant: non-empty
         (HsCommaList a) -- Invariant: non-empty
 
-  deriving (Data,Typeable)
+  deriving (Data,Typeable,Functor,Foldable,Traversable)
 deriving instance (Eq a) => Eq (HsCommaList a)
 
 infixl 5  `appCL`

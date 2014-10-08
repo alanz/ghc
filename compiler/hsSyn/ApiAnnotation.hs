@@ -22,7 +22,7 @@ module ApiAnnotation (
     getAnnotation,
 
     AnnHsModule(..),AnnLIEs(..),
-    AnnImportDecls(..),AnnImportDecl(..),
+    AnnImportDecl(..),
 
     -- * IE
     AnnIEModuleContents(..),AnnIEVar(..),
@@ -46,16 +46,22 @@ module ApiAnnotation (
     AnnRules(..),
     AnnHsAnnotation(..),
 
+    -- * FamilyInfo
+    AnnClosedTypeFamily(..),
+
     -- * VectDecl
     AnnHsVect(..),
     AnnHsNoVect(..),
     AnnHsVectTypeIn(..),
     AnnHsVectClassIn(..),
 
+    -- *
+    AnnTyFamInstEqn(..),
+
     -- * HsBind
     AnnPatSynBind(..),
 
-    -- * 
+    -- *
     AnnGRHSs(..),
     AnnGRHS(..),
 
@@ -168,9 +174,6 @@ data AnnHsModule = AnnHsModule
 data AnnLIEs = AnnLIEs { alie_oparen, alie_cparen :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
-data AnnImportDecls = AnnImportDecls { aimportdecls_semi :: SrcSpan }
-            deriving (Eq,Data,Typeable,Show)
-
 data AnnImportDecl = AnnImportDecl
        { aimportdecl_src :: Maybe (SrcSpan,SrcSpan)
        , aimportdecl_safe,aimportdecl_qual,aimportdecl_pkg
@@ -201,7 +204,8 @@ data AnnClassDecl = AnnClassDecl { aclassdecl_class :: SrcSpan }
 data AnnSynDecl = AnnSynDecl { asyndecl_type,asyndecl_eq :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
-data AnnFamDecl = AnnFamDecl { afamdecl_type,afamdecl_family :: SrcSpan }
+data AnnFamDecl = AnnFamDecl
+       { afamdecl_td :: SrcSpan, afamdecl_mfamily :: Maybe SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
 data AnnDataDecl = AnnDataDecl { adatadecl_dn :: SrcSpan }
@@ -209,25 +213,32 @@ data AnnDataDecl = AnnDataDecl { adatadecl_dn :: SrcSpan }
 
 --
 
-data AnnClsInstDecl = AnnClsInstDecl { aclsinstdecl_instance :: SrcSpan }
+data AnnClsInstDecl = AnnClsInstDecl
+        { aclsinstdecl_instance :: SrcSpan
+        , aclsinstdecl_overlap  :: Maybe (SrcSpan,SrcSpan) }
             deriving (Eq,Data,Typeable,Show)
 
 --
 
 data AnnTyFamInstDecl = AnnTyFamInstDecl
-         { atyfaminstdecl_type,atyfaminstdecl_inst :: SrcSpan }
+         { atyfaminstdecl_type :: SrcSpan
+         , atyfaminstdecl_minst :: Maybe SrcSpan
+         }
             deriving (Eq,Data,Typeable,Show)
 
 --
 
 data AnnDataFamInstDecl = AnnDataFamInstDecl
-         { adatafaminstdecl_type,adatafaminstdecl_inst :: SrcSpan }
+         { adatafaminstdecl_type :: SrcSpan
+         , adatafaminstdecl_minst :: Maybe SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
 --
 
 data AnnDerivDecl = AnnDerivDecl
-         { aderivdecl_deriving,aderivdecl_inst :: SrcSpan }
+         { aderivdecl_deriving,aderivdecl_inst :: SrcSpan
+         , aderivdecl_overlap :: Maybe (SrcSpan,SrcSpan)
+         }
             deriving (Eq,Data,Typeable,Show)
 
 --
@@ -272,6 +283,13 @@ data AnnHsAnnotation = AnnHsAnnotation
           ahsannotation_close :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
+-- FamilyInfo
+data AnnClosedTypeFamily = AnnClosedTypeFamily
+          { aclosedtypefamily_where :: SrcSpan
+          , aclosedtypefamily_braces :: Maybe (SrcSpan,SrcSpan)
+          , aclosedtypefamily_dd :: Maybe SrcSpan
+          }
+            deriving (Eq,Data,Typeable,Show)
 
 -- VectDecl
 data AnnHsVect = AnnHsVect { ahsvect_open, ahsvect_eq,ahsvect_close :: SrcSpan }
@@ -289,6 +307,10 @@ data AnnHsVectTypeIn = AnnHsVectTypeIn
 data AnnHsVectClassIn = AnnHsVectClassIn
         { ahsvectclassin_open,ahsvectclassin_class,
           ahsvectclassin_close :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+--
+data AnnTyFamInstEqn = AnnTyFamInstEqn { atyfaminsteqn_eq :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
 -- HsBind
@@ -318,9 +340,6 @@ instance Outputable AnnHsModule where
 
 instance Outputable AnnLIEs where
   ppr (AnnLIEs op cp) = text "AnnLIEs" <+> ppr op <+> ppr cp
-
-instance Outputable AnnImportDecls where
-  ppr (AnnImportDecls s) = text "AnnImportDecls" <+> ppr s
 
 instance Outputable AnnImportDecl where
   ppr (AnnImportDecl src asafe qual pkg aas ahiding)
@@ -356,7 +375,7 @@ instance Outputable AnnDataDecl where
 
 --
 instance Outputable AnnClsInstDecl where
-  ppr (AnnClsInstDecl i) = text "AnnClsInstDecl" <+> ppr i
+  ppr (AnnClsInstDecl i o) = text "AnnClsInstDecl" <+> ppr i <+> ppr o
 
 --
 instance Outputable AnnTyFamInstDecl where
@@ -368,7 +387,7 @@ instance Outputable AnnDataFamInstDecl where
 
 --
 instance Outputable AnnDerivDecl where
-  ppr (AnnDerivDecl d i) = text "AnnDerivDecl" <+> ppr d <+> ppr i
+  ppr (AnnDerivDecl d i o) = text "AnnDerivDecl" <+> ppr d <+> ppr i <+> ppr o
 
 --
 instance Outputable AnnRoleAnnotDecl where
@@ -398,7 +417,10 @@ instance Outputable AnnRules where
 instance Outputable AnnHsAnnotation where
   ppr (AnnHsAnnotation o k c) = text "AnnHsAnnotation" <+> ppr o <+> ppr k
                                                        <+> ppr c
-
+--
+instance Outputable AnnClosedTypeFamily where
+  ppr (AnnClosedTypeFamily w b d) = text "AnnClosedTypeFamily" <+> ppr w
+                  <+> ppr b <+> ppr d
 --
 instance Outputable AnnHsVect where
   ppr (AnnHsVect o e c) = text "AnnHsVect" <+> ppr o <+> ppr e <+> ppr c
@@ -416,6 +438,9 @@ instance Outputable AnnHsVectClassIn where
   ppr (AnnHsVectClassIn o k c) = text "AnnHsVectClassIn" <+> ppr o <+> ppr k
                                                          <+> ppr c
 
+--
+instance Outputable AnnTyFamInstEqn where
+  ppr (AnnTyFamInstEqn e) = text "AnnTyFamInstEqn" <+> ppr e
 --
 instance Outputable AnnPatSynBind where
   ppr (AnnPatSynBind p o) = text "AnnPatSynBind" <+> ppr p <+> ppr o

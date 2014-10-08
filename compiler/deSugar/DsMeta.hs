@@ -282,11 +282,11 @@ repFamilyDecl (L loc (FamilyDecl { fdInfo    = info,
            case (opt_kind, info) of
                   (Nothing, ClosedTypeFamily eqns) ->
                     do { eqns1 <- mapM repTyFamEqn eqns
-                       ; eqns2 <- coreList tySynEqnQTyConName eqns1
+                       ; eqns2 <- coreList tySynEqnQTyConName (fromCL eqns1)
                        ; repClosedFamilyNoKind tc1 bndrs eqns2 }
                   (Just ki, ClosedTypeFamily eqns) ->
                     do { eqns1 <- mapM repTyFamEqn eqns
-                       ; eqns2 <- coreList tySynEqnQTyConName eqns1
+                       ; eqns2 <- coreList tySynEqnQTyConName (fromCL eqns1)
                        ; ki1 <- repLKind ki
                        ; repClosedFamilyKind tc1 bndrs ki1 eqns2 }
                   (Nothing, _) ->

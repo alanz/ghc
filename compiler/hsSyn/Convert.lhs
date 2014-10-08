@@ -295,7 +295,7 @@ cvtDec (ClosedTypeFamilyD tc tyvars mkind eqns)
        ; mkind' <- cvtMaybeKind mkind
        ; eqns' <- mapM (cvtTySynEqn tc') eqns
        ; returnJustL $ TyClD $ FamDecl $
-         FamilyDecl (ClosedTypeFamily eqns') tc' tvs' mkind' }
+         FamilyDecl (ClosedTypeFamily (toCL eqns')) tc' tvs' mkind' }
   | otherwise
   = failWith (ptext (sLit "Illegal empty closed type family"))
 

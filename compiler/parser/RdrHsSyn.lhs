@@ -153,7 +153,7 @@ mkATDefault (L loc (TyFamInstDecl { tfid_eqn = L _ e }))
 
 mkTyData :: SrcSpan
          -> NewOrData
-         -> Maybe CType
+         -> Maybe (Located CType)
          -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
          -> Maybe (LHsKind RdrName)
          -> [LConDecl RdrName]
@@ -168,7 +168,7 @@ mkTyData loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
                                    tcdFVs = placeHolderNames })) }
 
 mkDataDefn :: NewOrData
-           -> Maybe CType
+           -> Maybe (Located CType)
            -> Maybe (LHsContext RdrName)
            -> Maybe (LHsKind RdrName)
            -> [LConDecl RdrName]
@@ -204,7 +204,7 @@ mkTyFamInstEqn lhs rhs
 
 mkDataFamInst :: SrcSpan
          -> NewOrData
-         -> Maybe CType
+         -> Maybe (Located CType)
          -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
          -> Maybe (LHsKind RdrName)
          -> [LConDecl RdrName]
