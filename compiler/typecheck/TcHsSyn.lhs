@@ -1157,18 +1157,18 @@ zonkRule env (HsRule name act (vars{-::[RuleBndr TcId]-}) lhs fv_lhs rhs fv_rhs)
 
        ; unbound_tkvs <- readMutVar unbound_tkv_set
 
-       ; let final_bndrs :: [RuleBndr Var]
-             final_bndrs = map (RuleBndr . noLoc)
+       ; let final_bndrs :: [LRuleBndr Var]
+             final_bndrs = map (noLoc . RuleBndr . noLoc)
                                (varSetElemsKvsFirst unbound_tkvs)
                            ++ new_bndrs
 
        ; return $
          HsRule name act final_bndrs new_lhs fv_lhs new_rhs fv_rhs }
   where
-   zonk_bndr env (RuleBndr (L loc v))
+   zonk_bndr env (L l (RuleBndr (L loc v)))
       = do { (env', v') <- zonk_it env v
-           ; return (env', RuleBndr (L loc v')) }
-   zonk_bndr _ (RuleBndrSig {}) = panic "zonk_bndr RuleBndrSig"
+           ; return (env', L l (RuleBndr (L loc v'))) }
+   zonk_bndr _ (L _ (RuleBndrSig {})) = panic "zonk_bndr RuleBndrSig"
 
    zonk_it env v
      | isId v     = do { v' <- zonkIdBndr env v

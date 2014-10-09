@@ -122,11 +122,11 @@ mkInstD (L loc d) = L loc (InstD d)
 mkClassDecl :: SrcSpan
             -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
             -> Located [Located (FunDep RdrName)]
-            -> Located (HsCommaList (LHsDecl RdrName))
+            -> HsCommaList (LHsDecl RdrName)
             -> P (LTyClDecl RdrName)
 
 mkClassDecl loc (L _ (mcxt, tycl_hdr)) fds where_cls
-  = do { let (binds, sigs, ats, at_insts, _, docs) = cvBindsAndSigs (unLoc where_cls)
+  = do { let (binds, sigs, ats, at_insts, _, docs) = cvBindsAndSigs where_cls
              cxt = fromMaybe (noLoc []) mcxt
        ; (cls, tparams) <- checkTyClHdr tycl_hdr
        ; tyvars <- checkTyVarsP (ptext (sLit "class")) whereDots cls tparams
@@ -215,7 +215,8 @@ mkDataFamInst loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_
        ; defn <- mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
        ; return (L loc (DataFamInstD (
                   DataFamInstDecl { dfid_tycon = tc, dfid_pats = mkHsWithBndrs tparams
-                                  , dfid_defn = defn, dfid_fvs = placeHolderNames }))) }
+                                  , dfid_defn = defn
+                                  , dfid_fvs = placeHolderNames }))) }
 
 mkTyFamInst :: SrcSpan
             -> LTyFamInstEqn RdrName
@@ -1090,9 +1091,9 @@ mkInlinePragma (inl, match_info) mb_act
 --
 mkImport :: CCallConv
          -> Safety
-         -> (Located FastString, Located RdrName, LHsType RdrName)
+         -> (Located FastString, Located RdrName, Located (), LHsType RdrName)
          -> P (HsDecl RdrName)
-mkImport cconv safety (L loc entity, v, ty)
+mkImport cconv safety (L loc entity, v, _, ty)
   | cconv == PrimCallConv                      = do
   let funcTarget = CFunction (StaticTarget entity Nothing True)
       importSpec = CImport PrimCallConv safety Nothing funcTarget
@@ -1164,9 +1165,9 @@ parseCImport cconv safety nm str =
 -- construct a foreign export declaration
 --
 mkExport :: CCallConv
-         -> (Located FastString, Located RdrName, LHsType RdrName)
+         -> (Located FastString, Located RdrName, Located (), LHsType RdrName)
          -> P (HsDecl RdrName)
-mkExport cconv (L _ entity, v, ty) = return $
+mkExport cconv (L _ entity, v, _, ty) = return $
   ForD (ForeignExport v ty noForeignExportCoercionYet (CExport (CExportStatic entity' cconv)))
   where
     entity' | nullFS entity = mkExtName (unLoc v)

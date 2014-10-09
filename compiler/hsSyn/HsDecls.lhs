@@ -42,7 +42,7 @@ module HsDecls (
   -- ** Standalone deriving declarations
   DerivDecl(..), LDerivDecl,
   -- ** @RULE@ declarations
-  RuleDecl(..), LRuleDecl, RuleBndr(..),
+  RuleDecl(..), LRuleDecl, RuleBndr(..),LRuleBndr,
   collectRuleBndrSigTys,
   -- ** @VECTORISE@ declarations
   VectDecl(..), LVectDecl,
@@ -623,10 +623,10 @@ countTyClDecls decls
     count isFamilyDecl   decls)
  where
    isDataTy DataDecl{ tcdDataDefn = HsDataDefn { dd_ND = DataType } } = True
-   isDataTy _                                                       = False
+   isDataTy _                                                         = False
 
-   isNewTy DataDecl{ tcdDataDefn = HsDataDefn { dd_ND = NewType } } = True
-   isNewTy _                                                      = False
+   isNewTy DataDecl{ tcdDataDefn = HsDataDefn { dd_ND = NewType } }   = True
+   isNewTy _                                                          = False
 
 -- | Does this declaration have a complete, user-supplied kind signature?
 -- See Note [Complete user-supplied kind signatures]
@@ -1114,7 +1114,7 @@ pprDataFamInstDecl top_lvl (DataFamInstDecl { dfid_tycon = tycon
     pp_hdr ctxt = ppr_instance_keyword top_lvl <+> pp_fam_inst_lhs tycon pats ctxt
 
 pprDataFamInstFlavour :: DataFamInstDecl name -> SDoc
-pprDataFamInstFlavour (DataFamInstDecl { dfid_defn = (HsDataDefn { dd_ND = nd }) })
+pprDataFamInstFlavour (DataFamInstDecl { dfid_defn = HsDataDefn { dd_ND = nd } })
   = ppr nd
 
 instance (OutputableBndr name) => Outputable (ClsInstDecl name) where
@@ -1339,7 +1339,7 @@ data RuleDecl name
   = HsRule                      -- Source rule
         RuleName                -- Rule name
         Activation
-        [RuleBndr name]         -- Forall'd vars; after typechecking this includes tyvars
+        [LRuleBndr name]        -- Forall'd vars; after typechecking this includes tyvars
         (Located (HsExpr name)) -- LHS
         (PostRn name NameSet)        -- Free-vars from the LHS
         (Located (HsExpr name)) -- RHS
@@ -1347,6 +1347,7 @@ data RuleDecl name
   deriving (Typeable)
 deriving instance (DataId name) => Data (RuleDecl name)
 
+type LRuleBndr name = Located (RuleBndr name)
 data RuleBndr name
   = RuleBndr (Located name)
   | RuleBndrSig (Located name) (HsWithBndrs name (LHsType name))

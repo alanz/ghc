@@ -690,11 +690,11 @@ rnHsRuleDecl (HsRule rule_name act vars lhs _fv_lhs rhs _fv_rhs)
        ; return (HsRule rule_name act vars' lhs' fv_lhs' rhs' fv_rhs',
                  fv_lhs' `plusFV` fv_rhs') } }
   where
-    get_var (RuleBndrSig v _) = v
-    get_var (RuleBndr v) = v
+    get_var (L _ (RuleBndrSig v _)) = v
+    get_var (L _ (RuleBndr v)) = v
 
-bindHsRuleVars :: RuleName -> [RuleBndr RdrName] -> [Name]
-               -> ([RuleBndr Name] -> RnM (a, FreeVars))
+bindHsRuleVars :: RuleName -> [LRuleBndr RdrName] -> [Name]
+               -> ([LRuleBndr Name] -> RnM (a, FreeVars))
                -> RnM (a, FreeVars)
 bindHsRuleVars rule_name vars names thing_inside
   = go vars names $ \ vars' ->
@@ -702,14 +702,14 @@ bindHsRuleVars rule_name vars names thing_inside
   where
     doc = RuleCtx rule_name
 
-    go (RuleBndr (L loc _) : vars) (n : ns) thing_inside
+    go (L l (RuleBndr (L loc _)) : vars) (n : ns) thing_inside
       = go vars ns $ \ vars' ->
-        thing_inside (RuleBndr (L loc n) : vars')
+        thing_inside (L l (RuleBndr (L loc n)) : vars')
 
-    go (RuleBndrSig (L loc _) bsig : vars) (n : ns) thing_inside
+    go (L l (RuleBndrSig (L loc _) bsig) : vars) (n : ns) thing_inside
       = rnHsBndrSig doc bsig $ \ bsig' ->
         go vars ns $ \ vars' ->
-        thing_inside (RuleBndrSig (L loc n) bsig' : vars')
+        thing_inside (L l (RuleBndrSig (L loc n) bsig') : vars')
 
     go [] [] thing_inside = thing_inside []
     go vars names _ = pprPanic "bindRuleVars" (ppr vars $$ ppr names)
@@ -1413,7 +1413,8 @@ extendRecordFieldEnv tycl_decls inst_decls
     all_data_cons = [con | HsDataDefn { dd_cons = cons } <- all_ty_defs
                          , L _ con <- cons ]
     all_ty_defs = [ defn | L _ (DataDecl { tcdDataDefn = defn }) <- tyClGroupConcat tycl_decls ]
-               ++ map dfid_defn (instDeclDataFamInsts inst_decls)  -- Do not forget associated types!
+               ++ map (dfid_defn) (instDeclDataFamInsts inst_decls)
+                                       -- Do not forget associated types!
 
     get_con (ConDecl { con_name = con, con_details = RecCon flds })
             (RecFields env fld_set)

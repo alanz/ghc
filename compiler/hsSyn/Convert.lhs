@@ -549,14 +549,14 @@ cvtPhases AllPhases       dflt = dflt
 cvtPhases (FromPhase i)   _    = ActiveAfter i
 cvtPhases (BeforePhase i) _    = ActiveBefore i
 
-cvtRuleBndr :: TH.RuleBndr -> CvtM (Hs.RuleBndr RdrName)
+cvtRuleBndr :: TH.RuleBndr -> CvtM (Hs.LRuleBndr RdrName)
 cvtRuleBndr (RuleVar n)
   = do { n' <- vNameL n
-       ; return $ Hs.RuleBndr n' }
+       ; return $ noLoc $ Hs.RuleBndr n' }
 cvtRuleBndr (TypedRuleVar n ty)
   = do { n'  <- vNameL n
        ; ty' <- cvtType ty
-       ; return $ Hs.RuleBndrSig n' $ mkHsWithBndrs ty' }
+       ; return $ noLoc $ Hs.RuleBndrSig n' $ mkHsWithBndrs ty' }
 
 ---------------------------------------------------
 --              Declarations

@@ -193,18 +193,18 @@ tcRule (HsRule name act hs_bndrs lhs fv_lhs rhs fv_rhs)
                                   , ic_env    = lcl_env }
 
        ; return (HsRule name act
-                    (map (RuleBndr . noLoc) (qtkvs ++ tpl_ids))
+                    (map (noLoc . RuleBndr . noLoc) (qtkvs ++ tpl_ids))
                     (mkHsDictLet (TcEvBinds lhs_binds_var) lhs') fv_lhs
                     (mkHsDictLet (TcEvBinds rhs_binds_var) rhs') fv_rhs) }
 
-tcRuleBndrs :: [RuleBndr Name] -> TcM [Var]
+tcRuleBndrs :: [LRuleBndr Name] -> TcM [Var]
 tcRuleBndrs []
   = return []
-tcRuleBndrs (RuleBndr (L _ name) : rule_bndrs)
+tcRuleBndrs (L _ (RuleBndr (L _ name)) : rule_bndrs)
   = do  { ty <- newFlexiTyVarTy openTypeKind
         ; vars <- tcRuleBndrs rule_bndrs
         ; return (mkLocalId name ty : vars) }
-tcRuleBndrs (RuleBndrSig (L _ name) rn_ty : rule_bndrs)
+tcRuleBndrs (L _ (RuleBndrSig (L _ name) rn_ty) : rule_bndrs)
 --  e.g         x :: a->a
 --  The tyvar 'a' is brought into scope first, just as if you'd written
 --              a::*, x :: a->a
