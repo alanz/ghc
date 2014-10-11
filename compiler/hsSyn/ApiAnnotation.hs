@@ -47,8 +47,17 @@ module ApiAnnotation (
     AnnRuleBndrSig(..),
     AnnHsAnnotation(..),
 
-    -- * HsType etc
+    -- * HsType
+    AnnHsForAllTy(..),AnnHsIParamTy(..),AnnHsEqTy(..),AnnHsFunTy(..),
+    AnnHsRecTy(..),AnnHsTupleTy(..),AnnHsListTy(..),AnnHsPArrTy(..),
+    AnnHsParTy(..),AnnHsKindSig(..),AnnHsSpliceTy(..),AnnHsExplicitTupleTy(..),
+    AnnHsExplicitListTy(..),
+
+    -- * HsType extras
     AnnHsKind(..),AnnHsContext(..),
+
+    -- * HsBang
+    AnnHsUserBang(..),
 
     -- * FamilyInfo
     AnnClosedTypeFamily(..),
@@ -230,8 +239,12 @@ data AnnFamDecl = AnnFamDecl
        { afamdecl_td :: SrcSpan, afamdecl_mfamily :: Maybe SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
-data AnnDataDecl = AnnDataDecl { adatadecl_dn :: SrcSpan }
+data AnnDataDecl = AnnDataDecl
+       { adatadecl_dn :: SrcSpan
+       , adatadecl_mderiving :: Maybe SrcSpan
+       , adatadecl_mparens   :: Maybe (SrcSpan,SrcSpan) }
             deriving (Eq,Data,Typeable,Show)
+
 
 --
 
@@ -255,7 +268,9 @@ data AnnTyFamInstDecl = AnnTyFamInstDecl
 
 data AnnDataFamInstDecl = AnnDataFamInstDecl
          { adatafaminstdecl_type :: SrcSpan
-         , adatafaminstdecl_minst :: Maybe SrcSpan }
+         , adatafaminstdecl_minst :: Maybe SrcSpan
+         , adatafaminstdecl_mderiving :: Maybe SrcSpan
+         , adatafaminstdecl_mparens   :: Maybe (SrcSpan,SrcSpan) }
             deriving (Eq,Data,Typeable,Show)
 
 --
@@ -311,12 +326,64 @@ data AnnHsAnnotation = AnnHsAnnotation
           ahsannotation_close :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
--- HsType etc
+-- HsType
+data AnnHsForAllTy = AnnHsForAllTy
+   { ahsforallty_mforall,ahsforallty_mdot,ahsforallty_mdarrow :: Maybe SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsIParamTy = AnnHsIParamTy { ahsforallty_dc :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsEqTy = AnnHsEqTy { ahseqty_tilde :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsFunTy = AnnHsFunTy { ahsfunty_arrow :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsRecTy = AnnHsRecTy { ahsrecty_ob,ahsrecty_cb :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsTupleTy = AnnHsTupleTy { ahstuplety_o,ahstuplety_c :: SrcSpan
+                                 , ahstuplety_mc :: Maybe SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsListTy = AnnHsListTy { ahslistty_ob,ahslistty_cb :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsPArrTy = AnnHsPArrTy { ahsparrty_ob,ahsparrty_cb :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsParTy = AnnHsParTy { ahsparty_ob,ahsparty_cb :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsKindSig = AnnHsKindSig
+       { ahskindsig_ob,ahskindsig_dc,ahskindsig_cb :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsSpliceTy = AnnHsSpliceTy { ahssplicety_ob,ahssplicety_cb :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsExplicitTupleTy = AnnHsExplicitTupleTy
+      { ahsexplicittuplety_ob,ahsexplicittuplety_cb :: SrcSpan
+      , ahsexplicittuplety_mc :: Maybe SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHsExplicitListTy = AnnHsExplicitListTy
+      { ahsexplicitlistty_ob,ahsexplicitlistty_cb :: SrcSpan
+      , ahsexplicitlistty_mc :: Maybe SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+-- HsType extras
 
 data AnnHsKind = AnnHsKind { ahskind_dcolon :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
 data AnnHsContext = AnnHsContext { ahscontext_darr :: SrcSpan }
+            deriving (Eq,Data,Typeable,Show)
+
+-- HsBang
+data AnnHsUserBang = AnnHsUserBang
+       { ahsuserbang_mbang,ahsuserbang_mo,ahsuserbang_mc :: Maybe SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
 -- FamilyInfo
@@ -450,7 +517,7 @@ instance Outputable AnnFamDecl where
   ppr (AnnFamDecl t f) = text "AnnFamDecl" <+> ppr t <+> ppr f
 
 instance Outputable AnnDataDecl where
-  ppr (AnnDataDecl d) = text "AnnDataDecl" <+> ppr d
+  ppr (AnnDataDecl d md mp) = text "AnnDataDecl" <+> ppr d <+> ppr md <+> ppr mp
 
 --
 instance Outputable AnnClsInstDecl where
@@ -463,7 +530,8 @@ instance Outputable AnnTyFamInstDecl where
 
 --
 instance Outputable AnnDataFamInstDecl where
-  ppr (AnnDataFamInstDecl t i) = text "AnnDataFamInstDecl" <+> ppr t <+> ppr i
+  ppr (AnnDataFamInstDecl t i md mp) = text "AnnDataFamInstDecl" <+> ppr t
+                                                <+> ppr i <+> ppr md <+> ppr mp
 
 --
 instance Outputable AnnDerivDecl where
@@ -502,11 +570,59 @@ instance Outputable AnnHsAnnotation where
   ppr (AnnHsAnnotation o k c) = text "AnnHsAnnotation" <+> ppr o <+> ppr k
                                                        <+> ppr c
 --
+instance Outputable AnnHsForAllTy where
+  ppr (AnnHsForAllTy f d da) = text "AnnHsForAllTy" <+> ppr f <+> ppr d
+                                                    <+> ppr da
+
+instance Outputable AnnHsIParamTy where
+  ppr (AnnHsIParamTy dc) = text "AnnHsIParamTy" <+> ppr dc
+
+instance Outputable AnnHsEqTy where
+  ppr (AnnHsEqTy t) = text "AnnHsEqTy" <+> ppr t
+
+instance Outputable AnnHsFunTy where
+  ppr (AnnHsFunTy a) = text "AnnHsFunTy" <+> ppr a
+
+instance Outputable AnnHsRecTy where
+  ppr (AnnHsRecTy o c) = text "AnnHsRecTy" <+> ppr o <+> ppr c
+
+instance Outputable AnnHsTupleTy where
+  ppr (AnnHsTupleTy o c mc) = text "AnnHsTupleTy" <+> ppr o <+> ppr c
+                                                  <+> ppr mc
+
+instance Outputable AnnHsListTy where
+  ppr (AnnHsListTy o c) = text "AnnHsListTy" <+> ppr o <+> ppr c
+
+instance Outputable AnnHsPArrTy where
+  ppr (AnnHsPArrTy o c) = text "AnnHsPArrTy" <+> ppr o <+> ppr c
+
+instance Outputable AnnHsParTy where
+  ppr (AnnHsParTy o c) = text "AnnHsParTy" <+> ppr o <+> ppr c
+
+instance Outputable AnnHsKindSig where
+  ppr (AnnHsKindSig o dc c) = text "AnnHsKindSig" <+> ppr o <+> ppr dc <+> ppr c
+
+instance Outputable AnnHsSpliceTy where
+  ppr (AnnHsSpliceTy o c) = text "AnnHsSpliceTy" <+> ppr o <+> ppr c
+
+instance Outputable AnnHsExplicitTupleTy where
+  ppr (AnnHsExplicitTupleTy o c mc) = text "AnnHsExplicitTupleTy"
+              <+> ppr o <+> ppr c <+> ppr mc
+
+instance Outputable AnnHsExplicitListTy where
+  ppr (AnnHsExplicitListTy o c mc) = text "AnnHsExplicitListTy"
+              <+> ppr o <+> ppr c <+> ppr mc
+
+--
 instance Outputable AnnHsKind where
   ppr (AnnHsKind dc) = text "AnnHsKind" <+> ppr dc
 --
 instance Outputable AnnHsContext where
   ppr (AnnHsContext da) = text "AnnHsContext" <+> ppr da
+--
+instance Outputable AnnHsUserBang where
+  ppr (AnnHsUserBang mb mo mc) = text "AnnHsUserBang" <+> ppr mb
+                  <+> ppr mo <+> ppr mc
 --
 instance Outputable AnnClosedTypeFamily where
   ppr (AnnClosedTypeFamily w b d) = text "AnnClosedTypeFamily" <+> ppr w

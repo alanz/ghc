@@ -47,6 +47,7 @@ import FastString
 import Maybes
 import Data.List        ( nub )
 import Control.Monad    ( unless, when )
+import qualified Data.Foldable as F
 
 #include "HsVersions.h"
 \end{code}
@@ -254,8 +255,8 @@ rnHsTyKi isType doc (HsPArrTy ty)
 rnHsTyKi isType doc tupleTy@(HsTupleTy tup_con tys)
   = do { data_kinds <- xoptM Opt_DataKinds
        ; unless (data_kinds || isType) (addErr (dataKindsErr isType tupleTy))
-       ; (tys', fvs) <- mapFvRn (rnLHsTyKi isType doc) tys
-       ; return (HsTupleTy tup_con tys', fvs) }
+       ; (tys', fvs) <- mapFvRn (rnLHsTyKi isType doc) $ fromCL tys
+       ; return (HsTupleTy tup_con (toCL tys'), fvs) }
 
 -- Ensure that a type-level integer is nonnegative (#8306, #8412)
 rnHsTyKi isType _ tyLit@(HsTyLit t)
@@ -314,15 +315,15 @@ rnHsTyKi isType doc ty@(HsExplicitListTy k tys)
   = ASSERT( isType )
     do { data_kinds <- xoptM Opt_DataKinds
        ; unless data_kinds (addErr (dataKindsErr isType ty))
-       ; (tys', fvs) <- rnLHsTypes doc tys
-       ; return (HsExplicitListTy k tys', fvs) }
+       ; (tys', fvs) <- rnLHsTypes doc (fromCL tys)
+       ; return (HsExplicitListTy k (toCL tys'), fvs) }
 
 rnHsTyKi isType doc ty@(HsExplicitTupleTy kis tys)
   = ASSERT( isType )
     do { data_kinds <- xoptM Opt_DataKinds
        ; unless data_kinds (addErr (dataKindsErr isType ty))
-       ; (tys', fvs) <- rnLHsTypes doc tys
-       ; return (HsExplicitTupleTy kis tys', fvs) }
+       ; (tys', fvs) <- rnLHsTypes doc (fromCL tys)
+       ; return (HsExplicitTupleTy kis (toCL tys'), fvs) }
 
 --------------
 rnTyVar :: Bool -> RdrName -> RnM Name
@@ -958,8 +959,8 @@ extractDataDefnKindVars (HsDataDefn { dd_ctxt = ctxt, dd_kindSig = ksig
                                     , dd_cons = cons, dd_derivs = derivs })
   = fst $ extract_lctxt ctxt $
           extract_mb extract_lkind ksig $
-          extract_mb extract_ltys derivs $
-          foldr (extract_con . unLoc) ([],[]) cons
+          extract_mb extract_ltysCL derivs $
+          foldr (extract_con . unLoc) ([],[]) (fromCL cons)
   where
     extract_con (ConDecl { con_res = ResTyGADT {} }) acc = acc
     extract_con (ConDecl { con_res = ResTyH98, con_qvars = qvs
@@ -974,6 +975,9 @@ extract_lctxt ctxt = extract_ltys (unLoc ctxt)
 
 extract_ltys :: [LHsType RdrName] -> FreeKiTyVars -> FreeKiTyVars
 extract_ltys tys acc = foldr extract_lty acc tys
+
+extract_ltysCL :: HsCommaList (LHsType RdrName) -> FreeKiTyVars -> FreeKiTyVars
+extract_ltysCL tys acc = F.foldr extract_lty acc tys
 
 extract_mb :: (a -> FreeKiTyVars -> FreeKiTyVars) -> Maybe a -> FreeKiTyVars -> FreeKiTyVars
 extract_mb _ Nothing  acc = acc
@@ -993,7 +997,7 @@ extract_lty (L _ ty) acc
       HsAppTy ty1 ty2           -> extract_lty ty1 (extract_lty ty2 acc)
       HsListTy ty               -> extract_lty ty acc
       HsPArrTy ty               -> extract_lty ty acc
-      HsTupleTy _ tys           -> extract_ltys tys acc
+      HsTupleTy _ tys           -> extract_ltys (fromCL tys) acc
       HsFunTy ty1 ty2           -> extract_lty ty1 (extract_lty ty2 acc)
       HsIParamTy _ ty           -> extract_lty ty acc
       HsEqTy ty1 ty2            -> extract_lty ty1 (extract_lty ty2 acc)
@@ -1003,8 +1007,8 @@ extract_lty (L _ ty) acc
       HsQuasiQuoteTy {}         -> acc  -- Quasi quotes mention no type variables
       HsSpliceTy {}             -> acc  -- Type splices mention no type variables
       HsDocTy ty _              -> extract_lty ty acc
-      HsExplicitListTy _ tys    -> extract_ltys tys acc
-      HsExplicitTupleTy _ tys   -> extract_ltys tys acc
+      HsExplicitListTy _ tys    -> extract_ltys (fromCL tys) acc
+      HsExplicitTupleTy _ tys   -> extract_ltys (fromCL tys) acc
       HsTyLit _                 -> acc
       HsWrapTy _ _              -> panic "extract_lty"
       HsKindSig ty ki           -> extract_lty ty (extract_lkind ki acc)

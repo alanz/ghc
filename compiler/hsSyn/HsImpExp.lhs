@@ -252,6 +252,13 @@ firstLocCL (Cons (L l _) _) = l
 firstLocCL (ExtraComma _ a) = firstLocCL a
 firstLocCL (Snoc b _)       = firstLocCL b
 firstLocCL (Two a _)        = firstLocCL a
+
+headCL :: HsCommaList a -> a
+headCL Empty            = error "headCL Empty"
+headCL (Cons a _)       = a
+headCL (ExtraComma _ a) = headCL a
+headCL (Snoc a _)       = headCL a
+headCL (Two a _)        = headCL a
 \end{code}
 
 \begin{code}
