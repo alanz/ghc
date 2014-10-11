@@ -290,7 +290,7 @@ rnImportDecl this_mod
 
         -- True <=> import M ()
         import_all = case imp_details of
-                        Just (is_hiding, ls) -> not is_hiding && isNilCL ls
+                        Just (is_hiding, ls) -> not is_hiding && null ls
                         _                    -> False
 
         -- should the import be safe?
@@ -601,8 +601,8 @@ although we never look up data constructors.
 filterImports
     :: ModIface
     -> ImpDeclSpec                    -- The span for the entire import decl
-    -> Maybe (Bool, HsCommaList (LIE RdrName)) -- Import spec; True => hiding
-    -> RnM (Maybe (Bool, HsCommaList (LIE Name)), -- Import spec w/ Names
+    -> Maybe (Bool, [LIE RdrName])    -- Import spec; True => hiding
+    -> RnM (Maybe (Bool, [LIE Name]), -- Import spec w/ Names
             [GlobalRdrElt])           -- Same again, but in GRE form
 filterImports iface decl_spec Nothing
   = return (Nothing, gresFromAvails prov (mi_exports iface))
@@ -612,7 +612,7 @@ filterImports iface decl_spec Nothing
 
 filterImports iface decl_spec (Just (want_hiding, import_items))
   = do  -- check for errors, convert RdrNames to Names
-        items1 <- mapM lookup_lie $ fromCL import_items
+        items1 <- mapM lookup_lie import_items
 
         let items2 :: [(LIE Name, AvailInfo)]
             items2 = concat items1
@@ -627,7 +627,7 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
             gres | want_hiding = gresFromAvails hiding_prov pruned_avails
                  | otherwise   = concatMap (gresFromIE decl_spec) items2
 
-        return (Just (want_hiding, toCL $ map fst items2), gres)
+        return (Just (want_hiding, map fst items2), gres)
   where
     all_avails = mi_exports iface
 
@@ -744,13 +744,13 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
 
            case mb_parent of
              -- non-associated ty/cls
-             Nothing     -> return ([(IEThingWith name (toCL children),
+             Nothing     -> return ([(IEThingWith name children,
                                       AvailTC name (name:map unLoc children))],
                                     [])
              -- associated ty
-             Just parent -> return ([(IEThingWith name (toCL children),
+             Just parent -> return ([(IEThingWith name children,
                                       AvailTC name (map unLoc children)),
-                                     (IEThingWith name (toCL children),
+                                     (IEThingWith name children,
                                       AvailTC parent [name])],
                                     [])
 
@@ -862,7 +862,7 @@ mkChildEnv gres = foldr add emptyNameEnv gres
 findChildren :: NameEnv [Name] -> Name -> [Name]
 findChildren env n = lookupNameEnv env n `orElse` []
 
-lookupChildren :: [Name] -> HsCommaList (Located RdrName)
+lookupChildren :: [Name] -> [Located RdrName]
                -> [Maybe (Located Name)]
 -- (lookupChildren all_kids rdr_items) maps each rdr_item to its
 -- corresponding Name all_kids, if the former exists
@@ -873,7 +873,7 @@ lookupChildren :: [Name] -> HsCommaList (Located RdrName)
 -- (Really the rdr_items should be FastStrings in the first place.)
 lookupChildren all_kids rdr_items
   -- = map (lookupFsEnv kid_env . occNameFS . rdrNameOcc) (fromCL rdr_items)
-  = map doOne (fromCL rdr_items)
+  = map doOne rdr_items
   where
     doOne (L l r) = case (lookupFsEnv kid_env . occNameFS . rdrNameOcc) r of
       Just n -> Just (L l n)
@@ -1117,15 +1117,15 @@ exports_from_avail (Just (L _ rdr_items)) rdr_env imports this_mod
     lookup_ie ie@(IEThingWith rdr sub_rdrs)
         = do name <- lookupGlobalOccRn rdr
              if isUnboundName name
-                then return (IEThingWith name nilCL, AvailTC name [name])
+                then return (IEThingWith name [], AvailTC name [name])
                 else do
              let mb_names = lookupChildren (findChildren kids_env name) sub_rdrs
              if any isNothing mb_names
                 then do addErr (exportItemErr ie)
-                        return (IEThingWith name nilCL, AvailTC name [name])
+                        return (IEThingWith name [], AvailTC name [name])
                 else do let names = catMaybes mb_names
                         addUsedKids rdr (map unLoc names)
-                        return (IEThingWith name (toCL names), AvailTC name (name:map unLoc names))
+                        return (IEThingWith name names, AvailTC name (name:map unLoc names))
 
     lookup_ie _ = panic "lookup_ie"    -- Other cases covered earlier
 
@@ -1376,14 +1376,14 @@ findImportUsage imports rdr_env rdrs
         unused_imps   -- Not trivial; see eg Trac #7454
           = case imps of
               Just (False, imp_ies) ->
-                    foldr (add_unused . unLoc) emptyNameSet (fromCL imp_ies)
+                    foldr (add_unused . unLoc) emptyNameSet imp_ies
               _other -> emptyNameSet -- No explicit import list => no unused-name list
 
         add_unused :: IE Name -> NameSet -> NameSet
         add_unused (IEVar n)          acc = add_unused_name n acc
         add_unused (IEThingAbs n)     acc = add_unused_name n acc
         add_unused (IEThingAll n)     acc = add_unused_all  n acc
-        add_unused (IEThingWith p ns) acc = add_unused_with p (map unLoc $ fromCL ns) acc
+        add_unused (IEThingWith p ns) acc = add_unused_with p (map unLoc ns) acc
         add_unused _                  acc = acc
 
         add_unused_name n acc
@@ -1442,11 +1442,11 @@ extendImportMap rdr_env rdr imp_map
 \begin{code}
 warnUnusedImport :: ImportDeclUsage -> RnM ()
 warnUnusedImport (L loc decl, used, unused)
-  | Just (False,Empty) <- ideclHiding decl
+  | Just (False,[]) <- ideclHiding decl
                 = return ()            -- Do not warn for 'import M()'
 
   | Just (True, hides) <- ideclHiding decl
-  , not (isNilCL hides)
+  , not (null hides)
   , pRELUDE_NAME == unLoc (ideclName decl)
                 = return ()            -- Note [Do not warn about Prelude hiding]
   | null used   = addWarnAt loc msg1   -- Nothing used; drop entire decl
@@ -1522,7 +1522,7 @@ printMinimalImports imports_w_usage
                             , ideclPkgQual = mb_pkg } = decl
            ; iface <- loadSrcInterface doc mod_name is_boot mb_pkg
            ; let lies = map (L l) (concatMap (to_ie iface) used)
-           ; return (L l (decl { ideclHiding = Just (False, toCL lies) })) }
+           ; return (L l (decl { ideclHiding = Just (False, lies) })) }
       where
         doc = text "Compute minimal imports for" <+> ppr decl
 
@@ -1540,7 +1540,7 @@ printMinimalImports imports_w_usage
                  , x `elem` xs    -- Note [Partial export]
                  ] of
            [xs] | all_used xs -> [IEThingAll n]
-                | otherwise   -> [IEThingWith n (toCL $ map noLoc (filter (/= n) ns))]
+                | otherwise   -> [IEThingWith n (map noLoc (filter (/= n) ns))]
            _other             -> map IEVar ns
         where
           all_used avail_occs = all (`elem` ns) avail_occs

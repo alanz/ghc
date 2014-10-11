@@ -61,7 +61,6 @@ import SrcLoc
 import StaticFlags
 import Outputable
 import FastString
-import HsImpExp
 
 import Data.Data hiding ( Fixity )
 \end{code}
@@ -232,8 +231,7 @@ data HsType name
   | HsPArrTy            (LHsType name)  -- Elem. type of parallel array: [:t:]
 
   | HsTupleTy           HsTupleSort
-                        (HsCommaList (LHsType name))
-                                        -- Element types (length gives arity)
+                        [LHsType name]  -- Element types (length gives arity)
 
   | HsOpTy              (LHsType name) (LHsTyOp name) (LHsType name)
 
@@ -265,11 +263,11 @@ data HsType name
 
   | HsExplicitListTy       -- A promoted explicit list
         (PostTc name Kind) -- See Note [Promoted lists and tuples]
-        (HsCommaList (LHsType name))
+        [LHsType name]
 
   | HsExplicitTupleTy      -- A promoted explicit tuple
         [PostTc name Kind] -- See Note [Promoted lists and tuples]
-        (HsCommaList (LHsType name))
+        [LHsType name]
 
   | HsTyLit HsTyLit      -- A promoted numeric literal.
 
@@ -662,8 +660,7 @@ ppr_mono_ty _    (HsQuasiQuoteTy qq) = ppr qq
 ppr_mono_ty _    (HsRecTy flds)      = pprConDeclFields flds
 ppr_mono_ty _    (HsTyVar name)      = pprPrefixOcc name
 ppr_mono_ty prec (HsFunTy ty1 ty2)   = ppr_fun_ty prec ty1 ty2
-ppr_mono_ty _    (HsTupleTy con tys) = tupleParens std_con (interpp'SP
-                                                               $ fromCL tys)
+ppr_mono_ty _    (HsTupleTy con tys) = tupleParens std_con (interpp'SP tys)
   where std_con = case con of
                     HsUnboxedTuple -> UnboxedTuple
                     _              -> BoxedTuple
@@ -673,10 +670,8 @@ ppr_mono_ty _    (HsPArrTy ty)       = paBrackets (ppr_mono_lty TopPrec ty)
 ppr_mono_ty prec (HsIParamTy n ty)   = maybeParen prec FunPrec (ppr n <+> dcolon <+> ppr_mono_lty TopPrec ty)
 ppr_mono_ty _    (HsSpliceTy s _)    = pprUntypedSplice s
 ppr_mono_ty _    (HsCoreTy ty)       = ppr ty
-ppr_mono_ty _    (HsExplicitListTy _ tys) = quote $ brackets (interpp'SP
-                                                                   $ fromCL tys)
-ppr_mono_ty _    (HsExplicitTupleTy _ tys) = quote $ parens (interpp'SP
-                                                                   $ fromCL tys)
+ppr_mono_ty _    (HsExplicitListTy _ tys) = quote $ brackets (interpp'SP tys)
+ppr_mono_ty _    (HsExplicitTupleTy _ tys) = quote $ parens (interpp'SP tys)
 ppr_mono_ty _    (HsTyLit t)         = ppr_tylit t
 
 ppr_mono_ty ctxt_prec (HsWrapTy (WpKiApps _kis) ty)

@@ -366,8 +366,8 @@ rnAnnProvenance provenance = do
 \begin{code}
 rnDefaultDecl :: DefaultDecl RdrName -> RnM (DefaultDecl Name, FreeVars)
 rnDefaultDecl (DefaultDecl tys)
-  = do { (tys', fvs) <- rnLHsTypes doc_str (fromCL tys)
-       ; return (DefaultDecl (toCL tys'), fvs) }
+  = do { (tys', fvs) <- rnLHsTypes doc_str tys
+       ; return (DefaultDecl tys', fvs) }
   where
     doc_str = DefaultDeclCtx
 \end{code}
@@ -1111,7 +1111,7 @@ rnDataDefn doc (HsDataDefn { dd_ND = new_or_data, dd_cType = cType
         ; let { zap_lcl_env | h98_style = \ thing -> thing
                             | otherwise = setLocalRdrEnv emptyLocalRdrEnv }
         ; (condecls', con_fvs) <- zap_lcl_env $
-                                  rnConDecls (fromCL condecls)
+                                  rnConDecls condecls
            -- No need to check for duplicate constructor decls
            -- since that is done by RnNames.extendGlobalRdrEnvRn
 
@@ -1119,17 +1119,17 @@ rnDataDefn doc (HsDataDefn { dd_ND = new_or_data, dd_cType = cType
                         con_fvs `plusFV` sig_fvs
         ; return ( HsDataDefn { dd_ND = new_or_data, dd_cType = cType
                               , dd_ctxt = context', dd_kindSig = sig'
-                              , dd_cons = toCL condecls', dd_derivs = derivs' }
+                              , dd_cons = condecls', dd_derivs = derivs' }
                  , all_fvs )
         }
   where
-    h98_style = case fromCL condecls of         -- Note [Stupid theta]
+    h98_style = case condecls of         -- Note [Stupid theta]
                      L _ (ConDecl { con_res = ResTyGADT {} }) : _  -> False
                      _                                             -> True
 
     rn_derivs Nothing   = return (Nothing, emptyFVs)
-    rn_derivs (Just ds) = do { (ds', fvs) <- rnLHsTypes doc (fromCL ds)
-                             ; return (Just (toCL ds'), fvs) }
+    rn_derivs (Just ds) = do { (ds', fvs) <- rnLHsTypes doc ds
+                             ; return (Just ds', fvs) }
 
 badGadtStupidTheta :: HsDocContext -> SDoc
 badGadtStupidTheta _

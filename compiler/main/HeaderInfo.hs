@@ -75,7 +75,7 @@ getImports dflags buf filename source_filename = do
                 main_loc = srcLocSpan (mkSrcLoc (mkFastString source_filename) 1 1)
                 mod = mb_mod `orElse` L main_loc mAIN_NAME
                 (src_idecls, ord_idecls) = partition (ideclSource.unLoc)
-                                         $ fromCL imps
+                                                     (unLoc imps)
 
                      -- GHC.Prim doesn't exist physically, so don't go looking for it.
                 ordinary_imps = filter ((/= moduleName gHC_PRIM) . unLoc . ideclName . unLoc)
@@ -83,7 +83,7 @@ getImports dflags buf filename source_filename = do
 
                 implicit_prelude = xopt Opt_ImplicitPrelude dflags
                 implicit_imports = mkPrelImports (unLoc mod) main_loc
-                                                 implicit_prelude (fromCL imps)
+                                                 implicit_prelude (unLoc imps)
               in
               return (src_idecls, implicit_imports ++ ordinary_imps, mod)
 

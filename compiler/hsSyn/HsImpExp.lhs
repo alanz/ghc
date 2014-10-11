@@ -50,7 +50,7 @@ data ImportDecl name
       ideclQualified :: Bool,               -- ^ True => qualified
       ideclImplicit  :: Bool,               -- ^ True => implicit import (of Prelude)
       ideclAs        :: Maybe ModuleName,   -- ^ as Module
-      ideclHiding    :: Maybe (Bool, HsCommaList (LIE name))
+      ideclHiding    :: Maybe (Bool, [LIE name])
                             -- ^ (True => hiding, names)
     } deriving (Data, Typeable)
 
@@ -96,9 +96,9 @@ instance (OutputableBndr name, HasOccName name) => Outputable (ImportDecl name) 
         ppr_imp False = empty
 
         pp_spec Nothing             = empty
-        pp_spec (Just (False, ies)) = ppr_ies (fromCL ies)
+        pp_spec (Just (False, ies)) = ppr_ies ies
         pp_spec (Just (True,  ies)) = ptext (sLit "hiding")
-                                   <+> ppr_ies (fromCL ies)
+                                   <+> ppr_ies ies
 
         ppr_ies []  = ptext (sLit "()")
         ppr_ies ies = char '(' <+> interpp'SP ies <+> char ')'
@@ -118,7 +118,7 @@ data IE name
   = IEVar               name
   | IEThingAbs          name             -- ^ Class/Type (can't tell)
   | IEThingAll          name             -- ^ Class/Type plus all methods/constructors
-  | IEThingWith         name (HsCommaList (Located name))
+  | IEThingWith         name [Located name]
                  -- ^ Class/Type plus some methods/constructors
   | IEModuleContents    ModuleName       -- ^ (Export Only)
   | IEGroup             Int HsDocString  -- ^ Doc section heading
@@ -139,7 +139,7 @@ ieNames :: IE a -> [a]
 ieNames (IEVar            n   ) = [n]
 ieNames (IEThingAbs       n   ) = [n]
 ieNames (IEThingAll       n   ) = [n]
-ieNames (IEThingWith      n ns) = n : map unLoc (fromCL ns)
+ieNames (IEThingWith      n ns) = n : map unLoc ns
 ieNames (IEModuleContents _   ) = []
 ieNames (IEGroup          _ _ ) = []
 ieNames (IEDoc            _   ) = []
@@ -160,7 +160,7 @@ instance (HasOccName name, OutputableBndr name) => Outputable (IE name) where
     ppr (IEThingAbs     thing)  = pprImpExp thing
     ppr (IEThingAll     thing)  = hcat [pprImpExp thing, text "(..)"]
     ppr (IEThingWith thing withs)
-        = pprImpExp thing <> parens (fsep (punctuate comma (map pprImpExp $ map unLoc $ fromCL withs)))
+        = pprImpExp thing <> parens (fsep (punctuate comma (map pprImpExp $ map unLoc withs)))
     ppr (IEModuleContents mod')
         = ptext (sLit "module") <+> ppr mod'
     ppr (IEGroup n _)           = text ("<IEGroup: " ++ (show n) ++ ">")

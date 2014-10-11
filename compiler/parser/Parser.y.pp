@@ -69,6 +69,8 @@ import Control.Monad    ( unless, liftM )
 import GHC.Exts
 import Data.Char
 import Control.Monad    ( mplus )
+import Data.Maybe
+import Data.Typeable
 }
 
 {-
@@ -420,14 +422,15 @@ identifier :: { Located RdrName }
 module  :: { Located (HsModule RdrName) }
         : maybedocheader 'module' modid maybemodwarning maybeexports 'where' body
                 {% fileSrcSpan >>= \ loc ->
-                   aa (L loc (HsModule (Just $3) $5 (fst $ snd $7) (snd $ snd $7) $4 $1
+                   ams (L loc (HsModule (Just $3) $5 (fst $ snd $7) (snd $ snd $7) $4 $1
                       ) )
-                     (AnnHsModule (Just ((gl $2),(gl $6))) (fst $ fst $7) (snd $ fst $7) ) }
+                     [mj AnnModule $2, mj AnnWhere $6
+                     ,mm2 AnnCurlies (fst $ fst $7),mm AnnSemi (snd $ fst $7)] }
         | body2
                 {% fileSrcSpan >>= \ loc ->
-                   aa (L loc (HsModule Nothing Nothing
+                   ams (L loc (HsModule Nothing Nothing
                                (fst $ snd $1) (snd $ snd $1) Nothing Nothing))
-                     (AnnHsModule Nothing (fst $ fst $1) (snd $ fst $1) ) }
+                     [mm2 AnnCurlies (fst $ fst $1),mm AnnSemi (snd $ fst $1)] }
 
 maybedocheader :: { Maybe LHsDocString }
         : moduleheader            { $1 }
@@ -442,20 +445,20 @@ maybemodwarning :: { Maybe WarningTxt }
     |  {- empty -}                  { Nothing }
 
 body    :: { ((Maybe (SrcSpan,SrcSpan),Maybe SrcSpan)
-             ,(HsCommaList (LImportDecl RdrName), [LHsDecl RdrName])) }
+             ,(Located [LImportDecl RdrName], [LHsDecl RdrName])) }
         :  '{'            top '}'      { ((Just (gl $1,gl $3),fst $2), snd $2) }
         |      vocurly    top close    { ((Nothing,Nothing), snd $2) }
 
 body2   :: { ((Maybe (SrcSpan,SrcSpan),Maybe SrcSpan)
-             ,(HsCommaList (LImportDecl RdrName), [LHsDecl RdrName])) }
+             ,(Located [LImportDecl RdrName], [LHsDecl RdrName])) }
         :  '{' top '}'                          { ((Just (gl $1,gl $3),fst $2), snd $2) }
         |  missing_module_keyword top close     { ((Nothing,Nothing),snd $2) }
 
 top     :: { (Maybe SrcSpan
-             ,(HsCommaList (LImportDecl RdrName), [LHsDecl RdrName])) }
-        : importdecls                           { (Nothing,(reverseCL $1,[])) }
-        | importdecls ';' cvtopdecls            { (Just (gl $2),(reverseCL $1,$3)) }
-        | cvtopdecls                            { (Nothing,(nilCL,$1)) }
+             ,(Located [LImportDecl RdrName], [LHsDecl RdrName])) }
+        : importdecls                           { (Nothing,(L (gl $1) (reverse $ unLoc $1),[])) }
+        | importdecls ';' cvtopdecls            { (Just (gl $2),(L (gl $1) (reverse $ unLoc $1),$3)) }
+        | cvtopdecls                            { (Nothing,(noLoc [],$1)) }
 
 cvtopdecls :: { [LHsDecl RdrName] }
         : topdecls                              { cvTopDecls $1 }
@@ -466,75 +469,80 @@ cvtopdecls :: { [LHsDecl RdrName] }
 header  :: { Located (HsModule RdrName) }
         : maybedocheader 'module' modid maybemodwarning maybeexports 'where' header_body
                 {% fileSrcSpan >>= \ loc ->
-                   aa (L loc (HsModule (Just $3) $5 $7 [] $4 $1
-                          )) (AnnHsModule (Just ((gl $2),(gl $6))) Nothing Nothing) }
+                   ams (L loc (HsModule (Just $3) $5 $7 [] $4 $1
+                          )) [mj AnnModule $2, mj AnnWhere $6] }
         | header_body2
                 {% fileSrcSpan >>= \ loc ->
                    return (L loc (HsModule Nothing Nothing $1 [] Nothing
                           Nothing)) }
 
-header_body :: { HsCommaList (LImportDecl RdrName) }
+header_body :: { Located [LImportDecl RdrName] }
         :  '{'            importdecls           { $2 }
         |      vocurly    importdecls           { $2 }
 
-header_body2 :: { HsCommaList (LImportDecl RdrName) }
+header_body2 :: { Located [LImportDecl RdrName] }
         :  '{' importdecls                      { $2 }
         |  missing_module_keyword importdecls   { $2 }
 
 -----------------------------------------------------------------------------
 -- The Export List
 
-maybeexports :: { Maybe (Located (HsCommaList (LIE RdrName))) }
-        :  '(' exportlist ')'                   {% aj (Just (L (comb2 $1 $3) ($2)))
-                                                      (AnnLIEs (gl $1) (gl $3)) }
+maybeexports :: { Maybe (Located [LIE RdrName]) }
+        :  '(' exportlist ')'                   {% aj (Just (L (comb2 $1 $3) (fromOL $2)))
+                                                      (AnnParens ((gl $1),(gl $3))) }
         |  {- empty -}                          { Nothing }
 
-exportlist :: { HsCommaList (LIE RdrName) }
-        : expdoclist ',' expdoclist             { (extraCL (gl $2) $1) `appCL` $3 }
+exportlist :: { OrdList (LIE RdrName) }
+        : expdoclist ',' expdoclist             {% (addAnnotation (oll $1) (AnnComma (gl $2)) ) >>
+                                                   return ($1 `appOL` $3) }
         | exportlist1                           { $1 }
 
-exportlist1 :: { HsCommaList (LIE RdrName) }
-        : expdoclist export expdoclist ',' exportlist1 { $1 `appCL` $2 `appCL` (extraCL (gl $4) $3) `appCL` $5 }
-        | expdoclist export expdoclist                 { $1 `appCL` $2 `appCL` $3 }
+exportlist1 :: { OrdList (LIE RdrName) }
+        : expdoclist export expdoclist ',' exportlist1 {% (addAnnotation (oll ($1 `appOL` $2 `appOL` $3))
+                                                                         (AnnComma (gl $4)) ) >>
+                                                          return ($1 `appOL` $2 `appOL` $3 `appOL` $5) }
+        | expdoclist export expdoclist                 { $1 `appOL` $2 `appOL` $3 }
         | expdoclist                                   { $1 }
 
-expdoclist :: { HsCommaList (LIE RdrName) }
-        : exp_doc expdoclist                           { $1 `appCL` $2 }
-        | {- empty -}                                  { nilCL }
+expdoclist :: { OrdList (LIE RdrName) }
+        : exp_doc expdoclist                           { $1 `appOL` $2 }
+        | {- empty -}                                  { nilOL }
 
-exp_doc :: { HsCommaList (LIE RdrName) }
-        : docsection    { unitCL (L1 (case (unLoc $1) of (n, doc) -> IEGroup n doc)) }
-        | docnamed      { unitCL (L1 (IEDocNamed ((fst . unLoc) $1))) }
-        | docnext       { unitCL (L1 (IEDoc (unLoc $1))) }
+exp_doc :: { OrdList (LIE RdrName) }
+        : docsection    { unitOL (L1 (case (unLoc $1) of (n, doc) -> IEGroup n doc)) }
+        | docnamed      { unitOL (L1 (IEDocNamed ((fst . unLoc) $1))) }
+        | docnext       { unitOL (L1 (IEDoc (unLoc $1))) }
 
 
    -- No longer allow things like [] and (,,,) to be exported
    -- They are built in syntax, always available
-export  :: { HsCommaList (LIE RdrName) }
-        : qcname_ext export_subspec     { unitCL (LL (mkModuleImpExp (unLoc $1)
+export  :: { OrdList (LIE RdrName) }
+        : qcname_ext export_subspec     { unitOL (LL (mkModuleImpExp (unLoc $1)
                                                                      (unLoc $2))) }
-        |  'module' modid               {% au (LL (IEModuleContents (unLoc $2)))
-                                              (AnnIEModuleContents (gl $1)) }
-        |  'pattern' qcon               {% au (LL (IEVar (unLoc $2)))
-                                              (AnnIEVar (gl $1)) }
+        |  'module' modid               {% amsu (LL (IEModuleContents (unLoc $2)))
+                                              [mj AnnModule $1] }
+        |  'pattern' qcon               {% amsu (LL (IEVar (unLoc $2)))
+                                              [mj AnnPattern $1] }
 
 export_subspec :: { Located ImpExpSubSpec }
         : {- empty -}             { L0 ImpExpAbs }
-        | '(' '..' ')'            {% aa (LL ImpExpAll)
-                                        (AnnImpExpAll (gl $1) (gl $2) (gl $3)) }
-        | '(' ')'                 {% aa (LL (ImpExpList nilCL))
-                                        (AnnImpExpList (gl $1) (gl $2)) }
-        | '(' qcnames ')'         {% aa (LL (ImpExpList (reverseCL $2)))
-                                        (AnnImpExpList (gl $1) (gl $3)) }
+        | '(' '..' ')'            {% ams (LL ImpExpAll)
+                                         [mlj2 AnnParens $1 $3,mj AnnDotdot $2] }
+        | '(' ')'                 {% ams (LL (ImpExpList []))
+                                         [mlj2 AnnParens $1 $2] }
+        | '(' qcnames ')'         {% ams (LL (ImpExpList (reverse $2)))
+                                         [mlj2 AnnParens $1 $3] }
 
-qcnames :: { HsCommaList (Located RdrName) }     -- A reversed list
-        :  qcnames ',' qcname_ext       {  $3 `consCL` (extraCL (gl $2) $1) }
-        |  qcname_ext                   { unitCL $1  }
+qcnames :: { [Located RdrName] }     -- A reversed list
+        :  qcnames ',' qcname_ext       {% (aa $3 (AnnComma (gl $2))) >>
+                                           return ($3  : $1) }
+        |  qcname_ext                   { [$1]  }
 
 qcname_ext :: { Located RdrName }       -- Variable or data constructor
                                         -- or tagged type constructor
         :  qcname                       { $1 }
-        |  'type' qcname                {% mkTypeImpExp (LL (unLoc $2)) }
+        |  'type' qcname                {% am (mkTypeImpExp (LL (unLoc $2)))
+                                              (AnnType (gl $1)) }
 
 -- Cannot pull into qcname_ext, as qcname is also used in expression.
 qcname  :: { Located RdrName }  -- Variable or data constructor
@@ -547,21 +555,25 @@ qcname  :: { Located RdrName }  -- Variable or data constructor
 -- import decls can be *empty*, or even just a string of semicolons
 -- whereas topdecls must contain at least one topdecl.
 
-importdecls :: { HsCommaList (LImportDecl RdrName) }
-        : importdecls ';' importdecl     { (unitCL $3) `appCL` (extraCL (gl $2) $1) }
-        | importdecls ';'                { extraCL (gl $2) $1 }
-        | importdecl                     { unitCL $1 }
-        | {- empty -}                    { nilCL }
+importdecls :: { Located [LImportDecl RdrName] }
+        : importdecls ';' importdecl     {% (aa $3 (AnnSemi (gl $2))) >>
+                                            return (LL ($3 : unLoc $1)) }
+        | importdecls ';'                {% aa (LL (unLoc $1)) (AnnSemi (gl $2)) }
+        | importdecl                     { LL [$1] }
+        | {- empty -}                    { noLoc [] }
 
+-- ++AZ++ up to here
 importdecl :: { LImportDecl RdrName }
         : 'import' maybe_src maybe_safe optqualified maybe_pkg modid maybeas maybeimpspec
-                {% aa (L (comb4 $1 $6 (snd $7) (snd $8)) $
+                {% ams (L (comb4 $1 $6 (snd $7) (snd $8)) $
                   ImportDecl { ideclName = $6, ideclPkgQual = snd $5
                              , ideclSource = snd $2, ideclSafe = snd $3
                              , ideclQualified = snd $4, ideclImplicit = False
                              , ideclAs = unLoc (snd $7), ideclHiding = unLoc (snd $8) })
-                   (AnnImportDecl (fst $2) (fst $3) (fst $4) (fst $5) (fst $7) (fst $8) ) }
-
+                   -- (AnnImportDecl (fst $2) (fst $3) (fst $4) (fst $5) (fst $7) (fst $8) )
+                   [mj AnnImport $1,mm2 AnnPragma (fst $2),mm AnnSafe (fst $3)
+                   ,mm AnnQualified (fst $4),mm AnnPackageName (fst $5)
+                   ,mm AnnAs (fst $7),mm AnnHiding (fst $8)] }
 maybe_src :: { (Maybe (SrcSpan,SrcSpan),IsBootInterface) }
         : '{-# SOURCE' '#-}'                    { (Just ((gl $1),(gl $2)),True) }
         | {- empty -}                           { (Nothing,False) }
@@ -582,13 +594,13 @@ maybeas :: { (Maybe SrcSpan,Located (Maybe ModuleName)) }
         : 'as' modid                            { (Just (gl $1),LL (Just (unLoc $2))) }
         | {- empty -}                           { (Nothing,noLoc Nothing) }
 
-maybeimpspec :: { (Maybe SrcSpan,Located (Maybe (Bool, HsCommaList (LIE RdrName)))) }
+maybeimpspec :: { (Maybe SrcSpan,Located (Maybe (Bool, [LIE RdrName]))) }
         : impspec                               { (fst $1,L (gl (snd $1)) (Just (unLoc (snd $1)))) }
         | {- empty -}                           { (Nothing,noLoc Nothing) }
 
-impspec :: { (Maybe SrcSpan,Located (Bool, HsCommaList (LIE RdrName))) }
-        :  '(' exportlist ')'                   { (Nothing,LL (False, $2)) }
-        |  'hiding' '(' exportlist ')'          { (Just (gl $1),LL (True,  $3)) }
+impspec :: { (Maybe SrcSpan,Located (Bool, [LIE RdrName])) }
+        :  '(' exportlist ')'                   { (Nothing,LL (False, fromOL $2)) }
+        |  'hiding' '(' exportlist ')'          { (Just (gl $1),LL (True, fromOL $3)) }
 
 -----------------------------------------------------------------------------
 -- Fixity Declarations
@@ -692,7 +704,7 @@ ty_decl :: { LTyClDecl RdrName }
           -- ordinary data type or newtype declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
                 {% am (mkTyData (comb4 $1 $3 $4 $5) (unLoc $1) $2 $3
-                            Nothing (reverseCL (unLoc $4)) (snd $ snd $ unLoc $5))
+                            Nothing (reverse (unLoc $4)) (snd $ snd $ unLoc $5))
                                    -- We need the location on tycl_hdr in case
                                    -- constrs and deriving are both empty
                       (AnnDataDecl (gl $1) (fst $ unLoc $5)
@@ -733,7 +745,7 @@ inst_decl :: { LInstDecl RdrName }
           -- data/newtype instance declaration
         | data_or_newtype 'instance' capi_ctype tycl_hdr constrs deriving
             {% am (mkDataFamInst (comb4 $1 $4 $5 $6) (unLoc $1) $3 $4
-                                      Nothing (reverseCL (unLoc $5)) (snd $ snd $ unLoc $6))
+                                      Nothing (reverse (unLoc $5)) (snd $ snd $ unLoc $6))
                   (AnnDataFamInstDecl (gl $1) (Just (gl $2))
                                       (fst $ unLoc $6)
                                       (fst $ snd $ unLoc $6)) }
@@ -832,7 +844,7 @@ at_decl_inst :: { LInstDecl RdrName }
         -- data/newtype instance declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
                 {% am (mkDataFamInst (comb4 $1 $3 $4 $5) (unLoc $1) $2 $3
-                                     Nothing (reverseCL (unLoc $4)) (snd $ snd $ unLoc $5))
+                                     Nothing (reverse (unLoc $4)) (snd $ snd $ unLoc $5))
                       (AnnDataFamInstDecl (gl $1) Nothing
                                            (fst $ unLoc $5)
                                            (fst $ snd $ unLoc $5)) }
@@ -1293,11 +1305,11 @@ atype :: { LHsType RdrName }
         | strict_mark atype              { LL (HsBangTy (unLoc $1) $2) }  -- Constructor sigs only
         | '{' fielddecls '}'             {% am (checkRecordSyntax (LL $ HsRecTy $2)) -- Constructor sigs only
                                                (AnnHsRecTy (gl $1) (gl $3)) }
-        | '(' ')'                        {% aa (LL $ HsTupleTy HsBoxedOrConstraintTuple nilCL)
+        | '(' ')'                        {% aa (LL $ HsTupleTy HsBoxedOrConstraintTuple [])
                                                (AnnHsTupleTy (gl $1) (gl $2) Nothing) }
-        | '(' ctype ',' comma_types1 ')' {% aa (LL $ HsTupleTy HsBoxedOrConstraintTuple ($2 `consCL` $4))
+        | '(' ctype ',' comma_types1 ')' {% aa (LL $ HsTupleTy HsBoxedOrConstraintTuple ($2 : $4))
                                                (AnnHsTupleTy (gl $1) (gl $5) (gj $3)) }
-        | '(#' '#)'                      {% aa (LL $ HsTupleTy HsUnboxedTuple           nilCL)
+        | '(#' '#)'                      {% aa (LL $ HsTupleTy HsUnboxedTuple           [])
                                                (AnnHsTupleTy (gl $1) (gl $2) Nothing) }
         | '(#' comma_types1 '#)'         {% aa (LL $ HsTupleTy HsUnboxedTuple           $2)
                                                (AnnHsTupleTy (gl $1) (gl $3) Nothing) }
@@ -1311,7 +1323,7 @@ atype :: { LHsType RdrName }
                                            mkUnqual varName (getTH_ID_SPLICE $1) }
                                                       -- see Note [Promotion] for the followings
         | SIMPLEQUOTE qcon                            { LL $ HsTyVar $ unLoc $2 }
-        | SIMPLEQUOTE  '(' ctype ',' comma_types1 ')' {% aa (LL $ HsExplicitTupleTy [] ($3 `consCL` $5))
+        | SIMPLEQUOTE  '(' ctype ',' comma_types1 ')' {% aa (LL $ HsExplicitTupleTy [] ($3 : $5))
                                                             (AnnHsExplicitTupleTy (gl $2) (gl $6) (gj $4)) }
         | SIMPLEQUOTE  '[' comma_types0 ']'     {% aa (LL $ HsExplicitListTy
                                                             placeHolderKind $3)
@@ -1319,7 +1331,7 @@ atype :: { LHsType RdrName }
         | SIMPLEQUOTE var                       { LL $ HsTyVar $ unLoc $2 }
 
         | '[' ctype ',' comma_types1 ']'  {% aa (LL $ HsExplicitListTy
-                                                     placeHolderKind ($2 `consCL` $4))
+                                                     placeHolderKind ($2 : $4))
                                                 (AnnHsExplicitListTy (gl $1) (gl $5) (gj $3)) }
         | INTEGER                         { LL $ HsTyLit $ HsNumTy $ getINTEGER $1 }
         | STRING                          { LL $ HsTyLit $ HsStrTy $ getSTRING  $1 }
@@ -1331,19 +1343,18 @@ atype :: { LHsType RdrName }
 inst_type :: { LHsType RdrName }
         : sigtype                       { $1 }
 
--- ++AZ++ up to here
-inst_types1 :: { HsCommaList (LHsType RdrName) }
-        : inst_type                     { unitCL $1 }
+inst_types1 :: { [LHsType RdrName] }
+        : inst_type                     { [$1] }
 
-        | inst_type ',' inst_types1     { (extraCL (gl $2) (unitCL $1)) `appCL` $3 }
+        | inst_type ',' inst_types1     { $1 : $3 }
 
-comma_types0  :: { HsCommaList (LHsType RdrName) }
+comma_types0  :: { [LHsType RdrName] }
         : comma_types1                  { $1 }
-        | {- empty -}                   { nilCL }
+        | {- empty -}                   { [] }
 
-comma_types1    :: { HsCommaList (LHsType RdrName) }
-        : ctype                         { unitCL $1 }
-        | ctype  ',' comma_types1       { (extraCL (gl $2) (unitCL $1)) `appCL` $3 }
+comma_types1    :: { [LHsType RdrName] }
+        : ctype                         { [$1] }
+        | ctype  ',' comma_types1       { $1 : $3 }
 
 tv_bndrs :: { [LHsTyVarBndr RdrName] }
          : tv_bndr tv_bndrs             { $1 : $2 }
@@ -1389,12 +1400,12 @@ akind :: { LHsKind RdrName }
 pkind :: { LHsKind RdrName }  -- promoted type, see Note [Promotion]
         : qtycon                          { L1 $ HsTyVar $ unLoc $1 }
         | '(' ')'                         { LL $ HsTyVar $ getRdrName unitTyCon }
-        | '(' kind ',' comma_kinds1 ')'   { LL $ HsTupleTy HsBoxedTuple ((extraCL (gl $3) (unitCL $2)) `appCL` $4) }
+        | '(' kind ',' comma_kinds1 ')'   { LL $ HsTupleTy HsBoxedTuple ( $2 : $4) }
         | '[' kind ']'                    { LL $ HsListTy $2 }
 
-comma_kinds1 :: { (HsCommaList (LHsKind RdrName)) }
-        : kind                          { unitCL $1 }
-        | kind  ',' comma_kinds1        { (extraCL (gl $2) (unitCL $1)) `appCL` $3 }
+comma_kinds1 :: { [LHsKind RdrName] }
+        : kind                          { [$1] }
+        | kind  ',' comma_kinds1        { $1 : $3 }
 
 {- Note [Promotion]
    ~~~~~~~~~~~~~~~~
@@ -1427,15 +1438,15 @@ both become a HsTyVar ("Zero", DataName) after the renamer.
 -----------------------------------------------------------------------------
 -- Datatype declarations
 
-gadt_constrlist :: { Located (HsCommaList (LConDecl RdrName)) } -- Returned in order
+gadt_constrlist :: { Located [LConDecl RdrName] }       -- Returned in order
         : 'where' '{'        gadt_constrs '}'      { L (comb2 $1 $3) (unLoc $3) }
         | 'where' vocurly    gadt_constrs close    { L (comb2 $1 $3) (unLoc $3) }
-        | {- empty -}                              { noLoc nilCL }
+        | {- empty -}                              { noLoc [] }
 
-gadt_constrs :: { Located (HsCommaList (LConDecl RdrName)) }
-        : gadt_constr ';' gadt_constrs  { L (comb2 (headCL $1) $3) ((extraCL (gl $2) $1) `appCL` (unLoc $3)) }
-        | gadt_constr                   { L (getLoc (headCL $1)) $1 }
-        | {- empty -}                   { noLoc nilCL }
+gadt_constrs :: { Located [LConDecl RdrName] }
+        : gadt_constr ';' gadt_constrs  { L (comb2 (head $1) $3) ($1 ++ unLoc $3) }
+        | gadt_constr                   { L (getLoc (head $1)) $1 }
+        | {- empty -}                   { noLoc [] }
 
 -- We allow the following forms:
 --      C :: Eq a => a -> T a
@@ -1443,22 +1454,22 @@ gadt_constrs :: { Located (HsCommaList (LConDecl RdrName)) }
 --      D { x,y :: a } :: T a
 --      forall a. Eq a => D { x,y :: a } :: T a
 
-gadt_constr :: { HsCommaList (LConDecl RdrName) } -- Returns a list because of:   C,D :: ty
+gadt_constr :: { [LConDecl RdrName] }   -- Returns a list because of:   C,D :: ty
         : con_list '::' sigtype
-                { toCL $ map (sL (comb2 $1 $3)) (mkGadtDecl (unLoc $1) $3) }
+                { map (sL (comb2 $1 $3)) (mkGadtDecl (unLoc $1) $3) }
 
                 -- Deprecated syntax for GADT record declarations
         | oqtycon '{' fielddecls '}' '::' sigtype
                 {% do { cd <- mkDeprecatedGadtRecordDecl (comb2 $1 $6) $1 $3 $6
                       ; cd' <- checkRecordSyntax cd
-                      ; return (unitCL cd') } }
+                      ; return [cd'] } }
 
-constrs :: { Located (HsCommaList (LConDecl RdrName)) }
-        : maybe_docnext '=' constrs1    { L (comb2 $2 $3) (addConDocsCL (unLoc $3) $1) }
+constrs :: { Located [LConDecl RdrName] }
+        : maybe_docnext '=' constrs1    { L (comb2 $2 $3) (addConDocs (unLoc $3) $1) }
 
-constrs1 :: { Located (HsCommaList (LConDecl RdrName)) }
-        : constrs1 maybe_docnext '|' maybe_docprev constr { LL ((extraCL (gl $3) (unitCL $ addConDoc $5 $2)) `appCL` (addConDocFirstCL (unLoc $1) $4)) }
-        | constr                                          { L1 (unitCL $1) }
+constrs1 :: { Located [LConDecl RdrName] }
+        : constrs1 maybe_docnext '|' maybe_docprev constr { LL (addConDoc $5 $2 : addConDocFirst (unLoc $1) $4) }
+        | constr                                          { L1 [$1] }
 
 constr :: { LConDecl RdrName }
         : maybe_docnext forall context '=>' constr_stuff maybe_docprev
@@ -1504,11 +1515,11 @@ fielddecl :: { [ConDeclField RdrName] }    -- A list because of   f,g :: Int
 -- The 'C [a]' part is converted to an HsPredTy by checkInstType
 -- We don't allow a context, but that's sorted out by the type checker.
 deriving :: { Located (Maybe SrcSpan,(Maybe (SrcSpan,SrcSpan)
-                      ,Maybe (HsCommaList (LHsType RdrName)))) }
+                      ,Maybe [LHsType RdrName])) }
         : {- empty -}                           { noLoc (Nothing,(Nothing,Nothing)) }
         | 'deriving' qtycon                     { let { L loc tv = $2 }
-                                                  in LL (Just (gl $1),(Nothing,Just (unitCL (L loc (HsTyVar tv))))) }
-        | 'deriving' '(' ')'                    { LL (Just (gl $1),(Just (gl $2,gl $3),Just nilCL)) }
+                                                  in LL (Just (gl $1),(Nothing,Just [L loc (HsTyVar tv)])) }
+        | 'deriving' '(' ')'                    { LL (Just (gl $1),(Just (gl $2,gl $3),Just [])) }
         | 'deriving' '(' inst_types1 ')'        { LL (Just (gl $1),(Just (gl $2,gl $4),Just $3)) }
              -- Glasgow extension: allow partial
              -- applications in derivings
@@ -2503,8 +2514,43 @@ hintExplicitForall span = do
 gl = getLoc
 gj x = Just (gl x)
 
--- aa :: (Typeable a) => Located a -> b -> P ()
+gl4 (a,b,c,d) = (gl a,gl b,gl c,gl d)
+
+aa :: (Outputable b,Typeable b,Show b,Eq b)
+   => Located a -> b -> P (Located a)
 aa a@(L l _) b = addAnnotation l b >> return a
+
+as a@(L l _) bs = mapM_ (addAnnotation l) bs >> return a
+
+ass  a@(L l _) bs = mapM_ (\a -> a l) bs >> return a
+
+-- | Given a list of @Maybe annotation@, add the @Just@ ones to the
+-- given location
+ams :: Located a -> [Maybe (SrcSpan -> P ())] -> P (Located a)
+ams a@(L l _) bs = (mapM_ (\a -> a l) $ catMaybes bs) >> return a
+
+amsu :: Located a -> [Maybe (SrcSpan -> P ())] -> P (OrdList (Located a))
+amsu a@(L l _) bs = (mapM_ (\a -> a l) $ catMaybes bs) >> return (unitOL a)
+
+mlj2 :: (Outputable a,Typeable a,Show a,Eq a)
+   => ((SrcSpan,SrcSpan) -> a) -> Located e -> Located f -> Maybe (SrcSpan -> P ())
+mlj2 c l1 l2 = Just (\s -> addAnnotation s (c ((gl l1,gl l2))))
+
+
+mj :: (Outputable a,Typeable a,Show a,Eq a)
+   => (SrcSpan -> a) -> Located e -> Maybe (SrcSpan -> P ())
+mj c l = Just (\s -> addAnnotation s (c (gl l)))
+
+mm :: (Outputable a,Typeable a,Show a,Eq a)
+   => (SrcSpan -> a) -> Maybe SrcSpan -> Maybe (SrcSpan -> P ())
+mm c Nothing = Nothing
+mm c (Just l) = Just (\s -> addAnnotation s (c l))
+
+mm2 :: (Outputable a,Typeable a,Show a,Eq a)
+    => ((SrcSpan,SrcSpan) -> a) -> Maybe (SrcSpan,SrcSpan)
+    -> Maybe (SrcSpan -> P ())
+mm2 c Nothing = Nothing
+mm2 c (Just (l1,l2)) = Just (\s -> addAnnotation s (c (l1,l2)))
 
 am a b = do
   av@(L l _) <- a
@@ -2521,5 +2567,9 @@ acl cl b = do
   addAnnotation l b
   return cl
 
-gl4 (a,b,c,d) = (gl a,gl b,gl c,gl d)
+-- |Get the location of the last element of a OrdList, or noLoc
+oll :: OrdList (Located a) -> SrcSpan
+oll l = case fromOL l of
+         [] -> noSrcSpan
+         xs -> getLoc (last xs)
 }

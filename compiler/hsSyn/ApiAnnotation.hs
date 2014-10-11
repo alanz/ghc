@@ -21,7 +21,13 @@ module ApiAnnotation (
 
     getAnnotation,
 
-    AnnHsModule(..),AnnLIEs(..),
+    -- * Annotation types
+    AnnModule(..),AnnWhere(..),AnnCurlies(..),AnnParens(..),AnnSemi(..),
+    AnnComma(..),
+    AnnPragma(..),AnnPattern(..),AnnDotdot(..),AnnType(..),AnnImport(..),
+    AnnSafe(..),AnnQualified(..),AnnPackageName(..),AnnAs(..),AnnHiding(..),
+
+    -- Deprecated Annotation types
     AnnImportDecl(..),
 
     -- * IE
@@ -186,21 +192,60 @@ getAnnotation anns span = res
 
 -- --------------------------------------------------------------------
 
+data AnnModule = AnnModule SrcSpan
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnWhere = AnnWhere SrcSpan
+            deriving (Eq,Data,Typeable,Show)
+
+-- Should this be AnnBraces? The tokens are ITocurly / ITccurly
+data AnnCurlies = AnnCurlies (SrcSpan,SrcSpan)
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnParens = AnnParens (SrcSpan,SrcSpan)
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnSemi = AnnSemi SrcSpan
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnComma = AnnComma SrcSpan
+            deriving (Eq,Data,Typeable,Show)
+
+-- | Pragma declaration, e.g. '{-# SOURCE' '#-}'
+data AnnPragma = AnnPragma (SrcSpan,SrcSpan)
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnPattern = AnnPattern SrcSpan
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnDotdot = AnnDotdot SrcSpan
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnType = AnnType SrcSpan
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnImport = AnnImport SrcSpan
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnSafe = AnnSafe SrcSpan
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnQualified = AnnQualified SrcSpan
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnPackageName = AnnPackageName SrcSpan
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnAs = AnnAs SrcSpan
+            deriving (Eq,Data,Typeable,Show)
+
+data AnnHiding = AnnHiding SrcSpan
+            deriving (Eq,Data,Typeable,Show)
+
+-- --------------------------------------------------------------------
+
 -- Each annotation data type is named with an "Ann" prefix on the name
 -- of the type being annotated.
-
--- This annotation will only be present if there is a module header
-data AnnHsModule = AnnHsModule
-       { ahsmodule_module_where :: Maybe (SrcSpan,SrcSpan)
-       , ahsmodule_braces :: Maybe (SrcSpan,SrcSpan)
-         -- ^ '{' '}' surrounding imports/decls, if present
-       , ahsmodule_semi :: Maybe SrcSpan
-         -- ^ ';' between imports and decls, if present
-       }
-            deriving (Eq,Data,Typeable,Show)
-
-data AnnLIEs = AnnLIEs { alie_oparen, alie_cparen :: SrcSpan }
-            deriving (Eq,Data,Typeable,Show)
 
 data AnnImportDecl = AnnImportDecl
        { aimportdecl_src :: Maybe (SrcSpan,SrcSpan)
@@ -481,12 +526,55 @@ data AnnHsDo =  AnnHsDo { ahsdo_do :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
 
 -- ---------------------------------------------------------------------
-instance Outputable AnnHsModule where
-  ppr (AnnHsModule mw bs s) = text "AnnHsModule" <+> ppr mw <+> ppr bs <+> ppr s
+instance Outputable AnnModule where
+  ppr (AnnModule l) = text "AnnModule" <+> ppr l
 
-instance Outputable AnnLIEs where
-  ppr (AnnLIEs op cp) = text "AnnLIEs" <+> ppr op <+> ppr cp
+instance Outputable AnnWhere where
+  ppr (AnnWhere l) = text "AnnWhere" <+> ppr l
 
+instance Outputable AnnCurlies where
+  ppr (AnnCurlies l) = text "AnnCurlies" <+> ppr l
+
+instance Outputable AnnParens where
+  ppr (AnnParens l) = text "AnnParens" <+> ppr l
+
+instance Outputable AnnSemi where
+  ppr (AnnSemi l) = text "AnnSemi" <+> ppr l
+
+instance Outputable AnnComma where
+  ppr (AnnComma l) = text "AnnComma" <+> ppr l
+
+instance Outputable AnnPragma where
+  ppr (AnnPragma l) = text "AnnPragma" <+> ppr l
+
+instance Outputable AnnPattern where
+  ppr (AnnPattern l) = text "AnnPattern" <+> ppr l
+
+instance Outputable AnnDotdot where
+  ppr (AnnDotdot l) = text "AnnDotdot" <+> ppr l
+
+instance Outputable AnnType where
+  ppr (AnnType l) = text "AnnType" <+> ppr l
+
+instance Outputable AnnImport where
+  ppr (AnnImport l) = text "AnnImport" <+> ppr l
+
+instance Outputable AnnSafe where
+  ppr (AnnSafe l) = text "AnnSafe" <+> ppr l
+
+instance Outputable AnnQualified where
+  ppr (AnnQualified l) = text "AnnQualified" <+> ppr l
+
+instance Outputable AnnPackageName where
+  ppr (AnnPackageName l) = text "AnnPackageName" <+> ppr l
+
+instance Outputable AnnAs where
+  ppr (AnnAs l) = text "AnnAs" <+> ppr l
+
+instance Outputable AnnHiding where
+  ppr (AnnHiding l) = text "AnnHiding" <+> ppr l
+
+-- ---------------------------------------------------------------------
 instance Outputable AnnImportDecl where
   ppr (AnnImportDecl src asafe qual pkg aas ahiding)
     = text "AnnImportDecl" <+> ppr src <+> ppr asafe <+> ppr qual <+> ppr pkg

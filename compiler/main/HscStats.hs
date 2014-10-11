@@ -78,7 +78,7 @@ ppSourceStats short (L _ (HsModule _ exports imports ldecls _ _))
     default_ds = count (\ x -> case x of { DefD{} -> True; _ -> False}) decls
     val_decls  = [d | ValD d <- decls]
 
-    real_exports = case exports of { Nothing -> []; Just (L _ es) -> fromCL es }
+    real_exports = case exports of { Nothing -> []; Just (L _ es) -> es }
     n_exports    = length real_exports
     export_ms    = count (\ e -> case unLoc e of { IEModuleContents{} -> True;_ -> False})
                          real_exports
@@ -89,7 +89,7 @@ ppSourceStats short (L _ (HsModule _ exports imports ldecls _ _))
         = sum3 (map count_bind val_decls)
 
     (imp_no, imp_safe, imp_qual, imp_as, imp_all, imp_partial, imp_hiding)
-        = sum7 (map import_info (fromCL imports))
+        = sum7 (map import_info $ unLoc imports)
     (data_constrs, data_derivs)
         = sum2 (map data_info tycl_decls)
     (class_method_ds, default_method_ds)
@@ -126,8 +126,8 @@ ppSourceStats short (L _ (HsModule _ exports imports ldecls _ _))
 
     data_info (DataDecl { tcdDataDefn = HsDataDefn { dd_cons = cs
                                                    , dd_derivs = derivs}})
-        = (length $ fromCL cs, case derivs of Nothing -> 0
-                                              Just ds -> length $ fromCL ds)
+        = (length cs, case derivs of Nothing -> 0
+                                     Just ds -> length ds)
     data_info _ = (0,0)
 
     class_info decl@(ClassDecl {})

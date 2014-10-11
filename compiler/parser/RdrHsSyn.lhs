@@ -156,8 +156,8 @@ mkTyData :: SrcSpan
          -> Maybe (Located CType)
          -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
          -> Maybe (LHsKind RdrName)
-         -> HsCommaList (LConDecl RdrName)
-         -> Maybe (HsCommaList (LHsType RdrName))
+         -> [LConDecl RdrName]
+         -> Maybe [LHsType RdrName]
          -> P (LTyClDecl RdrName)
 mkTyData loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
   = do { (tc, tparams) <- checkTyClHdr tycl_hdr
@@ -171,8 +171,8 @@ mkDataDefn :: NewOrData
            -> Maybe (Located CType)
            -> Maybe (LHsContext RdrName)
            -> Maybe (LHsKind RdrName)
-           -> HsCommaList (LConDecl RdrName)
-           -> Maybe (HsCommaList (LHsType RdrName))
+           -> [LConDecl RdrName]
+           -> Maybe [LHsType RdrName]
            -> P (HsDataDefn RdrName)
 mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
   = do { checkDatatypeContext mcxt
@@ -207,8 +207,8 @@ mkDataFamInst :: SrcSpan
          -> Maybe (Located CType)
          -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
          -> Maybe (LHsKind RdrName)
-         -> HsCommaList (LConDecl RdrName)
-         -> Maybe (HsCommaList (LHsType RdrName))
+         -> [LConDecl RdrName]
+         -> Maybe [LHsType RdrName]
          -> P (LInstDecl RdrName)
 mkDataFamInst loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
   = do { (tc, tparams) <- checkTyClHdr tycl_hdr
@@ -414,7 +414,7 @@ splitCon ty
    split (L _ (HsAppTy t u)) ts    = split t (u : ts)
    split (L l (HsTyVar tc))  ts    = do data_con <- tyConToDataCon l tc
                                         return (data_con, mk_rest ts)
-   split (L l (HsTupleTy _ Empty)) [] = return (L l (getRdrName unitDataCon),
+   split (L l (HsTupleTy _ [])) [] = return (L l (getRdrName unitDataCon),
                                                     PrefixCon [])
                                          -- See Note [Unit tuples] in HsTypes
    split (L l _) _                 = parseErrorSDoc l (text "Cannot parse data constructor in a data/newtype declaration:" <+> ppr ty)
@@ -637,7 +637,7 @@ checkTyClHdr ty
         | isRdrTc tc         = return (ltc, t1:t2:acc)
     go _ (HsParTy ty)    acc = goL ty acc
     go _ (HsAppTy t1 t2) acc = goL t1 (t2:acc)
-    go l (HsTupleTy _ Empty) [] = return (L l (getRdrName unitTyCon), [])
+    go l (HsTupleTy _ []) [] = return (L l (getRdrName unitTyCon), [])
                                    -- See Note [Unit tuples] in HsTypes
     go l _               _   = parseErrorSDoc l (text "Malformed head of type or class declaration:" <+> ppr ty)
 
@@ -646,7 +646,7 @@ checkContext (L l orig_t)
   = check orig_t
  where
   check (HsTupleTy _ ts)        -- (Eq a, Ord b) shows up as a tuple type
-    = return (L l (fromCL ts))  -- Ditto ()
+    = return (L l ts)  -- Ditto ()
 
   check (HsParTy ty)    -- to be sure HsParTy doesn't get into the way
     = check (unLoc ty)
@@ -1188,7 +1188,7 @@ mkExtName rdrNm = mkFastString (occNameString (rdrNameOcc rdrNm))
 -- Help with module system imports/exports
 
 \begin{code}
-data ImpExpSubSpec = ImpExpAbs | ImpExpAll | ImpExpList (HsCommaList (Located RdrName))
+data ImpExpSubSpec = ImpExpAbs | ImpExpAll | ImpExpList [Located RdrName]
 
 mkModuleImpExp :: RdrName -> ImpExpSubSpec -> IE RdrName
 mkModuleImpExp name subs =
