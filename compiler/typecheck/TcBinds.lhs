@@ -199,7 +199,7 @@ tcHsBootSigs (ValBindsOut binds sigs)
   = do  { checkTc (null binds) badBootDeclErr
         ; concat <$> mapM (addLocM tc_boot_sig) (filter isTypeLSig sigs) }
   where
-    tc_boot_sig (TypeSig lnames ty) = mapM f $ fromCL lnames
+    tc_boot_sig (TypeSig lnames ty) = mapM f lnames
       where
         f (L _ name) = do  { sigma_ty <- tcHsSigType (FunSigCtxt name) ty
                            ; return (mkVanillaGlobal name sigma_ty) }
@@ -1293,8 +1293,8 @@ tcTySig (L loc (IdSig id))
 tcTySig (L loc (TypeSig names hs_ty))
   = setSrcSpan loc $
     do { sigma_ty <- tcHsSigType (FunSigCtxt name1) hs_ty
-       ; mapM (instTcTySig hs_ty sigma_ty) (map unLoc $ fromCL names) }
-    where (L _ name1 : _) = fromCL names
+       ; mapM (instTcTySig hs_ty sigma_ty) (map unLoc names) }
+    where (L _ name1 : _) = names
 tcTySig _ = return []
 
 instTcTySigFromId :: SrcSpan -> Id -> TcM TcSigInfo

@@ -169,7 +169,7 @@ cvtDec (TH.FunD nm cls)
 cvtDec (TH.SigD nm typ)
   = do  { nm' <- vNameL nm
         ; ty' <- cvtType typ
-        ; returnJustL $ Hs.SigD (TypeSig (unitCL nm') ty') }
+        ; returnJustL $ Hs.SigD (TypeSig [nm'] ty') }
 
 cvtDec (TH.InfixD fx nm)
   = do { nm' <- vNameL nm
@@ -295,7 +295,7 @@ cvtDec (ClosedTypeFamilyD tc tyvars mkind eqns)
        ; mkind' <- cvtMaybeKind mkind
        ; eqns' <- mapM (cvtTySynEqn tc') eqns
        ; returnJustL $ TyClD $ FamDecl $
-         FamilyDecl (ClosedTypeFamily (toCL eqns')) tc' tvs' mkind' }
+         FamilyDecl (ClosedTypeFamily eqns') tc' tvs' mkind' }
   | otherwise
   = failWith (ptext (sLit "Illegal empty closed type family"))
 
@@ -508,7 +508,7 @@ cvtPragmaD (RuleP nm bndrs lhs rhs phases)
        ; bndrs' <- mapM cvtRuleBndr bndrs
        ; lhs'   <- cvtl lhs
        ; rhs'   <- cvtl rhs
-       ; returnJustL $ Hs.RuleD $ HsRule nm' act bndrs'
+       ; returnJustL $ Hs.RuleD $ HsRule (noLoc nm') act bndrs'
                                      lhs' placeHolderNames
                                      rhs' placeHolderNames
        }

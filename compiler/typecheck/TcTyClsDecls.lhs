@@ -504,7 +504,7 @@ kcTyClDecl (FamDecl (FamilyDecl { fdLName  = L _ fam_tc_name
                                 , fdInfo   = ClosedTypeFamily eqns }))
   = do { tc_kind <- kcLookupKind fam_tc_name
        ; let fam_tc_shape = ( fam_tc_name, length (hsQTvBndrs hs_tvs), tc_kind)
-       ; mapM_ (kcTyFamInstEqn fam_tc_shape) (fromCL eqns) }
+       ; mapM_ (kcTyFamInstEqn fam_tc_shape) eqns }
 kcTyClDecl (FamDecl {})    = return ()
 
 -------------------
@@ -705,7 +705,7 @@ tcFamDecl1 parent
        ; tc_kind <- kcLookupKind tc_name
        ; let fam_tc_shape = (tc_name, length (hsQTvBndrs tvs), tc_kind) 
      
-       ; branches <- mapM (tcTyFamInstEqn fam_tc_shape) (fromCL eqns)
+       ; branches <- mapM (tcTyFamInstEqn fam_tc_shape) eqns
 
          -- we need the tycon that we will be creating, but it's in scope.
          -- just look it up.
@@ -726,13 +726,13 @@ tcFamDecl1 parent
        ; let co_ax = mkBranchedCoAxiom co_ax_name fam_tc branches
 
          -- now, finally, build the TyCon
-       ; let syn_rhs = if isNilCL eqns
+       ; let syn_rhs = if null eqns
                        then AbstractClosedSynFamilyTyCon
                        else ClosedSynFamilyTyCon co_ax
              roles   = map (const Nominal) tvs'
        ; tycon <- buildSynTyCon tc_name tvs' roles syn_rhs kind parent
 
-       ; let result = if isNilCL eqns
+       ; let result = if null eqns
                       then [ATyCon tycon]
                       else [ATyCon tycon, ACoAxiom co_ax]
        ; return result }

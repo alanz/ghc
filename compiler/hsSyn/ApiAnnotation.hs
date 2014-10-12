@@ -17,7 +17,7 @@ module ApiAnnotation (
     ApiAnnKey(..),
     ApiAnns,
 
-     getAnnotation,
+    getAnnotation,
 
     -- * Annotation types
     Ann(..),
@@ -155,26 +155,34 @@ getAnnotation anns span ann = Map.lookup (AK span ann) anns
 -- corresponding token, unless otherwise noted
 data Ann = AnnAs
          | AnnBang
+         | AnnClass
          | AnnClose -- ^ } or ] or ) or #) etc
          | AnnComma
          | AnnDarrow
+         | AnnData
          | AnnDcolon
          | AnnDefault
+         | AnnDeriving
          | AnnDot
          | AnnDotdot
          | AnnEqual
          | AnnExport
+         | AnnFamily
          | AnnForall
+         | AnnForeign
+         | AnnHeader -- ^ for CType
          | AnnHiding
          | AnnImport
          | AnnInstance
          | AnnIn
+         | AnnLarrow
          | AnnLet
          | AnnModule
          | AnnOpen   -- ^ { or [ or ( or (# etc
          | AnnPackageName
          | AnnPattern
          | AnnRarrow
+         | AnnRole
          | AnnQualified
          | AnnSafe
          | AnnSemi

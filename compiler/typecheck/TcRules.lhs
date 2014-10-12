@@ -124,7 +124,7 @@ tcRules decls = mapM (wrapLocM tcRule) decls
 
 tcRule :: RuleDecl Name -> TcM (RuleDecl TcId)
 tcRule (HsRule name act hs_bndrs lhs fv_lhs rhs fv_rhs)
-  = addErrCtxt (ruleCtxt name)  $
+  = addErrCtxt (ruleCtxt $ unLoc name)  $
     do { traceTc "---- Rule ------" (ppr name)
 
         -- Note [Typechecking rules]
@@ -137,7 +137,7 @@ tcRule (HsRule name act hs_bndrs lhs fv_lhs rhs fv_rhs)
                   ; (rhs', rhs_wanted) <- captureConstraints (tcMonoExpr rhs rule_ty)
                   ; return (lhs', lhs_wanted, rhs', rhs_wanted, rule_ty) }
 
-       ; (lhs_evs, other_lhs_wanted) <- simplifyRule name lhs_wanted rhs_wanted
+       ; (lhs_evs, other_lhs_wanted) <- simplifyRule (unLoc name) lhs_wanted rhs_wanted
 
         -- Now figure out what to quantify over
         -- c.f. TcSimplify.simplifyInfer
@@ -156,7 +156,7 @@ tcRule (HsRule name act hs_bndrs lhs fv_lhs rhs fv_rhs)
        ; gbls  <- tcGetGlobalTyVars   -- Even though top level, there might be top-level
                                       -- monomorphic bindings from the MR; test tc111
        ; qtkvs <- quantifyTyVars gbls forall_tvs
-       ; traceTc "tcRule" (vcat [ doubleQuotes (ftext name)
+       ; traceTc "tcRule" (vcat [ doubleQuotes (ftext $ unLoc name)
                                 , ppr forall_tvs
                                 , ppr qtkvs
                                 , ppr rule_ty
@@ -174,7 +174,7 @@ tcRule (HsRule name act hs_bndrs lhs fv_lhs rhs fv_rhs)
                                   , ic_wanted = rhs_wanted
                                   , ic_insol  = insolubleWC rhs_wanted
                                   , ic_binds  = rhs_binds_var
-                                  , ic_info   = RuleSkol name
+                                  , ic_info   = RuleSkol (unLoc name)
                                   , ic_env    = lcl_env }
 
            -- For the LHS constraints we must solve the remaining constraints
@@ -189,7 +189,7 @@ tcRule (HsRule name act hs_bndrs lhs fv_lhs rhs fv_rhs)
                                   , ic_wanted = other_lhs_wanted
                                   , ic_insol  = insolubleWC other_lhs_wanted
                                   , ic_binds  = lhs_binds_var
-                                  , ic_info   = RuleSkol name
+                                  , ic_info   = RuleSkol (unLoc name)
                                   , ic_env    = lcl_env }
 
        ; return (HsRule name act

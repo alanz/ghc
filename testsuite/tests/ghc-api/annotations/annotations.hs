@@ -45,14 +45,14 @@ testOneFile libdir fileName = do
 
         let anns = p
             AK l _ = fst $ head $ Map.toList p
-            annModule = (getAnnotation anns l) :: Maybe AnnHsModule
-            annLet = (getAnnotation anns l) :: Maybe AnnHsLet
+            annModule = (getAnnotation anns l AnnModule)
+            annLet    = (getAnnotation anns l AnnLet)
 
         putStrLn (intercalate "\n" [showAnns anns,pp annModule,pp annLet,pp l])
 
 showAnns anns = "[\n" ++ (intercalate "\n"
    $ map (\(AK s k,v)
-              -> ("(AK " ++ pp s ++ " " ++ show k ++",\n " ++ pp v ++ ")\n"))
+              -> ("(AK " ++ pp s ++ " " ++ show k ++" = " ++ pp v ++ ")\n"))
    $ Map.toList anns)
     ++ "]\n"
 

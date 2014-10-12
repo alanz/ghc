@@ -508,7 +508,7 @@ getLocalNonValBinders fixity_env
     -- In a hs-boot file, the value binders come from the
     --  *signatures*, and there should be no foreign binders
     hs_boot_sig_bndrs = [ L decl_loc (unLoc n)
-                        | L decl_loc (TypeSig ns _) <- val_sigs, n <- fromCL ns]
+                        | L decl_loc (TypeSig ns _) <- val_sigs, n <- ns]
     ValBindsIn _ val_sigs = val_binds
 
       -- the SrcSpan attached to the input should be the span of the
@@ -598,12 +598,11 @@ Note that the imp_occ_env will have entries for data constructors too,
 although we never look up data constructors.
 
 \begin{code}
-filterImports
-    :: ModIface
-    -> ImpDeclSpec                    -- The span for the entire import decl
-    -> Maybe (Bool, [LIE RdrName])    -- Import spec; True => hiding
-    -> RnM (Maybe (Bool, [LIE Name]), -- Import spec w/ Names
-            [GlobalRdrElt])           -- Same again, but in GRE form
+filterImports :: ModIface
+              -> ImpDeclSpec                    -- The span for the entire import decl
+              -> Maybe (Bool, [LIE RdrName])    -- Import spec; True => hiding
+              -> RnM (Maybe (Bool, [LIE Name]), -- Import spec w/ Names
+                      [GlobalRdrElt])           -- Same again, but in GRE form
 filterImports iface decl_spec Nothing
   = return (Nothing, gresFromAvails prov (mi_exports iface))
   where
@@ -862,8 +861,7 @@ mkChildEnv gres = foldr add emptyNameEnv gres
 findChildren :: NameEnv [Name] -> Name -> [Name]
 findChildren env n = lookupNameEnv env n `orElse` []
 
-lookupChildren :: [Name] -> [Located RdrName]
-               -> [Maybe (Located Name)]
+lookupChildren :: [Name] -> [Located RdrName] -> [Maybe (Located Name)]
 -- (lookupChildren all_kids rdr_items) maps each rdr_item to its
 -- corresponding Name all_kids, if the former exists
 -- The matching is done by FastString, not OccName, so that
@@ -872,12 +870,13 @@ lookupChildren :: [Name] -> [Located RdrName]
 -- the RdrName for AssocTy may have a (bogus) DataName namespace
 -- (Really the rdr_items should be FastStrings in the first place.)
 lookupChildren all_kids rdr_items
-  -- = map (lookupFsEnv kid_env . occNameFS . rdrNameOcc) (fromCL rdr_items)
+  -- = map (lookupFsEnv kid_env . occNameFS . rdrNameOcc) rdr_items
   = map doOne rdr_items
   where
     doOne (L l r) = case (lookupFsEnv kid_env . occNameFS . rdrNameOcc) r of
       Just n -> Just (L l n)
       Nothing -> Nothing
+
     kid_env = mkFsEnv [(occNameFS (nameOccName n), n) | n <- all_kids]
 
 -- | Combines 'AvailInfo's from the same family
@@ -955,8 +954,7 @@ type ExportOccMap = OccEnv (Name, IE RdrName)
         --   that have the same occurrence name
 
 rnExports :: Bool       -- False => no 'module M(..) where' header at all
-          -> Maybe (Located (HsCommaList (LIE RdrName)))
-                         -- Nothing => no explicit export list
+          -> Maybe (Located [LIE RdrName]) -- Nothing => no explicit export list
           -> TcGblEnv
           -> RnM TcGblEnv
 
@@ -983,8 +981,7 @@ rnExports explicit_mod exports
         ; let real_exports
                  | explicit_mod = exports
                  | ghcLink dflags == LinkInMemory = Nothing
-                 | otherwise =
-                        Just $ noLoc (unitCL $ noLoc (IEVar main_RDR_Unqual))
+                 | otherwise = Just (noLoc [noLoc (IEVar main_RDR_Unqual)])
                         -- ToDo: the 'noLoc' here is unhelpful if 'main'
                         --       turns out to be out of scope
 
@@ -1000,7 +997,7 @@ rnExports explicit_mod exports
                             tcg_dus = tcg_dus tcg_env `plusDU`
                                       usesOnly (availsToNameSet final_avails) }) }
 
-exports_from_avail :: Maybe (Located (HsCommaList (LIE RdrName)))
+exports_from_avail :: Maybe (Located [LIE RdrName])
                          -- Nothing => no explicit export list
                    -> GlobalRdrEnv
                    -> ImportAvails
@@ -1017,9 +1014,8 @@ exports_from_avail Nothing rdr_env _imports _this_mod
    in
    return (Nothing, avails)
 
-exports_from_avail (Just (L _ rdr_items)) rdr_env imports this_mod
-  = do (ie_names, _, exports)
-                  <- foldlM do_litem emptyExportAccum $ fromCL rdr_items
+exports_from_avail (Just rdr_items) rdr_env imports this_mod
+  = do (ie_names, _, exports) <- foldlM do_litem emptyExportAccum (unLoc rdr_items)
 
        return (Just ie_names, exports)
   where
@@ -1248,7 +1244,7 @@ dupExport_ok n ie1 ie2
 %*********************************************************
 
 \begin{code}
-reportUnusedNames :: Maybe (Located (HsCommaList (LIE RdrName))) -- Export list
+reportUnusedNames :: Maybe (Located [LIE RdrName])  -- Export list
                   -> TcGblEnv -> RnM ()
 reportUnusedNames _export_decls gbl_env
   = do  { traceRn ((text "RUN") <+> (ppr (tcg_dus gbl_env)))
@@ -1375,8 +1371,7 @@ findImportUsage imports rdr_env rdrs
 
         unused_imps   -- Not trivial; see eg Trac #7454
           = case imps of
-              Just (False, imp_ies) ->
-                    foldr (add_unused . unLoc) emptyNameSet imp_ies
+              Just (False, imp_ies) -> foldr (add_unused . unLoc) emptyNameSet imp_ies
               _other -> emptyNameSet -- No explicit import list => no unused-name list
 
         add_unused :: IE Name -> NameSet -> NameSet

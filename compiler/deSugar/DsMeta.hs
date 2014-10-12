@@ -282,11 +282,11 @@ repFamilyDecl (L loc (FamilyDecl { fdInfo    = info,
            case (opt_kind, info) of
                   (Nothing, ClosedTypeFamily eqns) ->
                     do { eqns1 <- mapM repTyFamEqn eqns
-                       ; eqns2 <- coreList tySynEqnQTyConName (fromCL eqns1)
+                       ; eqns2 <- coreList tySynEqnQTyConName eqns1
                        ; repClosedFamilyNoKind tc1 bndrs eqns2 }
                   (Just ki, ClosedTypeFamily eqns) ->
                     do { eqns1 <- mapM repTyFamEqn eqns
-                       ; eqns2 <- coreList tySynEqnQTyConName (fromCL eqns1)
+                       ; eqns2 <- coreList tySynEqnQTyConName eqns1
                        ; ki1 <- repLKind ki
                        ; repClosedFamilyKind tc1 bndrs ki1 eqns2 }
                   (Nothing, _) ->
@@ -470,7 +470,7 @@ repRuleD (L loc (HsRule n act bndrs lhs _ rhs _))
        ; ss <- mkGenSyms bndr_names
        ; rule1 <- addBinds ss $
                   do { bndrs' <- repList ruleBndrQTyConName repRuleBndr bndrs
-                     ; n'   <- coreStringLit $ unpackFS n
+                     ; n'   <- coreStringLit $ unpackFS $ unLoc n
                      ; act' <- repPhases act
                      ; lhs' <- repLE lhs
                      ; rhs' <- repLE rhs
@@ -613,7 +613,7 @@ rep_sigs' sigs = do { sigs1 <- mapM rep_sig sigs ;
 rep_sig :: LSig Name -> DsM [(SrcSpan, Core TH.DecQ)]
         -- Singleton => Ok
         -- Empty     => Too hard, signature ignored
-rep_sig (L loc (TypeSig nms ty))      = mapM (rep_ty_sig loc ty) $ fromCL nms
+rep_sig (L loc (TypeSig nms ty))      = mapM (rep_ty_sig loc ty) nms
 rep_sig (L _   (GenericSig nm _))     = failWithDs msg
   where msg = vcat  [ ptext (sLit "Illegal default signature for") <+> quotes (ppr nm)
                     , ptext (sLit "Default signatures are not supported by Template Haskell") ]

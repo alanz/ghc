@@ -683,10 +683,10 @@ rnHsRuleDecl (HsRule rule_name act vars lhs _fv_lhs rhs _fv_rhs)
        ; checkDupRdrNames rdr_names_w_loc
        ; checkShadowedRdrNames rdr_names_w_loc
        ; names <- newLocalBndrsRn rdr_names_w_loc
-       ; bindHsRuleVars rule_name vars names $ \ vars' ->
+       ; bindHsRuleVars (unLoc rule_name) vars names $ \ vars' ->
     do { (lhs', fv_lhs') <- rnLExpr lhs
        ; (rhs', fv_rhs') <- rnLExpr rhs
-       ; checkValidRule rule_name names lhs' fv_lhs'
+       ; checkValidRule (unLoc rule_name) names lhs' fv_lhs'
        ; return (HsRule rule_name act vars' lhs' fv_lhs' rhs' fv_rhs',
                  fv_lhs' `plusFV` fv_rhs') } }
   where
@@ -1004,7 +1004,7 @@ rnTyClDecl (ClassDecl {tcdCtxt = context, tcdLName = lcls,
 
         -- Check the signatures
         -- First process the class op sigs (op_sigs), then the fixity sigs (non_op_sigs).
-        ; let sig_rdr_names_w_locs = [op | L _ (TypeSig ops _) <- sigs, op <- fromCL ops]
+        ; let sig_rdr_names_w_locs = [op | L _ (TypeSig ops _) <- sigs, op <- ops]
         ; checkDupRdrNames sig_rdr_names_w_locs
                 -- Typechecker is responsible for checking that we only
                 -- give default-method bindings for things in this class.
@@ -1158,9 +1158,9 @@ rnFamDecl mb_cls (FamilyDecl { fdLName = tycon, fdTyVars = tyvars
      kvs = extractRdrKindSigVars kind
 
      rn_info (ClosedTypeFamily eqns)
-       = do { (eqns', fvs) <- rnList (rnTyFamInstEqn Nothing) (fromCL eqns)
+       = do { (eqns', fvs) <- rnList (rnTyFamInstEqn Nothing) eqns
                                                     -- no class context,
-            ; return (ClosedTypeFamily (toCL eqns'), fvs) }
+            ; return (ClosedTypeFamily eqns', fvs) }
      rn_info OpenTypeFamily = return (OpenTypeFamily, emptyFVs)
      rn_info DataFamily     = return (DataFamily, emptyFVs)
 
