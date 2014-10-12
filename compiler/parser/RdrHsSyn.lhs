@@ -83,6 +83,7 @@ import Outputable
 import FastString
 import Maybes
 import Util
+import OrdList
 
 import Control.Applicative ((<$>))
 import Control.Monad
@@ -122,7 +123,7 @@ mkInstD (L loc d) = L loc (InstD d)
 mkClassDecl :: SrcSpan
             -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
             -> Located [Located (FunDep RdrName)]
-            -> HsCommaList (LHsDecl RdrName)
+            -> OrdList (LHsDecl RdrName)
             -> P (LTyClDecl RdrName)
 
 mkClassDecl loc (L _ (mcxt, tycl_hdr)) fds where_cls
@@ -298,8 +299,8 @@ analyser.
 
 \begin{code}
 --  | Groups together bindings for a single function
-cvTopDecls :: HsCommaList (LHsDecl RdrName) -> [LHsDecl RdrName]
-cvTopDecls decls = go (fromCL decls)
+cvTopDecls :: OrdList (LHsDecl RdrName) -> [LHsDecl RdrName]
+cvTopDecls decls = go (fromOL decls)
   where
     go :: [LHsDecl RdrName] -> [LHsDecl RdrName]
     go []                   = []
@@ -308,20 +309,20 @@ cvTopDecls decls = go (fromCL decls)
     go (d : ds)             = d : go ds
 
 -- Declaration list may only contain value bindings and signatures.
-cvBindGroup :: HsCommaList (LHsDecl RdrName) -> HsValBinds RdrName
+cvBindGroup :: OrdList (LHsDecl RdrName) -> HsValBinds RdrName
 cvBindGroup binding
   = case cvBindsAndSigs binding of
       (mbs, sigs, fam_ds, tfam_insts, dfam_insts, _) 
          -> ASSERT( null fam_ds && null tfam_insts && null dfam_insts)
             ValBindsIn mbs sigs
 
-cvBindsAndSigs :: HsCommaList (LHsDecl RdrName)
+cvBindsAndSigs :: OrdList (LHsDecl RdrName)
   -> (LHsBinds RdrName, [LSig RdrName], [LFamilyDecl RdrName]
           , [LTyFamInstDecl RdrName], [LDataFamInstDecl RdrName], [LDocDecl])
 -- Input decls contain just value bindings and signatures
 -- and in case of class or instance declarations also
 -- associated type declarations. They might also contain Haddock comments.
-cvBindsAndSigs  fb = go (fromCL fb)
+cvBindsAndSigs  fb = go (fromOL fb)
   where
     go []                  = (emptyBag, [], [], [], [], [])
     go (L l (SigD s) : ds) = (bs, L l s : ss, ts, tfis, dfis, docs)
@@ -447,9 +448,9 @@ recordPatSynErr loc pat =
     text "record syntax not supported for pattern synonym declarations:" $$
     ppr pat
 
-toPatSynMatchGroup :: Located RdrName -> Located (HsCommaList (LHsDecl RdrName)) -> P (MatchGroup RdrName (LHsExpr RdrName))
+toPatSynMatchGroup :: Located RdrName -> Located (OrdList (LHsDecl RdrName)) -> P (MatchGroup RdrName (LHsExpr RdrName))
 toPatSynMatchGroup (L _ patsyn_name) (L _ decls) =
-    do { matches <- mapM fromDecl (fromCL decls)
+    do { matches <- mapM fromDecl (fromOL decls)
        ; return $ mkMatchGroup FromSource matches }
   where
     fromDecl (L loc decl@(ValD (PatBind pat@(L _ (ConPatIn (L _ name) details)) rhs _ _ _))) =
@@ -833,7 +834,7 @@ checkValSig
         -> P (Sig RdrName)
 checkValSig (L l (HsVar v)) ty
   | isUnqual v && not (isDataOcc (rdrNameOcc v))
-  = return (TypeSig (unitCL (L l v)) ty)
+  = return (TypeSig [L l v] ty)
 checkValSig lhs@(L l _) ty
   = parseErrorSDoc l ((text "Invalid type signature:" <+>
                        ppr lhs <+> text "::" <+> ppr ty)
@@ -1092,9 +1093,9 @@ mkInlinePragma (inl, match_info) mb_act
 --
 mkImport :: CCallConv
          -> Safety
-         -> (Located FastString, Located RdrName, Located (), LHsType RdrName)
+         -> (Located FastString, Located RdrName, LHsType RdrName)
          -> P (HsDecl RdrName)
-mkImport cconv safety (L loc entity, v, _, ty)
+mkImport cconv safety (L loc entity, v, ty)
   | cconv == PrimCallConv                      = do
   let funcTarget = CFunction (StaticTarget entity Nothing True)
       importSpec = CImport PrimCallConv safety Nothing funcTarget
@@ -1166,9 +1167,9 @@ parseCImport cconv safety nm str =
 -- construct a foreign export declaration
 --
 mkExport :: CCallConv
-         -> (Located FastString, Located RdrName, Located (), LHsType RdrName)
+         -> (Located FastString, Located RdrName, LHsType RdrName)
          -> P (HsDecl RdrName)
-mkExport cconv (L _ entity, v, _, ty) = return $
+mkExport cconv (L _ entity, v, ty) = return $
   ForD (ForeignExport v ty noForeignExportCoercionYet (CExport (CExportStatic entity' cconv)))
   where
     entity' | nullFS entity = mkExtName (unLoc v)

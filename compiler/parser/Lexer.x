@@ -1667,7 +1667,7 @@ data PState = PState {
         -- token doesn't need to close anything:
         alr_justClosedExplicitLetBlock :: Bool,
 
-        annotations :: [(ApiAnnKey,Value)]
+        annotations :: [(ApiAnnKey,SrcSpan)]
         -- Annotations giving the locations of 'noise' tokens in the
         -- source, so that users of the GHC API can do source to
         -- source conversions.
@@ -2522,9 +2522,9 @@ clean_pragma prag = canon_ws (map toLower (unprefix prag))
 %************************************************************************
 -}
 
-addAnnotation :: (Typeable a,Outputable a,Show a,Eq a) => SrcSpan -> a -> P ()
-addAnnotation l v = P $ \s -> POk s {
-  annotations = (AK l (typeOf (Just v)), newValue v) : annotations s
+addAnnotation :: SrcSpan -> Ann -> SrcSpan -> P ()
+addAnnotation l a v = P $ \s -> POk s {
+  annotations = ((AK l a), v) : annotations s
   } ()
 
 }

@@ -89,7 +89,6 @@ import Coercion
 import ForeignCall
 import PlaceHolder ( PostTc,PostRn,PlaceHolder(..),DataId )
 import NameSet
-import HsImpExp
 
 -- others:
 import InstEnv
@@ -530,7 +529,7 @@ data FamilyInfo name
   | OpenTypeFamily
      -- this list might be empty, if we're in an hs-boot file and the user
      -- said "type family Foo x where .."
-  | ClosedTypeFamily (HsCommaList (LTyFamInstEqn name))
+  | ClosedTypeFamily [LTyFamInstEqn name]
   deriving( Typeable )
 deriving instance (DataId name) => Data (FamilyInfo name)
 
@@ -724,9 +723,9 @@ instance (OutputableBndr name) => Outputable (FamilyDecl name) where
                       Just kind -> dcolon <+> ppr kind
           (pp_where, pp_eqns) = case info of
             ClosedTypeFamily eqns -> ( ptext (sLit "where")
-                                     , if isNilCL eqns
+                                     , if null eqns
                                        then ptext (sLit "..")
-                                       else vcat $ map ppr_fam_inst_eqn $ fromCL eqns )
+                                       else vcat $ map ppr_fam_inst_eqn eqns )
             _                     -> (empty, empty)
 
 pprFlavour :: FamilyInfo name -> SDoc
@@ -1337,7 +1336,7 @@ type LRuleDecl name = Located (RuleDecl name)
 
 data RuleDecl name
   = HsRule                      -- Source rule
-        RuleName                -- Rule name
+        (Located RuleName)      -- Rule name
         Activation
         [LRuleBndr name]        -- Forall'd vars; after typechecking this includes tyvars
         (Located (HsExpr name)) -- LHS
@@ -1359,7 +1358,8 @@ collectRuleBndrSigTys bndrs = [ty | RuleBndrSig _ ty <- bndrs]
 
 instance OutputableBndr name => Outputable (RuleDecl name) where
   ppr (HsRule name act ns lhs _fv_lhs rhs _fv_rhs)
-        = sep [text "{-# RULES" <+> doubleQuotes (ftext name) <+> ppr act,
+        = sep [text "{-# RULES" <+> doubleQuotes (ftext $ unLoc name)
+                                <+> ppr act,
                nest 4 (pp_forall <+> pprExpr (unLoc lhs)),
                nest 4 (equals <+> pprExpr (unLoc rhs) <+> text "#-}") ]
         where

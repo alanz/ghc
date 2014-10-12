@@ -24,10 +24,6 @@ import FastString
 import SrcLoc
 
 import Data.Data
-#if __GLASGOW_HASKELL__ < 709
-import Data.Foldable ( Foldable )
-import Data.Traversable ( Traversable )
-#endif
 \end{code}
 
 %************************************************************************
@@ -166,106 +162,4 @@ instance (HasOccName name, OutputableBndr name) => Outputable (IE name) where
     ppr (IEGroup n _)           = text ("<IEGroup: " ++ (show n) ++ ">")
     ppr (IEDoc doc)             = ppr doc
     ppr (IEDocNamed string)     = text ("<IEDocNamed: " ++ string ++ ">")
-\end{code}
-
-
-\begin{code}
--- | A comma separated list that can cope with extra commas in it, for
--- example in tuple sections or imports
-
--- AZ: Naming: in the import declarations this captures semicolons.
-data HsCommaList a
-  = Empty
-  | Cons a (HsCommaList a)
--- AZ : currently abusing ExtraComma to capture all commas.
-  | ExtraComma SrcSpan (HsCommaList a)
-       -- ^ We need a SrcSpan for the annotation
-  | Snoc (HsCommaList a) a
-  | Two (HsCommaList a) -- Invariant: non-empty
-        (HsCommaList a) -- Invariant: non-empty
-
-  deriving (Data,Typeable,Functor,Foldable,Traversable)
-deriving instance (Eq a) => Eq (HsCommaList a)
-
-infixl 5  `appCL`
-infixl 5  `snocCL`
-infixr 5  `consCL`
-
-appCL :: HsCommaList a -> HsCommaList a -> HsCommaList a
-
-l1    `appCL` Empty = l1
-Empty `appCL` l2    = l2
-ExtraComma s ls `appCL` l2 = ExtraComma s (ls `appCL` l2)
-Cons l       ls `appCL` l2 = Cons l       (ls `appCL` l2)
-l1              `appCL` l2 = Two l1 l2
-
-reverseCL ::  HsCommaList a -> HsCommaList a
-reverseCL = toCLWithCommas . reverse . fromCLWithCommas
-
-consCL :: a -> HsCommaList a -> HsCommaList a
-consCL l ls = Cons l ls
-
-snocCL :: HsCommaList a -> a -> HsCommaList a
-snocCL ls l = Snoc ls l
-
-nilCL :: HsCommaList a
-nilCL = Empty
-
-unitCL :: a -> HsCommaList a
-unitCL v = Cons v Empty
-
-extraCL :: SrcSpan -> HsCommaList a -> HsCommaList a
-extraCL mss l = ExtraComma mss l
-
-fromCL :: HsCommaList a -> [a]
-fromCL a = go a []
-  where go Empty            acc = acc
-        go (Cons a b)       acc = a : go b acc
-        go (ExtraComma _ a) acc = go a acc -- discarding comma
-        go (Snoc a b)       acc = go a (b:acc)
-        go (Two a b)        acc = go a (go b acc)
-
-fromCLWithCommas :: HsCommaList a -> [Either SrcSpan a]
-fromCLWithCommas a = go a []
-  where go Empty            acc = acc
-        go (Cons a b)       acc = (Right a) : go b acc
-        go (ExtraComma s a) acc = (Left s)  : go a acc
-        go (Snoc a b)       acc = go a ((Right b):acc)
-        go (Two a b)        acc = go a (go b acc)
-
-toCL :: [a] -> HsCommaList a
-toCL [] = Empty
-toCL (x:xs) = Cons x (toCL xs)
-
-toCLWithCommas :: [Either SrcSpan a] -> HsCommaList a
-toCLWithCommas [] = Empty
-toCLWithCommas (Left s :xs) = ExtraComma s (toCLWithCommas xs)
-toCLWithCommas (Right x:xs) = Cons x       (toCLWithCommas xs)
-
-isNilCL :: HsCommaList a -> Bool
-isNilCL Empty = True
-isNilCL _ = False
-
-firstLocCL :: HsCommaList (Located a) -> SrcSpan
-firstLocCL Empty            = noSrcSpan
-firstLocCL (Cons (L l _) _) = l
-firstLocCL (ExtraComma _ a) = firstLocCL a
-firstLocCL (Snoc b _)       = firstLocCL b
-firstLocCL (Two a _)        = firstLocCL a
-
-headCL :: HsCommaList a -> a
-headCL Empty            = error "headCL Empty"
-headCL (Cons a _)       = a
-headCL (ExtraComma _ a) = headCL a
-headCL (Snoc a _)       = headCL a
-headCL (Two a _)        = headCL a
-\end{code}
-
-\begin{code}
-instance (Outputable a) => Outputable (HsCommaList a) where
-    ppr (Empty)           = empty
-    ppr (ExtraComma _ cl) = comma <+> ppr cl
-    ppr (Cons a cl)       = ppr a <> comma <+> ppr cl
-    ppr (Snoc cl a)       = ppr cl <+> ppr a
-    ppr (Two a b)         = ppr a <+> ppr b
 \end{code}

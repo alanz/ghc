@@ -14,18 +14,13 @@ See https://ghc.haskell.org/trac/ghc/wiki/GhcAstAnnotations
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ExistentialQuantification #-}
 module ApiAnnotation (
-    ApiAnnKey(..), mkApiAnnKey,
+    ApiAnnKey(..),
     ApiAnns,
 
-    Value,newValue,typeValue,fromValue,
-
-    getAnnotation,
+     getAnnotation,
 
     -- * Annotation types
-    AnnModule(..),AnnWhere(..),AnnCurlies(..),AnnParens(..),AnnSemi(..),
-    AnnComma(..),
-    AnnPragma(..),AnnPattern(..),AnnDotdot(..),AnnType(..),AnnImport(..),
-    AnnSafe(..),AnnQualified(..),AnnPackageName(..),AnnAs(..),AnnHiding(..),
+    Ann(..),
 
     -- Deprecated Annotation types
     AnnImportDecl(..),
@@ -105,7 +100,6 @@ module ApiAnnotation (
     ) where
 
 import Data.Data
-import Data.Maybe
 import Outputable
 import SrcLoc
 
@@ -141,106 +135,58 @@ This allows code using the annotation to access this as follows
 
 
 -}
-
-type ApiAnns = Map.Map ApiAnnKey Value
-
-data ApiAnnKey = AK SrcSpan TypeRep
-                  deriving (Eq,Ord,Show)
-
-mkApiAnnKey :: (Typeable a) => SrcSpan -> a -> ApiAnnKey
-mkApiAnnKey l a = AK l (typeOf (Just a))
-
 -- ---------------------------------------------------------------------
--- Based on
--- https://github.com/ndmitchell/shake/blob/master/Development/Shake/Value.hs
 
-data Value = forall a . (Eq a, Show a, Typeable a, Outputable a) => Value a
+type ApiAnns = Map.Map ApiAnnKey SrcSpan
 
-newValue :: (Eq a, Show a, Typeable a, Outputable a) => a -> Value
-newValue = Value
-
-typeValue :: Value -> TypeRep
-typeValue (Value x) = typeOf x
-
-fromValue :: Typeable a => Value -> a
-fromValue (Value x) = fromMaybe (error errMsg) $ res
-  where
-    res = cast x
-    errMsg = "fromValue, bad cast from " ++ show (typeOf x)
-                ++ " to " ++ show (typeOf res)
-
-instance Show Value where
-  show (Value a) = show a
-
-instance Outputable Value where
-  ppr (Value a) = ppr a
-
-instance Eq Value where
-  Value a == Value b = maybe False (a ==) $ cast b
-  Value a /= Value b = maybe True (a /=) $ cast b
-
+data ApiAnnKey = AK SrcSpan Ann
+                  deriving (Eq,Ord,Show)
 
 -- ---------------------------------------------------------------------
 
 -- | Retrieve an annotation based on the SrcSpan of the annotated AST
 -- element, and the known type of the annotation.
-getAnnotation :: (Typeable a) => ApiAnns -> SrcSpan -> Maybe a
-getAnnotation anns span = res
-  where res = case  Map.lookup (AK span (typeOf res)) anns of
-                       Nothing -> Nothing
-                       Just d -> Just $ fromValue d
+getAnnotation :: ApiAnns -> SrcSpan -> Ann -> Maybe SrcSpan
+getAnnotation anns span ann = Map.lookup (AK span ann) anns
 
 -- --------------------------------------------------------------------
 
-data AnnModule = AnnModule SrcSpan
-            deriving (Eq,Data,Typeable,Show)
+-- | Note: in general the names of these are taken from the
+-- corresponding token, unless otherwise noted
+data Ann = AnnAs
+         | AnnBang
+         | AnnClose -- ^ } or ] or ) or #) etc
+         | AnnComma
+         | AnnDarrow
+         | AnnDcolon
+         | AnnDefault
+         | AnnDot
+         | AnnDotdot
+         | AnnEqual
+         | AnnExport
+         | AnnForall
+         | AnnHiding
+         | AnnImport
+         | AnnInstance
+         | AnnIn
+         | AnnLet
+         | AnnModule
+         | AnnOpen   -- ^ { or [ or ( or (# etc
+         | AnnPackageName
+         | AnnPattern
+         | AnnRarrow
+         | AnnQualified
+         | AnnSafe
+         | AnnSemi
+         | AnnTilde
+         | AnnType
+         | AnnVal -- ^ e.g. INTEGER
+         | AnnVbar
+         | AnnWhere
+            deriving (Eq,Ord,Data,Typeable,Show)
 
-data AnnWhere = AnnWhere SrcSpan
-            deriving (Eq,Data,Typeable,Show)
-
--- Should this be AnnBraces? The tokens are ITocurly / ITccurly
-data AnnCurlies = AnnCurlies (SrcSpan,SrcSpan)
-            deriving (Eq,Data,Typeable,Show)
-
-data AnnParens = AnnParens (SrcSpan,SrcSpan)
-            deriving (Eq,Data,Typeable,Show)
-
-data AnnSemi = AnnSemi SrcSpan
-            deriving (Eq,Data,Typeable,Show)
-
-data AnnComma = AnnComma SrcSpan
-            deriving (Eq,Data,Typeable,Show)
-
--- | Pragma declaration, e.g. '{-# SOURCE' '#-}'
-data AnnPragma = AnnPragma (SrcSpan,SrcSpan)
-            deriving (Eq,Data,Typeable,Show)
-
-data AnnPattern = AnnPattern SrcSpan
-            deriving (Eq,Data,Typeable,Show)
-
-data AnnDotdot = AnnDotdot SrcSpan
-            deriving (Eq,Data,Typeable,Show)
-
-data AnnType = AnnType SrcSpan
-            deriving (Eq,Data,Typeable,Show)
-
-data AnnImport = AnnImport SrcSpan
-            deriving (Eq,Data,Typeable,Show)
-
-data AnnSafe = AnnSafe SrcSpan
-            deriving (Eq,Data,Typeable,Show)
-
-data AnnQualified = AnnQualified SrcSpan
-            deriving (Eq,Data,Typeable,Show)
-
-data AnnPackageName = AnnPackageName SrcSpan
-            deriving (Eq,Data,Typeable,Show)
-
-data AnnAs = AnnAs SrcSpan
-            deriving (Eq,Data,Typeable,Show)
-
-data AnnHiding = AnnHiding SrcSpan
-            deriving (Eq,Data,Typeable,Show)
+instance Outputable Ann where
+  ppr x = text (show x)
 
 -- --------------------------------------------------------------------
 
@@ -524,55 +470,6 @@ data AnnHsLet = AnnHsLet { ahslet_let, ahslet_in ::  SrcSpan }
 
 data AnnHsDo =  AnnHsDo { ahsdo_do :: SrcSpan }
             deriving (Eq,Data,Typeable,Show)
-
--- ---------------------------------------------------------------------
-instance Outputable AnnModule where
-  ppr (AnnModule l) = text "AnnModule" <+> ppr l
-
-instance Outputable AnnWhere where
-  ppr (AnnWhere l) = text "AnnWhere" <+> ppr l
-
-instance Outputable AnnCurlies where
-  ppr (AnnCurlies l) = text "AnnCurlies" <+> ppr l
-
-instance Outputable AnnParens where
-  ppr (AnnParens l) = text "AnnParens" <+> ppr l
-
-instance Outputable AnnSemi where
-  ppr (AnnSemi l) = text "AnnSemi" <+> ppr l
-
-instance Outputable AnnComma where
-  ppr (AnnComma l) = text "AnnComma" <+> ppr l
-
-instance Outputable AnnPragma where
-  ppr (AnnPragma l) = text "AnnPragma" <+> ppr l
-
-instance Outputable AnnPattern where
-  ppr (AnnPattern l) = text "AnnPattern" <+> ppr l
-
-instance Outputable AnnDotdot where
-  ppr (AnnDotdot l) = text "AnnDotdot" <+> ppr l
-
-instance Outputable AnnType where
-  ppr (AnnType l) = text "AnnType" <+> ppr l
-
-instance Outputable AnnImport where
-  ppr (AnnImport l) = text "AnnImport" <+> ppr l
-
-instance Outputable AnnSafe where
-  ppr (AnnSafe l) = text "AnnSafe" <+> ppr l
-
-instance Outputable AnnQualified where
-  ppr (AnnQualified l) = text "AnnQualified" <+> ppr l
-
-instance Outputable AnnPackageName where
-  ppr (AnnPackageName l) = text "AnnPackageName" <+> ppr l
-
-instance Outputable AnnAs where
-  ppr (AnnAs l) = text "AnnAs" <+> ppr l
-
-instance Outputable AnnHiding where
-  ppr (AnnHiding l) = text "AnnHiding" <+> ppr l
 
 -- ---------------------------------------------------------------------
 instance Outputable AnnImportDecl where

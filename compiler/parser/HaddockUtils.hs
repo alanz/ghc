@@ -25,25 +25,6 @@ addConDocs [] _ = []
 addConDocs [x] doc = [addConDoc x doc]
 addConDocs (x:xs) doc = x : addConDocs xs doc
 
--- | Add the docs to the last LConDecl
-addConDocsCL :: HsCommaList (LConDecl a) -> Maybe LHsDocString
-             -> HsCommaList (LConDecl a)
-addConDocsCL Empty _ = Empty
-addConDocsCL xs doc = reverseCL $ addConDocs' xsr -- This may be inefficient
-  where
-    xsr = reverseCL xs
-    addConDocs' (Cons x xs) = Cons (addConDoc x doc) xs
-    addConDocs' (ExtraComma l xs) = ExtraComma l (addConDocs' xs)
-    addConDocs' _ = error "should not occur due to reverseCL"
-
-addConDocFirstCL :: HsCommaList (LConDecl a) -> Maybe LHsDocString
-                 -> HsCommaList (LConDecl a)
-addConDocFirstCL Empty _ = Empty
-addConDocFirstCL (Cons x xs)       doc = Cons (addConDoc x doc) xs
-addConDocFirstCL (ExtraComma l xs) doc = ExtraComma l (addConDocFirstCL xs doc)
-addConDocFirstCL (Snoc bs x)       doc = Snoc (addConDocFirstCL bs doc) x
-addConDocFirstCL (Two as bs)       doc = Two (addConDocFirstCL as doc) bs
-
 addConDocFirst :: [LConDecl a] -> Maybe LHsDocString -> [LConDecl a]
 addConDocFirst [] _ = []
 addConDocFirst (x:xs) doc = addConDoc x doc : xs

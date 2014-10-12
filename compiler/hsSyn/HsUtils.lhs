@@ -83,7 +83,6 @@ import HsPat
 import HsTypes
 import HsLit
 import PlaceHolder
-import HsImpExp
 
 import TcEvidence
 import RdrName
@@ -772,7 +771,7 @@ hsLTyClDeclBinders (L loc (ClassDecl   { tcdLName = L _ cls_name
                                        , tcdSigs = sigs, tcdATs = ats }))
   = L loc cls_name :
     [ L fam_loc fam_name | L fam_loc (FamilyDecl { fdLName = L _ fam_name }) <- ats ] ++
-    [ L mem_loc mem_name | L mem_loc (TypeSig ns _) <- sigs, L _ mem_name <- fromCL ns ]
+    [ L mem_loc mem_name | L mem_loc (TypeSig ns _) <- sigs, L _ mem_name <- ns ]
 hsLTyClDeclBinders (L loc (DataDecl    { tcdLName = L _ name, tcdDataDefn = defn }))
   = L loc name : hsDataDefnBinders defn
 
