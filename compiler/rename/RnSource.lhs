@@ -1413,8 +1413,7 @@ extendRecordFieldEnv tycl_decls inst_decls
     all_data_cons = [con | HsDataDefn { dd_cons = cons } <- all_ty_defs
                          , L _ con <- cons ]
     all_ty_defs = [ defn | L _ (DataDecl { tcdDataDefn = defn }) <- tyClGroupConcat tycl_decls ]
-               ++ map (dfid_defn) (instDeclDataFamInsts inst_decls)
-                                       -- Do not forget associated types!
+               ++ map dfid_defn (instDeclDataFamInsts inst_decls) -- Do not forget associated types!
 
     get_con (ConDecl { con_name = con, con_details = RecCon flds })
             (RecFields env fld_set)

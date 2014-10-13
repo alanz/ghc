@@ -78,12 +78,12 @@ import OccName          ( srcDataName, varName, isDataOcc, isTcOcc,
 import PrelNames        ( forall_tv_RDR, allNameStrings )
 import DynFlags
 import SrcLoc
+import OrdList          ( OrdList, fromOL )
 import Bag              ( emptyBag, consBag )
 import Outputable
 import FastString
 import Maybes
 import Util
-import OrdList
 
 import Control.Applicative ((<$>))
 import Control.Monad
@@ -216,8 +216,7 @@ mkDataFamInst loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_
        ; defn <- mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
        ; return (L loc (DataFamInstD (
                   DataFamInstDecl { dfid_tycon = tc, dfid_pats = mkHsWithBndrs tparams
-                                  , dfid_defn = defn
-                                  , dfid_fvs = placeHolderNames }))) }
+                                  , dfid_defn = defn, dfid_fvs = placeHolderNames }))) }
 
 mkTyFamInst :: SrcSpan
             -> LTyFamInstEqn RdrName
@@ -415,8 +414,7 @@ splitCon ty
    split (L _ (HsAppTy t u)) ts    = split t (u : ts)
    split (L l (HsTyVar tc))  ts    = do data_con <- tyConToDataCon l tc
                                         return (data_con, mk_rest ts)
-   split (L l (HsTupleTy _ [])) [] = return (L l (getRdrName unitDataCon),
-                                                    PrefixCon [])
+   split (L l (HsTupleTy _ [])) [] = return (L l (getRdrName unitDataCon), PrefixCon [])
                                          -- See Note [Unit tuples] in HsTypes
    split (L l _) _                 = parseErrorSDoc l (text "Cannot parse data constructor in a data/newtype declaration:" <+> ppr ty)
 
@@ -647,7 +645,7 @@ checkContext (L l orig_t)
   = check orig_t
  where
   check (HsTupleTy _ ts)        -- (Eq a, Ord b) shows up as a tuple type
-    = return (L l ts)  -- Ditto ()
+    = return (L l ts)           -- Ditto ()
 
   check (HsParTy ty)    -- to be sure HsParTy doesn't get into the way
     = check (unLoc ty)

@@ -422,8 +422,9 @@ identifier :: { Located RdrName }
 module  :: { Located (HsModule RdrName) }
         : maybedocheader 'module' modid maybemodwarning maybeexports 'where' body
                 {% fileSrcSpan >>= \ loc ->
-                   ams (L loc (HsModule (Just $3) $5 (fst $ snd $7) (snd $ snd $7) $4 $1
-                      ) )
+                   ams (L loc (HsModule (Just $3) $5 (fst $ snd $7)
+                              (snd $ snd $7) $4 $1)
+                       )
                      ([mj AnnModule $2, mj AnnWhere $6] ++ fst $7) }
         | body2
                 {% fileSrcSpan >>= \ loc ->
@@ -445,19 +446,23 @@ maybemodwarning :: { Maybe WarningTxt }
 
 body    :: { ([MaybeAnn]
              ,(Located [LImportDecl RdrName], [LHsDecl RdrName])) }
-        :  '{'            top '}'      { ([mj AnnOpen $1,mj AnnClose $3,fst $2], snd $2) }
+        :  '{'            top '}'      { ([mj AnnOpen $1,mj AnnClose $3,fst $2]
+                                         , snd $2) }
         |      vocurly    top close    { ([], snd $2) }
 
 body2   :: { ([MaybeAnn]
              ,(Located [LImportDecl RdrName], [LHsDecl RdrName])) }
-        :  '{' top '}'                          { ([mj AnnOpen $1,mj AnnClose $3,fst $2], snd $2) }
+        :  '{' top '}'                          { ([mj AnnOpen $1,mj AnnClose $3
+                                                   ,fst $2], snd $2) }
         |  missing_module_keyword top close     { ([],snd $2) }
 
 top     :: { (MaybeAnn
              ,(Located [LImportDecl RdrName], [LHsDecl RdrName])) }
-        : importdecls                           { (Nothing,(L (gl $1) (reverse $ unLoc $1),[])) }
-        | importdecls ';' cvtopdecls            { (mj AnnSemi $2,(L (gl $1) (reverse $ unLoc $1),$3)) }
-        | cvtopdecls                            { (Nothing,(noLoc [],$1)) }
+        : importdecls                   { (Nothing
+                                          ,(L (gl $1) (reverse $ unLoc $1),[]))}
+        | importdecls ';' cvtopdecls    { (mj AnnSemi $2
+                                          ,(L (gl $1) (reverse $ unLoc $1),$3))}
+        | cvtopdecls                    { (Nothing,(noLoc [],$1)) }
 
 cvtopdecls :: { [LHsDecl RdrName] }
         : topdecls                              { cvTopDecls $1 }
@@ -488,14 +493,14 @@ header_body2 :: { Located [LImportDecl RdrName] }
 -- The Export List
 
 maybeexports :: { Maybe (Located [LIE RdrName]) }
-        :  '(' exportlist ')'                   {% ajs (Just (L (comb2 $1 $3) (fromOL $2)))
-                                                       [mj AnnOpen $1,mj AnnClose $3] }
-        |  {- empty -}                          { Nothing }
+        :  '(' exportlist ')'       {% ajs (Just (L (comb2 $1 $3) (fromOL $2)))
+                                           [mj AnnOpen $1,mj AnnClose $3] }
+        |  {- empty -}              { Nothing }
 
 exportlist :: { OrdList (LIE RdrName) }
-        : expdoclist ',' expdoclist             {% (addAnnotation (oll $1) AnnComma (gl $2) ) >>
-                                                   return ($1 `appOL` $3) }
-        | exportlist1                           { $1 }
+        : expdoclist ',' expdoclist   {% addAnnotation (oll $1) AnnComma (gl $2)
+                                         >> return ($1 `appOL` $3) }
+        | exportlist1                 { $1 }
 
 exportlist1 :: { OrdList (LIE RdrName) }
         : expdoclist export expdoclist ',' exportlist1 {% (addAnnotation (oll ($1 `appOL` $2 `appOL` $3))

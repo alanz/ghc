@@ -723,8 +723,7 @@ instance (OutputableBndr name) => Outputable (Sig name) where
 
 ppr_sig :: OutputableBndr name => Sig name -> SDoc
 ppr_sig (TypeSig vars ty)         = pprVarSig (map unLoc vars) (ppr ty)
-ppr_sig (GenericSig vars ty)      = ptext (sLit "default") <+> pprVarSig
-                                       (map unLoc vars) (ppr ty)
+ppr_sig (GenericSig vars ty)      = ptext (sLit "default") <+> pprVarSig (map unLoc vars) (ppr ty)
 ppr_sig (IdSig id)                = pprVarSig [id] (ppr (varType id))
 ppr_sig (FixSig fix_sig)          = ppr fix_sig
 ppr_sig (SpecSig var ty inl)      = pragBrackets (pprSpec (unLoc var) (ppr ty) inl)

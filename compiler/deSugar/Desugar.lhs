@@ -372,8 +372,7 @@ dsRule (L loc (HsRule name act vars lhs _tv_lhs rhs _fv_rhs))
               fn_name   = idName fn_id
               final_rhs = simpleOptExpr rhs''    -- De-crap it
               rule      = mkRule False {- Not auto -} is_local
-                                 (unLoc name) act fn_name final_bndrs args
-                                 final_rhs
+                                 (unLoc name) act fn_name final_bndrs args final_rhs
 
               inline_shadows_rule   -- Function can be inlined before rule fires
                 | wopt Opt_WarnInlineRuleShadowing dflags

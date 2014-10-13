@@ -792,8 +792,7 @@ hsDataFamInstBinders (DataFamInstDecl { dfid_defn = defn })
 -------------------
 -- the SrcLoc returned are for the whole declarations, not just the names
 hsDataDefnBinders :: Eq name => HsDataDefn name -> [Located name]
-hsDataDefnBinders (HsDataDefn { dd_cons = cons })
-  = hsConDeclsBinders cons
+hsDataDefnBinders (HsDataDefn { dd_cons = cons }) = hsConDeclsBinders cons
   -- See Note [Binders in family instances]
 
 -------------------

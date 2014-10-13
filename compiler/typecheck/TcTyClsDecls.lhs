@@ -381,9 +381,9 @@ getInitialKind decl@(ClassDecl { tcdLName = L _ name, tcdTyVars = ktvs, tcdATs =
        ; return (main_pr : inner_prs) }
 
 getInitialKind decl@(DataDecl { tcdLName = L _ name
-                              , tcdTyVars = ktvs
-                              , tcdDataDefn = HsDataDefn { dd_kindSig = m_sig
-                                                         , dd_cons = cons } })
+                                , tcdTyVars = ktvs
+                                , tcdDataDefn = HsDataDefn { dd_kindSig = m_sig
+                                                           , dd_cons = cons } })
   = do { (decl_kind, _) <-
            kcHsTyVarBndrs (hsDeclHasCusk decl) ktvs $
            do { res_k <- case m_sig of
@@ -804,7 +804,8 @@ tcDataDefn rec_info tc_name tvs kind
                    DataType -> return (mkDataTyConRhs data_cons)
                    NewType  -> ASSERT( not (null data_cons) )
                                     mkNewTyConRhs tc_name tycon (head data_cons)
-             ; return (buildAlgTyCon tc_name final_tvs roles (fmap unLoc cType) stupid_theta tc_rhs
+             ; return (buildAlgTyCon tc_name final_tvs roles (fmap unLoc cType)
+                                     stupid_theta tc_rhs
                                      (rti_is_rec rec_info tc_name)
                                      (rti_promotable rec_info)
                                      gadt_syntax NoParentTyCon) }

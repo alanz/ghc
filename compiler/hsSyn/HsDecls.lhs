@@ -622,10 +622,10 @@ countTyClDecls decls
     count isFamilyDecl   decls)
  where
    isDataTy DataDecl{ tcdDataDefn = HsDataDefn { dd_ND = DataType } } = True
-   isDataTy _                                                         = False
+   isDataTy _                                                       = False
 
-   isNewTy DataDecl{ tcdDataDefn = HsDataDefn { dd_ND = NewType } }   = True
-   isNewTy _                                                          = False
+   isNewTy DataDecl{ tcdDataDefn = HsDataDefn { dd_ND = NewType } } = True
+   isNewTy _                                                      = False
 
 -- | Does this declaration have a complete, user-supplied kind signature?
 -- See Note [Complete user-supplied kind signatures]
@@ -910,8 +910,8 @@ pp_data_defn pp_hdr (HsDataDefn { dd_ND = new_or_data, dd_ctxt = L _ context
                Nothing   -> empty
                Just kind -> dcolon <+> ppr kind
     pp_derivings = case derivings of
-      Nothing -> empty
-      Just ds -> hsep [ptext (sLit "deriving"), parens (interpp'SP ds)]
+                     Nothing -> empty
+                     Just ds -> hsep [ptext (sLit "deriving"), parens (interpp'SP ds)]
 
 instance OutputableBndr name => Outputable (HsDataDefn name) where
    ppr d = pp_data_defn (\_ -> ptext (sLit "Naked HsDataDefn")) d
@@ -1113,7 +1113,7 @@ pprDataFamInstDecl top_lvl (DataFamInstDecl { dfid_tycon = tycon
     pp_hdr ctxt = ppr_instance_keyword top_lvl <+> pp_fam_inst_lhs tycon pats ctxt
 
 pprDataFamInstFlavour :: DataFamInstDecl name -> SDoc
-pprDataFamInstFlavour (DataFamInstDecl { dfid_defn = HsDataDefn { dd_ND = nd } })
+pprDataFamInstFlavour (DataFamInstDecl { dfid_defn = (HsDataDefn { dd_ND = nd }) })
   = ppr nd
 
 instance (OutputableBndr name) => Outputable (ClsInstDecl name) where
@@ -1358,8 +1358,7 @@ collectRuleBndrSigTys bndrs = [ty | RuleBndrSig _ ty <- bndrs]
 
 instance OutputableBndr name => Outputable (RuleDecl name) where
   ppr (HsRule name act ns lhs _fv_lhs rhs _fv_rhs)
-        = sep [text "{-# RULES" <+> doubleQuotes (ftext $ unLoc name)
-                                <+> ppr act,
+        = sep [text "{-# RULES" <+> doubleQuotes (ftext $ unLoc name) <+> ppr act,
                nest 4 (pp_forall <+> pprExpr (unLoc lhs)),
                nest 4 (equals <+> pprExpr (unLoc rhs) <+> text "#-}") ]
         where

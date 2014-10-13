@@ -100,7 +100,6 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Ratio
 import Data.Word
-import Data.Dynamic
 }
 
 

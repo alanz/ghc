@@ -6,12 +6,7 @@
 HsImpExp: Abstract syntax: imports, exports, interfaces
 
 \begin{code}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DeriveFunctor      #-}
-{-# LANGUAGE DeriveFoldable     #-}
-{-# LANGUAGE DeriveTraversable  #-}
 
 module HsImpExp where
 
@@ -46,8 +41,7 @@ data ImportDecl name
       ideclQualified :: Bool,               -- ^ True => qualified
       ideclImplicit  :: Bool,               -- ^ True => implicit import (of Prelude)
       ideclAs        :: Maybe ModuleName,   -- ^ as Module
-      ideclHiding    :: Maybe (Bool, [LIE name])
-                            -- ^ (True => hiding, names)
+      ideclHiding    :: Maybe (Bool, [LIE name]) -- ^ (True => hiding, names)
     } deriving (Data, Typeable)
 
 simpleImportDecl :: ModuleName -> ImportDecl name
@@ -93,8 +87,7 @@ instance (OutputableBndr name, HasOccName name) => Outputable (ImportDecl name) 
 
         pp_spec Nothing             = empty
         pp_spec (Just (False, ies)) = ppr_ies ies
-        pp_spec (Just (True,  ies)) = ptext (sLit "hiding")
-                                   <+> ppr_ies ies
+        pp_spec (Just (True,  ies)) = ptext (sLit "hiding") <+> ppr_ies ies
 
         ppr_ies []  = ptext (sLit "()")
         ppr_ies ies = char '(' <+> interpp'SP ies <+> char ')'
@@ -156,7 +149,8 @@ instance (HasOccName name, OutputableBndr name) => Outputable (IE name) where
     ppr (IEThingAbs     thing)  = pprImpExp thing
     ppr (IEThingAll     thing)  = hcat [pprImpExp thing, text "(..)"]
     ppr (IEThingWith thing withs)
-        = pprImpExp thing <> parens (fsep (punctuate comma (map pprImpExp $ map unLoc withs)))
+        = pprImpExp thing <> parens (fsep (punctuate comma
+                                             (map pprImpExp $ map unLoc withs)))
     ppr (IEModuleContents mod')
         = ptext (sLit "module") <+> ppr mod'
     ppr (IEGroup n _)           = text ("<IEGroup: " ++ (show n) ++ ">")

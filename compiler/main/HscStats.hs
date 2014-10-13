@@ -124,8 +124,7 @@ ppSourceStats short (L _ (HsModule _ exports imports ldecls _ _))
     spec_info (Just (False, _)) = (0,0,0,0,0,1,0)
     spec_info (Just (True, _))  = (0,0,0,0,0,0,1)
 
-    data_info (DataDecl { tcdDataDefn = HsDataDefn { dd_cons = cs
-                                                   , dd_derivs = derivs}})
+    data_info (DataDecl { tcdDataDefn = HsDataDefn { dd_cons = cs, dd_derivs = derivs}})
         = (length cs, case derivs of Nothing -> 0
                                      Just ds -> length ds)
     data_info _ = (0,0)
