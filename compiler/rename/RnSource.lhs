@@ -1111,7 +1111,7 @@ rnDataDefn doc (HsDataDefn { dd_ND = new_or_data, dd_cType = cType
         ; let { zap_lcl_env | h98_style = \ thing -> thing
                             | otherwise = setLocalRdrEnv emptyLocalRdrEnv }
         ; (condecls', con_fvs) <- zap_lcl_env $
-                                  rnConDecls condecls
+                                  rnConDecls (concatMap unLoc condecls)
            -- No need to check for duplicate constructor decls
            -- since that is done by RnNames.extendGlobalRdrEnvRn
 
@@ -1119,11 +1119,12 @@ rnDataDefn doc (HsDataDefn { dd_ND = new_or_data, dd_cType = cType
                         con_fvs `plusFV` sig_fvs
         ; return ( HsDataDefn { dd_ND = new_or_data, dd_cType = cType
                               , dd_ctxt = context', dd_kindSig = sig'
-                              , dd_cons = condecls', dd_derivs = derivs' }
+                              , dd_cons = [noLoc condecls']
+                              , dd_derivs = derivs' }
                  , all_fvs )
         }
   where
-    h98_style = case condecls of         -- Note [Stupid theta]
+    h98_style = case concatMap unLoc condecls of  -- Note [Stupid theta]
                      L _ (ConDecl { con_res = ResTyGADT {} }) : _  -> False
                      _                                             -> True
 
@@ -1201,7 +1202,7 @@ depAnalTyClDecls ds_w_fvs
                 return (fam_name, cls_name)
         DataDecl { tcdLName = L _ data_name
                  , tcdDataDefn = HsDataDefn { dd_cons = cons } }
-          -> do L _ dc <- cons
+          -> do L _ dc <- concatMap unLoc cons
                 return (unLoc (con_name dc), data_name)
         _ -> []
 \end{code}
@@ -1411,7 +1412,7 @@ extendRecordFieldEnv tycl_decls inst_decls
 
     all_data_cons :: [ConDecl RdrName]
     all_data_cons = [con | HsDataDefn { dd_cons = cons } <- all_ty_defs
-                         , L _ con <- cons ]
+                         , L _ con <- concatMap unLoc cons ]
     all_ty_defs = [ defn | L _ (DataDecl { tcdDataDefn = defn }) <- tyClGroupConcat tycl_decls ]
                ++ map dfid_defn (instDeclDataFamInsts inst_decls) -- Do not forget associated types!
 

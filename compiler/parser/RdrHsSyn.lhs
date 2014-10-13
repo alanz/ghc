@@ -157,7 +157,7 @@ mkTyData :: SrcSpan
          -> Maybe (Located CType)
          -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
          -> Maybe (LHsKind RdrName)
-         -> [LConDecl RdrName]
+         -> [Located [LConDecl RdrName]]
          -> Maybe [LHsType RdrName]
          -> P (LTyClDecl RdrName)
 mkTyData loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
@@ -172,7 +172,7 @@ mkDataDefn :: NewOrData
            -> Maybe (Located CType)
            -> Maybe (LHsContext RdrName)
            -> Maybe (LHsKind RdrName)
-           -> [LConDecl RdrName]
+           -> [Located [LConDecl RdrName]]
            -> Maybe [LHsType RdrName]
            -> P (HsDataDefn RdrName)
 mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
@@ -208,7 +208,7 @@ mkDataFamInst :: SrcSpan
          -> Maybe (Located CType)
          -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
          -> Maybe (LHsKind RdrName)
-         -> [LConDecl RdrName]
+         -> [Located [LConDecl RdrName]]
          -> Maybe [LHsType RdrName]
          -> P (LInstDecl RdrName)
 mkDataFamInst loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv

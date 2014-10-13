@@ -178,6 +178,7 @@ data Ann = AnnAs
          | AnnLarrow
          | AnnLet
          | AnnModule
+         | AnnNewtype
          | AnnOpen   -- ^ { or [ or ( or (# etc
          | AnnPackageName
          | AnnPattern
