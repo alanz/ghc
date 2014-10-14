@@ -683,8 +683,10 @@ tcDataFamInstDecl mb_clsinfo
        { dfid_pats = pats
        , dfid_tycon = fam_tc_name
        , dfid_defn = defn@HsDataDefn { dd_ND = new_or_data, dd_cType = cType
-                                     , dd_ctxt = ctxt, dd_cons = cons } }))
-  = setSrcSpan loc             $
+                                     , dd_ctxt = ctxt, dd_cons = cons' } }))
+ = let cons = concatMap unLoc cons'
+   in
+    setSrcSpan loc             $
     tcAddDataFamInstCtxt decl  $
     do { fam_tc <- tcFamInstDeclCombined mb_clsinfo fam_tc_name
 
@@ -716,8 +718,7 @@ tcDataFamInstDecl mb_clsinfo
        ; let orig_res_ty = mkTyConApp fam_tc pats'
 
        ; (rep_tc, fam_inst) <- fixM $ \ ~(rec_rep_tc, _) ->
-           do { data_cons <- tcConDecls new_or_data rec_rep_tc
-                                       (tvs', orig_res_ty) cons
+           do { data_cons <- tcConDecls new_or_data rec_rep_tc (tvs', orig_res_ty) cons
               ; tc_rhs <- case new_or_data of
                      DataType -> return (mkDataTyConRhs data_cons)
                      NewType  -> ASSERT( not (null data_cons) )

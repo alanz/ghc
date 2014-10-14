@@ -27,6 +27,8 @@
 
 (AK AnnotationLet.hs:7:11-13 AnnEqual = AnnotationLet.hs:7:11)
 
+(AK AnnotationLet.hs:8:9-13 AnnSemi = AnnotationLet.hs:8:9)
+
 (AK AnnotationLet.hs:8:11-13 AnnEqual = AnnotationLet.hs:8:11)
 ]
 

@@ -260,9 +260,10 @@ repDataDefn tc bndrs opt_tys tv_names
   = do { cxt1     <- repLContext cxt
        ; derivs1  <- repDerivs mb_derivs
        ; case new_or_data of
-           NewType  -> do { con1 <- repC tv_names (head cons)
+           NewType  -> do { con1 <- repC tv_names (head (concatMap unLoc cons))
                           ; repNewtype cxt1 tc bndrs opt_tys con1 derivs1 }
-           DataType -> do { cons1 <- repList conQTyConName (repC tv_names) cons
+           DataType -> do { cons1 <- repList conQTyConName (repC tv_names)
+                                             (concatMap unLoc cons)
                           ; repData cxt1 tc bndrs opt_tys cons1 derivs1 } }
 
 repSynDecl :: Core TH.Name -> Core [TH.TyVarBndr]

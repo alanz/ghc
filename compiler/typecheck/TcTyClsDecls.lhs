@@ -383,8 +383,10 @@ getInitialKind decl@(ClassDecl { tcdLName = L _ name, tcdTyVars = ktvs, tcdATs =
 getInitialKind decl@(DataDecl { tcdLName = L _ name
                                 , tcdTyVars = ktvs
                                 , tcdDataDefn = HsDataDefn { dd_kindSig = m_sig
-                                                           , dd_cons = cons } })
-  = do { (decl_kind, _) <-
+                                                           , dd_cons = cons' } })
+  = let cons = concatMap unLoc cons' -- AZ list monad coming
+    in
+     do { (decl_kind, _) <-
            kcHsTyVarBndrs (hsDeclHasCusk decl) ktvs $
            do { res_k <- case m_sig of
                            Just ksig -> tcLHsKind ksig
@@ -470,7 +472,7 @@ kcTyClDecl :: TyClDecl Name -> TcM ()
 
 kcTyClDecl (DataDecl { tcdLName = L _ name, tcdTyVars = hs_tvs, tcdDataDefn = defn })
   | HsDataDefn { dd_cons = cons, dd_kindSig = Just _ } <- defn
-  = mapM_ (wrapLocM kcConDecl) cons
+  = mapM_ (wrapLocM kcConDecl) (concatMap unLoc cons)
     -- hs_tvs and dd_kindSig already dealt with in getInitialKind
     -- If dd_kindSig is Just, this must be a GADT-style decl,
     --        (see invariants of DataDefn declaration)
@@ -481,7 +483,7 @@ kcTyClDecl (DataDecl { tcdLName = L _ name, tcdTyVars = hs_tvs, tcdDataDefn = de
   | HsDataDefn { dd_ctxt = ctxt, dd_cons = cons } <- defn
   = kcTyClTyVars name hs_tvs $
     do  { _ <- tcHsContext ctxt
-        ; mapM_ (wrapLocM kcConDecl) cons }
+        ; mapM_ (wrapLocM kcConDecl) (concatMap unLoc cons) }
 
 kcTyClDecl decl@(SynDecl {}) = pprPanic "kcTyClDecl" (ppr decl)
 
@@ -775,8 +777,9 @@ tcDataDefn :: RecTyInfo -> Name
 tcDataDefn rec_info tc_name tvs kind
          (HsDataDefn { dd_ND = new_or_data, dd_cType = cType
                      , dd_ctxt = ctxt, dd_kindSig = mb_ksig
-                     , dd_cons = cons })
-  = do { extra_tvs <- tcDataKindSig kind
+                     , dd_cons = cons' })
+ = let cons = concatMap unLoc cons' -- AZ List monad coming
+   in do { extra_tvs <- tcDataKindSig kind
        ; let final_tvs  = tvs ++ extra_tvs
              roles      = rti_roles rec_info tc_name
        ; stupid_tc_theta <- tcHsContext ctxt
@@ -930,7 +933,7 @@ kcDataDefn :: HsDataDefn Name -> TcKind -> TcM ()
 -- Ordinary 'data' is handled by kcTyClDec
 kcDataDefn (HsDataDefn { dd_ctxt = ctxt, dd_cons = cons, dd_kindSig = mb_kind }) res_k
   = do  { _ <- tcHsContext ctxt
-        ; checkNoErrs $ mapM_ (wrapLocM kcConDecl) cons
+        ; checkNoErrs $ mapM_ (wrapLocM kcConDecl) (concatMap unLoc cons)
           -- See Note [Failing early in kcDataDefn]
         ; kcResultKind mb_kind res_k }
 
