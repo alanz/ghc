@@ -1503,7 +1503,6 @@ gadt_constrlist :: { Located ([MaybeAnn]
                                                      , unLoc $3) }
         | {- empty -}                            { noLoc ([],[]) }
 
--- ++AZ++ up to here
 gadt_constrs :: { Located [Located [LConDecl RdrName]] }
         : gadt_constr ';' gadt_constrs  {% addAnnotation (gl $1) AnnSemi (gl $2)
                                            >> return (L (comb2 $1 $3) ((snd $ unLoc $1) : unLoc $3)) }
@@ -1533,26 +1532,31 @@ gadt_constr :: { Located ([MaybeAnn],Located [LConDecl RdrName]) }
                                    ,L (comb2 $1 $6) [cd'])) } }
 
 constrs :: { Located [LConDecl RdrName] }
-        : maybe_docnext '=' constrs1    { L (comb2 $2 $3) (addConDocs (unLoc $3) $1) }
+        : maybe_docnext '=' constrs1    {% ams (L (comb2 $2 $3) (addConDocs (unLoc $3) $1))
+                                               [mj AnnEqual ($2)] }
 
 constrs1 :: { Located [LConDecl RdrName] }
-        : constrs1 maybe_docnext '|' maybe_docprev constr { LL (addConDoc $5 $2 : addConDocFirst (unLoc $1) $4) }
+        : constrs1 maybe_docnext '|' maybe_docprev constr {% addAnnotation (gl $5) AnnVbar (gl $3)
+                                                             >> return (LL (addConDoc $5 $2 : addConDocFirst (unLoc $1) $4)) }
         | constr                                          { L1 [$1] }
 
 constr :: { LConDecl RdrName }
         : maybe_docnext forall context '=>' constr_stuff maybe_docprev
-                { let (con,details) = unLoc $5 in
-                  addConDoc (L (comb4 $2 $3 $4 $5) (mkSimpleConDecl con (unLoc $2) $3 details))
-                            ($1 `mplus` $6) }
+                {% ams (let (con,details) = unLoc $5 in
+                  addConDoc (L (comb4 $2 $3 $4 $5) (mkSimpleConDecl con (snd $ unLoc $2) $3 details))
+                            ($1 `mplus` $6))
+                        (mj AnnDarrow $4:(fst $ unLoc $2)) }
         | maybe_docnext forall constr_stuff maybe_docprev
-                { let (con,details) = unLoc $3 in
-                  addConDoc (L (comb2 $2 $3) (mkSimpleConDecl con (unLoc $2) (noLoc []) details))
-                            ($1 `mplus` $4) }
+                {% ams ( let (con,details) = unLoc $3 in
+                  addConDoc (L (comb2 $2 $3) (mkSimpleConDecl con (snd $ unLoc $2) (noLoc []) details))
+                            ($1 `mplus` $4))
+                       (fst $ unLoc $2) }
 
-forall :: { Located [LHsTyVarBndr RdrName] }
-        : 'forall' tv_bndrs '.'         { LL $2 }
-        | {- empty -}                   { noLoc [] }
+forall :: { Located ([MaybeAnn],[LHsTyVarBndr RdrName]) }
+        : 'forall' tv_bndrs '.'       { LL ([mj AnnForall $1,mj AnnDot $3],$2) }
+        | {- empty -}                 { noLoc ([],[]) }
 
+-- ++AZ++ up to here
 constr_stuff :: { Located (Located RdrName, HsConDeclDetails RdrName) }
 -- We parse the constructor declaration
 --      C t1 t2
