@@ -708,8 +708,7 @@ tcDataFamInstDecl mb_clsinfo
        ; checkTc (isLiftedTypeKind res_kind) $ tooFewParmsErr (tyConArity fam_tc)
 
        ; stupid_theta <- tcHsContext ctxt
-       ; gadt_syntax <- dataDeclChecks (tyConName fam_tc) new_or_data
-                                       stupid_theta (concatMap unLoc cons)
+       ; gadt_syntax <- dataDeclChecks (tyConName fam_tc) new_or_data stupid_theta cons
 
          -- Construct representation tycon
        ; rep_tc_name <- newFamInstTyConName fam_tc_name pats'
@@ -718,7 +717,7 @@ tcDataFamInstDecl mb_clsinfo
 
        ; (rep_tc, fam_inst) <- fixM $ \ ~(rec_rep_tc, _) ->
            do { data_cons <- tcConDecls new_or_data rec_rep_tc
-                                       (tvs', orig_res_ty) (concatMap unLoc cons)
+                                       (tvs', orig_res_ty) cons
               ; tc_rhs <- case new_or_data of
                      DataType -> return (mkDataTyConRhs data_cons)
                      NewType  -> ASSERT( not (null data_cons) )

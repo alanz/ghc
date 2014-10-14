@@ -392,7 +392,7 @@ getInitialKind decl@(DataDecl { tcdLName = L _ name
               ; return (res_k, ()) }
        ; let main_pr = (name, AThing decl_kind)
              inner_prs = [ (unLoc (con_name con), APromotionErr RecDataConPE)
-                         | L _ con <- concatMap unLoc cons ]
+                         | L _ con <- cons ]
        ; return (main_pr : inner_prs) }
 
 getInitialKind (FamDecl { tcdFam = decl }) 
@@ -470,7 +470,7 @@ kcTyClDecl :: TyClDecl Name -> TcM ()
 
 kcTyClDecl (DataDecl { tcdLName = L _ name, tcdTyVars = hs_tvs, tcdDataDefn = defn })
   | HsDataDefn { dd_cons = cons, dd_kindSig = Just _ } <- defn
-  = mapM_ (wrapLocM kcConDecl) (concatMap unLoc cons)
+  = mapM_ (wrapLocM kcConDecl) cons
     -- hs_tvs and dd_kindSig already dealt with in getInitialKind
     -- If dd_kindSig is Just, this must be a GADT-style decl,
     --        (see invariants of DataDefn declaration)
@@ -481,7 +481,7 @@ kcTyClDecl (DataDecl { tcdLName = L _ name, tcdTyVars = hs_tvs, tcdDataDefn = de
   | HsDataDefn { dd_ctxt = ctxt, dd_cons = cons } <- defn
   = kcTyClTyVars name hs_tvs $
     do  { _ <- tcHsContext ctxt
-        ; mapM_ (wrapLocM kcConDecl) (concatMap unLoc cons) }
+        ; mapM_ (wrapLocM kcConDecl) cons }
 
 kcTyClDecl decl@(SynDecl {}) = pprPanic "kcTyClDecl" (ppr decl)
 
@@ -792,13 +792,11 @@ tcDataDefn rec_info tc_name tvs kind
                            ; checkKind kind tc_kind
                            ; return () }
 
-       ; gadt_syntax <- dataDeclChecks tc_name new_or_data stupid_theta
-                                       (concatMap unLoc cons)
+       ; gadt_syntax <- dataDeclChecks tc_name new_or_data stupid_theta cons
 
        ; tycon <- fixM $ \ tycon -> do
              { let res_ty = mkTyConApp tycon (mkTyVarTys final_tvs)
-             ; data_cons <- tcConDecls new_or_data tycon (final_tvs, res_ty)
-                                       (concatMap unLoc cons)
+             ; data_cons <- tcConDecls new_or_data tycon (final_tvs, res_ty) cons
              ; tc_rhs <-
                  if null cons && is_boot              -- In a hs-boot file, empty cons means
                  then return totallyAbstractTyConRhs  -- "don't know"; hence totally Abstract
@@ -932,7 +930,7 @@ kcDataDefn :: HsDataDefn Name -> TcKind -> TcM ()
 -- Ordinary 'data' is handled by kcTyClDec
 kcDataDefn (HsDataDefn { dd_ctxt = ctxt, dd_cons = cons, dd_kindSig = mb_kind }) res_k
   = do  { _ <- tcHsContext ctxt
-        ; checkNoErrs $ mapM_ (wrapLocM kcConDecl) (concatMap unLoc cons)
+        ; checkNoErrs $ mapM_ (wrapLocM kcConDecl) cons
           -- See Note [Failing early in kcDataDefn]
         ; kcResultKind mb_kind res_k }
 

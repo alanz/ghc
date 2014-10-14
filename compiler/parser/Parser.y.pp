@@ -201,7 +201,7 @@ we have to calculate the span using more of the tokens from the lhs, eg.
 
         | 'newtype' tycl_hdr '=' newconstr deriving
                 { L (comb3 $1 $4 $5)
-                    (mkTyData NewType (unLoc $2) [$4] (unLoc $5)) }
+                    (mkTyData NewType (unLoc $2) $4 (unLoc $5)) }
 
 We provide comb3 and comb4 functions which are useful in such cases.
 
@@ -722,7 +722,7 @@ ty_decl :: { LTyClDecl RdrName }
           -- ordinary data type or newtype declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
                 {% amms (mkTyData (comb4 $1 $3 $4 $5) (snd $ unLoc $1) $2 $3
-                            Nothing [L (gl $4) (reverse (unLoc $4))] (snd $ unLoc $5))
+                            Nothing (reverse (unLoc $4)) (snd $ unLoc $5))
                                    -- We need the location on tycl_hdr in case
                                    -- constrs and deriving are both empty
                         ((fst $ unLoc $1):(fst $ unLoc $5)) }
@@ -732,7 +732,7 @@ ty_decl :: { LTyClDecl RdrName }
                  gadt_constrlist
                  deriving
             {% amms (mkTyData (comb4 $1 $3 $5 $6) (snd $ unLoc $1) $2 $3
-                            (unLoc $4) (snd $ unLoc $5) (snd $ unLoc $6) )
+                            (unLoc $4) (concatMap unLoc $ snd $ unLoc $5) (snd $ unLoc $6) )
                                    -- We need the location on tycl_hdr in case
                                    -- constrs and deriving are both empty
                     ((fst $ unLoc $1):(fst $ unLoc $5)++(fst $ unLoc $6)) }
@@ -761,7 +761,7 @@ inst_decl :: { LInstDecl RdrName }
           -- data/newtype instance declaration
         | data_or_newtype 'instance' capi_ctype tycl_hdr constrs deriving
             {% amms (mkDataFamInst (comb4 $1 $4 $5 $6) (snd $ unLoc $1) $3 $4
-                                      Nothing [L (gl $5) (reverse (unLoc $5))] (snd $ unLoc $6))
+                                      Nothing (reverse (unLoc $5)) (snd $ unLoc $6))
                     ((fst $ unLoc $1):mj AnnInstance $2:(fst $ unLoc $6)) }
 
           -- GADT instance declaration
@@ -769,7 +769,7 @@ inst_decl :: { LInstDecl RdrName }
                  gadt_constrlist
                  deriving
             {% amms (mkDataFamInst (comb4 $1 $4 $6 $7) (snd $ unLoc $1) $3 $4
-                                    (unLoc $5) (snd $ unLoc $6) (snd $ unLoc $7))
+                                    (unLoc $5) (concatMap unLoc $ snd $ unLoc $6) (snd $ unLoc $7))
                     ((fst $ unLoc $1):mj AnnInstance $2
                        :(fst $ unLoc $6)++(fst $ unLoc $7)) }
 
@@ -862,7 +862,7 @@ at_decl_inst :: { LInstDecl RdrName }
         -- data/newtype instance declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
                 {% amms (mkDataFamInst (comb4 $1 $3 $4 $5) (snd $ unLoc $1) $2 $3
-                                     Nothing [L (gl $4) (reverse (unLoc $4))] (snd $ unLoc $5))
+                                     Nothing (reverse (unLoc $4)) (snd $ unLoc $5))
                         ((fst $ unLoc $1):(fst $ unLoc $5)) }
 
         -- GADT instance declaration
@@ -870,7 +870,7 @@ at_decl_inst :: { LInstDecl RdrName }
                  gadt_constrlist
                  deriving
                 {% amms (mkDataFamInst (comb4 $1 $3 $5 $6) (snd $ unLoc $1) $2
-                                $3 (unLoc $4) (snd $ unLoc $5) (snd $ unLoc $6))
+                                $3 (unLoc $4) (concatMap unLoc $ snd $ unLoc $5) (snd $ unLoc $6))
                         ((fst $ unLoc $1):(fst $ unLoc $5)++(fst $ unLoc $6)) }
 
 data_or_newtype :: { Located (MaybeAnn,NewOrData) }

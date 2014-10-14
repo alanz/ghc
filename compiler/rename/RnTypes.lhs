@@ -959,7 +959,7 @@ extractDataDefnKindVars (HsDataDefn { dd_ctxt = ctxt, dd_kindSig = ksig
   = fst $ extract_lctxt ctxt $
           extract_mb extract_lkind ksig $
           extract_mb extract_ltys derivs $
-          foldr (extract_con . unLoc) ([],[]) (concatMap unLoc cons)
+          foldr (extract_con . unLoc) ([],[]) cons
   where
     extract_con (ConDecl { con_res = ResTyGADT {} }) acc = acc
     extract_con (ConDecl { con_res = ResTyH98, con_qvars = qvs
