@@ -1225,10 +1225,11 @@ tcConArgs new_or_data (InfixCon bty1 bty2)
   = do { bty1' <- tcConArg new_or_data bty1
        ; bty2' <- tcConArg new_or_data bty2
        ; return (True, [], [bty1', bty2']) }
-tcConArgs new_or_data (RecCon fields)
+tcConArgs new_or_data (RecCon fields')
   = do { btys' <- mapM (tcConArg new_or_data) btys
        ; return (False, field_names, btys') }
   where
+    fields = concatMap unLoc fields'
     field_names = map (unLoc . cd_fld_name) fields
     btys        = map cd_fld_type fields
 

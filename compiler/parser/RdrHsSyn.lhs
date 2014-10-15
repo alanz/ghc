@@ -473,7 +473,7 @@ toPatSynMatchGroup (L _ patsyn_name) (L _ decls) =
 
 mkDeprecatedGadtRecordDecl :: SrcSpan
                            -> Located RdrName
-                           -> [ConDeclField RdrName]
+                           -> [Located [ConDeclField RdrName]]
                            -> LHsType RdrName
                            ->  P (LConDecl  RdrName)
 -- This one uses the deprecated syntax

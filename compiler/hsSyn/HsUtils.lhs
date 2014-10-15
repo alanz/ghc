@@ -812,7 +812,7 @@ hsConDeclsBinders cons = go id cons
              -- avoid circumventing detection of duplicate fields (#9156)
              L loc (ConDecl { con_name = L _ name , con_details = RecCon flds }) ->
                (L loc name) : r' ++ go remSeen' rs
-                  where r' = remSeen (map cd_fld_name flds)
+                  where r' = remSeen (map cd_fld_name (concatMap unLoc flds))
                         remSeen' = foldr (.) remSeen [deleteBy ((==) `on` unLoc) v | v <- r']
              L loc (ConDecl { con_name = L _ name }) ->
                 (L loc name) : go remSeen rs

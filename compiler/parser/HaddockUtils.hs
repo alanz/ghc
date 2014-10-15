@@ -3,6 +3,7 @@ module HaddockUtils where
 
 import HsSyn
 import SrcLoc
+import Outputable (panic)
 
 import Control.Monad
 
@@ -12,9 +13,12 @@ import Control.Monad
 addFieldDoc :: ConDeclField a -> Maybe LHsDocString -> ConDeclField a
 addFieldDoc fld doc = fld { cd_fld_doc = cd_fld_doc fld `mplus` doc }
 
-addFieldDocs :: [ConDeclField a] -> Maybe LHsDocString -> [ConDeclField a]
+addFieldDocs :: [Located [ConDeclField a]] -> Maybe LHsDocString
+             -> [Located [ConDeclField a]]
 addFieldDocs [] _ = []
-addFieldDocs (x:xs) doc = addFieldDoc x doc : xs
+-- addFieldDocs (x:xs) doc = addFieldDoc x doc : xs
+addFieldDocs ((L _ []):_) _ = panic "addFieldDocs empty ConDeclField"
+addFieldDocs ((L l (f:fs)):xs) doc = L l ((addFieldDoc f doc):fs) : xs
 
 addConDoc :: LConDecl a -> Maybe LHsDocString -> LConDecl a
 addConDoc decl    Nothing = decl

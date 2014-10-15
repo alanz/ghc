@@ -1568,18 +1568,19 @@ constr_stuff :: { Located (Located RdrName, HsConDeclDetails RdrName) }
         : btype                         {% splitCon $1 >>= return.LL }
         | btype conop btype             {  LL ($2, InfixCon $1 $3) }
 
-fielddecls :: { [ConDeclField RdrName] }
+fielddecls :: { [Located [ConDeclField RdrName]] }
         : {- empty -}     { [] }
         | fielddecls1     { $1 }
 
-fielddecls1 :: { [ConDeclField RdrName] }
+fielddecls1 :: { [Located [ConDeclField RdrName]] }
         : fielddecl maybe_docnext ',' maybe_docprev fielddecls1
-                      { [ addFieldDoc f $4 | f <- $1 ] ++ addFieldDocs $5 $2 }
+                      { (L (gl $1) [ addFieldDoc f $4 | f <- unLoc $1 ]) : addFieldDocs $5 $2 }
                              -- This adds the doc $4 to each field separately
-        | fielddecl   { $1 }
+        | fielddecl   { [$1] }
 
-fielddecl :: { [ConDeclField RdrName] }    -- A list because of   f,g :: Int
-        : maybe_docnext sig_vars '::' ctype maybe_docprev      { [ ConDeclField fld $4 ($1 `mplus` $5)
+fielddecl :: { Located [ConDeclField RdrName] } -- A list because of   f,g :: Int
+        : maybe_docnext sig_vars '::' ctype maybe_docprev   { L (comb2 $2 $4)
+                                                                 [ ConDeclField fld $4 ($1 `mplus` $5)
                                                                  | fld <- reverse (unLoc $2) ] }
 -- We allow the odd-looking 'inst_type' in a deriving clause, so that
 -- we can do deriving( forall a. C [a] ) in a newtype (GHC extension).

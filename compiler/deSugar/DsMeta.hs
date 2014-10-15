@@ -1767,7 +1767,7 @@ repConstr con (PrefixCon ps)
     = do arg_tys  <- repList strictTypeQTyConName repBangTy ps
          rep2 normalCName [unC con, unC arg_tys]
 repConstr con (RecCon ips)
-    = do { arg_vtys <- repList varStrictTypeQTyConName rep_ip ips
+    = do { arg_vtys <- repList varStrictTypeQTyConName rep_ip (concatMap unLoc ips)
          ; rep2 recCName [unC con, unC arg_vtys] }
     where
       rep_ip ip = do { MkC v  <- lookupLOcc (cd_fld_name ip)

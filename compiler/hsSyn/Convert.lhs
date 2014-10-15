@@ -401,7 +401,7 @@ cvtConstr (RecC c varstrtys)
   = do  { c'    <- cNameL c
         ; cxt'  <- returnL []
         ; args' <- mapM cvt_id_arg varstrtys
-        ; returnL $ mkSimpleConDecl c' noExistentials cxt' (RecCon args') }
+        ; returnL $ mkSimpleConDecl c' noExistentials cxt' (RecCon [noLoc args']) }
 
 cvtConstr (InfixC st1 c st2)
   = do  { c' <- cNameL c

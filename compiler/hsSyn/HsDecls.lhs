@@ -871,12 +871,13 @@ data ConDecl name
     } deriving (Typeable)
 deriving instance (DataId name) => Data (ConDecl name)
 
-type HsConDeclDetails name = HsConDetails (LBangType name) [ConDeclField name]
+type HsConDeclDetails name
+        = HsConDetails (LBangType name) [Located [ConDeclField name]]
 
 hsConDeclArgTys :: HsConDeclDetails name -> [LBangType name]
 hsConDeclArgTys (PrefixCon tys)    = tys
 hsConDeclArgTys (InfixCon ty1 ty2) = [ty1,ty2]
-hsConDeclArgTys (RecCon flds)      = map cd_fld_type flds
+hsConDeclArgTys (RecCon flds)      = map cd_fld_type (concatMap unLoc flds)
 
 data ResType ty
    = ResTyH98           -- Constructor was declared using Haskell 98 syntax
@@ -937,7 +938,7 @@ pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
   where
     ppr_details (InfixCon t1 t2) = hsep [ppr t1, pprInfixOcc (unLoc con), ppr t2]
     ppr_details (PrefixCon tys)  = hsep (pprPrefixOcc (unLoc con) : map (pprParendHsType . unLoc) tys)
-    ppr_details (RecCon fields)  = ppr con <+> pprConDeclFields fields
+    ppr_details (RecCon fields)  = ppr con <+> pprConDeclFields (concatMap unLoc fields)
 
 pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
                     , con_cxt = cxt, con_details = PrefixCon arg_tys
@@ -950,7 +951,7 @@ pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
 pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
                     , con_cxt = cxt, con_details = RecCon fields, con_res = ResTyGADT res_ty })
   = sep [ppr con <+> dcolon <+> pprHsForAll expl tvs cxt,
-         pprConDeclFields fields <+> arrow <+> ppr res_ty]
+         pprConDeclFields (concatMap unLoc fields) <+> arrow <+> ppr res_ty]
 
 pprConDecl decl@(ConDecl { con_details = InfixCon ty1 ty2, con_res = ResTyGADT {} })
   = pprConDecl (decl { con_details = PrefixCon [ty1,ty2] })

@@ -1314,9 +1314,9 @@ rnConDecl decl@(ConDecl { con_name = name, con_qvars = tvs
     get_rdr_tvs tys = extractHsTysRdrTyVars (cxt ++ tys)
 
 rnConResult :: HsDocContext -> Name
-            -> HsConDetails (LHsType Name) [ConDeclField Name]
+            -> HsConDetails (LHsType Name) [Located [ConDeclField Name]]
             -> ResType (LHsType RdrName)
-            -> RnM (HsConDetails (LHsType Name) [ConDeclField Name],
+            -> RnM (HsConDetails (LHsType Name) [Located [ConDeclField Name]],
                     ResType (LHsType Name), FreeVars)
 rnConResult _   _   details ResTyH98 = return (details, ResTyH98, emptyFVs)
 rnConResult doc con details (ResTyGADT ty)
@@ -1345,8 +1345,8 @@ rnConResult doc con details (ResTyGADT ty)
                         -> return (PrefixCon arg_tys, ResTyGADT res_ty, fvs) }
 
 rnConDeclDetails :: HsDocContext
-                 -> HsConDetails (LHsType RdrName) [ConDeclField RdrName]
-                 -> RnM (HsConDetails (LHsType Name) [ConDeclField Name], FreeVars)
+                 -> HsConDetails (LHsType RdrName) [Located [ConDeclField RdrName]]
+                 -> RnM (HsConDetails (LHsType Name) [Located [ConDeclField Name]], FreeVars)
 rnConDeclDetails doc (PrefixCon tys)
   = do { (new_tys, fvs) <- rnLHsTypes doc tys
        ; return (PrefixCon new_tys, fvs) }
@@ -1357,10 +1357,10 @@ rnConDeclDetails doc (InfixCon ty1 ty2)
        ; return (InfixCon new_ty1 new_ty2, fvs1 `plusFV` fvs2) }
 
 rnConDeclDetails doc (RecCon fields)
-  = do  { (new_fields, fvs) <- rnConDeclFields doc fields
+  = do  { (new_fields, fvs) <- rnConDeclFields doc (concatMap unLoc fields)
                 -- No need to check for duplicate fields
                 -- since that is done by RnNames.extendGlobalRdrEnvRn
-        ; return (RecCon new_fields, fvs) }
+        ; return (RecCon [noLoc new_fields], fvs) }
 
 -------------------------------------------------
 deprecRecSyntax :: ConDecl RdrName -> SDoc
@@ -1420,7 +1420,7 @@ extendRecordFieldEnv tycl_decls inst_decls
     get_con (ConDecl { con_name = con, con_details = RecCon flds })
             (RecFields env fld_set)
         = do { con' <- lookup con
-             ; flds' <- mapM lookup (map cd_fld_name flds)
+             ; flds' <- mapM lookup (map cd_fld_name (concatMap unLoc flds))
              ; let env'    = extendNameEnv env con' flds'
                    fld_set' = addListToNameSet fld_set flds'
              ; return $ (RecFields env' fld_set') }

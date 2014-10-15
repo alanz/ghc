@@ -30,7 +30,7 @@ module HsTypes (
         LBangType, BangType, HsBang(..), 
         getBangType, getBangStrictness, 
 
-        ConDeclField(..), pprConDeclFields,
+        ConDeclField(..), LConDeclField, pprConDeclFields,
         
         mkHsQTvs, hsQTvBndrs, isHsKindedTyVar, hsTvbAllKinded,
         mkExplicitHsForAllTy, mkImplicitHsForAllTy, mkQualifiedHsForAllTy,
@@ -256,7 +256,7 @@ data HsType name
   | HsDocTy             (LHsType name) LHsDocString -- A documented type
 
   | HsBangTy    HsBang (LHsType name)   -- Bang-style type annotations 
-  | HsRecTy [ConDeclField name]         -- Only in data type declarations
+  | HsRecTy [Located [ConDeclField name]] -- Only in data type declarations
 
   | HsCoreTy Type       -- An escape hatch for tunnelling a *closed* 
                         -- Core Type through HsSyn.  
@@ -396,6 +396,7 @@ data HsTupleSort = HsUnboxedTuple
 
 data HsExplicitFlag = Qualified | Implicit | Explicit deriving (Data, Typeable)
 
+type LConDeclField name = Located (ConDeclField name)
 data ConDeclField name  -- Record fields have Haddoc docs on them
   = ConDeclField { cd_fld_name :: Located name,
                    cd_fld_type :: LBangType name, 
@@ -657,7 +658,7 @@ ppr_mono_ty ctxt_prec (HsForAllTy exp tvs ctxt ty)
 
 ppr_mono_ty _    (HsBangTy b ty)     = ppr b <> ppr_mono_lty TyConPrec ty
 ppr_mono_ty _    (HsQuasiQuoteTy qq) = ppr qq
-ppr_mono_ty _    (HsRecTy flds)      = pprConDeclFields flds
+ppr_mono_ty _    (HsRecTy flds)      = pprConDeclFields (concatMap unLoc flds)
 ppr_mono_ty _    (HsTyVar name)      = pprPrefixOcc name
 ppr_mono_ty prec (HsFunTy ty1 ty2)   = ppr_fun_ty prec ty1 ty2
 ppr_mono_ty _    (HsTupleTy con tys) = tupleParens std_con (interpp'SP tys)
