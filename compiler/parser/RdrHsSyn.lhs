@@ -781,19 +781,19 @@ patFail msg loc e = parseErrorSDoc loc err
 checkValDef :: SDoc
             -> LHsExpr RdrName
             -> Maybe (LHsType RdrName)
-            -> Located (GRHSs RdrName (LHsExpr RdrName))
+            -> Located (a,GRHSs RdrName (LHsExpr RdrName))
             -> P (HsBind RdrName)
 
 checkValDef msg lhs (Just sig) grhss
         -- x :: ty = rhs  parses as a *pattern* binding
   = checkPatBind msg (L (combineLocs lhs sig) (ExprWithTySig lhs sig)) grhss
 
-checkValDef msg lhs opt_sig grhss
+checkValDef msg lhs opt_sig g@(L l (_,grhss))
   = do  { mb_fun <- isFunLhs lhs
         ; case mb_fun of
             Just (fun, is_infix, pats) -> checkFunBind msg (getLoc lhs)
-                                                fun is_infix pats opt_sig grhss
-            Nothing -> checkPatBind msg lhs grhss }
+                                                fun is_infix pats opt_sig (L l grhss)
+            Nothing -> checkPatBind msg lhs g }
 
 checkFunBind :: SDoc
              -> SrcSpan
@@ -819,9 +819,9 @@ makeFunBind fn is_infix ms
 
 checkPatBind :: SDoc
              -> LHsExpr RdrName
-             -> Located (GRHSs RdrName (LHsExpr RdrName))
+             -> Located (a,GRHSs RdrName (LHsExpr RdrName))
              -> P (HsBind RdrName)
-checkPatBind msg lhs (L _ grhss)
+checkPatBind msg lhs (L _ (_,grhss))
   = do  { lhs <- checkPattern msg lhs
         ; return (PatBind lhs grhss placeHolderType placeHolderNames
                     (Nothing,[])) }

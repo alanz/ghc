@@ -351,7 +351,7 @@ incorrect.
 
  CHAR           { L _ (ITchar     _) }
  STRING         { L _ (ITstring   _) }
- INTEGER        { L _ (ITinteger  _) }
+ INTEGER        { L _ (ITinteger  _) } -- AZ TODO: capture original source text
  RATIONAL       { L _ (ITrational _) }
 
  PRIMCHAR       { L _ (ITprimchar   _) }
@@ -1556,7 +1556,6 @@ forall :: { Located ([MaybeAnn],[LHsTyVarBndr RdrName]) }
         : 'forall' tv_bndrs '.'       { LL ([mj AnnForall $1,mj AnnDot $3],$2) }
         | {- empty -}                 { noLoc ([],[]) }
 
--- ++AZ++ up to here
 constr_stuff :: { Located (Located RdrName, HsConDeclDetails RdrName) }
 -- We parse the constructor declaration
 --      C t1 t2
@@ -1574,14 +1573,16 @@ fielddecls :: { [Located [ConDeclField RdrName]] }
 
 fielddecls1 :: { [Located [ConDeclField RdrName]] }
         : fielddecl maybe_docnext ',' maybe_docprev fielddecls1
-                      { (L (gl $1) [ addFieldDoc f $4 | f <- unLoc $1 ]) : addFieldDocs $5 $2 }
+          {% addAnnotation (gl $1) AnnComma (gl $3)
+             >> return ((L (gl $1) [ addFieldDoc f $4 | f <- unLoc $1 ]) : addFieldDocs $5 $2) }
                              -- This adds the doc $4 to each field separately
         | fielddecl   { [$1] }
 
 fielddecl :: { Located [ConDeclField RdrName] } -- A list because of   f,g :: Int
-        : maybe_docnext sig_vars '::' ctype maybe_docprev   { L (comb2 $2 $4)
+        : maybe_docnext sig_vars '::' ctype maybe_docprev   {% ams (L (comb2 $2 $4)
                                                                  [ ConDeclField fld $4 ($1 `mplus` $5)
-                                                                 | fld <- reverse (unLoc $2) ] }
+                                                                 | fld <- reverse (unLoc $2) ])
+                                                                   [mj AnnDotdot $3] }
 -- We allow the odd-looking 'inst_type' in a deriving clause, so that
 -- we can do deriving( forall a. C [a] ) in a newtype (GHC extension).
 -- The 'C [a]' part is converted to an HsPredTy by checkInstType
@@ -1635,16 +1636,19 @@ decl_no_th :: { Located (OrdList (LHsDecl RdrName)) }
 
         | '!' aexp rhs          {% do { let { e = LL (SectionR (LL (HsVar bang_RDR)) $2) };
                                         pat <- checkPattern empty e;
+                                        _ <- ams (LL ())
+                                                (mj AnnBang $1:(fst $ unLoc $3));
                                         return $ LL $ unitOL $ LL $ ValD $
-                                               PatBind pat (unLoc $3)
-                                                       placeHolderType
-                                                       placeHolderNames
-                                                       (Nothing,[]) } }
+                                            PatBind pat (snd $ unLoc $3)
+                                                    placeHolderType
+                                                    placeHolderNames
+                                                    (Nothing,[]) } }
                                 -- Turn it all into an expression so that
                                 -- checkPattern can check that bangs are enabled
 
         | infixexp opt_sig rhs  {% do { r <- checkValDef empty $1 (snd $2) $3;
                                         let { l = comb2 $1 $> };
+                                        _ <- ams (LL ()) (fst $ unLoc $3);
                                         return $! (sL l (unitOL $! (sL l $ ValD r))) } }
         | pattern_synonym_decl  { LL $ unitOL $1 }
         | docdecl               { LL $ unitOL $1 }
@@ -1657,11 +1661,13 @@ decl    :: { Located (OrdList (LHsDecl RdrName)) }
         -- fails terribly with a panic in cvBindsAndSigs otherwise.
         | splice_exp            { LL $ unitOL (LL $ mkSpliceDecl $1) }
 
-rhs     :: { Located (GRHSs RdrName (LHsExpr RdrName)) }
-        : '=' exp wherebinds    {% ams (sL (comb3 $1 $2 $3) $ GRHSs (unguardedRHS $2) (snd $ unLoc $3))
-                                       (mj AnnEqual $1 : (fst $ unLoc $3)) }
-        | gdrhs wherebinds      {% ams (LL $ GRHSs (reverse (unLoc $1)) (snd $ unLoc $2))
-                                       (fst $ unLoc $2) }
+rhs     :: { Located ([MaybeAnn],GRHSs RdrName (LHsExpr RdrName)) }
+        : '=' exp wherebinds    { sL (comb3 $1 $2 $3)
+                                    ((mj AnnEqual $1 : (fst $ unLoc $3))
+                                    ,GRHSs (unguardedRHS $2) (snd $ unLoc $3)) }
+        | gdrhs wherebinds      { LL (fst $ unLoc $2
+                                    ,GRHSs (reverse (unLoc $1))
+                                                    (snd $ unLoc $2)) }
 
 gdrhs :: { Located [LGRHS RdrName (LHsExpr RdrName)] }
         : gdrhs gdrh            { LL ($2 : unLoc $1) }
@@ -1676,33 +1682,48 @@ sigdecl :: { Located (OrdList (LHsDecl RdrName)) }
         -- See Note [Declaration/signature overlap] for why we need infixexp here
           infixexp '::' sigtypedoc
                         {% do s <- checkValSig $1 $3
+                        ; _ <- ams (LL ()) [mj AnnDotdot $2]
                         ; return (LL $ unitOL (LL $ SigD s)) }
         | var ',' sig_vars '::' sigtypedoc
-                                { LL $ toOL [ LL $ SigD (TypeSig ($1 : reverse (unLoc $3)) $5) ] }
+                                {% ams (LL $ toOL [ LL $ SigD (TypeSig ($1 : reverse (unLoc $3)) $5) ])
+                                       [mj AnnComma $2,mj AnnDotdot $4] }
+
         | infix prec ops        { LL $ toOL [ LL $ SigD (FixSig (FixitySig n (Fixity $2 (unLoc $1))))
                                             | n <- fromOL $ unLoc $3 ] }
         | '{-# INLINE' activation qvar '#-}'
-                { LL $ unitOL (LL $ SigD (InlineSig $3 (mkInlinePragma (getINLINE $1) $2))) }
+                {% ams (LL $ unitOL (LL $ SigD (InlineSig $3 (mkInlinePragma (getINLINE $1) (snd $2)))))
+                       (mj AnnOpen $1:mj AnnClose $4:fst $2) }
+
+        -- AZ TODO: adjust hsSyn so all the SpecSig from a single SPECIALISE pragma is kept together
         | '{-# SPECIALISE' activation qvar '::' sigtypes1 '#-}'
-                { let inl_prag = mkInlinePragma (EmptyInlineSpec, FunLike) $2
+                { let inl_prag = mkInlinePragma (EmptyInlineSpec, FunLike) (snd $2)
                   in LL $ toOL [ LL $ SigD (SpecSig $3 t inl_prag)
                                | t <- fromOL $5] }
+
         | '{-# SPECIALISE_INLINE' activation qvar '::' sigtypes1 '#-}'
-                { LL $ toOL [ LL $ SigD (SpecSig $3 t (mkInlinePragma (getSPEC_INLINE $1) $2))
+                { LL $ toOL [ LL $ SigD (SpecSig $3 t (mkInlinePragma (getSPEC_INLINE $1) (snd $2)))
                             | t <- fromOL $5] }
+
         | '{-# SPECIALISE' 'instance' inst_type '#-}'
-                { LL $ unitOL (LL $ SigD (SpecInstSig $3)) }
+                {% ams (LL $ unitOL (LL $ SigD (SpecInstSig $3)))
+                       [mj AnnOpen $1,mj AnnInstance $2,mj AnnClose $4] }
+
+        -- AZ TODO: Do we need locations in the name_formula_opt?
         -- A minimal complete definition
         | '{-# MINIMAL' name_boolformula_opt '#-}'
-                { LL $ unitOL (LL $ SigD (MinimalSig $2)) }
+                {% ams (LL $ unitOL (LL $ SigD (MinimalSig (snd $2))))
+                       (mj AnnOpen $1:mj AnnClose $3:fst $2) }
 
-activation :: { Maybe Activation }
-        : {- empty -}                           { Nothing }
-        | explicit_activation                   { Just $1 }
+activation :: { ([MaybeAnn],Maybe Activation) }
+        : {- empty -}                           { ([],Nothing) }
+        | explicit_activation                   { (fst $1,Just (snd $1)) }
 
-explicit_activation :: { Activation }  -- In brackets
-        : '[' INTEGER ']'               { ActiveAfter  (fromInteger (getINTEGER $2)) }
-        | '[' '~' INTEGER ']'           { ActiveBefore (fromInteger (getINTEGER $3)) }
+explicit_activation :: { ([MaybeAnn],Activation) }  -- In brackets
+        : '[' INTEGER ']'       { ([mj AnnOpen $1,mj AnnVal $2,mj AnnClose $3]
+                                  ,ActiveAfter  (fromInteger (getINTEGER $2))) }
+        | '[' '~' INTEGER ']'   { ([mj AnnOpen $1,mj AnnTilde $2,mj AnnVal $3
+                                                 ,mj AnnClose $4]
+                                  ,ActiveBefore (fromInteger (getINTEGER $3))) }
 
 -----------------------------------------------------------------------------
 -- Expressions
@@ -1717,6 +1738,7 @@ quasiquote :: { Located (HsQuasiQuote RdrName) }
                                 ; quoterId = mkQual varName (qual, quoter) }
                             in sL (getLoc $1) (mkHsQuasiQuote quoterId (RealSrcSpan quoteSpan) quote) }
 
+-- ++AZ++ up to here
 exp   :: { LHsExpr RdrName }
         : infixexp '::' sigtype { LL $ ExprWithTySig $1 $3 }
         | infixexp '-<' exp     { LL $ HsArrApp $1 $3 placeHolderType
@@ -2166,21 +2188,23 @@ ipvar   :: { Located HsIPName }
 -----------------------------------------------------------------------------
 -- Warnings and deprecations
 
-name_boolformula_opt :: { BooleanFormula (Located RdrName) }
+name_boolformula_opt :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
         : name_boolformula          { $1 }
-        | {- empty -}               { mkTrue }
+        | {- empty -}               { ([],mkTrue) }
 
-name_boolformula :: { BooleanFormula (Located RdrName) }
+name_boolformula :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
         : name_boolformula_and                      { $1 }
-        | name_boolformula_and '|' name_boolformula { mkOr [$1,$3] }
+        | name_boolformula_and '|' name_boolformula { ((mj AnnVbar $2:fst $1)++(fst $3)
+                                                      ,mkOr [snd $1,snd $3]) }
 
-name_boolformula_and :: { BooleanFormula (Located RdrName) }
+name_boolformula_and :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
         : name_boolformula_atom                             { $1 }
-        | name_boolformula_atom ',' name_boolformula_and    { mkAnd [$1,$3] }
+        | name_boolformula_atom ',' name_boolformula_and    { ((mj AnnComma $2:fst $1)++(fst $3)
+                                                              , mkAnd [snd $1,snd $3]) }
 
-name_boolformula_atom :: { BooleanFormula (Located RdrName) }
-        : '(' name_boolformula ')'  { $2 }
-        | name_var                  { mkVar $1 }
+name_boolformula_atom :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
+        : '(' name_boolformula ')'  { ([mj AnnOpen $1,mj AnnClose $3],snd $2) }
+        | name_var                  { ([],mkVar $1) }
 
 namelist :: { Located [RdrName] }
 namelist : name_var              { L1 [unLoc $1] }
