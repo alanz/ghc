@@ -154,17 +154,23 @@ getAnnotation anns span ann = Map.lookup (AK span ann) anns
 -- | Note: in general the names of these are taken from the
 -- corresponding token, unless otherwise noted
 data Ann = AnnAs
+         | AnnAt
          | AnnBang
+         | AnnCase
          | AnnClass
          | AnnClose -- ^ } or ] or ) or #) etc
+         | AnnColon
+         | AnnColon2
          | AnnComma
          | AnnDarrow
          | AnnData
          | AnnDcolon
          | AnnDefault
          | AnnDeriving
+         | AnnDo
          | AnnDot
          | AnnDotdot
+         | AnnElse
          | AnnEqual
          | AnnExport
          | AnnFamily
@@ -172,26 +178,41 @@ data Ann = AnnAs
          | AnnForeign
          | AnnHeader -- ^ for CType
          | AnnHiding
+         | AnnIf
          | AnnImport
-         | AnnInstance
          | AnnIn
+         | AnnInstance
+         | AnnLam
          | AnnLarrow
+         | AnnLarrowtail
          | AnnLet
+         | AnnMdo
+         | AnnMinus
          | AnnModule
          | AnnNewtype
+         | AnnOf
          | AnnOpen   -- ^ { or [ or ( or (# etc
          | AnnPackageName
          | AnnPattern
-         | AnnRarrow
-         | AnnRole
+         | AnnProc
          | AnnQualified
+         | AnnRarrow
+         | AnnRarrowtail
+         | AnnRole
          | AnnSafe
          | AnnSemi
+         | AnnThen
          | AnnTilde
          | AnnType
-         | AnnVal -- ^ e.g. INTEGER
+         | AnnVal  -- ^ e.g. INTEGER
+         | AnnVal2 -- ^ e.g. INTEGER
+         | AnnVal3 -- ^ e.g. INTEGER
+         | AnnVal4 -- ^ e.g. INTEGER
+         | AnnVal5 -- ^ e.g. INTEGER
          | AnnVbar
          | AnnWhere
+         | Annlarrowtail
+         | Annrarrowtail
             deriving (Eq,Ord,Data,Typeable,Show)
 
 instance Outputable Ann where

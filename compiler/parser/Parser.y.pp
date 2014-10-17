@@ -440,23 +440,23 @@ missing_module_keyword :: { () }
         : {- empty -}                           {% pushCurrentContext }
 
 maybemodwarning :: { ([MaybeAnn],Maybe WarningTxt) }
-    : '{-# DEPRECATED' strings '#-}' { (mj AnnOpen $1:mj AnnClose $1
+    : '{-# DEPRECATED' strings '#-}' { (mo $1:mc $1
                                                     : (fst $ unLoc $2)
                                        ,Just (DeprecatedTxt $ snd $ unLoc $2)) }
-    | '{-# WARNING' strings '#-}'    { (mj AnnOpen $1:mj AnnClose $3
+    | '{-# WARNING' strings '#-}'    { (mo $1:mc $3
                                                      : (fst $ unLoc $2)
                                        , Just (WarningTxt $ snd $ unLoc $2)) }
     |  {- empty -}                  { ([],Nothing) }
 
 body    :: { ([MaybeAnn]
              ,(Located [LImportDecl RdrName], [LHsDecl RdrName])) }
-        :  '{'            top '}'      { ([mj AnnOpen $1,mj AnnClose $3,fst $2]
+        :  '{'            top '}'      { ([mo $1,mc $3,fst $2]
                                          , snd $2) }
         |      vocurly    top close    { ([], snd $2) }
 
 body2   :: { ([MaybeAnn]
              ,(Located [LImportDecl RdrName], [LHsDecl RdrName])) }
-        :  '{' top '}'                          { ([mj AnnOpen $1,mj AnnClose $3
+        :  '{' top '}'                          { ([mo $1,mc $3
                                                    ,fst $2], snd $2) }
         |  missing_module_keyword top close     { ([],snd $2) }
 
@@ -497,7 +497,7 @@ header_body2 :: { Located [LImportDecl RdrName] }
 
 maybeexports :: { Maybe (Located [LIE RdrName]) }
         :  '(' exportlist ')'       {% ajs (Just (L (comb2 $1 $3) (fromOL $2)))
-                                           [mj AnnOpen $1,mj AnnClose $3] }
+                                           [mo $1,mc $3] }
         |  {- empty -}              { Nothing }
 
 exportlist :: { OrdList (LIE RdrName) }
@@ -535,12 +535,12 @@ export  :: { OrdList (LIE RdrName) }
 export_subspec :: { Located ImpExpSubSpec }
         : {- empty -}             { L0 ImpExpAbs }
         | '(' '..' ')'            {% ams (LL ImpExpAll)
-                                         [mj AnnOpen $1,mj AnnClose $3
+                                         [mo $1,mc $3
                                          ,mj AnnDotdot $2] }
         | '(' ')'                 {% ams (LL (ImpExpList []))
-                                         [mj AnnOpen $1,mj AnnClose $2] }
+                                         [mo $1,mc $2] }
         | '(' qcnames ')'         {% ams (LL (ImpExpList (reverse $2)))
-                                         [mj AnnOpen $1,mj AnnClose $3] }
+                                         [mo $1,mc $3] }
 
 qcnames :: { [Located RdrName] }     -- A reversed list
         :  qcnames ',' qcname_ext       {% (aa $3 (AnnComma, $2)) >>
@@ -583,7 +583,7 @@ importdecl :: { LImportDecl RdrName }
                                     : fst $7 : fst $8) }
 
 maybe_src :: { ([MaybeAnn],IsBootInterface) }
-        : '{-# SOURCE' '#-}'           { ([mj AnnOpen $1,mj AnnClose $2],True) }
+        : '{-# SOURCE' '#-}'           { ([mo $1,mc $2],True) }
         | {- empty -}                  { ([],False) }
 
 maybe_safe :: { (MaybeAnn,Bool) }
@@ -610,10 +610,10 @@ maybeimpspec :: { ([MaybeAnn],Located (Maybe (Bool, [LIE RdrName]))) }
         | {- empty -}              { ([],noLoc Nothing) }
 
 impspec :: { ([MaybeAnn],Located (Bool, [LIE RdrName])) }
-        :  '(' exportlist ')'                 { ([mj AnnOpen $1,mj AnnClose $3]
+        :  '(' exportlist ')'                 { ([mo $1,mc $3]
                                                 ,LL (False, fromOL $2)) }
-        |  'hiding' '(' exportlist ')'        { ([mj AnnHiding $1,mj AnnOpen $2
-                                                 ,mj AnnClose $4]
+        |  'hiding' '(' exportlist ')'        { ([mj AnnHiding $1,mo $2
+                                                 ,mc $4]
                                                  ,LL (True, fromOL $3)) }
 
 -----------------------------------------------------------------------------
@@ -650,37 +650,37 @@ topdecl :: { OrdList (LHsDecl RdrName) }
         | stand_alone_deriving                  { unitOL (LL (DerivD (unLoc $1))) }
         | role_annot                            { unitOL (L1 (RoleAnnotD (unLoc $1))) }
         | 'default' '(' comma_types0 ')'        {% amsu (LL $ DefD (DefaultDecl $3))
-                                                        [mj AnnDefault $1,mj AnnOpen $2,mj AnnClose $4] }
+                                                        [mj AnnDefault $1,mo $2,mc $4] }
         | 'foreign' fdecl                       {% amsu (LL (unLoc $2))
                                                         [mj AnnForeign $1] }
         | '{-# DEPRECATED' deprecations '#-}'   { $2 } -- ++AZ++ TODO
         | '{-# WARNING' warnings '#-}'          { $2 } -- ++AZ++ TODO
         | '{-# RULES' rules '#-}'               { $2 } -- ++AZ++ TODO
         | '{-# VECTORISE' qvar '=' exp '#-}'    {% amsu (LL $ VectD (HsVect       $2 $4))
-                                                       [mj AnnOpen $1,mj AnnEqual $3,mj AnnClose $5] }
+                                                       [mo $1,mj AnnEqual $3,mc $5] }
         | '{-# NOVECTORISE' qvar '#-}'          {% amsu (LL $ VectD (HsNoVect     $2))
-                                                        [mj AnnOpen $1,mj AnnClose $3] }
+                                                        [mo $1,mc $3] }
         | '{-# VECTORISE' 'type' gtycon '#-}'
                                                 {% amsu (LL $
                                                     VectD (HsVectTypeIn False $3 Nothing))
-                                                    [mj AnnOpen $1,mj AnnType $2,mj AnnClose $4] }
+                                                    [mo $1,mj AnnType $2,mc $4] }
 
         | '{-# VECTORISE_SCALAR' 'type' gtycon '#-}'
                                                 {% amsu (LL $
                                                     VectD (HsVectTypeIn True $3 Nothing))
-                                                    [mj AnnOpen $1,mj AnnType $2,mj AnnClose $4] }
+                                                    [mo $1,mj AnnType $2,mc $4] }
 
         | '{-# VECTORISE' 'type' gtycon '=' gtycon '#-}'
                                                 {% amsu (LL $
                                                     VectD (HsVectTypeIn False $3 (Just $5)))
-                                                    [mj AnnOpen $1,mj AnnType $2,mj AnnEqual $4,mj AnnClose $6] }
+                                                    [mo $1,mj AnnType $2,mj AnnEqual $4,mc $6] }
         | '{-# VECTORISE_SCALAR' 'type' gtycon '=' gtycon '#-}'
                                                 {% amsu (LL $
                                                     VectD (HsVectTypeIn True $3 (Just $5)))
-                                                    [mj AnnOpen $1,mj AnnType $2,mj AnnEqual $4,mj AnnClose $6] }
+                                                    [mo $1,mj AnnType $2,mj AnnEqual $4,mc $6] }
 
         | '{-# VECTORISE' 'class' gtycon '#-}'  {% amsu (LL $ VectD (HsVectClassIn $3))
-                                                        [mj AnnOpen $1,mj AnnClass $2,mj AnnClose $4] }
+                                                        [mo $1,mj AnnClass $2,mc $4] }
         | annotation { unitOL $1 }
         | decl_no_th                            { unLoc $1 }
 
@@ -774,10 +774,10 @@ inst_decl :: { LInstDecl RdrName }
                        :(fst $ unLoc $6)++(fst $ unLoc $7)) }
 
 overlap_pragma :: { ([MaybeAnn],Maybe OverlapMode) }
-  : '{-# OVERLAPPABLE'    '#-}' { ([mj AnnOpen $1,mj AnnClose $2], Just Overlappable) }
-  | '{-# OVERLAPPING'     '#-}' { ([mj AnnOpen $1,mj AnnClose $2], Just Overlapping) }
-  | '{-# OVERLAPS'        '#-}' { ([mj AnnOpen $1,mj AnnClose $2], Just Overlaps) }
-  | '{-# INCOHERENT'      '#-}' { ([mj AnnOpen $1,mj AnnClose $2], Just Incoherent) }
+  : '{-# OVERLAPPABLE'    '#-}' { ([mo $1,mc $2], Just Overlappable) }
+  | '{-# OVERLAPPING'     '#-}' { ([mo $1,mc $2], Just Overlapping) }
+  | '{-# OVERLAPS'        '#-}' { ([mo $1,mc $2], Just Overlaps) }
+  | '{-# INCOHERENT'      '#-}' { ([mo $1,mc $2], Just Incoherent) }
   | {- empty -}                 { ([],Nothing) }
 
 
@@ -790,12 +790,12 @@ where_type_family :: { Located ([MaybeAnn],FamilyInfo RdrName) }
                     ,ClosedTypeFamily (reverse (snd $ unLoc $2))) }
 
 ty_fam_inst_eqn_list :: { Located ([MaybeAnn],[LTyFamInstEqn RdrName]) }
-        :     '{' ty_fam_inst_eqns '}'     { LL ([mj AnnOpen $1,mj AnnClose $3]
+        :     '{' ty_fam_inst_eqns '}'     { LL ([mo $1,mc $3]
                                                 ,unLoc $2) }
         | vocurly ty_fam_inst_eqns close   { let L loc _ = $2 in
                                              L loc ([],unLoc $2) }
-        |     '{' '..' '}'                 { LL ([mj AnnOpen $1,mj AnnDotdot $2
-                                                 ,mj AnnClose $3],[]) }
+        |     '{' '..' '}'                 { LL ([mo $1,mj AnnDotdot $2
+                                                 ,mc $3],[]) }
         | vocurly '..' close               { let L loc _ = $2 in
                                              L loc ([mj AnnDotdot $2],[]) }
 
@@ -898,9 +898,9 @@ tycl_hdr :: { Located (Maybe (LHsContext RdrName), LHsType RdrName) }
 
 capi_ctype :: { Maybe (Located CType) }
 capi_ctype : '{-# CTYPE' STRING STRING '#-}' {% ajs (Just (LL (CType (Just (Header (getSTRING $2))) (getSTRING $3))))
-                                                    [mj AnnOpen $1,mj AnnHeader $2,mj AnnVal $3,mj AnnClose $4] }
+                                                    [mo $1,mj AnnHeader $2,mj AnnVal $3,mc $4] }
            | '{-# CTYPE'        STRING '#-}' {% ajs (Just (LL (CType Nothing  (getSTRING $2))))
-                                                    [mj AnnOpen $1,mj AnnVal $2,mj AnnClose $3] }
+                                                    [mo $1,mj AnnVal $2,mc $3] }
            |                                 { Nothing }
 
 -----------------------------------------------------------------------------
@@ -958,8 +958,8 @@ pattern_synonym_decl :: { LHsDecl RdrName }
 
 where_decls :: { Located ([MaybeAnn]
                          , Located (OrdList (LHsDecl RdrName))) }
-        : 'where' '{' decls '}'       { LL ([mj AnnWhere $1,mj AnnOpen $2
-                                            ,mj AnnClose $4],$3) }
+        : 'where' '{' decls '}'       { LL ([mj AnnWhere $1,mo $2
+                                            ,mc $4],$3) }
         | 'where' vocurly decls close { L (comb2 $1 $3) ([mj AnnWhere $1]
                                           ,$3) }
 
@@ -999,7 +999,7 @@ decls_cls :: { Located (OrdList (LHsDecl RdrName)) }    -- Reversed
 decllist_cls
         :: { Located ([MaybeAnn]
                      , OrdList (LHsDecl RdrName)) }      -- Reversed
-        : '{'         decls_cls '}'     { LL ([mj AnnOpen $1,mj AnnClose $3]
+        : '{'         decls_cls '}'     { LL ([mo $1,mc $3]
                                              ,unLoc $2) }
         |     vocurly decls_cls close   { L (gl $2) ([],unLoc $2) }
 
@@ -1029,7 +1029,7 @@ decls_inst :: { Located (OrdList (LHsDecl RdrName)) }   -- Reversed
 decllist_inst
         :: { Located ([MaybeAnn]
                      , OrdList (LHsDecl RdrName)) }      -- Reversed
-        : '{'         decls_inst '}'    { LL ([mj AnnOpen $1,mj AnnClose $3],unLoc $2) }
+        : '{'         decls_inst '}'    { LL ([mo $1,mc $3],unLoc $2) }
         |     vocurly decls_inst close  { L (gl $2) ([],unLoc $2) }
 
 -- Instance body
@@ -1057,7 +1057,7 @@ decls   :: { Located (OrdList (LHsDecl RdrName)) }
         | {- empty -}                   { noLoc nilOL }
 
 decllist :: { Located ([MaybeAnn],OrdList (LHsDecl RdrName)) }
-        : '{'            decls '}'      { LL ([mj AnnOpen $1,mj AnnClose $3],unLoc $2) }
+        : '{'            decls '}'      { LL ([mo $1,mc $3],unLoc $2) }
         |     vocurly    decls close    { L (gl $2) ([],unLoc $2) }
 
 -- Binding groups other than those of class and instance declarations
@@ -1066,7 +1066,7 @@ binds   ::  { Located ([MaybeAnn],HsLocalBinds RdrName) }   -- May have implicit
                                                 -- No type declarations
         : decllist                      { L1 (fst $ unLoc $1,HsValBinds (cvBindGroup (snd $ unLoc $1))) }
 
-        | '{'            dbinds '}'     { LL ([mj AnnOpen $1,mj AnnClose $3]
+        | '{'            dbinds '}'     { LL ([mo $1,mc $3]
                                              ,HsIPBinds (IPBinds (unLoc $2) emptyTcEvBinds)) }
 
         |     vocurly    dbinds close   { L (getLoc $2) ([],HsIPBinds (IPBinds (unLoc $2) emptyTcEvBinds)) }
@@ -1104,11 +1104,11 @@ rule_activation :: { ([MaybeAnn],Maybe Activation) }
 
 rule_explicit_activation :: { ([MaybeAnn]
                               ,Activation) }  -- In brackets
-        : '[' INTEGER ']'               { ([mj AnnOpen $1,mj AnnVal $2,mj AnnClose $3]
+        : '[' INTEGER ']'               { ([mo $1,mj AnnVal $2,mc $3]
                                           ,ActiveAfter  (fromInteger (getINTEGER $2))) }
-        | '[' '~' INTEGER ']'           { ([mj AnnOpen $1,mj AnnTilde $2,mj AnnVal $3,mj AnnClose $4]
+        | '[' '~' INTEGER ']'           { ([mo $1,mj AnnTilde $2,mj AnnVal $3,mc $4]
                                           ,ActiveBefore (fromInteger (getINTEGER $3))) }
-        | '[' '~' ']'                   { ([mj AnnOpen $1,mj AnnTilde $2,mj AnnClose $3]
+        | '[' '~' ']'                   { ([mo $1,mj AnnTilde $2,mc $3]
                                           ,NeverActive) }
 
 rule_forall :: { ([MaybeAnn],[LRuleBndr RdrName]) }
@@ -1122,7 +1122,7 @@ rule_var_list :: { [LRuleBndr RdrName] }
 rule_var :: { LRuleBndr RdrName }
         : varid                                { LL (RuleBndr $1) }
         | '(' varid '::' ctype ')'             {% ams (LL (RuleBndrSig $2 (mkHsWithBndrs $4)))
-                                                      [mj AnnOpen $1,mj AnnDcolon $3,mj AnnClose $5] }
+                                                      [mo $1,mj AnnDcolon $3,mc $5] }
 
 -----------------------------------------------------------------------------
 -- Warnings and deprecations (c.f. rules)
@@ -1158,7 +1158,7 @@ deprecation :: { OrdList (LHsDecl RdrName) }
 
 strings :: { Located ([MaybeAnn],[Located FastString]) }
     : STRING { L1 ([],[L (gl $1) (getSTRING $1)]) }
-    | '[' stringlist ']' { LL $ ([mj AnnOpen $1,mj AnnClose $3],fromOL (unLoc $2)) }
+    | '[' stringlist ']' { LL $ ([mo $1,mc $3],fromOL (unLoc $2)) }
 
 stringlist :: { Located (OrdList (Located FastString)) }
     : stringlist ',' STRING {% addAnnotation (gl $3) AnnComma (gl $2) >>
@@ -1170,13 +1170,13 @@ stringlist :: { Located (OrdList (Located FastString)) }
 -- Annotations
 annotation :: { LHsDecl RdrName }
     : '{-# ANN' name_var aexp '#-}'      {% ams (LL (AnnD $ HsAnnotation (ValueAnnProvenance (unLoc $2)) $3))
-                                                [mj AnnOpen $1,mj AnnClose $4] }
+                                                [mo $1,mc $4] }
 
     | '{-# ANN' 'type' tycon aexp '#-}'  {% ams (LL (AnnD $ HsAnnotation (TypeAnnProvenance (unLoc $3)) $4))
-                                                [mj AnnOpen $1,mj AnnType $2,mj AnnClose $5] }
+                                                [mo $1,mj AnnType $2,mc $5] }
 
     | '{-# ANN' 'module' aexp '#-}'      {% ams (LL (AnnD $ HsAnnotation ModuleAnnProvenance $3))
-                                                [mj AnnOpen $1,mj AnnModule $2,mj AnnClose $4] }
+                                                [mo $1,mj AnnModule $2,mc $4] }
 
 
 -----------------------------------------------------------------------------
@@ -1249,13 +1249,13 @@ sigtypes1 :: { (OrdList (LHsType RdrName)) }      -- Always HsForAllTys
 strict_mark :: { Located HsBang }
         : '!'                           { (L1 (HsUserBang Nothing      True)) }
         | '{-# UNPACK' '#-}'            {% ams (LL (HsUserBang (Just True)  False))
-                                               [mj AnnOpen $1,mj AnnClose $2] }
+                                               [mo $1,mc $2] }
         | '{-# NOUNPACK' '#-}'          {% ams (LL (HsUserBang (Just False) True))
-                                               [mj AnnOpen $1,mj AnnClose $2] }
+                                               [mo $1,mc $2] }
         | '{-# UNPACK' '#-}' '!'        {% ams (LL (HsUserBang (Just True)  True))
-                                               [mj AnnOpen $1,mj AnnClose $2] }
+                                               [mo $1,mc $2] }
         | '{-# NOUNPACK' '#-}' '!'      {% ams (LL (HsUserBang (Just False) True))
-                                               [mj AnnOpen $1,mj AnnClose $2] }
+                                               [mo $1,mc $2] }
         -- Although UNPACK with no '!' is illegal, we get a
         -- better error message if we parse it here
 
@@ -1344,35 +1344,35 @@ atype :: { LHsType RdrName }
         | tyvar                          { L1 (HsTyVar (unLoc $1)) }      -- (See Note [Unit tuples])
         | strict_mark atype              { LL (HsBangTy (unLoc $1) $2) }  -- Constructor sigs only
         | '{' fielddecls '}'             {% amms (checkRecordSyntax (LL $ HsRecTy $2)) -- Constructor sigs only
-                                                 [mj AnnOpen $1,mj AnnClose $3] }
+                                                 [mo $1,mc $3] }
         | '(' ')'                        {% ams (LL $ HsTupleTy HsBoxedOrConstraintTuple [])
-                                                [mj AnnOpen $1,mj AnnClose $2] }
+                                                [mo $1,mc $2] }
         | '(' ctype ',' comma_types1 ')' {% ams (LL $ HsTupleTy HsBoxedOrConstraintTuple ($2 : $4))
-                                                [mj AnnOpen $1,mj AnnComma $3,mj AnnClose $5] }
+                                                [mo $1,mj AnnComma $3,mc $5] }
         | '(#' '#)'                      {% ams (LL $ HsTupleTy HsUnboxedTuple           [])
-                                                [mj AnnOpen $1,mj AnnClose $2] }
+                                                [mo $1,mc $2] }
         | '(#' comma_types1 '#)'         {% ams (LL $ HsTupleTy HsUnboxedTuple           $2)
-                                                [mj AnnOpen $1,mj AnnClose $3] }
-        | '[' ctype ']'                  {% ams (LL $ HsListTy  $2) [mj AnnOpen $1,mj AnnClose $3] }
-        | '[:' ctype ':]'                {% ams (LL $ HsPArrTy  $2) [mj AnnOpen $1,mj AnnClose $3] }
-        | '(' ctype ')'                  {% ams (LL $ HsParTy   $2) [mj AnnOpen $1,mj AnnClose $3] }
-        | '(' ctype '::' kind ')'        {% ams (LL $ HsKindSig $2 $4) [mj AnnOpen $1,mj AnnDcolon $3,mj AnnClose $5] }
+                                                [mo $1,mc $3] }
+        | '[' ctype ']'                  {% ams (LL $ HsListTy  $2) [mo $1,mc $3] }
+        | '[:' ctype ':]'                {% ams (LL $ HsPArrTy  $2) [mo $1,mc $3] }
+        | '(' ctype ')'                  {% ams (LL $ HsParTy   $2) [mo $1,mc $3] }
+        | '(' ctype '::' kind ')'        {% ams (LL $ HsKindSig $2 $4) [mo $1,mj AnnDcolon $3,mc $5] }
         | quasiquote                     { L1 (HsQuasiQuoteTy (unLoc $1)) }
-        | '$(' exp ')'                   {% ams (LL $ mkHsSpliceTy $2) [mj AnnOpen $1,mj AnnClose $3] }
+        | '$(' exp ')'                   {% ams (LL $ mkHsSpliceTy $2) [mo $1,mc $3] }
         | TH_ID_SPLICE                   { LL $ mkHsSpliceTy $ L1 $ HsVar $
                                            mkUnqual varName (getTH_ID_SPLICE $1) }
                                                       -- see Note [Promotion] for the followings
         | SIMPLEQUOTE qcon                            { LL $ HsTyVar $ unLoc $2 }
         | SIMPLEQUOTE  '(' ctype ',' comma_types1 ')' {% ams (LL $ HsExplicitTupleTy [] ($3 : $5))
-                                                             [mj AnnOpen $2,mj AnnComma $4,mj AnnClose $6] }
+                                                             [mo $2,mj AnnComma $4,mc $6] }
         | SIMPLEQUOTE  '[' comma_types0 ']'     {% ams (LL $ HsExplicitListTy
                                                             placeHolderKind $3)
-                                                       [mj AnnOpen $2,mj AnnClose $4] }
+                                                       [mo $2,mc $4] }
         | SIMPLEQUOTE var                       { LL $ HsTyVar $ unLoc $2 }
 
         | '[' ctype ',' comma_types1 ']'  {% ams (LL $ HsExplicitListTy
                                                      placeHolderKind ($2 : $4))
-                                                 [mj AnnOpen $1, mj AnnComma $3,mj AnnClose $5] }
+                                                 [mo $1, mj AnnComma $3,mc $5] }
         | INTEGER                         { LL $ HsTyLit $ HsNumTy $ getINTEGER $1 }
         | STRING                          { LL $ HsTyLit $ HsStrTy $ getSTRING  $1 }
 
@@ -1405,8 +1405,8 @@ tv_bndrs :: { [LHsTyVarBndr RdrName] }
 tv_bndr :: { LHsTyVarBndr RdrName }
         : tyvar                         { L1 (UserTyVar (unLoc $1)) }
         | '(' tyvar '::' kind ')'       {% ams (LL (KindedTyVar (unLoc $2) $4))
-                                               [mj AnnOpen $1,mj AnnDotdot $3
-                                               ,mj AnnClose $5] }
+                                               [mo $1,mj AnnDotdot $3
+                                               ,mc $5] }
 
 fds :: { Located [Located (FunDep RdrName)] }
         : {- empty -}                   { noLoc [] }
@@ -1442,18 +1442,18 @@ bkind :: { LHsKind RdrName }
 akind :: { LHsKind RdrName }
         : '*'                    { L1 $ HsTyVar (nameRdrName liftedTypeKindTyConName) }
         | '(' kind ')'           {% ams (LL $ HsParTy $2)
-                                        [mj AnnOpen $1,mj AnnClose $3] }
+                                        [mo $1,mc $3] }
         | pkind                  { $1 }
         | tyvar                  { L1 $ HsTyVar (unLoc $1) }
 
 pkind :: { LHsKind RdrName }  -- promoted type, see Note [Promotion]
         : qtycon                          { L1 $ HsTyVar $ unLoc $1 }
         | '(' ')'                         {% ams (LL $ HsTyVar $ getRdrName unitTyCon)
-                                                 [mj AnnOpen $1,mj AnnClose $2] }
+                                                 [mo $1,mc $2] }
         | '(' kind ',' comma_kinds1 ')'   {% ams (LL $ HsTupleTy HsBoxedTuple ( $2 : $4))
-                                                 [mj AnnOpen $1,mj AnnComma $3,mj AnnClose $5] }
+                                                 [mo $1,mj AnnComma $3,mc $5] }
         | '[' kind ']'                    {% ams (LL $ HsListTy $2)
-                                                 [mj AnnOpen $1,mj AnnClose $3] }
+                                                 [mo $1,mc $3] }
 
 comma_kinds1 :: { [LHsKind RdrName] }
         : kind                         { [$1] }
@@ -1495,8 +1495,8 @@ gadt_constrlist :: { Located ([MaybeAnn]
                           ,[Located [LConDecl RdrName]]) } -- Returned in order
         : 'where' '{'        gadt_constrs '}'   { L (comb2 $1 $3)
                                                     ([mj AnnWhere $1
-                                                     ,mj AnnOpen $2
-                                                     ,mj AnnClose $4]
+                                                     ,mo $2
+                                                     ,mc $4]
                                                     , unLoc $3) }
         | 'where' vocurly    gadt_constrs close  { L (comb2 $1 $3)
                                                      ([mj AnnWhere $1]
@@ -1528,7 +1528,7 @@ gadt_constr :: { Located ([MaybeAnn],Located [LConDecl RdrName]) }
                 {% do { cd <- mkDeprecatedGadtRecordDecl (comb2 $1 $6) $1 $3 $6
                       ; cd' <- checkRecordSyntax cd
                       ; return (L (comb2 $1 $6)
-                                   ([mj AnnOpen $2,mj AnnClose $4,mj AnnDotdot $5]
+                                   ([mo $2,mc $4,mj AnnDotdot $5]
                                    ,L (comb2 $1 $6) [cd'])) } }
 
 constrs :: { Located [LConDecl RdrName] }
@@ -1592,8 +1592,8 @@ deriving :: { Located ([MaybeAnn]
         : {- empty -}                           { noLoc ([],Nothing) }
         | 'deriving' qtycon                     { let { L loc tv = $2 }
                                                   in LL ([mj AnnDeriving $1],Just [L loc (HsTyVar tv)]) }
-        | 'deriving' '(' ')'                    { LL ([mj AnnDeriving $1,mj AnnOpen $2,mj AnnClose $3],Just []) }
-        | 'deriving' '(' inst_types1 ')'        { LL ([mj AnnDeriving $1,mj AnnOpen $2,mj AnnClose $4],Just $3) }
+        | 'deriving' '(' ')'                    { LL ([mj AnnDeriving $1,mo $2,mc $3],Just []) }
+        | 'deriving' '(' inst_types1 ')'        { LL ([mj AnnDeriving $1,mo $2,mc $4],Just $3) }
              -- Glasgow extension: allow partial
              -- applications in derivings
 
@@ -1692,7 +1692,7 @@ sigdecl :: { Located (OrdList (LHsDecl RdrName)) }
                                             | n <- fromOL $ unLoc $3 ] }
         | '{-# INLINE' activation qvar '#-}'
                 {% ams (LL $ unitOL (LL $ SigD (InlineSig $3 (mkInlinePragma (getINLINE $1) (snd $2)))))
-                       (mj AnnOpen $1:mj AnnClose $4:fst $2) }
+                       (mo $1:mc $4:fst $2) }
 
         -- AZ TODO: adjust hsSyn so all the SpecSig from a single SPECIALISE pragma is kept together
         | '{-# SPECIALISE' activation qvar '::' sigtypes1 '#-}'
@@ -1706,23 +1706,23 @@ sigdecl :: { Located (OrdList (LHsDecl RdrName)) }
 
         | '{-# SPECIALISE' 'instance' inst_type '#-}'
                 {% ams (LL $ unitOL (LL $ SigD (SpecInstSig $3)))
-                       [mj AnnOpen $1,mj AnnInstance $2,mj AnnClose $4] }
+                       [mo $1,mj AnnInstance $2,mc $4] }
 
         -- AZ TODO: Do we need locations in the name_formula_opt?
         -- A minimal complete definition
         | '{-# MINIMAL' name_boolformula_opt '#-}'
                 {% ams (LL $ unitOL (LL $ SigD (MinimalSig (snd $2))))
-                       (mj AnnOpen $1:mj AnnClose $3:fst $2) }
+                       (mo $1:mc $3:fst $2) }
 
 activation :: { ([MaybeAnn],Maybe Activation) }
         : {- empty -}                           { ([],Nothing) }
         | explicit_activation                   { (fst $1,Just (snd $1)) }
 
 explicit_activation :: { ([MaybeAnn],Activation) }  -- In brackets
-        : '[' INTEGER ']'       { ([mj AnnOpen $1,mj AnnVal $2,mj AnnClose $3]
+        : '[' INTEGER ']'       { ([mo $1,mj AnnVal $2,mc $3]
                                   ,ActiveAfter  (fromInteger (getINTEGER $2))) }
-        | '[' '~' INTEGER ']'   { ([mj AnnOpen $1,mj AnnTilde $2,mj AnnVal $3
-                                                 ,mj AnnClose $4]
+        | '[' '~' INTEGER ']'   { ([mo $1,mj AnnTilde $2,mj AnnVal $3
+                                                 ,mc $4]
                                   ,ActiveBefore (fromInteger (getINTEGER $3))) }
 
 -----------------------------------------------------------------------------
@@ -1738,17 +1738,21 @@ quasiquote :: { Located (HsQuasiQuote RdrName) }
                                 ; quoterId = mkQual varName (qual, quoter) }
                             in sL (getLoc $1) (mkHsQuasiQuote quoterId (RealSrcSpan quoteSpan) quote) }
 
--- ++AZ++ up to here
 exp   :: { LHsExpr RdrName }
-        : infixexp '::' sigtype { LL $ ExprWithTySig $1 $3 }
-        | infixexp '-<' exp     { LL $ HsArrApp $1 $3 placeHolderType
-                                                      HsFirstOrderApp True }
-        | infixexp '>-' exp     { LL $ HsArrApp $3 $1 placeHolderType
-                                                      HsFirstOrderApp False }
-        | infixexp '-<<' exp    { LL $ HsArrApp $1 $3 placeHolderType
-                                                      HsHigherOrderApp True }
-        | infixexp '>>-' exp    { LL $ HsArrApp $3 $1 placeHolderType
-                                                      HsHigherOrderApp False}
+        : infixexp '::' sigtype {% ams (LL $ ExprWithTySig $1 $3)
+                                       [mj AnnDotdot $2] }
+        | infixexp '-<' exp     {% ams (LL $ HsArrApp $1 $3 placeHolderType
+                                                        HsFirstOrderApp True)
+                                       [mj Annlarrowtail $2] }
+        | infixexp '>-' exp     {% ams (LL $ HsArrApp $3 $1 placeHolderType
+                                                      HsFirstOrderApp False)
+                                       [mj Annrarrowtail $2] }
+        | infixexp '-<<' exp    {% ams (LL $ HsArrApp $1 $3 placeHolderType
+                                                      HsHigherOrderApp True)
+                                       [mj AnnLarrowtail $2] }
+        | infixexp '>>-' exp    {% ams (LL $ HsArrApp $3 $1 placeHolderType
+                                                      HsHigherOrderApp False)
+                                       [mj AnnRarrowtail $2] }
         | infixexp              { $1 }
 
 infixexp :: { LHsExpr RdrName }
@@ -1757,77 +1761,108 @@ infixexp :: { LHsExpr RdrName }
 
 exp10 :: { LHsExpr RdrName }
         : '\\' apat apats opt_asig '->' exp
-                        { LL $ HsLam (mkMatchGroup FromSource [LL $ Match ($2:$3) (snd $4)
-                                                                (unguardedGRHSs $6)
-                                                              ]) }
+                   {% ams (LL $ HsLam (mkMatchGroup FromSource
+                            [LL $ Match ($2:$3) (snd $4) (unguardedGRHSs $6)]))
+                          [mj AnnLam $1,mj AnnRarrow $5] }
         | 'let' binds 'in' exp          {% ams (LL $ HsLet (snd $ unLoc $2) $4)
-                                               (mj AnnLet $1:mj AnnIn $3:(fst $ unLoc $2)) }
+                                               (mj AnnLet $1:mj AnnIn $3
+                                                 :(fst $ unLoc $2)) }
         | '\\' 'lcase' altslist
-            { LL $ HsLamCase placeHolderType (mkMatchGroup FromSource (unLoc $3)) }
+            {% ams (LL $ HsLamCase placeHolderType
+                                   (mkMatchGroup FromSource (unLoc $3)))
+                   [mj AnnLam $1] }
         | 'if' exp optSemi 'then' exp optSemi 'else' exp
-                                        {% checkDoAndIfThenElse $2 $3 $5 $6 $8 >>
-                                           return (LL $ mkHsIf $2 $5 $8) }
+                           {% checkDoAndIfThenElse $2 (snd $3) $5 (snd $6) $8 >>
+                              ams (LL $ mkHsIf $2 $5 $8)
+                                  (mj AnnIf $1:mj AnnThen $4
+                                             :mj AnnElse $7
+                                             :(fst $3)++(fst $6)) }
         | 'if' ifgdpats                 {% hintMultiWayIf (getLoc $1) >>
-                                           return (LL $ HsMultiIf
+                                           ams (LL $ HsMultiIf
                                                       placeHolderType
-                                                      (reverse $ unLoc $2)) }
-        | 'case' exp 'of' altslist              { LL $ HsCase $2 (mkMatchGroup FromSource (unLoc $4)) }
-        | '-' fexp                              { LL $ NegApp $2 noSyntaxExpr }
+                                                      (reverse $ unLoc $2))
+                                               [mj AnnIf $1] }
+        | 'case' exp 'of' altslist      {% ams (LL $ HsCase $2 (mkMatchGroup
+                                                     FromSource (unLoc $4)))
+                                               [mj AnnCase $1,mj AnnOf $3] }
+        | '-' fexp                      {% ams (LL $ NegApp $2 noSyntaxExpr)
+                                               [mj AnnMinus $1] }
 
-        | 'do' stmtlist                 { L (comb2 $1 $2) (mkHsDo DoExpr  (unLoc $2)) }
-        | 'mdo' stmtlist                { L (comb2 $1 $2) (mkHsDo MDoExpr (unLoc $2)) }
+        | 'do' stmtlist                 {% ams (L (comb2 $1 $2)
+                                                  (mkHsDo DoExpr (unLoc $2)))
+                                               [mj AnnDo $1] }
+        | 'mdo' stmtlist                {% ams (L (comb2 $1 $2)
+                                                  (mkHsDo MDoExpr (unLoc $2)))
+                                               [mj AnnMdo $1] }
 
         | scc_annot exp             {% do { on <- extension sccProfilingOn
-                                          ; return $ LL $ if on
-                                                          then HsSCC (unLoc $1) $2
-                                                          else HsPar $2 } }
-        | hpc_annot exp                         {% do { on <- extension hpcEnabled
-                                                      ; return $ LL $ if on
-                                                                      then HsTickPragma (unLoc $1) $2
-                                                                      else HsPar $2 } }
+                                          ; ams (LL $ if on
+                                                       then HsSCC (snd $ unLoc $1) $2
+                                                       else HsPar $2)
+                                                (fst $ unLoc $1) } }
+
+        | hpc_annot exp             {% do { on <- extension hpcEnabled
+                                            ; ams (LL $ if on
+                                                         then HsTickPragma (snd $ unLoc $1) $2
+                                                         else HsPar $2)
+                                                  (fst $ unLoc $1) } }
 
         | 'proc' aexp '->' exp
                         {% checkPattern empty $2 >>= \ p ->
                             checkCommand $4 >>= \ cmd ->
-                            return (LL $ HsProc p (LL $ HsCmdTop cmd placeHolderType
-                                                    placeHolderType [])) }
-                                                -- TODO: is LL right here?
+                            ams (LL $ HsProc p (LL $ HsCmdTop cmd placeHolderType
+                                                 placeHolderType []))
+                                             -- TODO: is LL right here?
+                                [mj AnnProc $1,mj AnnRarrow $3] }
 
-        | '{-# CORE' STRING '#-}' exp           { LL $ HsCoreAnn (getSTRING $2) $4 }
-                                                    -- hdaume: core annotation
-        | fexp                                  { $1 }
+        | '{-# CORE' STRING '#-}' exp  {% ams (LL $ HsCoreAnn (getSTRING $2) $4)
+                                              [mo $1,mj AnnVal $2
+                                              ,mc $3] }
+                                          -- hdaume: core annotation
+        | fexp                         { $1 }
 
-optSemi :: { Bool }
-        : ';'         { True }
-        | {- empty -} { False }
+optSemi :: { ([MaybeAnn],Bool) }
+        : ';'         { ([mj AnnSemi $1],True) }
+        | {- empty -} { ([],False) }
 
-scc_annot :: { Located FastString }
-        : '{-# SCC' STRING '#-}'                {% do scc <- getSCC $2; return $ LL scc }
-        | '{-# SCC' VARID  '#-}'                { LL (getVARID $2) }
+scc_annot :: { Located ([MaybeAnn],FastString) }
+        : '{-# SCC' STRING '#-}'      {% do scc <- getSCC $2
+                                            ; return $ LL
+                                               ([mo $1,mj AnnVal $2
+                                                ,mc $3],scc) }
+        | '{-# SCC' VARID  '#-}'      { LL ([mo $1,mj AnnVal $2
+                                         ,mc $3]
+                                        ,(getVARID $2)) }
 
-hpc_annot :: { Located (FastString,(Int,Int),(Int,Int)) }
+hpc_annot :: { Located ([MaybeAnn],(FastString,(Int,Int),(Int,Int))) }
         : '{-# GENERATED' STRING INTEGER ':' INTEGER '-' INTEGER ':' INTEGER '#-}'
-                                                { LL $ (getSTRING $2
-                                                       ,( fromInteger $ getINTEGER $3
-                                                        , fromInteger $ getINTEGER $5
-                                                        )
-                                                       ,( fromInteger $ getINTEGER $7
-                                                        , fromInteger $ getINTEGER $9
-                                                        )
-                                                       )
-                                                 }
+                                      { LL $ ([mo $1,mj AnnVal $2
+                                              ,mj AnnVal2 $3,mj AnnColon $4
+                                              ,mj AnnVal3 $5,mj AnnMinus $6
+                                              ,mj AnnVal4 $7,mj AnnColon2 $8
+                                              ,mj AnnVal5 $9,mc $10]
+                                              ,(getSTRING $2
+                                               ,( fromInteger $ getINTEGER $3
+                                                , fromInteger $ getINTEGER $5
+                                                )
+                                               ,( fromInteger $ getINTEGER $7
+                                                , fromInteger $ getINTEGER $9
+                                                )
+                                               ))
+                                         }
 
 fexp    :: { LHsExpr RdrName }
         : fexp aexp                             { LL $ HsApp $1 $2 }
         | aexp                                  { $1 }
 
 aexp    :: { LHsExpr RdrName }
-        : qvar '@' aexp                 { LL $ EAsPat $1 $3 }
-        | '~' aexp                      { LL $ ELazyPat $2 }
+        : qvar '@' aexp         {% ams (LL $ EAsPat $1 $3) [mj AnnAt $2] }
+        | '~' aexp              {% ams (LL $ ELazyPat $2) [mj AnnTilde $1] }
         | aexp1                 { $1 }
 
 aexp1   :: { LHsExpr RdrName }
         : aexp1 '{' fbinds '}'  {% do { r <- mkRecConstrOrUpdate $1 (comb2 $2 $4) $3
+                                      ; _ <- ams (LL ()) [mo $2,mc $4]
                                       ; checkRecordSyntax (LL r) }}
         | aexp2                 { $1 }
 
@@ -1848,14 +1883,17 @@ aexp2   :: { LHsExpr RdrName }
         -- This allows you to write, e.g., '(+ 3, 4 -)', which isn't
         -- correct Haskell (you'd have to write '((+ 3), (4 -))')
         -- but the less cluttered version fell out of having texps.
-        | '(' texp ')'                  { LL (HsPar $2) }
-        | '(' tup_exprs ')'             { LL (ExplicitTuple $2 Boxed) }
+        | '(' texp ')'                  {% ams (LL (HsPar $2)) [mo $1,mc $3] }
+        | '(' tup_exprs ')'             {% ams (LL (ExplicitTuple $2 Boxed))
+                                               [mo $1,mc $3] }
 
-        | '(#' texp '#)'                { LL (ExplicitTuple [Present $2] Unboxed) }
-        | '(#' tup_exprs '#)'           { LL (ExplicitTuple $2 Unboxed) }
+        | '(#' texp '#)'                {% ams (LL (ExplicitTuple [Present $2] Unboxed))
+                                               [mo $1,mc $3] }
+        | '(#' tup_exprs '#)'           {% ams (LL (ExplicitTuple $2 Unboxed))
+                                               [mo $1,mc $3] }
 
-        | '[' list ']'                  { LL (unLoc $2) }
-        | '[:' parr ':]'                { LL (unLoc $2) }
+        | '[' list ']'                  {% ams (LL (unLoc $2)) [mo $1,mc $3] }
+        | '[:' parr ':]'                {% ams (LL (unLoc $2)) [mo $1,mc $3] }
         | '_'                           { L1 EWildPat }
 
         -- Template Haskell Extension
@@ -1865,26 +1903,28 @@ aexp2   :: { LHsExpr RdrName }
         | SIMPLEQUOTE  qcon     { LL $ HsBracket (VarBr True  (unLoc $2)) }
         | TH_TY_QUOTE tyvar     { LL $ HsBracket (VarBr False (unLoc $2)) }
         | TH_TY_QUOTE gtycon    { LL $ HsBracket (VarBr False (unLoc $2)) }
-        | '[|' exp '|]'         { LL $ HsBracket (ExpBr $2) }
-        | '[||' exp '||]'       { LL $ HsBracket (TExpBr $2) }
-        | '[t|' ctype '|]'      { LL $ HsBracket (TypBr $2) }
+        | '[|' exp '|]'         {% ams (LL $ HsBracket (ExpBr $2)) [mo $1,mc $3] }
+        | '[||' exp '||]'       {% ams (LL $ HsBracket (TExpBr $2)) [mo $1,mc $3] }
+        | '[t|' ctype '|]'      {% ams (LL $ HsBracket (TypBr $2)) [mo $1,mc $3] }
         | '[p|' infixexp '|]'   {% checkPattern empty $2 >>= \p ->
-                                        return (LL $ HsBracket (PatBr p)) }
-        | '[d|' cvtopbody '|]'  { LL $ HsBracket (DecBrL $2) }
+                                        ams (LL $ HsBracket (PatBr p)) [mo $1,mc $3] }
+        | '[d|' cvtopbody '|]'  {% ams (LL $ HsBracket (DecBrL (snd $2)))
+                                       (mo $1:mc $3:fst $2) }
         | quasiquote            { L1 (HsQuasiQuoteE (unLoc $1)) }
 
         -- arrow notation extension
-        | '(|' aexp2 cmdargs '|)'       { LL $ HsArrForm $2 Nothing (reverse $3) }
+        | '(|' aexp2 cmdargs '|)'  {% ams (LL $ HsArrForm $2 Nothing (reverse $3))
+                                          [mo $1,mc $4] }
 
 splice_exp :: { LHsExpr RdrName }
         : TH_ID_SPLICE          { L1 $ mkHsSpliceE 
                                         (L1 $ HsVar (mkUnqual varName 
                                                         (getTH_ID_SPLICE $1))) } 
-        | '$(' exp ')'          { LL $ mkHsSpliceE $2 }               
+        | '$(' exp ')'          {% ams (LL $ mkHsSpliceE $2) [mo $1,mc $3] }
         | TH_ID_TY_SPLICE       { L1 $ mkHsSpliceTE 
                                         (L1 $ HsVar (mkUnqual varName 
                                                         (getTH_ID_TY_SPLICE $1))) } 
-        | '$$(' exp ')'         { LL $ mkHsSpliceTE $2 }               
+        | '$$(' exp ')'         {% ams (LL $ mkHsSpliceTE $2) [mo $1,mc $3] }
 
 cmdargs :: { [LHsCmdTop RdrName] }
         : cmdargs acmd                  { $2 : $1 }
@@ -1895,9 +1935,9 @@ acmd    :: { LHsCmdTop RdrName }
                                     return (L1 $ HsCmdTop cmd
                                            placeHolderType placeHolderType []) }
 
-cvtopbody :: { [LHsDecl RdrName] }
-        :  '{'            cvtopdecls0 '}'               { $2 }
-        |      vocurly    cvtopdecls0 close             { $2 }
+cvtopbody :: { ([MaybeAnn],[LHsDecl RdrName]) }
+        :  '{'            cvtopdecls0 '}'               { ([mo $1,mc $3],$2) }
+        |      vocurly    cvtopdecls0 close             { ([],$2) }
 
 cvtopdecls0 :: { [LHsDecl RdrName] }
         : {- empty -}           { [] }
@@ -1909,6 +1949,7 @@ cvtopdecls0 :: { [LHsDecl RdrName] }
 -- "texp" is short for tuple expressions:
 -- things that can appear unparenthesized as long as they're
 -- inside parens or delimitted by commas
+-- ++AZ++ up to here
 texp :: { LHsExpr RdrName }
         : exp                           { $1 }
 
@@ -2203,7 +2244,7 @@ name_boolformula_and :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
                                                               , mkAnd [snd $1,snd $3]) }
 
 name_boolformula_atom :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
-        : '(' name_boolformula ')'  { ([mj AnnOpen $1,mj AnnClose $3],snd $2) }
+        : '(' name_boolformula ')'  { ([mo $1,mc $3],snd $2) }
         | name_var                  { ([],mkVar $1) }
 
 namelist :: { Located [RdrName] }
@@ -2641,6 +2682,9 @@ amsu a@(L l _) bs = (mapM_ (\a -> a l) $ catMaybes bs) >> return (unitOL a)
 
 mj :: Ann -> Located e -> Maybe (SrcSpan -> P ())
 mj a l = Just (\s -> addAnnotation s a (gl l))
+
+mo ll = mj AnnOpen ll
+mc ll = mj AnnClose ll
 
 au a@(L l _) b = addAnnotation l b >> return (unitOL a)
 
