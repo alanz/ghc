@@ -987,8 +987,8 @@ repE (ExplicitList _ _ es) = do { xs <- repLEs es; repListExp xs }
 repE e@(ExplicitPArr _ _) = notHandled "Parallel arrays" (ppr e)
 repE e@(ExplicitTuple es boxed)
   | not (all tupArgPresent es) = notHandled "Tuple sections" (ppr e)
-  | isBoxed boxed              = do { xs <- repLEs [e | Present e <- es]; repTup xs }
-  | otherwise                  = do { xs <- repLEs [e | Present e <- es]; repUnboxedTup xs }
+  | isBoxed boxed              = do { xs <- repLEs [e | L _ (Present e) <- es]; repTup xs }
+  | otherwise                  = do { xs <- repLEs [e | L _ (Present e) <- es]; repUnboxedTup xs }
 
 repE (RecordCon c _ flds)
  = do { x <- lookupLOcc c;

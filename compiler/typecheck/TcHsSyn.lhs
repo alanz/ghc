@@ -637,8 +637,8 @@ zonkExpr env (ExplicitTuple tup_args boxed)
   = do { new_tup_args <- mapM zonk_tup_arg tup_args
        ; return (ExplicitTuple new_tup_args boxed) }
   where
-    zonk_tup_arg (Present e) = do { e' <- zonkLExpr env e; return (Present e') }
-    zonk_tup_arg (Missing t) = do { t' <- zonkTcTypeToType env t; return (Missing t') }
+    zonk_tup_arg (L l (Present e)) = do { e' <- zonkLExpr env e; return (L l (Present e')) }
+    zonk_tup_arg (L l (Missing t)) = do { t' <- zonkTcTypeToType env t; return (L l (Missing t')) }
 
 zonkExpr env (HsCase expr ms)
   = do new_expr <- zonkLExpr env expr

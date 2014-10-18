@@ -278,12 +278,12 @@ dsExpr (SectionR op expr) = do
             Lam x_id (mkCoreAppsDs core_op [Var x_id, Var y_id]))
 
 dsExpr (ExplicitTuple tup_args boxity)
-  = do { let go (lam_vars, args) (Missing ty)
+  = do { let go (lam_vars, args) (L _ (Missing ty))
                     -- For every missing expression, we need
                     -- another lambda in the desugaring.
                = do { lam_var <- newSysLocalDs ty
                     ; return (lam_var : lam_vars, Var lam_var : args) }
-             go (lam_vars, args) (Present expr)
+             go (lam_vars, args) (L _ (Present expr))
                     -- Expressions that are present don't generate
                     -- lambdas, just arguments.
                = do { core_expr <- dsLExpr expr

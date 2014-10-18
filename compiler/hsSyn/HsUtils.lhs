@@ -415,7 +415,7 @@ types on the tuple.
 mkLHsTupleExpr :: [LHsExpr a] -> LHsExpr a
 -- Makes a pre-typechecker boxed tuple, deals with 1 case
 mkLHsTupleExpr [e] = e
-mkLHsTupleExpr es  = noLoc $ ExplicitTuple (map Present es) Boxed
+mkLHsTupleExpr es  = noLoc $ ExplicitTuple (map (noLoc . Present) es) Boxed
 
 mkLHsVarTuple :: [a] -> LHsExpr a
 mkLHsVarTuple ids  = mkLHsTupleExpr (map nlHsVar ids)

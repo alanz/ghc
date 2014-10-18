@@ -604,8 +604,8 @@ cvtl e = wrapL (cvt e)
     cvt (TupE [e])     = do { e' <- cvtl e; return $ HsPar e' }
                                  -- Note [Dropping constructors]
                                  -- Singleton tuples treated like nothing (just parens)
-    cvt (TupE es)      = do { es' <- mapM cvtl es; return $ ExplicitTuple (map Present es') Boxed }
-    cvt (UnboxedTupE es)      = do { es' <- mapM cvtl es; return $ ExplicitTuple (map Present es') Unboxed }
+    cvt (TupE es)      = do { es' <- mapM cvtl es; return $ ExplicitTuple (map (noLoc . Present) es') Boxed }
+    cvt (UnboxedTupE es)      = do { es' <- mapM cvtl es; return $ ExplicitTuple (map (noLoc . Present) es') Unboxed }
     cvt (CondE x y z)  = do { x' <- cvtl x; y' <- cvtl y; z' <- cvtl z;
                             ; return $ HsIf (Just noSyntaxExpr) x' y' z' }
     cvt (MultiIfE alts)

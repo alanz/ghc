@@ -743,7 +743,7 @@ checkAPat msg loc e0 = do
                             return (PArrPat ps placeHolderType)
 
    ExplicitTuple es b
-     | all tupArgPresent es  -> do ps <- mapM (checkLPat msg) [e | Present e <- es]
+     | all tupArgPresent es  -> do ps <- mapM (checkLPat msg) [e | L _ (Present e) <- es]
                                    return (TuplePat ps b [])
      | otherwise -> parseErrorSDoc loc (text "Illegal tuple section in pattern:" $$ ppr e0)
 

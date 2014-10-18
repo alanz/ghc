@@ -394,7 +394,7 @@ tcExpr (ExplicitTuple tup_args boxity) res_ty
 
        ; arg_tys <- newFlexiTyVarTys (tyConArity tup_tc) kind
        ; let actual_res_ty
-                 = mkFunTys [ty | (ty, Missing _) <- arg_tys `zip` tup_args]
+                 = mkFunTys [ty | (ty, L _ (Missing _)) <- arg_tys `zip` tup_args]
                             (mkTyConApp tup_tc arg_tys)
 
        ; coi <- unifyType actual_res_ty res_ty
@@ -987,13 +987,13 @@ tcArg fun (arg, ty, arg_no) = addErrCtxt (funAppCtxt fun arg arg_no)
                                          (tcPolyExprNC arg ty)
 
 ----------------
-tcTupArgs :: [HsTupArg Name] -> [TcSigmaType] -> TcM [HsTupArg TcId]
+tcTupArgs :: [LHsTupArg Name] -> [TcSigmaType] -> TcM [LHsTupArg TcId]
 tcTupArgs args tys
   = ASSERT( equalLength args tys ) mapM go (args `zip` tys)
   where
-    go (Missing {},   arg_ty) = return (Missing arg_ty)
-    go (Present expr, arg_ty) = do { expr' <- tcPolyExpr expr arg_ty
-                                   ; return (Present expr') }
+    go (L l (Missing {}),   arg_ty) = return (L l (Missing arg_ty))
+    go (L l (Present expr), arg_ty) = do { expr' <- tcPolyExpr expr arg_ty
+                                         ; return (L l (Present expr')) }
 
 ----------------
 unifyOpFunTysWrap :: LHsExpr Name -> Arity -> TcRhoType

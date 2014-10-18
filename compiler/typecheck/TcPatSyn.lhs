@@ -353,7 +353,7 @@ tcPatToExpr lhsVars = go
            ; return $ ExplicitList ptt (fmap snd reb) exprs }
     go1   (TuplePat pats box _)
       = do { exprs <- mapM go pats
-           ; return (ExplicitTuple (map Present exprs) box)
+           ; return (ExplicitTuple (map (noLoc . Present) exprs) box)
            }
     go1   (LitPat lit)             = return $ HsLit lit
     go1   (NPat n Nothing _)       = return $ HsOverLit n

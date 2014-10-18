@@ -1887,7 +1887,7 @@ aexp2   :: { LHsExpr RdrName }
         | '(' tup_exprs ')'             {% ams (LL (ExplicitTuple $2 Boxed))
                                                [mo $1,mc $3] }
 
-        | '(#' texp '#)'                {% ams (LL (ExplicitTuple [Present $2] Unboxed))
+        | '(#' texp '#)'                {% ams (LL (ExplicitTuple [L (gl $2) (Present $2)] Unboxed))
                                                [mo $1,mc $3] }
         | '(#' tup_exprs '#)'           {% ams (LL (ExplicitTuple $2 Unboxed))
                                                [mo $1,mc $3] }
@@ -1968,22 +1968,24 @@ texp :: { LHsExpr RdrName }
         | qopm infixexp       { LL $ SectionR $1 $2 }
 
        -- View patterns get parenthesized above
-        | exp '->' texp   { LL $ EViewPat $1 $3 }
+        | exp '->' texp   {%ams (LL $ EViewPat $1 $3) [mj AnnRarrow $2] }
 
 -- Always at least one comma
-tup_exprs :: { [HsTupArg RdrName] }
-           : texp commas_tup_tail  { Present $1 : $2 }
-           | commas tup_tail       { replicate $1 missingTupArg ++ $2 }
+tup_exprs :: { [LHsTupArg RdrName] }
+           : texp commas_tup_tail  { (L (gl $1) (Present $1)) : $2 }
+           | commas tup_tail       { -- replicate (snd $1) missingTupArg ++ $2
+                                     map (\l -> L l missingTupArg) (fst $1) ++ $2 }
 
 -- Always starts with commas; always follows an expr
-commas_tup_tail :: { [HsTupArg RdrName] }
-commas_tup_tail : commas tup_tail  { replicate ($1-1) missingTupArg ++ $2 }
-
+commas_tup_tail :: { [LHsTupArg RdrName] }
+commas_tup_tail : commas tup_tail  { -- replicate ((snd $1)-1) missingTupArg ++ $2
+                                     map (\l -> L l missingTupArg) (init $ fst $1) ++ $2 }
+                                     -- AZ: What about the last comma location above?
 -- Always follows a comma
-tup_tail :: { [HsTupArg RdrName] }
-          : texp commas_tup_tail        { Present $1 : $2 }
-          | texp                        { [Present $1] }
-          | {- empty -}                 { [missingTupArg] }
+tup_tail :: { [LHsTupArg RdrName] }
+          : texp commas_tup_tail        { (L (gl $1) (Present $1)) : $2 }
+          | texp                        { [L (gl $1) (Present $1)] }
+          | {- empty -}                 { [noLoc missingTupArg] }
 
 -----------------------------------------------------------------------------
 -- List expressions
@@ -2274,9 +2276,9 @@ con_list : con                  { L1 [$1] }
 
 sysdcon :: { Located DataCon }  -- Wired in data constructors
         : '(' ')'               { LL unitDataCon }
-        | '(' commas ')'        { LL $ tupleCon BoxedTuple ($2 + 1) }
+        | '(' commas ')'        { LL $ tupleCon BoxedTuple (snd $2 + 1) }
         | '(#' '#)'             { LL $ unboxedUnitDataCon }
-        | '(#' commas '#)'      { LL $ tupleCon UnboxedTuple ($2 + 1) }
+        | '(#' commas '#)'      { LL $ tupleCon UnboxedTuple (snd $2 + 1) }
         | '[' ']'               { LL nilDataCon }
 
 conop :: { Located RdrName }
@@ -2300,8 +2302,8 @@ gtycon :: { Located RdrName }  -- A "general" qualified tycon, including unit tu
 
 ntgtycon :: { Located RdrName }  -- A "general" qualified tycon, excluding unit tuples
         : oqtycon                       { $1 }
-        | '(' commas ')'                { LL $ getRdrName (tupleTyCon BoxedTuple ($2 + 1)) }
-        | '(#' commas '#)'              { LL $ getRdrName (tupleTyCon UnboxedTuple ($2 + 1)) }
+        | '(' commas ')'                { LL $ getRdrName (tupleTyCon BoxedTuple (snd $2 + 1)) }
+        | '(#' commas '#)'              { LL $ getRdrName (tupleTyCon UnboxedTuple (snd $2 + 1)) }
         | '(' '->' ')'                  { LL $ getRdrName funTyCon }
         | '[' ']'                       { LL $ listTyCon_RDR }
         | '[:' ':]'                     { LL $ parrTyCon_RDR }
@@ -2517,9 +2519,9 @@ modid   :: { Located ModuleName }
                                      (unpackFS mod ++ '.':unpackFS c))
                                 }
 
-commas :: { Int }   -- One or more commas
-        : commas ','                    { $1 + 1 }
-        | ','                           { 1 }
+commas :: { ([SrcSpan],Int) }   -- One or more commas
+        : commas ','             { ((fst $1)++[gl $2],snd $1 + 1) }
+        | ','                    { ([gl $1],1) }
 
 -----------------------------------------------------------------------------
 -- Documentation comments
