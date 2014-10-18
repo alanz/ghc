@@ -9,5 +9,9 @@ annotations: clean
 	'$(TEST_HC)' $(TEST_HC_OPTS) --make -v0 -package ghc annotations
 	./annotations "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`"
 
+parseTree: clean
+	'$(TEST_HC)' $(TEST_HC_OPTS) --make -v0 -package ghc parseTree
+	./parseTree "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`"
+
 
 .PHONY: clean

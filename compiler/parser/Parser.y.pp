@@ -637,9 +637,9 @@ ops     :: { Located (OrdList (Located RdrName)) }
 -- Top-Level Declarations
 
 topdecls :: { OrdList (LHsDecl RdrName) }
-        : topdecls ';' topdecl        {% addAnnotation (oll $3) AnnComma (gl $2)
+        : topdecls ';' topdecl        {% addAnnotation (oll $3) AnnSemi (gl $2)
                                          >> return ($1 `appOL` $3) }
-        | topdecls ';'                {% addAnnotation (oll $1) AnnComma (gl $2)
+        | topdecls ';'                {% addAnnotation (oll $1) AnnSemi (gl $2)
                                          >> return $1 }
         | topdecl                     { $1 }
 
@@ -1949,7 +1949,6 @@ cvtopdecls0 :: { [LHsDecl RdrName] }
 -- "texp" is short for tuple expressions:
 -- things that can appear unparenthesized as long as they're
 -- inside parens or delimitted by commas
--- ++AZ++ up to here
 texp :: { LHsExpr RdrName }
         : exp                           { $1 }
 
@@ -1968,24 +1967,40 @@ texp :: { LHsExpr RdrName }
         | qopm infixexp       { LL $ SectionR $1 $2 }
 
        -- View patterns get parenthesized above
-        | exp '->' texp   {%ams (LL $ EViewPat $1 $3) [mj AnnRarrow $2] }
+        | exp '->' texp   {% ams (LL $ EViewPat $1 $3) [mj AnnRarrow $2] }
 
 -- Always at least one comma
+-- ++AZ++ up to here
 tup_exprs :: { [LHsTupArg RdrName] }
-           : texp commas_tup_tail  { (L (gl $1) (Present $1)) : $2 }
-           | commas tup_tail       { -- replicate (snd $1) missingTupArg ++ $2
-                                     map (\l -> L l missingTupArg) (fst $1) ++ $2 }
+           : texp commas_tup_tail  {% do { addAnnotation (gl $1) AnnComma (fst $2)
+                                         -- ; mapM_ (\ll -> addAnnotation (gl ll) AnnComma (gl ll)) (tail $2)
+                                         ; return ((L (gl $1) (Present $1)) : snd $2) } }
+
+           | commas tup_tail {% do { -- replicate (snd $1) missingTupArg ++ $2
+                                   -- ; mapM_ (\ll -> addAnnotation ll AnnComma ll) (fst $1)
+                                   ; mapM_ (\ll -> addAnnotation (gl ll) AnnComma (gl ll)) $2
+                                   ; return
+                                      (let tt = if null $2
+                                                  then [noLoc missingTupArg]
+                                                  else $2
+                                       in map (\l -> L l missingTupArg) (fst $1) ++ tt) } }
 
 -- Always starts with commas; always follows an expr
-commas_tup_tail :: { [LHsTupArg RdrName] }
-commas_tup_tail : commas tup_tail  { -- replicate ((snd $1)-1) missingTupArg ++ $2
-                                     map (\l -> L l missingTupArg) (init $ fst $1) ++ $2 }
-                                     -- AZ: What about the last comma location above?
+commas_tup_tail :: { (SrcSpan,[LHsTupArg RdrName]) }
+commas_tup_tail : commas tup_tail  {% do {  -- replicate ((snd $1)-1) missingTupArg ++ $2
+                                         ; mapM_ (\ll -> addAnnotation ll AnnComma ll) (tail $ fst $1)
+                                         ; return (
+                                     let tt = if null $2
+                                                then [L (last $ fst $1) missingTupArg]
+                                                else $2
+                                     in (head $ fst $1,(map (\l -> L l missingTupArg) (init $ fst $1)) ++ tt)) } }
+
 -- Always follows a comma
 tup_tail :: { [LHsTupArg RdrName] }
-          : texp commas_tup_tail        { (L (gl $1) (Present $1)) : $2 }
+          : texp commas_tup_tail        {% addAnnotation (gl $1) AnnComma (fst $2) >>
+                                           return ((L (gl $1) (Present $1)) : snd $2) }
           | texp                        { [L (gl $1) (Present $1)] }
-          | {- empty -}                 { [noLoc missingTupArg] }
+          | {- empty -}                 { [] {- [noLoc missingTupArg] -} }
 
 -----------------------------------------------------------------------------
 -- List expressions
