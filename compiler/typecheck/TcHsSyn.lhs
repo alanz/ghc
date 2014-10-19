@@ -966,10 +966,10 @@ zonkRecFields env (HsRecFields flds dd)
   = do  { flds' <- mapM zonk_rbind flds
         ; return (HsRecFields flds' dd) }
   where
-    zonk_rbind fld
+    zonk_rbind (L l fld)
       = do { new_id   <- wrapLocM (zonkIdBndr env) (hsRecFieldId fld)
            ; new_expr <- zonkLExpr env (hsRecFieldArg fld)
-           ; return (fld { hsRecFieldId = new_id, hsRecFieldArg = new_expr }) }
+           ; return (L l (fld { hsRecFieldId = new_id, hsRecFieldArg = new_expr })) }
 
 -------------------------------------------------------------------------
 mapIPNameTc :: (a -> TcM b) -> Either HsIPName a -> TcM (Either HsIPName b)
@@ -1109,8 +1109,8 @@ zonkConStuff env (InfixCon p1 p2)
         ; return (env', InfixCon p1' p2') }
 
 zonkConStuff env (RecCon (HsRecFields rpats dd))
-  = do  { (env', pats') <- zonkPats env (map hsRecFieldArg rpats)
-        ; let rpats' = zipWith (\rp p' -> rp { hsRecFieldArg = p' }) rpats pats'
+  = do  { (env', pats') <- zonkPats env (map (hsRecFieldArg . unLoc) rpats)
+        ; let rpats' = zipWith (\(L l rp) p' -> L l (rp { hsRecFieldArg = p' })) rpats pats'
         ; return (env', RecCon (HsRecFields rpats' dd)) }
         -- Field selectors have declared types; hence no zonking
 

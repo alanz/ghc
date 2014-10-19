@@ -408,7 +408,7 @@ tcCollectEx = return . go
     goConDetails (RecCon HsRecFields{ rec_flds = flds })
       = mconcat . map goRecFd $ flds
 
-    goRecFd :: HsRecField Id (LPat Id) -> (TyVarSet, [EvVar])
-    goRecFd HsRecField{ hsRecFieldArg = p } = go p
+    goRecFd :: LHsRecField Id (LPat Id) -> (TyVarSet, [EvVar])
+    goRecFd (L _ HsRecField{ hsRecFieldArg = p }) = go p
 
 \end{code}

@@ -765,9 +765,9 @@ plus_RDR = mkUnqual varName (fsLit "+") -- Hack
 bang_RDR = mkUnqual varName (fsLit "!") -- Hack
 pun_RDR  = mkUnqual varName (fsLit "pun-right-hand-side")
 
-checkPatField :: SDoc -> HsRecField RdrName (LHsExpr RdrName) -> P (HsRecField RdrName (LPat RdrName))
-checkPatField msg fld = do p <- checkLPat msg (hsRecFieldArg fld)
-                           return (fld { hsRecFieldArg = p })
+checkPatField :: SDoc -> LHsRecField RdrName (LHsExpr RdrName) -> P (LHsRecField RdrName (LPat RdrName))
+checkPatField msg (L l fld) = do p <- checkLPat msg (hsRecFieldArg fld)
+                                 return (L l (fld { hsRecFieldArg = p }))
 
 patFail :: SDoc -> SrcSpan -> HsExpr RdrName -> P a
 patFail msg loc e = parseErrorSDoc loc err
@@ -1055,7 +1055,7 @@ checkPrecP (L l i)
 mkRecConstrOrUpdate
         :: LHsExpr RdrName
         -> SrcSpan
-        -> ([HsRecField RdrName (LHsExpr RdrName)], Bool)
+        -> ([LHsRecField RdrName (LHsExpr RdrName)], Bool)
         -> P (HsExpr RdrName)
 
 mkRecConstrOrUpdate (L l (HsVar c)) _ (fs,dd) 
@@ -1064,7 +1064,7 @@ mkRecConstrOrUpdate (L l (HsVar c)) _ (fs,dd)
 mkRecConstrOrUpdate exp _ (fs,dd)
   = return (RecordUpd exp (mk_rec_fields fs dd) [] [] [])
 
-mk_rec_fields :: [HsRecField id arg] -> Bool -> HsRecFields id arg
+mk_rec_fields :: [LHsRecField id arg] -> Bool -> HsRecFields id arg
 mk_rec_fields fs False = HsRecFields { rec_flds = fs, rec_dotdot = Nothing }
 mk_rec_fields fs True  = HsRecFields { rec_flds = fs, rec_dotdot = Just (length fs) }
 

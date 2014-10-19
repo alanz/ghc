@@ -1922,9 +1922,9 @@ mkRecSelBind (tycon, sel_name)
                                  (L loc (HsVar field_var))
     mk_sel_pat con = ConPatIn (L loc (getName con)) (RecCon rec_fields)
     rec_fields = HsRecFields { rec_flds = [rec_field], rec_dotdot = Nothing }
-    rec_field  = HsRecField { hsRecFieldId = sel_lname
-                            , hsRecFieldArg = L loc (VarPat field_var)
-                            , hsRecPun = False }
+    rec_field  = noLoc (HsRecField { hsRecFieldId = sel_lname
+                                   , hsRecFieldArg = L loc (VarPat field_var)
+                                   , hsRecPun = False })
     sel_lname = L loc sel_name
     field_var = mkInternalName (mkBuiltinUnique 1) (getOccName sel_name) loc
 

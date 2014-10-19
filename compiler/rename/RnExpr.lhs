@@ -378,8 +378,8 @@ rnHsRecBinds ctxt rec_binds@(HsRecFields { rec_dotdot = dd })
        ; return (HsRecFields { rec_flds = flds', rec_dotdot = dd },
                  fvs `plusFV` plusFVs fvss) }
   where
-    rn_field fld = do { (arg', fvs) <- rnLExpr (hsRecFieldArg fld)
-                      ; return (fld { hsRecFieldArg = arg' }, fvs) }
+    rn_field (L l fld) = do { (arg', fvs) <- rnLExpr (hsRecFieldArg fld)
+                            ; return (L l (fld { hsRecFieldArg = arg' }), fvs) }
 \end{code}
 
 

@@ -645,7 +645,7 @@ tcExpr (RecordUpd record_expr rbinds _ _ _) res_ty
         ; let bad_guys = [ setSrcSpan loc $ addErrTc (notSelector fld_name)
                          | (fld, sel_id) <- rec_flds rbinds `zip` sel_ids,
                            not (isRecordSelector sel_id),       -- Excludes class ops
-                           let L loc fld_name = hsRecFieldId fld ]
+                           let L loc fld_name = hsRecFieldId (unLoc fld) ]
         ; unless (null bad_guys) (sequence bad_guys >> failM)
 
         -- STEP 1
@@ -1383,7 +1383,7 @@ tcRecordBinds data_con arg_tys (HsRecFields rbinds dd)
         ; return (HsRecFields (catMaybes mb_binds) dd) }
   where
     flds_w_tys = zipEqual "tcRecordBinds" (dataConFieldLabels data_con) arg_tys
-    do_bind fld@(HsRecField { hsRecFieldId = L loc field_lbl, hsRecFieldArg = rhs })
+    do_bind (L l fld@(HsRecField { hsRecFieldId = L loc field_lbl, hsRecFieldArg = rhs }))
       | Just field_ty <- assocMaybe flds_w_tys field_lbl
       = addErrCtxt (fieldCtxt field_lbl)        $
         do { rhs' <- tcPolyExprNC rhs field_ty
@@ -1394,7 +1394,7 @@ tcRecordBinds data_con arg_tys (HsRecFields rbinds dd)
                 --          (so we can find it easily)
                 --      but is a LocalId with the appropriate type of the RHS
                 --          (so the desugarer knows the type of local binder to make)
-           ; return (Just (fld { hsRecFieldId = L loc field_id, hsRecFieldArg = rhs' })) }
+           ; return (Just (L l (fld { hsRecFieldId = L loc field_id, hsRecFieldArg = rhs' }))) }
       | otherwise
       = do { addErrTc (badFieldCon (RealDataCon data_con) field_lbl)
            ; return Nothing }

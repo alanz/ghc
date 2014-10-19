@@ -1074,9 +1074,9 @@ repFields :: HsRecordBinds Name -> DsM (Core [TH.Q TH.FieldExp])
 repFields (HsRecFields { rec_flds = flds })
   = repList fieldExpQTyConName rep_fld flds
   where
-    rep_fld fld = do { fn <- lookupLOcc (hsRecFieldId fld)
-                     ; e  <- repLE (hsRecFieldArg fld)
-                     ; repFieldExp fn e }
+    rep_fld (L _ fld) = do { fn <- lookupLOcc (hsRecFieldId fld)
+                           ; e  <- repLE (hsRecFieldArg fld)
+                           ; repFieldExp fn e }
 
 
 -----------------------------------------------------------------------------
@@ -1301,9 +1301,9 @@ repP (ConPatIn dc details)
                                 repPinfix p1' con_str p2' }
    }
  where
-   rep_fld fld = do { MkC v <- lookupLOcc (hsRecFieldId fld)
-                    ; MkC p <- repLP (hsRecFieldArg fld)
-                    ; rep2 fieldPatName [v,p] }
+   rep_fld (L _ fld) = do { MkC v <- lookupLOcc (hsRecFieldId fld)
+                          ; MkC p <- repLP (hsRecFieldArg fld)
+                          ; rep2 fieldPatName [v,p] }
 
 repP (NPat l Nothing _)  = do { a <- repOverloadedLiteral l; repPlit a }
 repP (ViewPat e p _) = do { e' <- repLE e; p' <- repLP p; repPview e' p' }

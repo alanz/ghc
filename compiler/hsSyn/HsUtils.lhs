@@ -899,7 +899,7 @@ lPatImplicits = hs_lpat
     details (RecCon fs)      = hs_lpats explicit `unionNameSets` mkNameSet (collectPatsBinders implicit)
       where (explicit, implicit) = partitionEithers [if pat_explicit then Left pat else Right pat
                                                     | (i, fld) <- [0..] `zip` rec_flds fs
-                                                    , let pat = hsRecFieldArg fld
+                                                    , let pat = hsRecFieldArg (unLoc fld)
                                                           pat_explicit = maybe True (i<) (rec_dotdot fs)]
     details (InfixCon p1 p2) = hs_lpat p1 `unionNameSets` hs_lpat p2
 \end{code}

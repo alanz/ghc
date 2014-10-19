@@ -1769,8 +1769,8 @@ exp10 :: { LHsExpr RdrName }
                                                  :(fst $ unLoc $2)) }
         | '\\' 'lcase' altslist
             {% ams (LL $ HsLamCase placeHolderType
-                                   (mkMatchGroup FromSource (unLoc $3)))
-                   [mj AnnLam $1] }
+                                   (mkMatchGroup FromSource (snd $ unLoc $3)))
+                   (mj AnnLam $1:(fst $ unLoc $3)) }
         | 'if' exp optSemi 'then' exp optSemi 'else' exp
                            {% checkDoAndIfThenElse $2 (snd $3) $5 (snd $6) $8 >>
                               ams (LL $ mkHsIf $2 $5 $8)
@@ -1783,17 +1783,17 @@ exp10 :: { LHsExpr RdrName }
                                                       (reverse $ unLoc $2))
                                                [mj AnnIf $1] }
         | 'case' exp 'of' altslist      {% ams (LL $ HsCase $2 (mkMatchGroup
-                                                     FromSource (unLoc $4)))
-                                               [mj AnnCase $1,mj AnnOf $3] }
+                                                     FromSource (snd $ unLoc $4)))
+                                               (mj AnnCase $1:mj AnnOf $3:(fst $ unLoc $4)) }
         | '-' fexp                      {% ams (LL $ NegApp $2 noSyntaxExpr)
                                                [mj AnnMinus $1] }
 
         | 'do' stmtlist                 {% ams (L (comb2 $1 $2)
-                                                  (mkHsDo DoExpr (unLoc $2)))
-                                               [mj AnnDo $1] }
+                                                  (mkHsDo DoExpr (snd $ unLoc $2)))
+                                               (mj AnnDo $1:(fst $ unLoc $2)) }
         | 'mdo' stmtlist                {% ams (L (comb2 $1 $2)
-                                                  (mkHsDo MDoExpr (unLoc $2)))
-                                               [mj AnnMdo $1] }
+                                                  (mkHsDo MDoExpr (snd $ unLoc $2)))
+                                               (mj AnnMdo $1:(fst $ unLoc $2)) }
 
         | scc_annot exp             {% do { on <- extension sccProfilingOn
                                           ; ams (LL $ if on
@@ -1861,7 +1861,7 @@ aexp    :: { LHsExpr RdrName }
         | aexp1                 { $1 }
 
 aexp1   :: { LHsExpr RdrName }
-        : aexp1 '{' fbinds '}'  {% do { r <- mkRecConstrOrUpdate $1 (comb2 $2 $4) $3
+        : aexp1 '{' fbinds '}'  {% do { r <- mkRecConstrOrUpdate $1 (comb2 $2 $4) (snd $3)
                                       ; _ <- ams (LL ()) [mo $2,mc $4]
                                       ; checkRecordSyntax (LL r) }}
         | aexp2                 { $1 }
@@ -1970,7 +1970,6 @@ texp :: { LHsExpr RdrName }
         | exp '->' texp   {% ams (LL $ EViewPat $1 $3) [mj AnnRarrow $2] }
 
 -- Always at least one comma
--- ++AZ++ up to here
 tup_exprs :: { [LHsTupArg RdrName] }
            : texp commas_tup_tail  {% do { addAnnotation (gl $1) AnnComma (fst $2)
                                          -- ; mapM_ (\ll -> addAnnotation (gl ll) AnnComma (gl ll)) (tail $2)
@@ -2007,23 +2006,25 @@ tup_tail :: { [LHsTupArg RdrName] }
 
 -- The rules below are little bit contorted to keep lexps left-recursive while
 -- avoiding another shift/reduce-conflict.
-
 list :: { LHsExpr RdrName }
         : texp    { L1 $ ExplicitList placeHolderType Nothing [$1] }
         | lexps   { L1 $ ExplicitList placeHolderType Nothing
                                                    (reverse (unLoc $1)) }
-        | texp '..'             { LL $ ArithSeq noPostTcExpr Nothing (From $1) }
-        | texp ',' exp '..'     { LL $ ArithSeq noPostTcExpr Nothing (FromThen $1 $3) }
-        | texp '..' exp         { LL $ ArithSeq noPostTcExpr Nothing (FromTo $1 $3) }
-        | texp ',' exp '..' exp { LL $ ArithSeq noPostTcExpr Nothing (FromThenTo $1 $3 $5) }
+        | texp '..'             {% ams (LL $ ArithSeq noPostTcExpr Nothing (From $1)) [mj AnnDotdot $2] }
+        | texp ',' exp '..'     {% ams (LL $ ArithSeq noPostTcExpr Nothing (FromThen $1 $3)) [mj AnnComma $2,mj AnnDotdot $4] }
+        | texp '..' exp         {% ams (LL $ ArithSeq noPostTcExpr Nothing (FromTo $1 $3)) [mj AnnDotdot $2] }
+        | texp ',' exp '..' exp {% ams (LL $ ArithSeq noPostTcExpr Nothing (FromThenTo $1 $3 $5)) [mj AnnComma $2,mj AnnDotdot $4] }
         | texp '|' flattenedpquals
              {% checkMonadComp >>= \ ctxt ->
-                return (sL (comb2 $1 $>) $
-                        mkHsComp ctxt (unLoc $3) $1) }
+                ams (sL (comb2 $1 $>) $
+                        mkHsComp ctxt (unLoc $3) $1)
+                    [mj AnnVbar $2] }
 
 lexps :: { Located [LHsExpr RdrName] }
-        : lexps ',' texp                { LL (((:) $! $3) $! unLoc $1) }
-        | texp ',' texp                 { LL [$3,$1] }
+        : lexps ',' texp              {% addAnnotation (gl $ last $ unLoc $1) AnnComma (gl $2) >>
+                                         return (LL (((:) $! $3) $! unLoc $1)) }
+        | texp ',' texp               {% addAnnotation (gl $1) AnnComma (gl $2) >>
+                                         return (LL [$3,$1]) }
 
 -----------------------------------------------------------------------------
 -- List Comprehensions
@@ -2042,13 +2043,16 @@ flattenedpquals :: { Located [LStmt RdrName (LHsExpr RdrName)] }
                 }
 
 pquals :: { Located [[LStmt RdrName (LHsExpr RdrName)]] }
-    : squals '|' pquals     { L (getLoc $2) (reverse (unLoc $1) : unLoc $3) }
+    : squals '|' pquals     {% addAnnotation (gl $ last $ unLoc $1) AnnVbar (gl $2) >>
+                               return (L (getLoc $2) (reverse (unLoc $1) : unLoc $3)) }
     | squals                { L (getLoc $1) [reverse (unLoc $1)] }
 
 squals :: { Located [LStmt RdrName (LHsExpr RdrName)] }   -- In reverse order, because the last
                                         -- one can "grab" the earlier ones
-    : squals ',' transformqual               { LL [L (getLoc $3) ((unLoc $3) (reverse (unLoc $1)))] }
-    | squals ',' qual                        { LL ($3 : unLoc $1) }
+    : squals ',' transformqual               {% addAnnotation (gl $ last $ unLoc $1) AnnComma (gl $2) >>
+                                                return (LL [L (getLoc $3) ((unLoc $3) (reverse (unLoc $1)))]) }
+    | squals ',' qual                        {% addAnnotation (gl $ last $ unLoc $1) AnnComma (gl $2) >>
+                                                return (LL ($3 : unLoc $1)) }
     | transformqual                          { LL [L (getLoc $1) ((unLoc $1) [])] }
     | qual                                   { L1 [$1] }
 --  | transformquals1 ',' '{|' pquals '|}'   { LL ($4 : unLoc $1) }
@@ -2062,10 +2066,14 @@ squals :: { Located [LStmt RdrName (LHsExpr RdrName)] }   -- In reverse order, b
 
 transformqual :: { Located ([LStmt RdrName (LHsExpr RdrName)] -> Stmt RdrName (LHsExpr RdrName)) }
                         -- Function is applied to a list of stmts *in order*
-    : 'then' exp                           { LL $ \ss -> (mkTransformStmt    ss $2)    }
-    | 'then' exp 'by' exp                  { LL $ \ss -> (mkTransformByStmt  ss $2 $4) }
-    | 'then' 'group' 'using' exp           { LL $ \ss -> (mkGroupUsingStmt   ss $4)    }
-    | 'then' 'group' 'by' exp 'using' exp  { LL $ \ss -> (mkGroupByUsingStmt ss $4 $6) }
+    : 'then' exp                           {% ams (LL $ \ss -> (mkTransformStmt    ss $2))
+                                                  [mj AnnThen $1] }
+    | 'then' exp 'by' exp                  {% ams (LL $ \ss -> (mkTransformByStmt  ss $2 $4))
+                                                  [mj AnnThen $1,mj AnnBy  $3] }
+    | 'then' 'group' 'using' exp           {% ams (LL $ \ss -> (mkGroupUsingStmt   ss $4))
+                                                  [mj AnnThen $1,mj AnnGroup $2,mj AnnUsing $3]    }
+    | 'then' 'group' 'by' exp 'using' exp  {% ams (LL $ \ss -> (mkGroupByUsingStmt ss $4 $6))
+                                                  [mj AnnThen $1,mj AnnGroup $2,mj AnnBy $3,mj AnnUsing $5] }
 
 -- Note that 'group' is a special_id, which means that you can enable
 -- TransformListComp while still using Data.List.group. However, this
@@ -2085,9 +2093,12 @@ parr :: { LHsExpr RdrName }
         | texp                          { L1 $ ExplicitPArr placeHolderType [$1] }
         | lexps                         { L1 $ ExplicitPArr placeHolderType
                                                        (reverse (unLoc $1)) }
-        | texp '..' exp                 { LL $ PArrSeq noPostTcExpr (FromTo $1 $3) }
-        | texp ',' exp '..' exp         { LL $ PArrSeq noPostTcExpr (FromThenTo $1 $3 $5) }
-        | texp '|' flattenedpquals      { LL $ mkHsComp PArrComp (unLoc $3) $1 }
+        | texp '..' exp                 {% ams (LL $ PArrSeq noPostTcExpr (FromTo $1 $3))
+                                               [mj AnnDotdot $2] }
+        | texp ',' exp '..' exp         {% ams (LL $ PArrSeq noPostTcExpr (FromThenTo $1 $3 $5))
+                                               [mj AnnComma $2,mj AnnDotdot $4] }
+        | texp '|' flattenedpquals      {% ams (LL $ mkHsComp PArrComp (unLoc $3) $1)
+                                               [mj AnnVbar $2] }
 
 -- We are reusing `lexps' and `flattenedpquals' from the list case.
 
@@ -2098,26 +2109,29 @@ guardquals :: { Located [LStmt RdrName (LHsExpr RdrName)] }
     : guardquals1           { L (getLoc $1) (reverse (unLoc $1)) }
 
 guardquals1 :: { Located [LStmt RdrName (LHsExpr RdrName)] }
-    : guardquals1 ',' qual  { LL ($3 : unLoc $1) }
+    : guardquals1 ',' qual  {% ams (LL ($3 : unLoc $1)) [mj AnnComma $2] }
     | qual                  { L1 [$1] }
 
 -----------------------------------------------------------------------------
 -- Case alternatives
 
-altslist :: { Located [LMatch RdrName (LHsExpr RdrName)] }
-        : '{'            alts '}'       { LL (reverse (unLoc $2)) }
-        |     vocurly    alts  close    { L (getLoc $2) (reverse (unLoc $2)) }
-        | '{'                 '}'       { noLoc [] }
-        |     vocurly          close    { noLoc [] }
+altslist :: { Located ([MaybeAnn],[LMatch RdrName (LHsExpr RdrName)]) }
+        : '{'            alts '}'       { LL ([mo $1,mc $3],(reverse (unLoc $2))) }
+
+        |     vocurly    alts  close    { L (getLoc $2) ([],(reverse (unLoc $2))) }
+        | '{'                 '}'       { noLoc ([mo $1,mc $2],[]) }
+        |     vocurly          close    { noLoc ([],[]) }
 
 alts    :: { Located [LMatch RdrName (LHsExpr RdrName)] }
         : alts1                         { L1 (unLoc $1) }
-        | ';' alts                      { LL (unLoc $2) }
+        | ';' alts                      {% ams (LL (unLoc $2))
+                                               [mj AnnSemi (head $ unLoc $2)] }
 
 alts1   :: { Located [LMatch RdrName (LHsExpr RdrName)] }
-        : alts1 ';' alt                 { LL ($3 : unLoc $1) }
-        | alts1 ';'                     { LL (unLoc $1) }
-        | alt                           { L1 [$1] }
+        : alts1 ';' alt           {% ams (LL ($3 : unLoc $1)) [mj AnnSemi $3] }
+        | alts1 ';'               {% ams (LL (unLoc $1))
+                                         [mj AnnSemi (last $ unLoc $1)] }
+        | alt                     { L1 [$1] }
 
 alt     :: { LMatch RdrName (LHsExpr RdrName) }
         : pat opt_sig alt_rhs           { LL (Match [$1] (snd $2) (unLoc $3)) }
@@ -2126,8 +2140,8 @@ alt_rhs :: { Located (GRHSs RdrName (LHsExpr RdrName)) }
         : ralt wherebinds               { LL (GRHSs (unLoc $1) (snd $ unLoc $2)) }
 
 ralt :: { Located [LGRHS RdrName (LHsExpr RdrName)] }
-        : '->' exp                      { LL (unguardedRHS $2) }
-        | gdpats                        { L1 (reverse (unLoc $1)) }
+        : '->' exp             {% ams (LL (unguardedRHS $2)) [mj AnnRarrow $1] }
+        | gdpats               { L1 (reverse (unLoc $1)) }
 
 gdpats :: { Located [LGRHS RdrName (LHsExpr RdrName)] }
         : gdpats gdpat                  { LL ($2 : unLoc $1) }
@@ -2136,18 +2150,20 @@ gdpats :: { Located [LGRHS RdrName (LHsExpr RdrName)] }
 -- optional semi-colons between the guards of a MultiWayIf, because we use
 -- layout here, but we don't need (or want) the semicolon as a separator (#7783).
 gdpatssemi :: { Located [LGRHS RdrName (LHsExpr RdrName)] }
-        : gdpatssemi gdpat optSemi      { sL (comb2 $1 $2) ($2 : unLoc $1) }
-        | gdpat optSemi                 { L1 [$1] }
+        : gdpatssemi gdpat optSemi     {% ams (sL (comb2 $1 $2) ($2 : unLoc $1))
+                                              (fst $3) }
+        | gdpat optSemi                 {% ams (L1 [$1]) (fst $2) }
 
 -- layout for MultiWayIf doesn't begin with an open brace, because it's hard to
 -- generate the open brace in addition to the vertical bar in the lexer, and
 -- we don't need it.
 ifgdpats :: { Located [LGRHS RdrName (LHsExpr RdrName)] }
-         : '{' gdpatssemi '}'              { LL (unLoc $2) }
+         : '{' gdpatssemi '}'              {% ams (LL (unLoc $2)) [mo $1,mc $3] }
          |     gdpatssemi close            { $1 }
 
 gdpat   :: { LGRHS RdrName (LHsExpr RdrName) }
-        : '|' guardquals '->' exp               { sL (comb2 $1 $>) $ GRHS (unLoc $2) $4 }
+        : '|' guardquals '->' exp          {% ams (sL (comb2 $1 $>) $ GRHS (unLoc $2) $4)
+                                                  [mj AnnVbar $1,mj AnnRarrow $3] }
 
 -- 'pat' recognises a pattern, including one with a bang at the top
 --      e.g.  "!x" or "!(x,y)" or "C a b" etc
@@ -2155,15 +2171,18 @@ gdpat   :: { LGRHS RdrName (LHsExpr RdrName) }
 -- we parse them right when bang-patterns are off
 pat     :: { LPat RdrName }
 pat     :  exp                  {% checkPattern empty $1 }
-        | '!' aexp              {% checkPattern empty (LL (SectionR (L1 (HsVar bang_RDR)) $2)) }
+        | '!' aexp              {% amms (checkPattern empty (LL (SectionR (L1 (HsVar bang_RDR)) $2)))
+                                        [mj AnnBang $1] }
 
 bindpat :: { LPat RdrName }
 bindpat :  exp                  {% checkPattern (text "Possibly caused by a missing 'do'?") $1 }
-        | '!' aexp              {% checkPattern (text "Possibly caused by a missing 'do'?") (LL (SectionR (L1 (HsVar bang_RDR)) $2)) }
+        | '!' aexp              {% amms (checkPattern (text "Possibly caused by a missing 'do'?") (LL (SectionR (L1 (HsVar bang_RDR)) $2)))
+                                       [mj AnnBang $1] }
 
 apat   :: { LPat RdrName }
 apat    : aexp                  {% checkPattern empty $1 }
-        | '!' aexp              {% checkPattern empty (LL (SectionR (L1 (HsVar bang_RDR)) $2)) }
+        | '!' aexp              {% amms (checkPattern empty (LL (SectionR (L1 (HsVar bang_RDR)) $2)))
+                                        [mj AnnBang $1] }
 
 apats  :: { [LPat RdrName] }
         : apat apats            { $1 : $2 }
@@ -2172,23 +2191,29 @@ apats  :: { [LPat RdrName] }
 -----------------------------------------------------------------------------
 -- Statement sequences
 
-stmtlist :: { Located [LStmt RdrName (LHsExpr RdrName)] }
-        : '{'           stmts '}'       { LL (unLoc $2) }
-        |     vocurly   stmts close     { $2 }
+stmtlist :: { Located ([MaybeAnn],[LStmt RdrName (LHsExpr RdrName)]) }
+        : '{'           stmts '}'       { LL ((mo $1:mc $3:(fst $ unLoc $2)),(snd $ unLoc $2)) }
+        |     vocurly   stmts close     { L (gl $2) (fst $ unLoc $2,snd $ unLoc $2) }
 
 --      do { ;; s ; s ; ; s ;; }
 -- The last Stmt should be an expression, but that's hard to enforce
 -- here, because we need too much lookahead if we see do { e ; }
 -- So we use BodyStmts throughout, and switch the last one over
 -- in ParseUtils.checkDo instead
-stmts :: { Located [LStmt RdrName (LHsExpr RdrName)] }
-        : stmt stmts_help               { LL ($1 : unLoc $2) }
-        | ';' stmts                     { LL (unLoc $2) }
-        | {- empty -}                   { noLoc [] }
+stmts :: { Located ([MaybeAnn],[LStmt RdrName (LHsExpr RdrName)]) }
+        : stmt stmts_help               { LL (fst $ unLoc $2,($1 : (snd $ unLoc $2))) }
+        | ';' stmts                     {% if null (snd $ unLoc $2)
+                                             then ams (LL ([mj AnnSemi $1],snd $ unLoc $2)) []
+                                             else ams (LL ([],snd $ unLoc $2)) [mj AnnSemi $1] }
 
-stmts_help :: { Located [LStmt RdrName (LHsExpr RdrName)] } -- might be empty
-        : ';' stmts                     { LL (unLoc $2) }
-        | {- empty -}                   { noLoc [] }
+        | {- empty -}                   { noLoc ([],[]) }
+
+stmts_help :: { Located ([MaybeAnn],[LStmt RdrName (LHsExpr RdrName)]) } -- might be empty
+        : ';' stmts                     {% if null (snd $ unLoc $2)
+                                             then ams (LL ([mj AnnSemi $1],snd $ unLoc $2)) []
+                                             else ams (LL ([],snd $ unLoc $2)) [mj AnnSemi $1] }
+
+        | {- empty -}                   { noLoc ([],[]) }
 
 -- For typing stmts at the GHCi prompt, where
 -- the input may consist of just comments.
@@ -2198,32 +2223,36 @@ maybe_stmt :: { Maybe (LStmt RdrName (LHsExpr RdrName)) }
 
 stmt  :: { LStmt RdrName (LHsExpr RdrName) }
         : qual                          { $1 }
-        | 'rec' stmtlist                { LL $ mkRecStmt (unLoc $2) }
+        | 'rec' stmtlist                {% ams (LL $ mkRecStmt (snd $ unLoc $2))
+                                               [mj AnnRec $1] }
 
 qual  :: { LStmt RdrName (LHsExpr RdrName) }
-    : bindpat '<-' exp                  { LL $ mkBindStmt $1 $3 }
+    : bindpat '<-' exp                  {% ams (LL $ mkBindStmt $1 $3)
+                                               [mj AnnLarrow $2] }
     | exp                               { L1 $ mkBodyStmt $1 }
-    | 'let' binds                       { LL $ LetStmt (snd $ unLoc $2) }
+    | 'let' binds                       {% ams (LL $ LetStmt (snd $ unLoc $2))
+                                               [mj AnnLet $1] }
 
 -----------------------------------------------------------------------------
 -- Record Field Update/Construction
 
-fbinds  :: { ([HsRecField RdrName (LHsExpr RdrName)], Bool) }
+-- ++AZ++ up to here
+fbinds  :: { ([MaybeAnn],([LHsRecField RdrName (LHsExpr RdrName)], Bool)) }
         : fbinds1                       { $1 }
-        | {- empty -}                   { ([], False) }
+        | {- empty -}                   { ([],([], False)) }
 
-fbinds1 :: { ([HsRecField RdrName (LHsExpr RdrName)], Bool) }
-        : fbind ',' fbinds1             { case $3 of (flds, dd) -> ($1 : flds, dd) }
-        | fbind                         { ([$1], False) }
-        | '..'                          { ([],   True) }
+fbinds1 :: { ([MaybeAnn],([LHsRecField RdrName (LHsExpr RdrName)], Bool)) }
+        : fbind ',' fbinds1             { case $3 of (ma,(flds, dd)) -> (ma,($1 : flds, dd)) }
+        | fbind                         { ([],([$1], False)) }
+        | '..'                          { ([mj AnnDotdot $1],([],   True)) }
 
-fbind   :: { HsRecField RdrName (LHsExpr RdrName) }
-        : qvar '=' texp { HsRecField $1 $3                False }
+fbind   :: { LHsRecField RdrName (LHsExpr RdrName) }
+        : qvar '=' texp { LL $ HsRecField $1 $3                False }
                         -- RHS is a 'texp', allowing view patterns (Trac #6038)
                         -- and, incidentaly, sections.  Eg
                         -- f (R { x = show -> s }) = ...
 
-        | qvar          { HsRecField $1 placeHolderPunRhs True }
+        | qvar          { LL $ HsRecField $1 placeHolderPunRhs True }
                         -- In the punning case, use a place-holder
                         -- The renamer fills in the final value
 
