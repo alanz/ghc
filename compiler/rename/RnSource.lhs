@@ -1344,9 +1344,10 @@ rnConResult doc con details (ResTyGADT ty)
                         | otherwise
                         -> return (PrefixCon arg_tys, ResTyGADT res_ty, fvs) }
 
-rnConDeclDetails :: HsDocContext
-                 -> HsConDetails (LHsType RdrName) [Located [ConDeclField RdrName]]
-                 -> RnM (HsConDetails (LHsType Name) [Located [ConDeclField Name]], FreeVars)
+rnConDeclDetails
+    :: HsDocContext
+    -> HsConDetails (LHsType RdrName) [Located [ConDeclField RdrName]]
+    -> RnM (HsConDetails (LHsType Name) [Located [ConDeclField Name]], FreeVars)
 rnConDeclDetails doc (PrefixCon tys)
   = do { (new_tys, fvs) <- rnLHsTypes doc tys
        ; return (PrefixCon new_tys, fvs) }
@@ -1414,8 +1415,10 @@ extendRecordFieldEnv tycl_decls inst_decls
     all_data_cons :: [ConDecl RdrName]
     all_data_cons = [con | HsDataDefn { dd_cons = cons } <- all_ty_defs
                          , L _ con <- (concatMap unLoc cons) ]
-    all_ty_defs = [ defn | L _ (DataDecl { tcdDataDefn = defn }) <- tyClGroupConcat tycl_decls ]
-               ++ map dfid_defn (instDeclDataFamInsts inst_decls) -- Do not forget associated types!
+    all_ty_defs = [ defn | L _ (DataDecl { tcdDataDefn = defn })
+                                                 <- tyClGroupConcat tycl_decls ]
+               ++ map dfid_defn (instDeclDataFamInsts inst_decls)
+                                              -- Do not forget associated types!
 
     get_con (ConDecl { con_name = con, con_details = RecCon flds })
             (RecFields env fld_set)

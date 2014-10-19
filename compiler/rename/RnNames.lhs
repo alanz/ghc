@@ -1015,8 +1015,8 @@ exports_from_avail Nothing rdr_env _imports _this_mod
    return (Nothing, avails)
 
 exports_from_avail (Just rdr_items) rdr_env imports this_mod
-  = do (ie_names, _, exports) <- foldlM do_litem emptyExportAccum (unLoc rdr_items)
-
+  = do (ie_names, _, exports) <- foldlM do_litem emptyExportAccum
+                                                               (unLoc rdr_items)
        return (Just ie_names, exports)
   where
     do_litem :: ExportAccum -> LIE RdrName -> RnM ExportAccum
@@ -1121,7 +1121,8 @@ exports_from_avail (Just rdr_items) rdr_env imports this_mod
                         return (IEThingWith name [], AvailTC name [name])
                 else do let names = catMaybes mb_names
                         addUsedKids rdr (map unLoc names)
-                        return (IEThingWith name names, AvailTC name (name:map unLoc names))
+                        return (IEThingWith name names
+                               , AvailTC name (name:map unLoc names))
 
     lookup_ie _ = panic "lookup_ie"    -- Other cases covered earlier
 

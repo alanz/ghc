@@ -205,7 +205,8 @@ cvtDec (NewtypeD ctxt tc tvs constr derivs)
         ; let defn = HsDataDefn { dd_ND = NewType, dd_cType = Nothing
                                 , dd_ctxt = ctxt'
                                 , dd_kindSig = Nothing
-                                , dd_cons = [noLoc [con']], dd_derivs = derivs' }
+                                , dd_cons = [noLoc [con']]
+                                , dd_derivs = derivs' }
         ; returnJustL $ TyClD (DataDecl { tcdLName = tc', tcdTyVars = tvs'
                                     , tcdDataDefn = defn
                                     , tcdFVs = placeHolderNames }) }
@@ -401,7 +402,8 @@ cvtConstr (RecC c varstrtys)
   = do  { c'    <- cNameL c
         ; cxt'  <- returnL []
         ; args' <- mapM cvt_id_arg varstrtys
-        ; returnL $ mkSimpleConDecl c' noExistentials cxt' (RecCon [noLoc args']) }
+        ; returnL $ mkSimpleConDecl c' noExistentials cxt'
+                                   (RecCon [noLoc args']) }
 
 cvtConstr (InfixC st1 c st2)
   = do  { c' <- cNameL c
@@ -604,8 +606,12 @@ cvtl e = wrapL (cvt e)
     cvt (TupE [e])     = do { e' <- cvtl e; return $ HsPar e' }
                                  -- Note [Dropping constructors]
                                  -- Singleton tuples treated like nothing (just parens)
-    cvt (TupE es)      = do { es' <- mapM cvtl es; return $ ExplicitTuple (map (noLoc . Present) es') Boxed }
-    cvt (UnboxedTupE es)      = do { es' <- mapM cvtl es; return $ ExplicitTuple (map (noLoc . Present) es') Unboxed }
+    cvt (TupE es)      = do { es' <- mapM cvtl es
+                            ; return $ ExplicitTuple (map (noLoc . Present) es')
+                                                      Boxed }
+    cvt (UnboxedTupE es)      = do { es' <- mapM cvtl es
+                                   ; return $ ExplicitTuple
+                                           (map (noLoc . Present) es') Unboxed }
     cvt (CondE x y z)  = do { x' <- cvtl x; y' <- cvtl y; z' <- cvtl z;
                             ; return $ HsIf (Just noSyntaxExpr) x' y' z' }
     cvt (MultiIfE alts)
@@ -679,7 +685,8 @@ which we don't want.
 cvtFld :: (TH.Name, TH.Exp) -> CvtM (LHsRecField RdrName (LHsExpr RdrName))
 cvtFld (v,e)
   = do  { v' <- vNameL v; e' <- cvtl e
-        ; return (noLoc $ HsRecField { hsRecFieldId = v', hsRecFieldArg = e', hsRecPun = False}) }
+        ; return (noLoc $ HsRecField { hsRecFieldId = v', hsRecFieldArg = e'
+                                     , hsRecPun = False}) }
 
 cvtDD :: Range -> CvtM (ArithSeqInfo RdrName)
 cvtDD (FromR x)           = do { x' <- cvtl x; return $ From x' }
@@ -892,7 +899,8 @@ cvtp (ViewP e p)       = do { e' <- cvtl e; p' <- cvtPat p
 cvtPatFld :: (TH.Name, TH.Pat) -> CvtM (LHsRecField RdrName (LPat RdrName))
 cvtPatFld (s,p)
   = do  { s' <- vNameL s; p' <- cvtPat p
-        ; return (noLoc $ HsRecField { hsRecFieldId = s', hsRecFieldArg = p', hsRecPun = False}) }
+        ; return (noLoc $ HsRecField { hsRecFieldId = s', hsRecFieldArg = p'
+                                     , hsRecPun = False}) }
 
 {- | @cvtOpAppP x op y@ converts @op@ and @y@ and produces the operator application @x `op` y@.
 The produced tree of infix patterns will be left-biased, provided @x@ is.

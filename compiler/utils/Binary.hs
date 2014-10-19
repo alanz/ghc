@@ -930,4 +930,3 @@ instance Binary SrcSpan where
                                       (mkSrcLoc f el ec))
             _ -> do s <- get bh
                     return (UnhelpfulSpan s)
-

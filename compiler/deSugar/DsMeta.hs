@@ -987,8 +987,9 @@ repE (ExplicitList _ _ es) = do { xs <- repLEs es; repListExp xs }
 repE e@(ExplicitPArr _ _) = notHandled "Parallel arrays" (ppr e)
 repE e@(ExplicitTuple es boxed)
   | not (all tupArgPresent es) = notHandled "Tuple sections" (ppr e)
-  | isBoxed boxed              = do { xs <- repLEs [e | L _ (Present e) <- es]; repTup xs }
-  | otherwise                  = do { xs <- repLEs [e | L _ (Present e) <- es]; repUnboxedTup xs }
+  | isBoxed boxed  = do { xs <- repLEs [e | L _ (Present e) <- es]; repTup xs }
+  | otherwise      = do { xs <- repLEs [e | L _ (Present e) <- es]
+                        ; repUnboxedTup xs }
 
 repE (RecordCon c _ flds)
  = do { x <- lookupLOcc c;
@@ -1767,7 +1768,8 @@ repConstr con (PrefixCon ps)
     = do arg_tys  <- repList strictTypeQTyConName repBangTy ps
          rep2 normalCName [unC con, unC arg_tys]
 repConstr con (RecCon ips)
-    = do { arg_vtys <- repList varStrictTypeQTyConName rep_ip (concatMap unLoc ips)
+    = do { arg_vtys <- repList varStrictTypeQTyConName rep_ip
+                               (concatMap unLoc ips)
          ; rep2 recCName [unC con, unC arg_vtys] }
     where
       rep_ip ip = do { MkC v  <- lookupLOcc (cd_fld_name ip)

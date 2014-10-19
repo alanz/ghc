@@ -381,9 +381,9 @@ getInitialKind decl@(ClassDecl { tcdLName = L _ name, tcdTyVars = ktvs, tcdATs =
        ; return (main_pr : inner_prs) }
 
 getInitialKind decl@(DataDecl { tcdLName = L _ name
-                                , tcdTyVars = ktvs
-                                , tcdDataDefn = HsDataDefn { dd_kindSig = m_sig
-                                                           , dd_cons = cons' } })
+                              , tcdTyVars = ktvs
+                              , tcdDataDefn = HsDataDefn { dd_kindSig = m_sig
+                                                         , dd_cons = cons' } })
   = let cons = concatMap unLoc cons' -- AZ list monad coming
     in
      do { (decl_kind, _) <-

@@ -718,7 +718,8 @@ tcDataFamInstDecl mb_clsinfo
        ; let orig_res_ty = mkTyConApp fam_tc pats'
 
        ; (rep_tc, fam_inst) <- fixM $ \ ~(rec_rep_tc, _) ->
-           do { data_cons <- tcConDecls new_or_data rec_rep_tc (tvs', orig_res_ty) cons
+           do { data_cons <- tcConDecls new_or_data rec_rep_tc
+                                        (tvs', orig_res_ty) cons
               ; tc_rhs <- case new_or_data of
                      DataType -> return (mkDataTyConRhs data_cons)
                      NewType  -> ASSERT( not (null data_cons) )
@@ -729,7 +730,9 @@ tcDataFamInstDecl mb_clsinfo
                                                (mkTyConApp rep_tc (mkTyVarTys eta_tvs))
                     parent   = FamInstTyCon axiom fam_tc pats'
                     roles    = map (const Nominal) tvs'
-                    rep_tc   = buildAlgTyCon rep_tc_name tvs' roles (fmap unLoc cType) stupid_theta tc_rhs
+                    rep_tc   = buildAlgTyCon rep_tc_name tvs' roles
+                                             (fmap unLoc cType) stupid_theta
+                                             tc_rhs
                                              Recursive
                                              False      -- No promotable to the kind level
                                              gadt_syntax parent

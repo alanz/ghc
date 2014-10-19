@@ -594,7 +594,8 @@ addTickHsExpr (HsUnboundVar {}) = panic "addTickHsExpr.HsUnboundVar"
 addTickHsExpr e  = pprPanic "addTickHsExpr" (ppr e)
 
 addTickTupArg :: LHsTupArg Id -> TM (LHsTupArg Id)
-addTickTupArg (L l (Present e))  = do { e' <- addTickLHsExpr e; return (L l (Present e')) }
+addTickTupArg (L l (Present e))  = do { e' <- addTickLHsExpr e
+                                      ; return (L l (Present e')) }
 addTickTupArg (L l (Missing ty)) = return (L l (Missing ty))
 
 addTickMatchGroup :: Bool{-is lambda-} -> MatchGroup Id (LHsExpr Id) -> TM (MatchGroup Id (LHsExpr Id))

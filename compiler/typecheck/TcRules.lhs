@@ -137,7 +137,8 @@ tcRule (HsRule name act hs_bndrs lhs fv_lhs rhs fv_rhs)
                   ; (rhs', rhs_wanted) <- captureConstraints (tcMonoExpr rhs rule_ty)
                   ; return (lhs', lhs_wanted, rhs', rhs_wanted, rule_ty) }
 
-       ; (lhs_evs, other_lhs_wanted) <- simplifyRule (unLoc name) lhs_wanted rhs_wanted
+       ; (lhs_evs, other_lhs_wanted) <- simplifyRule (unLoc name) lhs_wanted
+                                                     rhs_wanted
 
         -- Now figure out what to quantify over
         -- c.f. TcSimplify.simplifyInfer

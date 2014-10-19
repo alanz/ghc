@@ -743,7 +743,8 @@ checkAPat msg loc e0 = do
                             return (PArrPat ps placeHolderType)
 
    ExplicitTuple es b
-     | all tupArgPresent es  -> do ps <- mapM (checkLPat msg) [e | L _ (Present e) <- es]
+     | all tupArgPresent es  -> do ps <- mapM (checkLPat msg)
+                                              [e | L _ (Present e) <- es]
                                    return (TuplePat ps b [])
      | otherwise -> parseErrorSDoc loc (text "Illegal tuple section in pattern:" $$ ppr e0)
 
@@ -765,7 +766,8 @@ plus_RDR = mkUnqual varName (fsLit "+") -- Hack
 bang_RDR = mkUnqual varName (fsLit "!") -- Hack
 pun_RDR  = mkUnqual varName (fsLit "pun-right-hand-side")
 
-checkPatField :: SDoc -> LHsRecField RdrName (LHsExpr RdrName) -> P (LHsRecField RdrName (LPat RdrName))
+checkPatField :: SDoc -> LHsRecField RdrName (LHsExpr RdrName)
+              -> P (LHsRecField RdrName (LPat RdrName))
 checkPatField msg (L l fld) = do p <- checkLPat msg (hsRecFieldArg fld)
                                  return (L l (fld { hsRecFieldArg = p }))
 
@@ -792,7 +794,7 @@ checkValDef msg lhs opt_sig g@(L l (_,grhss))
   = do  { mb_fun <- isFunLhs lhs
         ; case mb_fun of
             Just (fun, is_infix, pats) -> checkFunBind msg (getLoc lhs)
-                                                fun is_infix pats opt_sig (L l grhss)
+                                           fun is_infix pats opt_sig (L l grhss)
             Nothing -> checkPatBind msg lhs g }
 
 checkFunBind :: SDoc

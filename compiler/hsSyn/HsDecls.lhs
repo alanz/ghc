@@ -938,7 +938,8 @@ pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
   where
     ppr_details (InfixCon t1 t2) = hsep [ppr t1, pprInfixOcc (unLoc con), ppr t2]
     ppr_details (PrefixCon tys)  = hsep (pprPrefixOcc (unLoc con) : map (pprParendHsType . unLoc) tys)
-    ppr_details (RecCon fields)  = ppr con <+> pprConDeclFields (concatMap unLoc fields)
+    ppr_details (RecCon fields)  = ppr con
+                                 <+> pprConDeclFields (concatMap unLoc fields)
 
 pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
                     , con_cxt = cxt, con_details = PrefixCon arg_tys
@@ -1339,11 +1340,12 @@ data RuleDecl name
   = HsRule                      -- Source rule
         (Located RuleName)      -- Rule name
         Activation
-        [LRuleBndr name]        -- Forall'd vars; after typechecking this includes tyvars
+        [LRuleBndr name]        -- Forall'd vars; after typechecking this
+                                --   includes tyvars
         (Located (HsExpr name)) -- LHS
-        (PostRn name NameSet)        -- Free-vars from the LHS
+        (PostRn name NameSet)   -- Free-vars from the LHS
         (Located (HsExpr name)) -- RHS
-        (PostRn name NameSet)        -- Free-vars from the RHS
+        (PostRn name NameSet)   -- Free-vars from the RHS
   deriving (Typeable)
 deriving instance (DataId name) => Data (RuleDecl name)
 
@@ -1359,7 +1361,8 @@ collectRuleBndrSigTys bndrs = [ty | RuleBndrSig _ ty <- bndrs]
 
 instance OutputableBndr name => Outputable (RuleDecl name) where
   ppr (HsRule name act ns lhs _fv_lhs rhs _fv_rhs)
-        = sep [text "{-# RULES" <+> doubleQuotes (ftext $ unLoc name) <+> ppr act,
+        = sep [text "{-# RULES" <+> doubleQuotes (ftext $ unLoc name)
+                                <+> ppr act,
                nest 4 (pp_forall <+> pprExpr (unLoc lhs)),
                nest 4 (equals <+> pprExpr (unLoc rhs) <+> text "#-}") ]
         where

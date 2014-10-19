@@ -49,11 +49,11 @@ testOneFile libdir fileName = do
         putStrLn (intercalate "\n" [showAnns anns])
 
     where
-        gq ast = everything (++) ([] `mkQ` doLHsTupArg) ast
+     gq ast = everything (++) ([] `mkQ` doLHsTupArg) ast
 
-        doLHsTupArg :: LHsTupArg RdrName -> [(SrcSpan,String,HsExpr RdrName)]
-        doLHsTupArg (L l arg@(Present _)) = [(l,"p",ExplicitTuple [L l arg] Boxed)]
-        doLHsTupArg (L l arg@(Missing _))      = [(l,"m",ExplicitTuple [L l arg] Boxed)]
+     doLHsTupArg :: LHsTupArg RdrName -> [(SrcSpan,String,HsExpr RdrName)]
+     doLHsTupArg (L l arg@(Present _)) = [(l,"p",ExplicitTuple [L l arg] Boxed)]
+     doLHsTupArg (L l arg@(Missing _)) = [(l,"m",ExplicitTuple [L l arg] Boxed)]
 
 
 showAnns anns = "[\n" ++ (intercalate "\n"

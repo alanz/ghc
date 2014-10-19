@@ -989,7 +989,8 @@ extract_lty (L _ ty) acc
   = case ty of
       HsTyVar tv                -> extract_tv tv acc
       HsBangTy _ ty             -> extract_lty ty acc
-      HsRecTy flds              -> foldr (extract_lty . cd_fld_type) acc (concatMap unLoc flds)
+      HsRecTy flds              -> foldr (extract_lty . cd_fld_type) acc
+                                         (concatMap unLoc flds)
       HsAppTy ty1 ty2           -> extract_lty ty1 (extract_lty ty2 acc)
       HsListTy ty               -> extract_lty ty acc
       HsPArrTy ty               -> extract_lty ty acc

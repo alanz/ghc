@@ -637,8 +637,10 @@ zonkExpr env (ExplicitTuple tup_args boxed)
   = do { new_tup_args <- mapM zonk_tup_arg tup_args
        ; return (ExplicitTuple new_tup_args boxed) }
   where
-    zonk_tup_arg (L l (Present e)) = do { e' <- zonkLExpr env e; return (L l (Present e')) }
-    zonk_tup_arg (L l (Missing t)) = do { t' <- zonkTcTypeToType env t; return (L l (Missing t')) }
+    zonk_tup_arg (L l (Present e)) = do { e' <- zonkLExpr env e
+                                        ; return (L l (Present e')) }
+    zonk_tup_arg (L l (Missing t)) = do { t' <- zonkTcTypeToType env t
+                                        ; return (L l (Missing t')) }
 
 zonkExpr env (HsCase expr ms)
   = do new_expr <- zonkLExpr env expr
@@ -969,7 +971,8 @@ zonkRecFields env (HsRecFields flds dd)
     zonk_rbind (L l fld)
       = do { new_id   <- wrapLocM (zonkIdBndr env) (hsRecFieldId fld)
            ; new_expr <- zonkLExpr env (hsRecFieldArg fld)
-           ; return (L l (fld { hsRecFieldId = new_id, hsRecFieldArg = new_expr })) }
+           ; return (L l (fld { hsRecFieldId = new_id
+                              , hsRecFieldArg = new_expr })) }
 
 -------------------------------------------------------------------------
 mapIPNameTc :: (a -> TcM b) -> Either HsIPName a -> TcM (Either HsIPName b)
@@ -1110,7 +1113,8 @@ zonkConStuff env (InfixCon p1 p2)
 
 zonkConStuff env (RecCon (HsRecFields rpats dd))
   = do  { (env', pats') <- zonkPats env (map (hsRecFieldArg . unLoc) rpats)
-        ; let rpats' = zipWith (\(L l rp) p' -> L l (rp { hsRecFieldArg = p' })) rpats pats'
+        ; let rpats' = zipWith (\(L l rp) p' -> L l (rp { hsRecFieldArg = p' }))
+                               rpats pats'
         ; return (env', RecCon (HsRecFields rpats' dd)) }
         -- Field selectors have declared types; hence no zonking
 

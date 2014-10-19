@@ -506,11 +506,12 @@ exportlist :: { OrdList (LIE RdrName) }
         | exportlist1                 { $1 }
 
 exportlist1 :: { OrdList (LIE RdrName) }
-        : expdoclist export expdoclist ',' exportlist1 {% (addAnnotation (oll ($1 `appOL` $2 `appOL` $3))
-                                                                         AnnComma (gl $4) ) >>
-                                                          return ($1 `appOL` $2 `appOL` $3 `appOL` $5) }
-        | expdoclist export expdoclist                 { $1 `appOL` $2 `appOL` $3 }
-        | expdoclist                                   { $1 }
+        : expdoclist export expdoclist ',' exportlist1
+                          {% (addAnnotation (oll ($1 `appOL` $2 `appOL` $3))
+                                            AnnComma (gl $4) ) >>
+                              return ($1 `appOL` $2 `appOL` $3 `appOL` $5) }
+        | expdoclist export expdoclist             { $1 `appOL` $2 `appOL` $3 }
+        | expdoclist                               { $1 }
 
 expdoclist :: { OrdList (LIE RdrName) }
         : exp_doc expdoclist                           { $1 `appOL` $2 }
@@ -525,11 +526,11 @@ exp_doc :: { OrdList (LIE RdrName) }
    -- No longer allow things like [] and (,,,) to be exported
    -- They are built in syntax, always available
 export  :: { OrdList (LIE RdrName) }
-        : qcname_ext export_subspec     { unitOL (LL (mkModuleImpExp (unLoc $1)
-                                                                     (unLoc $2))) }
-        |  'module' modid               {% amsu (LL (IEModuleContents (unLoc $2)))
+        : qcname_ext export_subspec   { unitOL (LL (mkModuleImpExp (unLoc $1)
+                                                                   (unLoc $2))) }
+        |  'module' modid             {% amsu (LL (IEModuleContents (unLoc $2)))
                                               [mj AnnModule $1] }
-        |  'pattern' qcon               {% amsu (LL (IEVar (unLoc $2)))
+        |  'pattern' qcon             {% amsu (LL (IEVar (unLoc $2)))
                                               [mj AnnPattern $1] }
 
 export_subspec :: { Located ImpExpSubSpec }
@@ -649,38 +650,41 @@ topdecl :: { OrdList (LHsDecl RdrName) }
         | inst_decl                             { unitOL (L1 (InstD (unLoc $1))) }
         | stand_alone_deriving                  { unitOL (LL (DerivD (unLoc $1))) }
         | role_annot                            { unitOL (L1 (RoleAnnotD (unLoc $1))) }
-        | 'default' '(' comma_types0 ')'        {% amsu (LL $ DefD (DefaultDecl $3))
-                                                        [mj AnnDefault $1,mo $2,mc $4] }
+        | 'default' '(' comma_types0 ')'    {% amsu (LL $ DefD (DefaultDecl $3))
+                                                    [mj AnnDefault $1
+                                                    ,mo $2,mc $4] }
         | 'foreign' fdecl                       {% amsu (LL (unLoc $2))
                                                         [mj AnnForeign $1] }
         | '{-# DEPRECATED' deprecations '#-}'   { $2 } -- ++AZ++ TODO
         | '{-# WARNING' warnings '#-}'          { $2 } -- ++AZ++ TODO
         | '{-# RULES' rules '#-}'               { $2 } -- ++AZ++ TODO
-        | '{-# VECTORISE' qvar '=' exp '#-}'    {% amsu (LL $ VectD (HsVect       $2 $4))
-                                                       [mo $1,mj AnnEqual $3,mc $5] }
-        | '{-# NOVECTORISE' qvar '#-}'          {% amsu (LL $ VectD (HsNoVect     $2))
-                                                        [mo $1,mc $3] }
+        | '{-# VECTORISE' qvar '=' exp '#-}' {% amsu (LL $ VectD (HsVect $2 $4))
+                                                    [mo $1,mj AnnEqual $3
+                                                    ,mc $5] }
+        | '{-# NOVECTORISE' qvar '#-}'       {% amsu (LL $ VectD (HsNoVect $2))
+                                                     [mo $1,mc $3] }
         | '{-# VECTORISE' 'type' gtycon '#-}'
-                                                {% amsu (LL $
-                                                    VectD (HsVectTypeIn False $3 Nothing))
-                                                    [mo $1,mj AnnType $2,mc $4] }
+                                {% amsu (LL $
+                                    VectD (HsVectTypeIn False $3 Nothing))
+                                    [mo $1,mj AnnType $2,mc $4] }
 
         | '{-# VECTORISE_SCALAR' 'type' gtycon '#-}'
-                                                {% amsu (LL $
-                                                    VectD (HsVectTypeIn True $3 Nothing))
-                                                    [mo $1,mj AnnType $2,mc $4] }
+                                {% amsu (LL $
+                                    VectD (HsVectTypeIn True $3 Nothing))
+                                    [mo $1,mj AnnType $2,mc $4] }
 
         | '{-# VECTORISE' 'type' gtycon '=' gtycon '#-}'
-                                                {% amsu (LL $
-                                                    VectD (HsVectTypeIn False $3 (Just $5)))
-                                                    [mo $1,mj AnnType $2,mj AnnEqual $4,mc $6] }
+                                {% amsu (LL $
+                                    VectD (HsVectTypeIn False $3 (Just $5)))
+                                    [mo $1,mj AnnType $2,mj AnnEqual $4,mc $6] }
         | '{-# VECTORISE_SCALAR' 'type' gtycon '=' gtycon '#-}'
-                                                {% amsu (LL $
-                                                    VectD (HsVectTypeIn True $3 (Just $5)))
-                                                    [mo $1,mj AnnType $2,mj AnnEqual $4,mc $6] }
+                                {% amsu (LL $
+                                    VectD (HsVectTypeIn True $3 (Just $5)))
+                                    [mo $1,mj AnnType $2,mj AnnEqual $4,mc $6] }
 
-        | '{-# VECTORISE' 'class' gtycon '#-}'  {% amsu (LL $ VectD (HsVectClassIn $3))
-                                                        [mo $1,mj AnnClass $2,mc $4] }
+        | '{-# VECTORISE' 'class' gtycon '#-}'
+                                         {% amsu (LL $ VectD (HsVectClassIn $3))
+                                                 [mo $1,mj AnnClass $2,mc $4] }
         | annotation { unitOL $1 }
         | decl_no_th                            { unLoc $1 }
 
@@ -693,8 +697,9 @@ topdecl :: { OrdList (LHsDecl RdrName) }
 -- Type classes
 --
 cl_decl :: { LTyClDecl RdrName }
-        : 'class' tycl_hdr fds where_cls    {% amms (mkClassDecl (comb4 $1 $2 $3 $4) $2 $3 (snd $ unLoc $4))
-                                                    (mj AnnClass $1: (fst $ unLoc $4)) }
+        : 'class' tycl_hdr fds where_cls
+                {% amms (mkClassDecl (comb4 $1 $2 $3 $4) $2 $3 (snd $ unLoc $4))
+                        (mj AnnClass $1: (fst $ unLoc $4)) }
 
 -- Type declarations (toplevel)
 --
@@ -722,7 +727,8 @@ ty_decl :: { LTyClDecl RdrName }
           -- ordinary data type or newtype declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
                 {% amms (mkTyData (comb4 $1 $3 $4 $5) (snd $ unLoc $1) $2 $3
-                            Nothing [L (gl $4) (reverse (unLoc $4))] (snd $ unLoc $5))
+                           Nothing [L (gl $4) (reverse (unLoc $4))]
+                                   (snd $ unLoc $5))
                                    -- We need the location on tycl_hdr in case
                                    -- constrs and deriving are both empty
                         ((fst $ unLoc $1):(fst $ unLoc $5)) }
@@ -744,14 +750,14 @@ ty_decl :: { LTyClDecl RdrName }
 
 inst_decl :: { LInstDecl RdrName }
         : 'instance' overlap_pragma inst_type where_inst
-               {% do
-                   let (binds, sigs, _, ats, adts, _) = cvBindsAndSigs (snd $ unLoc $4)
-                   let cid = ClsInstDecl { cid_poly_ty = $3, cid_binds = binds
-                                         , cid_sigs = sigs, cid_tyfam_insts = ats
-                                         , cid_overlap_mode = snd $2
-                                         , cid_datafam_insts = adts }
-                   ams (L (comb3 $1 $3 $4) (ClsInstD { cid_inst = cid }))
-                       ((mj AnnInstance $1 : (fst $2)) ++ (fst $ unLoc $4)) }
+        {% do
+            let (binds, sigs, _, ats, adts, _) = cvBindsAndSigs (snd $ unLoc $4)
+            let cid = ClsInstDecl { cid_poly_ty = $3, cid_binds = binds
+                                  , cid_sigs = sigs, cid_tyfam_insts = ats
+                                  , cid_overlap_mode = snd $2
+                                  , cid_datafam_insts = adts }
+            ams (L (comb3 $1 $3 $4) (ClsInstD { cid_inst = cid }))
+                ((mj AnnInstance $1 : (fst $2)) ++ (fst $ unLoc $4)) }
 
            -- type instance declarations
         | 'type' 'instance' ty_fam_inst_eqn
@@ -761,7 +767,8 @@ inst_decl :: { LInstDecl RdrName }
           -- data/newtype instance declaration
         | data_or_newtype 'instance' capi_ctype tycl_hdr constrs deriving
             {% amms (mkDataFamInst (comb4 $1 $4 $5 $6) (snd $ unLoc $1) $3 $4
-                                      Nothing [L (gl $5) (reverse (unLoc $5))] (snd $ unLoc $6))
+                                      Nothing [L (gl $5) (reverse (unLoc $5))]
+                                              (snd $ unLoc $6))
                     ((fst $ unLoc $1):mj AnnInstance $2:(fst $ unLoc $6)) }
 
           -- GADT instance declaration
@@ -800,11 +807,12 @@ ty_fam_inst_eqn_list :: { Located ([MaybeAnn],[LTyFamInstEqn RdrName]) }
                                              L loc ([mj AnnDotdot $2],[]) }
 
 ty_fam_inst_eqns :: { Located [LTyFamInstEqn RdrName] }
-        : ty_fam_inst_eqns ';' ty_fam_inst_eqn  {% addAnnotation (gl $3) AnnSemi (gl $2)
-                                                   >> return (LL ($3 : unLoc $1)) }
-        | ty_fam_inst_eqns ';'                  {% addAnnotation (gl $1) AnnSemi (gl $2)
-                                                   >> return (LL (unLoc $1)) }
-        | ty_fam_inst_eqn                       { LL [$1] }
+        : ty_fam_inst_eqns ';' ty_fam_inst_eqn
+                                      {% addAnnotation (gl $3) AnnSemi (gl $2)
+                                         >> return (LL ($3 : unLoc $1)) }
+        | ty_fam_inst_eqns ';'        {% addAnnotation (gl $1) AnnSemi (gl $2)
+                                         >> return (LL (unLoc $1)) }
+        | ty_fam_inst_eqn             { LL [$1] }
 
 ty_fam_inst_eqn :: { LTyFamInstEqn RdrName }
         : type '=' ctype
@@ -825,17 +833,20 @@ ty_fam_inst_eqn :: { LTyFamInstEqn RdrName }
 at_decl_cls :: { LHsDecl RdrName }
         :  -- data family declarations, with optional 'family' keyword
           'data' opt_family type opt_kind_sig
-                {% amms (liftM mkTyClD (mkFamDecl (comb3 $1 $3 $4) DataFamily $3 (unLoc $4)))
+                {% amms (liftM mkTyClD (mkFamDecl (comb3 $1 $3 $4) DataFamily $3
+                                                  (unLoc $4)))
                         (mj AnnData $1:$2) }
 
            -- type family declarations, with optional 'family' keyword
            -- (can't use opt_instance because you get shift/reduce errors
         | 'type' type opt_kind_sig
-                {% amms (liftM mkTyClD (mkFamDecl (comb3 $1 $2 $3) OpenTypeFamily $2 (unLoc $3)))
-                        [mj AnnType $1] }
+               {% amms (liftM mkTyClD (mkFamDecl (comb3 $1 $2 $3)
+                                                  OpenTypeFamily $2 (unLoc $3)))
+                       [mj AnnType $1] }
         | 'type' 'family' type opt_kind_sig
-                {% amms (liftM mkTyClD (mkFamDecl (comb3 $1 $3 $4) OpenTypeFamily $3 (unLoc $4)))
-                        [mj AnnType $1,mj AnnFamily $2] }
+               {% amms (liftM mkTyClD (mkFamDecl (comb3 $1 $3 $4)
+                                                  OpenTypeFamily $3 (unLoc $4)))
+                       [mj AnnType $1,mj AnnFamily $2] }
 
            -- default type instances, with optional 'instance' keyword
         | 'type' ty_fam_inst_eqn
@@ -861,9 +872,10 @@ at_decl_inst :: { LInstDecl RdrName }
 
         -- data/newtype instance declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
-                {% amms (mkDataFamInst (comb4 $1 $3 $4 $5) (snd $ unLoc $1) $2 $3
-                                     Nothing [L (gl $4) (reverse (unLoc $4))] (snd $ unLoc $5))
-                        ((fst $ unLoc $1):(fst $ unLoc $5)) }
+               {% amms (mkDataFamInst (comb4 $1 $3 $4 $5) (snd $ unLoc $1) $2 $3
+                                    Nothing [L (gl $4) (reverse (unLoc $4))]
+                                            (snd $ unLoc $5))
+                       ((fst $ unLoc $1):(fst $ unLoc $5)) }
 
         -- GADT instance declaration
         | data_or_newtype capi_ctype tycl_hdr opt_kind_sig
@@ -897,11 +909,16 @@ tycl_hdr :: { Located (Maybe (LHsContext RdrName), LHsType RdrName) }
         | type                      { L1 (Nothing, $1) }
 
 capi_ctype :: { Maybe (Located CType) }
-capi_ctype : '{-# CTYPE' STRING STRING '#-}' {% ajs (Just (LL (CType (Just (Header (getSTRING $2))) (getSTRING $3))))
-                                                    [mo $1,mj AnnHeader $2,mj AnnVal $3,mc $4] }
-           | '{-# CTYPE'        STRING '#-}' {% ajs (Just (LL (CType Nothing  (getSTRING $2))))
-                                                    [mo $1,mj AnnVal $2,mc $3] }
-           |                                 { Nothing }
+capi_ctype : '{-# CTYPE' STRING STRING '#-}'
+                       {% ajs (Just (LL (CType (Just (Header (getSTRING $2)))
+                                        (getSTRING $3))))
+                              [mo $1,mj AnnHeader $2,mj AnnVal $3,mc $4] }
+
+           | '{-# CTYPE'        STRING '#-}'
+                       {% ajs (Just (LL (CType Nothing  (getSTRING $2))))
+                              [mo $1,mj AnnVal $2,mc $3] }
+
+           |           { Nothing }
 
 -----------------------------------------------------------------------------
 -- Stand-alone deriving
@@ -940,7 +957,8 @@ role : VARID             { L1 $ Just $ getVARID $1 }
 pattern_synonym_decl :: { LHsDecl RdrName }
         : 'pattern' pat '=' pat
             {% do { (name, args) <- splitPatSyn $2
-                  ; ams (LL . ValD $ mkPatSynBind name args $4 ImplicitBidirectional)
+                  ; ams (LL . ValD $ mkPatSynBind name args $4
+                                                  ImplicitBidirectional)
                         [mj AnnPattern $1,mj AnnEqual $3]
                   }}
         | 'pattern' pat '<-' pat
@@ -990,7 +1008,8 @@ decl_cls  : at_decl_cls                 { LL (unitOL $1) }
 
 decls_cls :: { Located (OrdList (LHsDecl RdrName)) }    -- Reversed
           : decls_cls ';' decl_cls      {% addAnnotation (gl $3) AnnSemi (gl $2)
-                                           >> return (LL ((unLoc $1) `appOL` unLoc $3)) }
+                                           >> return (LL ((unLoc $1) `appOL`
+                                                                    unLoc $3)) }
           | decls_cls ';'               {% addAnnotation (gl $1) AnnSemi (gl $2)
                                            >> return (LL  (unLoc $1)) }
           | decl_cls                    { $1 }
@@ -1038,7 +1057,8 @@ where_inst :: { Located ([MaybeAnn]
                         , OrdList (LHsDecl RdrName)) }   -- Reversed
                                 -- No implicit parameters
                                 -- May have type declarations
-        : 'where' decllist_inst         { LL (mj AnnWhere $1:(fst $ unLoc $2),(snd $ unLoc $2)) }
+        : 'where' decllist_inst         { LL (mj AnnWhere $1:(fst $ unLoc $2)
+                                             ,(snd $ unLoc $2)) }
         | {- empty -}                   { noLoc ([],nilOL) }
 
 -- Declarations in binding groups other than classes and instances
@@ -1064,18 +1084,23 @@ decllist :: { Located ([MaybeAnn],OrdList (LHsDecl RdrName)) }
 --
 binds   ::  { Located ([MaybeAnn],HsLocalBinds RdrName) }   -- May have implicit parameters
                                                 -- No type declarations
-        : decllist                      { L1 (fst $ unLoc $1,HsValBinds (cvBindGroup (snd $ unLoc $1))) }
+        : decllist          { L1 (fst $ unLoc $1
+                                  ,HsValBinds (cvBindGroup (snd $ unLoc $1))) }
 
         | '{'            dbinds '}'     { LL ([mo $1,mc $3]
-                                             ,HsIPBinds (IPBinds (unLoc $2) emptyTcEvBinds)) }
+                                             ,HsIPBinds (IPBinds (unLoc $2)
+                                                         emptyTcEvBinds)) }
 
-        |     vocurly    dbinds close   { L (getLoc $2) ([],HsIPBinds (IPBinds (unLoc $2) emptyTcEvBinds)) }
+        |     vocurly    dbinds close   { L (getLoc $2) ([]
+                                            ,HsIPBinds (IPBinds (unLoc $2)
+                                                        emptyTcEvBinds)) }
 
 
 wherebinds :: { Located ([MaybeAnn],HsLocalBinds RdrName) }
                                                 -- May have implicit parameters
                                                 -- No type declarations
-        : 'where' binds                 { LL (mj AnnWhere $1 : (fst $ unLoc $2),snd $ unLoc $2) }
+        : 'where' binds                 { LL (mj AnnWhere $1 : (fst $ unLoc $2)
+                                             ,snd $ unLoc $2) }
         | {- empty -}                   { noLoc ([],emptyLocalBinds) }
 
 
@@ -1094,7 +1119,8 @@ rule    :: { LHsDecl RdrName }
         : STRING rule_activation rule_forall infixexp '=' exp
          {%ams (LL $ RuleD (HsRule (L (gl $1) (getSTRING $1))
                                   ((snd $2) `orElse` AlwaysActive)
-                                  (snd $3) $4 placeHolderNames $6 placeHolderNames))
+                                  (snd $3) $4 placeHolderNames $6
+                                  placeHolderNames))
                (mj AnnEqual $5 : (fst $2) ++ (fst $3)) }
 
 -- Rules can be specified to be NeverActive, unlike inline/specialize pragmas

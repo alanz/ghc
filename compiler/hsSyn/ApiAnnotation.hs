@@ -148,5 +148,3 @@ data Ann = AnnAs
 
 instance Outputable Ann where
   ppr x = text (show x)
-
-

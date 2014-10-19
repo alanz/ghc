@@ -394,8 +394,8 @@ tcExpr (ExplicitTuple tup_args boxity) res_ty
 
        ; arg_tys <- newFlexiTyVarTys (tyConArity tup_tc) kind
        ; let actual_res_ty
-                 = mkFunTys [ty | (ty, L _ (Missing _)) <- arg_tys `zip` tup_args]
-                            (mkTyConApp tup_tc arg_tys)
+               = mkFunTys [ty | (ty, L _ (Missing _)) <- arg_tys `zip` tup_args]
+                          (mkTyConApp tup_tc arg_tys)
 
        ; coi <- unifyType actual_res_ty res_ty
 
@@ -1383,7 +1383,8 @@ tcRecordBinds data_con arg_tys (HsRecFields rbinds dd)
         ; return (HsRecFields (catMaybes mb_binds) dd) }
   where
     flds_w_tys = zipEqual "tcRecordBinds" (dataConFieldLabels data_con) arg_tys
-    do_bind (L l fld@(HsRecField { hsRecFieldId = L loc field_lbl, hsRecFieldArg = rhs }))
+    do_bind (L l fld@(HsRecField { hsRecFieldId = L loc field_lbl
+                                 , hsRecFieldArg = rhs }))
       | Just field_ty <- assocMaybe flds_w_tys field_lbl
       = addErrCtxt (fieldCtxt field_lbl)        $
         do { rhs' <- tcPolyExprNC rhs field_ty
@@ -1394,7 +1395,8 @@ tcRecordBinds data_con arg_tys (HsRecFields rbinds dd)
                 --          (so we can find it easily)
                 --      but is a LocalId with the appropriate type of the RHS
                 --          (so the desugarer knows the type of local binder to make)
-           ; return (Just (L l (fld { hsRecFieldId = L loc field_id, hsRecFieldArg = rhs' }))) }
+           ; return (Just (L l (fld { hsRecFieldId = L loc field_id
+                                    , hsRecFieldArg = rhs' }))) }
       | otherwise
       = do { addErrTc (badFieldCon (RealDataCon data_con) field_lbl)
            ; return Nothing }

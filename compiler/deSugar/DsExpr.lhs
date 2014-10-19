@@ -615,7 +615,7 @@ dsExpr (HsDo          {})  = panic "dsExpr:HsDo"
 
 findField :: [LHsRecField Id arg] -> Name -> [arg]
 findField rbinds lbl 
-  = [rhs | L _ (HsRecField { hsRecFieldId = id, hsRecFieldArg = rhs }) <- rbinds 
+  = [rhs | L _ (HsRecField { hsRecFieldId = id, hsRecFieldArg = rhs }) <- rbinds
          , lbl == idName (unLoc id) ]
 \end{code}
 
