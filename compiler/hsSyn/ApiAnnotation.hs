@@ -132,6 +132,7 @@ data Ann = AnnAs
          | AnnSemi
          | AnnThen
          | AnnTilde
+         | AnnTildehsh
          | AnnType
          | AnnUsing
          | AnnVal  -- ^ e.g. INTEGER

@@ -2021,7 +2021,7 @@ list :: { LHsExpr RdrName }
                     [mj AnnVbar $2] }
 
 lexps :: { Located [LHsExpr RdrName] }
-        : lexps ',' texp              {% addAnnotation (gl $ last $ unLoc $1) AnnComma (gl $2) >>
+        : lexps ',' texp              {% addAnnotation (gl $ head $ unLoc $1) AnnComma (gl $2) >>
                                          return (LL (((:) $! $3) $! unLoc $1)) }
         | texp ',' texp               {% addAnnotation (gl $1) AnnComma (gl $2) >>
                                          return (LL [$3,$1]) }
@@ -2236,18 +2236,19 @@ qual  :: { LStmt RdrName (LHsExpr RdrName) }
 -----------------------------------------------------------------------------
 -- Record Field Update/Construction
 
--- ++AZ++ up to here
 fbinds  :: { ([MaybeAnn],([LHsRecField RdrName (LHsExpr RdrName)], Bool)) }
         : fbinds1                       { $1 }
         | {- empty -}                   { ([],([], False)) }
 
 fbinds1 :: { ([MaybeAnn],([LHsRecField RdrName (LHsExpr RdrName)], Bool)) }
-        : fbind ',' fbinds1             { case $3 of (ma,(flds, dd)) -> (ma,($1 : flds, dd)) }
+        : fbind ',' fbinds1             {% addAnnotation (gl $1) AnnComma (gl $2) >>
+                                           return (case $3 of (ma,(flds, dd)) -> (ma,($1 : flds, dd))) }
         | fbind                         { ([],([$1], False)) }
         | '..'                          { ([mj AnnDotdot $1],([],   True)) }
 
 fbind   :: { LHsRecField RdrName (LHsExpr RdrName) }
-        : qvar '=' texp { LL $ HsRecField $1 $3                False }
+        : qvar '=' texp {% ams  (LL $ HsRecField $1 $3                False)
+                                [mj AnnEqual $2] }
                         -- RHS is a 'texp', allowing view patterns (Trac #6038)
                         -- and, incidentaly, sections.  Eg
                         -- f (R { x = show -> s }) = ...
@@ -2260,14 +2261,17 @@ fbind   :: { LHsRecField RdrName (LHsExpr RdrName) }
 -- Implicit Parameter Bindings
 
 dbinds  :: { Located [LIPBind RdrName] }
-        : dbinds ';' dbind              { let { this = $3; rest = unLoc $1 }
-                              in rest `seq` this `seq` LL (this : rest) }
-        | dbinds ';'                    { LL (unLoc $1) }
+        : dbinds ';' dbind              {% addAnnotation (gl $ last $ unLoc $1) AnnSemi (gl $2) >>
+                                           return (let { this = $3; rest = unLoc $1 }
+                              in rest `seq` this `seq` LL (this : rest)) }
+        | dbinds ';'                    {% addAnnotation (gl $ last $ unLoc $1) AnnSemi (gl $2) >>
+                                           return (LL (unLoc $1)) }
         | dbind                         { let this = $1 in this `seq` L1 [this] }
 --      | {- empty -}                   { [] }
 
 dbind   :: { LIPBind RdrName }
-dbind   : ipvar '=' exp                 { LL (IPBind (Left (unLoc $1)) $3) }
+dbind   : ipvar '=' exp                 {% ams (LL (IPBind (Left (unLoc $1)) $3))
+                                               [mj AnnEqual $2] }
 
 ipvar   :: { Located HsIPName }
         : IPDUPVARID            { L1 (HsIPName (getIPDUPVARID $1)) }
@@ -2293,6 +2297,7 @@ name_boolformula_atom :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
         : '(' name_boolformula ')'  { ([mo $1,mc $3],snd $2) }
         | name_var                  { ([],mkVar $1) }
 
+-- AZ TODO: warnings/deprecations are incompletely annotated
 namelist :: { Located [RdrName] }
 namelist : name_var              { L1 [unLoc $1] }
          | name_var ',' namelist { LL (unLoc $1 : unLoc $3) }
@@ -2305,33 +2310,33 @@ name_var : var { $1 }
 -- Data constructors
 qcon    :: { Located RdrName }
         : qconid                { $1 }
-        | '(' qconsym ')'       { LL (unLoc $2) }
+        | '(' qconsym ')'       {% ams (LL (unLoc $2)) [mo $1,mc $3] }
         | sysdcon               { L1 $ nameRdrName (dataConName (unLoc $1)) }
 -- The case of '[:' ':]' is part of the production `parr'
 
 con     :: { Located RdrName }
         : conid                 { $1 }
-        | '(' consym ')'        { LL (unLoc $2) }
+        | '(' consym ')'        {% ams (LL (unLoc $2)) [mo $1,mc $3] }
         | sysdcon               { L1 $ nameRdrName (dataConName (unLoc $1)) }
 
 con_list :: { Located [Located RdrName] }
 con_list : con                  { L1 [$1] }
-         | con ',' con_list     { LL ($1 : unLoc $3) }
+         | con ',' con_list     {% ams (LL ($1 : unLoc $3)) [mj AnnComma $2] }
 
 sysdcon :: { Located DataCon }  -- Wired in data constructors
-        : '(' ')'               { LL unitDataCon }
-        | '(' commas ')'        { LL $ tupleCon BoxedTuple (snd $2 + 1) }
-        | '(#' '#)'             { LL $ unboxedUnitDataCon }
-        | '(#' commas '#)'      { LL $ tupleCon UnboxedTuple (snd $2 + 1) }
-        | '[' ']'               { LL nilDataCon }
+        : '(' ')'               {% ams (LL unitDataCon) [mo $1,mc $2] }
+        | '(' commas ')'        {% ams (LL $ tupleCon BoxedTuple (snd $2 + 1)) [mo $1,mc $3] }
+        | '(#' '#)'             {% ams (LL $ unboxedUnitDataCon) [mo $1,mc $2] }
+        | '(#' commas '#)'      {% ams (LL $ tupleCon UnboxedTuple (snd $2 + 1)) [mo $1,mc $3] }
+        | '[' ']'               {% ams (LL nilDataCon) [mo $1,mc $2] }
 
 conop :: { Located RdrName }
         : consym                { $1 }
-        | '`' conid '`'         { LL (unLoc $2) }
+        | '`' conid '`'         {% ams (LL (unLoc $2)) [mo $1,mc $3] }
 
 qconop :: { Located RdrName }
         : qconsym               { $1 }
-        | '`' qconid '`'        { LL (unLoc $2) }
+        | '`' qconid '`'        {% ams (LL (unLoc $2)) [mo $1,mc $3] }
 
 ----------------------------------------------------------------------------
 -- Type constructors
@@ -2341,27 +2346,31 @@ qconop :: { Located RdrName }
 -- between gtycon and ntgtycon
 gtycon :: { Located RdrName }  -- A "general" qualified tycon, including unit tuples
         : ntgtycon                      { $1 }
-        | '(' ')'                       { LL $ getRdrName unitTyCon }
-        | '(#' '#)'                     { LL $ getRdrName unboxedUnitTyCon }
+        | '(' ')'                       {% ams (LL $ getRdrName unitTyCon) [mo $1,mc $2] }
+        | '(#' '#)'                     {% ams (LL $ getRdrName unboxedUnitTyCon) [mo $1,mc $2] }
 
 ntgtycon :: { Located RdrName }  -- A "general" qualified tycon, excluding unit tuples
         : oqtycon                       { $1 }
-        | '(' commas ')'                { LL $ getRdrName (tupleTyCon BoxedTuple (snd $2 + 1)) }
-        | '(#' commas '#)'              { LL $ getRdrName (tupleTyCon UnboxedTuple (snd $2 + 1)) }
-        | '(' '->' ')'                  { LL $ getRdrName funTyCon }
-        | '[' ']'                       { LL $ listTyCon_RDR }
-        | '[:' ':]'                     { LL $ parrTyCon_RDR }
-        | '(' '~#' ')'                  { LL $ getRdrName eqPrimTyCon }
+        | '(' commas ')'                {% ams (LL $ getRdrName (tupleTyCon BoxedTuple (snd $2 + 1)))
+                                               (mo $1:mc $3:(mcommas (fst $2))) }
+        | '(#' commas '#)'              {% ams (LL $ getRdrName (tupleTyCon UnboxedTuple (snd $2 + 1)))
+                                               (mo $1:mc $3:(mcommas (fst $2))) }
+        | '(' '->' ')'                  {% ams (LL $ getRdrName funTyCon)
+                                               [mo $1,mj AnnRarrow $2,mc $3] }
+        | '[' ']'                       {% ams (LL $ listTyCon_RDR) [mo $1,mc $2] }
+        | '[:' ':]'                     {% ams (LL $ parrTyCon_RDR) [mo $1,mc $2] }
+        | '(' '~#' ')'                  {% ams (LL $ getRdrName eqPrimTyCon)
+                                               [mo $1,mj AnnTildehsh $2,mc $3] }
 
 oqtycon :: { Located RdrName }  -- An "ordinary" qualified tycon;
                                 -- These can appear in export lists
         : qtycon                        { $1 }
-        | '(' qtyconsym ')'             { LL (unLoc $2) }
-        | '(' '~' ')'                   { LL $ eqTyCon_RDR }
+        | '(' qtyconsym ')'             {% ams (LL (unLoc $2)) [mo $1,mc $3] }
+        | '(' '~' ')'                   {% ams (LL $ eqTyCon_RDR) [mo $1,mj AnnTilde $2,mc $3] }
 
 qtyconop :: { Located RdrName } -- Qualified or unqualified
         : qtyconsym                     { $1 }
-        | '`' qtycon '`'                { LL (unLoc $2) }
+        | '`' qtycon '`'                {% ams (LL (unLoc $2)) [mo $1,mc $3] }
 
 qtycon :: { Located RdrName }   -- Qualified or unqualified
         : QCONID                        { L1 $! mkQual tcClsName (getQCONID $1) }
@@ -2394,7 +2403,7 @@ op      :: { Located RdrName }   -- used in infix decls
 
 varop   :: { Located RdrName }
         : varsym                { $1 }
-        | '`' varid '`'         { LL (unLoc $2) }
+        | '`' varid '`'         {% ams (LL (unLoc $2)) [mo $1,mc $3] }
 
 qop     :: { LHsExpr RdrName }   -- used in sections
         : qvarop                { L1 $ HsVar (unLoc $1) }
@@ -2406,11 +2415,11 @@ qopm    :: { LHsExpr RdrName }   -- used in sections
 
 qvarop :: { Located RdrName }
         : qvarsym               { $1 }
-        | '`' qvarid '`'        { LL (unLoc $2) }
+        | '`' qvarid '`'        {% ams (LL (unLoc $2)) [mo $1,mc $3] }
 
 qvaropm :: { Located RdrName }
         : qvarsym_no_minus      { $1 }
-        | '`' qvarid '`'        { LL (unLoc $2) }
+        | '`' qvarid '`'        {% ams (LL (unLoc $2)) [mo $1,mc $3] }
 
 -----------------------------------------------------------------------------
 -- Type variables
@@ -2419,7 +2428,7 @@ tyvar   :: { Located RdrName }
 tyvar   : tyvarid               { $1 }
 
 tyvarop :: { Located RdrName }
-tyvarop : '`' tyvarid '`'       { LL (unLoc $2) }
+tyvarop : '`' tyvarid '`'       {% ams (LL (unLoc $2)) [mo $1,mc $3] }
         | '.'                   {% parseErrorSDoc (getLoc $1)
                                       (vcat [ptext (sLit "Illegal symbol '.' in type"),
                                              ptext (sLit "Perhaps you intended to use RankNTypes or a similar language"),
@@ -2438,12 +2447,12 @@ tyvarid :: { Located RdrName }
 
 var     :: { Located RdrName }
         : varid                 { $1 }
-        | '(' varsym ')'        { LL (unLoc $2) }
+        | '(' varsym ')'        {% ams (LL (unLoc $2)) [mo $1,mc $3] }
 
 qvar    :: { Located RdrName }
         : qvarid                { $1 }
-        | '(' varsym ')'        { LL (unLoc $2) }
-        | '(' qvarsym1 ')'      { LL (unLoc $2) }
+        | '(' varsym ')'        {% ams (LL (unLoc $2)) [mo $1,mc $3] }
+        | '(' qvarsym1 ')'      {% ams (LL (unLoc $2)) [mo $1,mc $3] }
 -- We've inlined qvarsym here so that the decision about
 -- whether it's a qvar or a var can be postponed until
 -- *after* we see the close paren.
@@ -2731,6 +2740,9 @@ mj a l = Just (\s -> addAnnotation s a (gl l))
 
 mo ll = mj AnnOpen ll
 mc ll = mj AnnClose ll
+
+mcommas :: [SrcSpan] -> [MaybeAnn]
+mcommas ss = map (\s -> mj AnnComma (L s ())) ss
 
 au a@(L l _) b = addAnnotation l b >> return (unitOL a)
 
