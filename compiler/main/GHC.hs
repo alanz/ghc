@@ -719,7 +719,7 @@ data ParsedModule =
   ParsedModule { pm_mod_summary   :: ModSummary
                , pm_parsed_source :: ParsedSource
                , pm_extra_src_files :: [FilePath]
-               , pm_annotations :: ApiAnns }
+               , pm_annotations :: ApiAnns (Located Token) }
 
 instance ParsedMod ParsedModule where
   modSummary m    = pm_mod_summary m

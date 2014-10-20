@@ -18,6 +18,7 @@ module ApiAnnotation (
     ApiAnns,
 
     getAnnotation,
+    getAnnotationComments,
 
     -- * Annotation types
     Ann(..)
@@ -63,17 +64,24 @@ This allows code using the annotation to access this as follows
 -}
 -- ---------------------------------------------------------------------
 
-type ApiAnns = Map.Map ApiAnnKey SrcSpan
+type ApiAnns a = (Map.Map ApiAnnKey SrcSpan, Map.Map SrcSpan [a])
 
 data ApiAnnKey = AK SrcSpan Ann
                   deriving (Eq,Ord,Show)
 
 -- ---------------------------------------------------------------------
 
--- | Retrieve an annotation based on the SrcSpan of the annotated AST
+-- | Retrieve an annotation based on the @SrcSpan@ of the annotated AST
 -- element, and the known type of the annotation.
-getAnnotation :: ApiAnns -> SrcSpan -> Ann -> Maybe SrcSpan
-getAnnotation anns span ann = Map.lookup (AK span ann) anns
+getAnnotation :: ApiAnns a -> SrcSpan -> Ann -> Maybe SrcSpan
+getAnnotation (anns,_) span ann = Map.lookup (AK span ann) anns
+
+-- |Retrieve the comments allocated to the current @SrcSpan@
+getAnnotationComments :: ApiAnns a -> SrcSpan -> [a]
+getAnnotationComments (_,anns) span =
+  case Map.lookup span anns of
+    Just cs -> cs
+    Nothing -> []
 
 -- --------------------------------------------------------------------
 

@@ -1666,10 +1666,12 @@ data PState = PState {
         -- token doesn't need to close anything:
         alr_justClosedExplicitLetBlock :: Bool,
 
-        annotations :: [(ApiAnnKey,SrcSpan)]
+        annotations :: [(ApiAnnKey,SrcSpan)],
         -- Annotations giving the locations of 'noise' tokens in the
         -- source, so that users of the GHC API can do source to
         -- source conversions.
+        comment_q :: [Located Token],
+        annotations_comments :: [(SrcSpan,[Located Token])]
      }
         -- last_loc and last_len are used when generating error messages,
         -- and in pushCurrentContext only.  Sigh, if only Happy passed the
@@ -2048,7 +2050,9 @@ mkPState flags buf loc =
       alr_context = [],
       alr_expecting_ocurly = Nothing,
       alr_justClosedExplicitLetBlock = False,
-      annotations = []
+      annotations = [],
+      comment_q = [],
+      annotations_comments = []
     }
     where
       bitmap =     FfiBit                      `setBitIf` xopt Opt_ForeignFunctionInterface flags
@@ -2170,6 +2174,9 @@ lexer cont = do
   let lexTokenFun = if alr then lexTokenAlr else lexToken
   (L span tok) <- lexTokenFun
   --trace ("token: " ++ show tok) $ do
+  -- if False -- (isComment tok)
+  --   then queueComment (L (RealSrcSpan span) tok) >> lexer cont
+  --   else cont (L (RealSrcSpan span) tok)
   cont (L (RealSrcSpan span) tok)
 
 lexTokenAlr :: P (RealLocated Token)
@@ -2525,5 +2532,38 @@ addAnnotation :: SrcSpan -> Ann -> SrcSpan -> P ()
 addAnnotation l a v = P $ \s -> POk s {
   annotations = ((AK l a), v) : annotations s
   } ()
+
+queueComment :: Located Token -> P()
+queueComment c = P $ \s -> POk s {
+  comment_q = c : comment_q s
+  } ()
+
+-- | Go through the @comment_q@ in @PState@ and remove all comments
+-- that belong within the given span
+allocateComments :: SrcSpan -> P ()
+allocateComments ss = P $ \s ->
+  let
+    (before,rest)  = break (\(L l _) -> isSubspanOf l ss) (comment_q s)
+    (middle,after) = break (\(L l _) -> not (isSubspanOf l ss)) rest
+    comment_q' = before ++ after
+    newAnns = if null middle then []
+                             else [(ss,middle)]
+  in
+    POk s {
+       comment_q = comment_q'
+     , annotations_comments = newAnns ++ (annotations_comments s)
+     } ()
+
+
+isComment :: Token -> Bool
+isComment (ITdocCommentNext  _)   = True
+isComment (ITdocCommentPrev  _)   = True
+isComment (ITdocCommentNamed _)   = True
+isComment (ITdocSection      _ _) = True
+isComment (ITdocOptions      _)   = True
+isComment (ITdocOptionsOld   _)   = True
+isComment (ITlineComment     _)   = True
+isComment (ITblockComment    _)   = True
+isComment _ = False
 
 }

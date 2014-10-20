@@ -162,6 +162,7 @@ import Maybes
 import Outputable
 import BreakArray
 import SrcLoc
+import Lexer ( Token(..) )
 -- import Unique
 import UniqFM
 import UniqSupply
@@ -2580,7 +2581,7 @@ data HsParsedModule = HsParsedModule {
        -- leaves behind.  These files and their timestamps are stored in
        -- the .hi file, so that we can force recompilation if any of
        -- them change (#3589)
-    hpm_annotations :: ApiAnns
+    hpm_annotations :: ApiAnns (Located Token)
   }
 \end{code}
 
