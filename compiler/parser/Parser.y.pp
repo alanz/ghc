@@ -526,12 +526,12 @@ exp_doc :: { OrdList (LIE RdrName) }
    -- No longer allow things like [] and (,,,) to be exported
    -- They are built in syntax, always available
 export  :: { OrdList (LIE RdrName) }
-        : qcname_ext export_subspec   { unitOL (LL (mkModuleImpExp (unLoc $1)
-                                                                   (unLoc $2))) }
-        |  'module' modid             {% amsu (LL (IEModuleContents (unLoc $2)))
-                                              [mj AnnModule $1] }
-        |  'pattern' qcon             {% amsu (LL (IEVar (unLoc $2)))
-                                              [mj AnnPattern $1] }
+        : qcname_ext export_subspec  { unitOL (LL (mkModuleImpExp (unLoc $1)
+                                                                  (unLoc $2))) }
+        |  'module' modid            {% amsu (LL (IEModuleContents (unLoc $2)))
+                                             [mj AnnModule $1] }
+        |  'pattern' qcon            {% amsu (LL (IEVar (unLoc $2)))
+                                             [mj AnnPattern $1] }
 
 export_subspec :: { Located ImpExpSubSpec }
         : {- empty -}             { L0 ImpExpAbs }
@@ -1111,12 +1111,12 @@ wherebinds :: { Located ([MaybeAnn],HsLocalBinds RdrName) }
 -- Transformation Rules
 
 rules   :: { OrdList (LHsDecl RdrName) }
-        :  rules ';' rule               {% addAnnotation (gl $3) AnnSemi (gl $2)
-                                           >> return ($1 `snocOL` $3) }
-        |  rules ';'                    {% addAnnotation (oll $1) AnnSemi (gl $2)
-                                           >> return $1 }
-        |  rule                         { unitOL $1 }
-        |  {- empty -}                  { nilOL }
+        :  rules ';' rule              {% addAnnotation (gl $3) AnnSemi (gl $2)
+                                          >> return ($1 `snocOL` $3) }
+        |  rules ';'                   {% addAnnotation (oll $1) AnnSemi (gl $2)
+                                          >> return $1 }
+        |  rule                        { unitOL $1 }
+        |  {- empty -}                 { nilOL }
 
 rule    :: { LHsDecl RdrName }
         : STRING rule_activation rule_forall infixexp '=' exp
@@ -1270,9 +1270,9 @@ sigtypedoc :: { LHsType RdrName }       -- Always a HsForAllTy
         -- Wrap an Implicit forall if there isn't one there already
 
 sig_vars :: { Located ([Located RdrName]) }    -- Returned in reversed order
-         : sig_vars ',' var             {% addAnnotation (gl $3) AnnComma (gl $2)
-                                           >> return (LL ($3 : unLoc $1)) }
-         | var                          { L1 [$1] }
+         : sig_vars ',' var            {% addAnnotation (gl $3) AnnComma (gl $2)
+                                          >> return (LL ($3 : unLoc $1)) }
+         | var                         { L1 [$1] }
 
 sigtypes1 :: { (OrdList (LHsType RdrName)) }      -- Always HsForAllTys
         : sigtype                      { unitOL $1 }
@@ -1634,7 +1634,7 @@ fielddecls1 :: { [Located [ConDeclField RdrName]] }
                              -- This adds the doc $4 to each field separately
         | fielddecl   { [$1] }
 
-fielddecl :: { Located [ConDeclField RdrName] } -- A list because of   f,g :: Int
+fielddecl :: { Located [ConDeclField RdrName] } -- A list because of  f,g :: Int
         : maybe_docnext sig_vars '::' ctype maybe_docprev
                    {% ams (L (comb2 $2 $4) [ ConDeclField fld $4 ($1 `mplus` $5)
                                            | fld <- reverse (unLoc $2) ])
@@ -1696,7 +1696,7 @@ decl_no_th :: { Located (OrdList (LHsDecl RdrName)) }
         | '!' aexp rhs          {% do { let { e = LL (SectionR (LL (HsVar bang_RDR)) $2) };
                                         pat <- checkPattern empty e;
                                         _ <- ams (LL ())
-                                                (mj AnnBang $1:(fst $ unLoc $3));
+                                               (mj AnnBang $1:(fst $ unLoc $3));
                                         return $ LL $ unitOL $ LL $ ValD $
                                             PatBind pat (snd $ unLoc $3)
                                                     placeHolderType
@@ -1990,7 +1990,7 @@ splice_exp :: { LHsExpr RdrName }
         | '$(' exp ')'          {% ams (LL $ mkHsSpliceE $2) [mo $1,mc $3] }
         | TH_ID_TY_SPLICE       { L1 $ mkHsSpliceTE 
                                         (L1 $ HsVar (mkUnqual varName 
-                                                     (getTH_ID_TY_SPLICE $1))) } 
+                                                     (getTH_ID_TY_SPLICE $1))) }
         | '$$(' exp ')'         {% ams (LL $ mkHsSpliceTE $2) [mo $1,mc $3] }
 
 cmdargs :: { [LHsCmdTop RdrName] }
@@ -2117,9 +2117,10 @@ flattenedpquals :: { Located [LStmt RdrName (LHsExpr RdrName)] }
                 }
 
 pquals :: { Located [[LStmt RdrName (LHsExpr RdrName)]] }
-    : squals '|' pquals     {% addAnnotation (gl $ last $ unLoc $1) AnnVbar (gl $2) >>
-                               return (L (getLoc $2) (reverse (unLoc $1) : unLoc $3)) }
-    | squals                { L (getLoc $1) [reverse (unLoc $1)] }
+    : squals '|' pquals
+                     {% addAnnotation (gl $ last $ unLoc $1) AnnVbar (gl $2) >>
+                        return (L (getLoc $2) (reverse (unLoc $1) : unLoc $3)) }
+    | squals         { L (getLoc $1) [reverse (unLoc $1)] }
 
 squals :: { Located [LStmt RdrName (LHsExpr RdrName)] }   -- In reverse order, because the last
                                         -- one can "grab" the earlier ones
@@ -2259,7 +2260,7 @@ pat     :  exp          {% checkPattern empty $1 }
 
 bindpat :: { LPat RdrName }
 bindpat :  exp            {% checkPattern
-                                 (text "Possibly caused by a missing 'do'?") $1 }
+                                (text "Possibly caused by a missing 'do'?") $1 }
         | '!' aexp        {% amms (checkPattern
                                      (text "Possibly caused by a missing 'do'?")
                                      (LL (SectionR (L1 (HsVar bang_RDR)) $2)))
@@ -2378,8 +2379,9 @@ name_boolformula_opt :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
 
 name_boolformula :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
         : name_boolformula_and                      { $1 }
-        | name_boolformula_and '|' name_boolformula { ((mj AnnVbar $2:fst $1)++(fst $3)
-                                                      ,mkOr [snd $1,snd $3]) }
+        | name_boolformula_and '|' name_boolformula
+                                             { ((mj AnnVbar $2:fst $1)++(fst $3)
+                                                ,mkOr [snd $1,snd $3]) }
 
 name_boolformula_and :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
         : name_boolformula_atom                             { $1 }
