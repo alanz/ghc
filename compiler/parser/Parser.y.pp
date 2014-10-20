@@ -1898,7 +1898,7 @@ scc_annot :: { Located ([MaybeAnn],FastString) }
                                         ,(getVARID $2)) }
 
 hpc_annot :: { Located ([MaybeAnn],(FastString,(Int,Int),(Int,Int))) }
-        : '{-# GENERATED' STRING INTEGER ':' INTEGER '-' INTEGER ':' INTEGER '#-}'
+      : '{-# GENERATED' STRING INTEGER ':' INTEGER '-' INTEGER ':' INTEGER '#-}'
                                       { LL $ ([mo $1,mj AnnVal $2
                                               ,mj AnnVal2 $3,mj AnnColon $4
                                               ,mj AnnVal3 $5,mj AnnMinus $6
@@ -2038,7 +2038,7 @@ texp :: { LHsExpr RdrName }
 
 -- Always at least one comma
 tup_exprs :: { [LHsTupArg RdrName] }
-           : texp commas_tup_tail 
+           : texp commas_tup_tail
                           {% do { addAnnotation (gl $1) AnnComma (fst $2)
                                 ; return ((L (gl $1) (Present $1)) : snd $2) } }
 
