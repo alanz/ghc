@@ -776,7 +776,7 @@ inst_decl :: { LInstDecl RdrName }
                  gadt_constrlist
                  deriving
             {% amms (mkDataFamInst (comb4 $1 $4 $6 $7) (snd $ unLoc $1) $3 $4
-                                    (unLoc $5) (snd $ unLoc $6) (snd $ unLoc $7))
+                                   (unLoc $5) (snd $ unLoc $6) (snd $ unLoc $7))
                     ((fst $ unLoc $1):mj AnnInstance $2
                        :(fst $ unLoc $6)++(fst $ unLoc $7)) }
 
@@ -1028,7 +1028,8 @@ where_cls :: { Located ([MaybeAnn]
                        ,(OrdList (LHsDecl RdrName))) }    -- Reversed
                                 -- No implicit parameters
                                 -- May have type declarations
-        : 'where' decllist_cls          { LL (mj AnnWhere $1:(fst $ unLoc $2),snd $ unLoc $2) }
+        : 'where' decllist_cls          { LL (mj AnnWhere $1:(fst $ unLoc $2)
+                                             ,snd $ unLoc $2) }
         | {- empty -}                   { noLoc ([],nilOL) }
 
 -- Declarations in instance bodies
@@ -1039,7 +1040,8 @@ decl_inst  : at_decl_inst               { LL (unitOL (L1 (InstD (unLoc $1)))) }
 
 decls_inst :: { Located (OrdList (LHsDecl RdrName)) }   -- Reversed
            : decls_inst ';' decl_inst   {% addAnnotation (gl $3) AnnSemi (gl $2)
-                                           >> return (LL ((unLoc $1) `appOL` unLoc $3)) }
+                                           >> return
+                                            (LL ((unLoc $1) `appOL` unLoc $3)) }
            | decls_inst ';'             {% addAnnotation (gl $1) AnnSemi (gl $2)
                                            >> return (LL (unLoc $1)) }
            | decl_inst                  { $1 }
@@ -1082,7 +1084,8 @@ decllist :: { Located ([MaybeAnn],OrdList (LHsDecl RdrName)) }
 
 -- Binding groups other than those of class and instance declarations
 --
-binds   ::  { Located ([MaybeAnn],HsLocalBinds RdrName) }   -- May have implicit parameters
+binds   ::  { Located ([MaybeAnn],HsLocalBinds RdrName) }
+                                         -- May have implicit parameters
                                                 -- No type declarations
         : decllist          { L1 (fst $ unLoc $1
                                   ,HsValBinds (cvBindGroup (snd $ unLoc $1))) }
@@ -1130,36 +1133,37 @@ rule_activation :: { ([MaybeAnn],Maybe Activation) }
 
 rule_explicit_activation :: { ([MaybeAnn]
                               ,Activation) }  -- In brackets
-        : '[' INTEGER ']'               { ([mo $1,mj AnnVal $2,mc $3]
-                                          ,ActiveAfter  (fromInteger (getINTEGER $2))) }
-        | '[' '~' INTEGER ']'           { ([mo $1,mj AnnTilde $2,mj AnnVal $3,mc $4]
-                                          ,ActiveBefore (fromInteger (getINTEGER $3))) }
-        | '[' '~' ']'                   { ([mo $1,mj AnnTilde $2,mc $3]
-                                          ,NeverActive) }
+        : '[' INTEGER ']'       { ([mo $1,mj AnnVal $2,mc $3]
+                                  ,ActiveAfter  (fromInteger (getINTEGER $2))) }
+        | '[' '~' INTEGER ']'   { ([mo $1,mj AnnTilde $2,mj AnnVal $3,mc $4]
+                                  ,ActiveBefore (fromInteger (getINTEGER $3))) }
+        | '[' '~' ']'           { ([mo $1,mj AnnTilde $2,mc $3]
+                                  ,NeverActive) }
 
 rule_forall :: { ([MaybeAnn],[LRuleBndr RdrName]) }
-        : 'forall' rule_var_list '.'            { ([mj AnnForall $1,mj AnnDot $3],$2) }
-        | {- empty -}                           { ([],[]) }
+        : 'forall' rule_var_list '.'     { ([mj AnnForall $1,mj AnnDot $3],$2) }
+        | {- empty -}                    { ([],[]) }
 
 rule_var_list :: { [LRuleBndr RdrName] }
         : rule_var                              { [$1] }
         | rule_var rule_var_list                { $1 : $2 }
 
 rule_var :: { LRuleBndr RdrName }
-        : varid                                { LL (RuleBndr $1) }
-        | '(' varid '::' ctype ')'             {% ams (LL (RuleBndrSig $2 (mkHsWithBndrs $4)))
-                                                      [mo $1,mj AnnDcolon $3,mc $5] }
+        : varid                           { LL (RuleBndr $1) }
+        | '(' varid '::' ctype ')'        {% ams (LL (RuleBndrSig $2
+                                                         (mkHsWithBndrs $4)))
+                                                 [mo $1,mj AnnDcolon $3,mc $5] }
 
 -----------------------------------------------------------------------------
 -- Warnings and deprecations (c.f. rules)
 
 warnings :: { OrdList (LHsDecl RdrName) }
-        : warnings ';' warning          {% addAnnotation (oll $3) AnnSemi (gl $2)
-                                           >> return ($1 `appOL` $3) }
-        | warnings ';'                  {% addAnnotation (oll $1) AnnSemi (gl $2)
-                                           >> return $1 }
-        | warning                       { $1 }
-        | {- empty -}                   { nilOL }
+        : warnings ';' warning         {% addAnnotation (oll $3) AnnSemi (gl $2)
+                                          >> return ($1 `appOL` $3) }
+        | warnings ';'                 {% addAnnotation (oll $1) AnnSemi (gl $2)
+                                          >> return $1 }
+        | warning                      { $1 }
+        | {- empty -}                  { nilOL }
 
 -- SUP: TEMPORARY HACK, not checking for `module Foo'
 warning :: { OrdList (LHsDecl RdrName) }
@@ -1179,8 +1183,8 @@ deprecations :: { OrdList (LHsDecl RdrName) }
 -- SUP: TEMPORARY HACK, not checking for `module Foo'
 deprecation :: { OrdList (LHsDecl RdrName) }
         : namelist strings
-                { toOL [ LL $ WarningD (Warning n (DeprecatedTxt $ snd $ unLoc $2))
-                       | n <- unLoc $1 ] }
+             { toOL [ LL $ WarningD (Warning n (DeprecatedTxt $ snd $ unLoc $2))
+                    | n <- unLoc $1 ] }
 
 strings :: { Located ([MaybeAnn],[Located FastString]) }
     : STRING { L1 ([],[L (gl $1) (getSTRING $1)]) }
@@ -1195,13 +1199,16 @@ stringlist :: { Located (OrdList (Located FastString)) }
 -----------------------------------------------------------------------------
 -- Annotations
 annotation :: { LHsDecl RdrName }
-    : '{-# ANN' name_var aexp '#-}'      {% ams (LL (AnnD $ HsAnnotation (ValueAnnProvenance (unLoc $2)) $3))
-                                                [mo $1,mc $4] }
+    : '{-# ANN' name_var aexp '#-}'      {% ams (LL (AnnD $ HsAnnotation
+                                            (ValueAnnProvenance (unLoc $2)) $3))
+                                            [mo $1,mc $4] }
 
-    | '{-# ANN' 'type' tycon aexp '#-}'  {% ams (LL (AnnD $ HsAnnotation (TypeAnnProvenance (unLoc $3)) $4))
-                                                [mo $1,mj AnnType $2,mc $5] }
+    | '{-# ANN' 'type' tycon aexp '#-}'  {% ams (LL (AnnD $ HsAnnotation
+                                            (TypeAnnProvenance (unLoc $3)) $4))
+                                            [mo $1,mj AnnType $2,mc $5] }
 
-    | '{-# ANN' 'module' aexp '#-}'      {% ams (LL (AnnD $ HsAnnotation ModuleAnnProvenance $3))
+    | '{-# ANN' 'module' aexp '#-}'      {% ams (LL (AnnD $ HsAnnotation
+                                                 ModuleAnnProvenance $3))
                                                 [mo $1,mj AnnModule $2,mc $4] }
 
 
@@ -1233,8 +1240,11 @@ safety :: { Located Safety }
 
 fspec :: { Located ([MaybeAnn]
                     ,(Located FastString, Located RdrName, LHsType RdrName)) }
-       : STRING var '::' sigtypedoc     { LL ([mj AnnDcolon $3],(L (getLoc $1) (getSTRING $1), $2, $4)) }
-       |        var '::' sigtypedoc     { LL ([mj AnnDcolon $2],(noLoc nilFS, $1, $3)) }
+       : STRING var '::' sigtypedoc     { LL ([mj AnnDcolon $3]
+                                             ,(L (getLoc $1)
+                                                    (getSTRING $1), $2, $4)) }
+       |        var '::' sigtypedoc     { LL ([mj AnnDcolon $2]
+                                             ,(noLoc nilFS, $1, $3)) }
          -- if the entity string is missing, it defaults to the empty string;
          -- the meaning of an empty entity string depends on the calling
          -- convention
@@ -1265,22 +1275,22 @@ sig_vars :: { Located ([Located RdrName]) }    -- Returned in reversed order
          | var                          { L1 [$1] }
 
 sigtypes1 :: { (OrdList (LHsType RdrName)) }      -- Always HsForAllTys
-        : sigtype                       { unitOL $1 }
-        | sigtype ',' sigtypes1         {% addAnnotation (gl $1) AnnComma (gl $2)
-                                           >> return ((unitOL $1) `appOL` $3) }
+        : sigtype                      { unitOL $1 }
+        | sigtype ',' sigtypes1        {% addAnnotation (gl $1) AnnComma (gl $2)
+                                          >> return ((unitOL $1) `appOL` $3) }
 
 -----------------------------------------------------------------------------
 -- Types
 
 strict_mark :: { Located HsBang }
-        : '!'                           { (L1 (HsUserBang Nothing      True)) }
-        | '{-# UNPACK' '#-}'            {% ams (LL (HsUserBang (Just True)  False))
-                                               [mo $1,mc $2] }
-        | '{-# NOUNPACK' '#-}'          {% ams (LL (HsUserBang (Just False) True))
-                                               [mo $1,mc $2] }
-        | '{-# UNPACK' '#-}' '!'        {% ams (LL (HsUserBang (Just True)  True))
-                                               [mo $1,mc $2] }
-        | '{-# NOUNPACK' '#-}' '!'      {% ams (LL (HsUserBang (Just False) True))
+        : '!'                        { (L1 (HsUserBang Nothing      True)) }
+        | '{-# UNPACK' '#-}'         {% ams (LL (HsUserBang (Just True)  False))
+                                            [mo $1,mc $2] }
+        | '{-# NOUNPACK' '#-}'       {% ams (LL (HsUserBang (Just False) True))
+                                            [mo $1,mc $2] }
+        | '{-# UNPACK' '#-}' '!'     {% ams (LL (HsUserBang (Just True)  True))
+                                            [mo $1,mc $2] }
+        | '{-# NOUNPACK' '#-}' '!'   {% ams (LL (HsUserBang (Just False) True))
                                                [mo $1,mc $2] }
         -- Although UNPACK with no '!' is illegal, we get a
         -- better error message if we parse it here
@@ -1288,9 +1298,11 @@ strict_mark :: { Located HsBang }
 -- A ctype is a for-all type
 ctype   :: { LHsType RdrName }
         : 'forall' tv_bndrs '.' ctype   {% hintExplicitForall (getLoc $1) >>
-                                           ams (LL $ mkExplicitHsForAllTy $2 (noLoc []) $4)
+                                           ams (LL $ mkExplicitHsForAllTy $2
+                                                                 (noLoc []) $4)
                                                [mj AnnForall $1,mj AnnDot $3] }
-        | context '=>' ctype            {% ams (LL $ mkQualifiedHsForAllTy   $1 $3)
+        | context '=>' ctype            {% ams (LL $ mkQualifiedHsForAllTy
+                                                                         $1 $3)
                                               [mj AnnDarrow $2] }
         | ipvar '::' type               {% ams (LL (HsIParamTy (unLoc $1) $3))
                                                [mj AnnDcolon $2] }
@@ -1309,13 +1321,14 @@ ctype   :: { LHsType RdrName }
 
 ctypedoc :: { LHsType RdrName }
         : 'forall' tv_bndrs '.' ctypedoc {% hintExplicitForall (getLoc $1) >>
-                                            ams (LL $ mkExplicitHsForAllTy $2 (noLoc []) $4)
+                                            ams (LL $ mkExplicitHsForAllTy $2
+                                                                  (noLoc []) $4)
                                                 [mj AnnForall $1,mj AnnDot $3] }
-        | context '=>' ctypedoc         {% ams (LL $ mkQualifiedHsForAllTy   $1 $3)
-                                               [mj AnnDarrow $2] }
-        | ipvar '::' type               {% ams (LL (HsIParamTy (unLoc $1) $3))
-                                               [mj AnnDcolon $2] }
-        | typedoc                       { $1 }
+        | context '=>' ctypedoc        {% ams (LL $ mkQualifiedHsForAllTy $1 $3)
+                                              [mj AnnDarrow $2] }
+        | ipvar '::' type              {% ams (LL (HsIParamTy (unLoc $1) $3))
+                                              [mj AnnDcolon $2] }
+        | typedoc                      { $1 }
 
 ----------------------
 -- Notes for 'context'
@@ -1353,10 +1366,13 @@ typedoc :: { LHsType RdrName }
         | btype qtyconop type docprev    { LL $ HsDocTy (L (comb3 $1 $2 $3) (mkHsOpTy $1 $2 $3)) $4 }
         | btype tyvarop  type            { LL $ mkHsOpTy $1 $2 $3 }
         | btype tyvarop  type docprev    { LL $ HsDocTy (L (comb3 $1 $2 $3) (mkHsOpTy $1 $2 $3)) $4 }
-        | btype '->'     ctypedoc        {% ams (LL $ HsFunTy $1 $3) [mj AnnRarrow $2] }
-        | btype docprev '->' ctypedoc    {% ams (LL $ HsFunTy (L (comb2 $1 $2) (HsDocTy $1 $2)) $4)
+        | btype '->'     ctypedoc        {% ams (LL $ HsFunTy $1 $3)
+                                                [mj AnnRarrow $2] }
+        | btype docprev '->' ctypedoc    {% ams (LL $ HsFunTy (L (comb2 $1 $2)
+                                                            (HsDocTy $1 $2)) $4)
                                                 [mj AnnRarrow $3] }
-        | btype '~'      btype           {% ams (LL $ HsEqTy $1 $3) [mj AnnTilde $2] }
+        | btype '~'      btype           {% ams (LL $ HsEqTy $1 $3)
+                                                [mj AnnTilde $2] }
                                         -- see Note [Promotion]
         | btype SIMPLEQUOTE qconop type     { LL $ mkHsOpTy $1 $3 $4 }
         | btype SIMPLEQUOTE varop  type     { LL $ mkHsOpTy $1 $3 $4 }
@@ -1369,28 +1385,35 @@ atype :: { LHsType RdrName }
         : ntgtycon                       { L1 (HsTyVar (unLoc $1)) }      -- Not including unit tuples
         | tyvar                          { L1 (HsTyVar (unLoc $1)) }      -- (See Note [Unit tuples])
         | strict_mark atype              { LL (HsBangTy (unLoc $1) $2) }  -- Constructor sigs only
-        | '{' fielddecls '}'             {% amms (checkRecordSyntax (LL $ HsRecTy $2)) -- Constructor sigs only
+        | '{' fielddecls '}'             {% amms (checkRecordSyntax
+                                                    (LL $ HsRecTy $2))
+                                                        -- Constructor sigs only
                                                  [mo $1,mc $3] }
-        | '(' ')'                        {% ams (LL $ HsTupleTy HsBoxedOrConstraintTuple [])
+        | '(' ')'                        {% ams (LL $ HsTupleTy
+                                                    HsBoxedOrConstraintTuple [])
                                                 [mo $1,mc $2] }
-        | '(' ctype ',' comma_types1 ')' {% ams (LL $ HsTupleTy HsBoxedOrConstraintTuple ($2 : $4))
+        | '(' ctype ',' comma_types1 ')' {% ams (LL $ HsTupleTy
+                                             HsBoxedOrConstraintTuple ($2 : $4))
                                                 [mo $1,mj AnnComma $3,mc $5] }
-        | '(#' '#)'                      {% ams (LL $ HsTupleTy HsUnboxedTuple           [])
-                                                [mo $1,mc $2] }
-        | '(#' comma_types1 '#)'         {% ams (LL $ HsTupleTy HsUnboxedTuple           $2)
-                                                [mo $1,mc $3] }
-        | '[' ctype ']'                  {% ams (LL $ HsListTy  $2) [mo $1,mc $3] }
-        | '[:' ctype ':]'                {% ams (LL $ HsPArrTy  $2) [mo $1,mc $3] }
-        | '(' ctype ')'                  {% ams (LL $ HsParTy   $2) [mo $1,mc $3] }
-        | '(' ctype '::' kind ')'        {% ams (LL $ HsKindSig $2 $4) [mo $1,mj AnnDcolon $3,mc $5] }
-        | quasiquote                     { L1 (HsQuasiQuoteTy (unLoc $1)) }
-        | '$(' exp ')'                   {% ams (LL $ mkHsSpliceTy $2) [mo $1,mc $3] }
-        | TH_ID_SPLICE                   { LL $ mkHsSpliceTy $ L1 $ HsVar $
-                                           mkUnqual varName (getTH_ID_SPLICE $1) }
-                                                      -- see Note [Promotion] for the followings
+        | '(#' '#)'                   {% ams (LL $ HsTupleTy HsUnboxedTuple [])
+                                             [mo $1,mc $2] }
+        | '(#' comma_types1 '#)'      {% ams (LL $ HsTupleTy HsUnboxedTuple $2)
+                                             [mo $1,mc $3] }
+        | '[' ctype ']'               {% ams (LL $ HsListTy  $2) [mo $1,mc $3] }
+        | '[:' ctype ':]'             {% ams (LL $ HsPArrTy  $2) [mo $1,mc $3] }
+        | '(' ctype ')'               {% ams (LL $ HsParTy   $2) [mo $1,mc $3] }
+        | '(' ctype '::' kind ')'     {% ams (LL $ HsKindSig $2 $4)
+                                             [mo $1,mj AnnDcolon $3,mc $5] }
+        | quasiquote                  { L1 (HsQuasiQuoteTy (unLoc $1)) }
+        | '$(' exp ')'                {% ams (LL $ mkHsSpliceTy $2)
+                                             [mo $1,mc $3] }
+        | TH_ID_SPLICE                { LL $ mkHsSpliceTy $ L1 $ HsVar $
+                                        mkUnqual varName (getTH_ID_SPLICE $1) }
+                                      -- see Note [Promotion] for the followings
         | SIMPLEQUOTE qcon                            { LL $ HsTyVar $ unLoc $2 }
-        | SIMPLEQUOTE  '(' ctype ',' comma_types1 ')' {% ams (LL $ HsExplicitTupleTy [] ($3 : $5))
-                                                             [mo $2,mj AnnComma $4,mc $6] }
+        | SIMPLEQUOTE  '(' ctype ',' comma_types1 ')'
+                                    {% ams (LL $ HsExplicitTupleTy [] ($3 : $5))
+                                           [mo $2,mj AnnComma $4,mc $6] }
         | SIMPLEQUOTE  '[' comma_types0 ']'     {% ams (LL $ HsExplicitListTy
                                                             placeHolderKind $3)
                                                        [mo $2,mc $4] }
@@ -1399,8 +1422,8 @@ atype :: { LHsType RdrName }
         | '[' ctype ',' comma_types1 ']'  {% ams (LL $ HsExplicitListTy
                                                      placeHolderKind ($2 : $4))
                                                  [mo $1, mj AnnComma $3,mc $5] }
-        | INTEGER                         { LL $ HsTyLit $ HsNumTy $ getINTEGER $1 }
-        | STRING                          { LL $ HsTyLit $ HsStrTy $ getSTRING  $1 }
+        | INTEGER                     { LL $ HsTyLit $ HsNumTy $ getINTEGER $1 }
+        | STRING                      { LL $ HsTyLit $ HsStrTy $ getSTRING  $1 }
 
 -- An inst_type is what occurs in the head of an instance decl
 --      e.g.  (Foo a, Gaz b) => Wibble a b
@@ -1412,17 +1435,17 @@ inst_type :: { LHsType RdrName }
 inst_types1 :: { [LHsType RdrName] }
         : inst_type                     { [$1] }
 
-        | inst_type ',' inst_types1     {% addAnnotation (gl $1) AnnComma (gl $2)
-                                           >> return ($1 : $3) }
+        | inst_type ',' inst_types1    {% addAnnotation (gl $1) AnnComma (gl $2)
+                                          >> return ($1 : $3) }
 
 comma_types0  :: { [LHsType RdrName] }
         : comma_types1                  { $1 }
         | {- empty -}                   { [] }
 
 comma_types1    :: { [LHsType RdrName] }
-        : ctype                         { [$1] }
-        | ctype  ',' comma_types1       {% addAnnotation (gl $1) AnnComma (gl $2)
-                                           >> return ($1 : $3) }
+        : ctype                        { [$1] }
+        | ctype  ',' comma_types1      {% addAnnotation (gl $1) AnnComma (gl $2)
+                                          >> return ($1 : $3) }
 
 tv_bndrs :: { [LHsTyVarBndr RdrName] }
          : tv_bndr tv_bndrs             { $1 : $2 }
@@ -1440,14 +1463,14 @@ fds :: { Located [Located (FunDep RdrName)] }
                                                 [mj AnnVbar $1] }
 
 fds1 :: { Located [Located (FunDep RdrName)] }
-        : fds1 ',' fd                   {% addAnnotation (gl $3) AnnComma (gl $2)
-                                           >> return (LL ($3 : unLoc $1)) }
-        | fd                            { L1 [$1] }
+        : fds1 ',' fd                  {% addAnnotation (gl $3) AnnComma (gl $2)
+                                          >> return (LL ($3 : unLoc $1)) }
+        | fd                           { L1 [$1] }
 
 fd :: { Located (FunDep RdrName) }
-        : varids0 '->' varids0      {% ams (L (comb3 $1 $2 $3)
-                                           (reverse (unLoc $1), reverse (unLoc $3)))
-                                           [mj AnnRarrow $2] }
+        : varids0 '->' varids0  {% ams (L (comb3 $1 $2 $3)
+                                       (reverse (unLoc $1), reverse (unLoc $3)))
+                                       [mj AnnRarrow $2] }
 
 varids0 :: { Located [RdrName] }
         : {- empty -}                   { noLoc [] }
@@ -1474,9 +1497,10 @@ akind :: { LHsKind RdrName }
 
 pkind :: { LHsKind RdrName }  -- promoted type, see Note [Promotion]
         : qtycon                          { L1 $ HsTyVar $ unLoc $1 }
-        | '(' ')'                         {% ams (LL $ HsTyVar $ getRdrName unitTyCon)
-                                                 [mo $1,mc $2] }
-        | '(' kind ',' comma_kinds1 ')'   {% ams (LL $ HsTupleTy HsBoxedTuple ( $2 : $4))
+        | '(' ')'                   {% ams (LL $ HsTyVar $ getRdrName unitTyCon)
+                                           [mo $1,mc $2] }
+        | '(' kind ',' comma_kinds1 ')'   {% ams (LL $ HsTupleTy HsBoxedTuple
+                                                                     ( $2 : $4))
                                                  [mo $1,mj AnnComma $3,mc $5] }
         | '[' kind ']'                    {% ams (LL $ HsListTy $2)
                                                  [mo $1,mc $3] }
@@ -1530,8 +1554,9 @@ gadt_constrlist :: { Located ([MaybeAnn]
         | {- empty -}                            { noLoc ([],[]) }
 
 gadt_constrs :: { Located [Located [LConDecl RdrName]] }
-        : gadt_constr ';' gadt_constrs  {% addAnnotation (gl $1) AnnSemi (gl $2)
-                                           >> return (L (comb2 $1 $3) ((snd $ unLoc $1) : unLoc $3)) }
+        : gadt_constr ';' gadt_constrs
+                  {% addAnnotation (gl $1) AnnSemi (gl $2)
+                     >> return (L (comb2 $1 $3) ((snd $ unLoc $1) : unLoc $3)) }
         | gadt_constr                   { L (gl $1) [snd $ unLoc $1] }
         | {- empty -}                   { noLoc [] }
 
@@ -1558,23 +1583,27 @@ gadt_constr :: { Located ([MaybeAnn],Located [LConDecl RdrName]) }
                                    ,L (comb2 $1 $6) [cd'])) } }
 
 constrs :: { Located [LConDecl RdrName] }
-        : maybe_docnext '=' constrs1    {% ams (L (comb2 $2 $3) (addConDocs (unLoc $3) $1))
+        : maybe_docnext '=' constrs1    {% ams (L (comb2 $2 $3)
+                                                     (addConDocs (unLoc $3) $1))
                                                [mj AnnEqual ($2)] }
 
 constrs1 :: { Located [LConDecl RdrName] }
-        : constrs1 maybe_docnext '|' maybe_docprev constr {% addAnnotation (gl $5) AnnVbar (gl $3)
-                                                             >> return (LL (addConDoc $5 $2 : addConDocFirst (unLoc $1) $4)) }
+        : constrs1 maybe_docnext '|' maybe_docprev constr
+            {% addAnnotation (gl $5) AnnVbar (gl $3)
+               >> return (LL (addConDoc $5 $2 : addConDocFirst (unLoc $1) $4)) }
         | constr                                          { L1 [$1] }
 
 constr :: { LConDecl RdrName }
         : maybe_docnext forall context '=>' constr_stuff maybe_docprev
                 {% ams (let (con,details) = unLoc $5 in
-                  addConDoc (L (comb4 $2 $3 $4 $5) (mkSimpleConDecl con (snd $ unLoc $2) $3 details))
+                  addConDoc (L (comb4 $2 $3 $4 $5) (mkSimpleConDecl con
+                                                   (snd $ unLoc $2) $3 details))
                             ($1 `mplus` $6))
                         (mj AnnDarrow $4:(fst $ unLoc $2)) }
         | maybe_docnext forall constr_stuff maybe_docprev
                 {% ams ( let (con,details) = unLoc $3 in
-                  addConDoc (L (comb2 $2 $3) (mkSimpleConDecl con (snd $ unLoc $2) (noLoc []) details))
+                  addConDoc (L (comb2 $2 $3) (mkSimpleConDecl con
+                                           (snd $ unLoc $2) (noLoc []) details))
                             ($1 `mplus` $4))
                        (fst $ unLoc $2) }
 
@@ -1600,26 +1629,30 @@ fielddecls :: { [Located [ConDeclField RdrName]] }
 fielddecls1 :: { [Located [ConDeclField RdrName]] }
         : fielddecl maybe_docnext ',' maybe_docprev fielddecls1
           {% addAnnotation (gl $1) AnnComma (gl $3)
-             >> return ((L (gl $1) [ addFieldDoc f $4 | f <- unLoc $1 ]) : addFieldDocs $5 $2) }
+             >> return ((L (gl $1) [ addFieldDoc f $4 | f <- unLoc $1 ])
+                                    : addFieldDocs $5 $2) }
                              -- This adds the doc $4 to each field separately
         | fielddecl   { [$1] }
 
 fielddecl :: { Located [ConDeclField RdrName] } -- A list because of   f,g :: Int
-        : maybe_docnext sig_vars '::' ctype maybe_docprev   {% ams (L (comb2 $2 $4)
-                                                                 [ ConDeclField fld $4 ($1 `mplus` $5)
-                                                                 | fld <- reverse (unLoc $2) ])
-                                                                   [mj AnnDotdot $3] }
+        : maybe_docnext sig_vars '::' ctype maybe_docprev
+                   {% ams (L (comb2 $2 $4) [ ConDeclField fld $4 ($1 `mplus` $5)
+                                           | fld <- reverse (unLoc $2) ])
+                          [mj AnnDotdot $3] }
 -- We allow the odd-looking 'inst_type' in a deriving clause, so that
 -- we can do deriving( forall a. C [a] ) in a newtype (GHC extension).
 -- The 'C [a]' part is converted to an HsPredTy by checkInstType
 -- We don't allow a context, but that's sorted out by the type checker.
 deriving :: { Located ([MaybeAnn]
                       ,Maybe [LHsType RdrName]) }
-        : {- empty -}                           { noLoc ([],Nothing) }
-        | 'deriving' qtycon                     { let { L loc tv = $2 }
-                                                  in LL ([mj AnnDeriving $1],Just [L loc (HsTyVar tv)]) }
-        | 'deriving' '(' ')'                    { LL ([mj AnnDeriving $1,mo $2,mc $3],Just []) }
-        | 'deriving' '(' inst_types1 ')'        { LL ([mj AnnDeriving $1,mo $2,mc $4],Just $3) }
+        : {- empty -}                     { noLoc ([],Nothing) }
+        | 'deriving' qtycon               { let { L loc tv = $2 }
+                                            in LL ([mj AnnDeriving $1]
+                                                  ,Just [L loc (HsTyVar tv)]) }
+        | 'deriving' '(' ')'              { LL ([mj AnnDeriving $1,mo $2,mc $3]
+                                               ,Just []) }
+        | 'deriving' '(' inst_types1 ')'  { LL ([mj AnnDeriving $1,mo $2,mc $4]
+                                               ,Just $3) }
              -- Glasgow extension: allow partial
              -- applications in derivings
 
@@ -1700,8 +1733,8 @@ gdrhs :: { Located [LGRHS RdrName (LHsExpr RdrName)] }
         | gdrh                  { L1 [$1] }
 
 gdrh :: { LGRHS RdrName (LHsExpr RdrName) }
-        : '|' guardquals '=' exp   {% ams (sL (comb2 $1 $>) $ GRHS (unLoc $2) $4)
-                                          [mj AnnVbar $1,mj AnnEqual $3] }
+        : '|' guardquals '=' exp  {% ams (sL (comb2 $1 $>) $ GRHS (unLoc $2) $4)
+                                         [mj AnnVbar $1,mj AnnEqual $3] }
 
 sigdecl :: { Located (OrdList (LHsDecl RdrName)) }
         :
@@ -1711,24 +1744,26 @@ sigdecl :: { Located (OrdList (LHsDecl RdrName)) }
                         ; _ <- ams (LL ()) [mj AnnDotdot $2]
                         ; return (LL $ unitOL (LL $ SigD s)) }
         | var ',' sig_vars '::' sigtypedoc
-                                {% ams (LL $ toOL [ LL $ SigD (TypeSig ($1 : reverse (unLoc $3)) $5) ])
-                                       [mj AnnComma $2,mj AnnDotdot $4] }
+           {% ams (LL $ toOL [ LL $ SigD (TypeSig ($1:reverse (unLoc $3)) $5) ])
+                  [mj AnnComma $2,mj AnnDotdot $4] }
 
         | infix prec ops        { LL $ toOL [ LL $ SigD (FixSig (FixitySig n (Fixity $2 (unLoc $1))))
                                             | n <- fromOL $ unLoc $3 ] }
         | '{-# INLINE' activation qvar '#-}'
-                {% ams (LL $ unitOL (LL $ SigD (InlineSig $3 (mkInlinePragma (getINLINE $1) (snd $2)))))
+                {% ams (LL $ unitOL (LL $ SigD (InlineSig $3
+                                     (mkInlinePragma (getINLINE $1) (snd $2)))))
                        (mo $1:mc $4:fst $2) }
 
         -- AZ TODO: adjust hsSyn so all the SpecSig from a single SPECIALISE pragma is kept together
         | '{-# SPECIALISE' activation qvar '::' sigtypes1 '#-}'
-                { let inl_prag = mkInlinePragma (EmptyInlineSpec, FunLike) (snd $2)
-                  in LL $ toOL [ LL $ SigD (SpecSig $3 t inl_prag)
-                               | t <- fromOL $5] }
+             { let inl_prag = mkInlinePragma (EmptyInlineSpec, FunLike) (snd $2)
+               in LL $ toOL [ LL $ SigD (SpecSig $3 t inl_prag)
+                            | t <- fromOL $5] }
 
         | '{-# SPECIALISE_INLINE' activation qvar '::' sigtypes1 '#-}'
-                { LL $ toOL [ LL $ SigD (SpecSig $3 t (mkInlinePragma (getSPEC_INLINE $1) (snd $2)))
-                            | t <- fromOL $5] }
+             { LL $ toOL [ LL $ SigD (SpecSig $3 t
+                                  (mkInlinePragma (getSPEC_INLINE $1) (snd $2)))
+                         | t <- fromOL $5] }
 
         | '{-# SPECIALISE' 'instance' inst_type '#-}'
                 {% ams (LL $ unitOL (LL $ SigD (SpecInstSig $3)))
@@ -1809,37 +1844,39 @@ exp10 :: { LHsExpr RdrName }
                                                       (reverse $ unLoc $2))
                                                [mj AnnIf $1] }
         | 'case' exp 'of' altslist      {% ams (LL $ HsCase $2 (mkMatchGroup
-                                                     FromSource (snd $ unLoc $4)))
-                                               (mj AnnCase $1:mj AnnOf $3:(fst $ unLoc $4)) }
+                                                   FromSource (snd $ unLoc $4)))
+                                               (mj AnnCase $1:mj AnnOf $3
+                                                  :(fst $ unLoc $4)) }
         | '-' fexp                      {% ams (LL $ NegApp $2 noSyntaxExpr)
                                                [mj AnnMinus $1] }
 
-        | 'do' stmtlist                 {% ams (L (comb2 $1 $2)
-                                                  (mkHsDo DoExpr (snd $ unLoc $2)))
+        | 'do' stmtlist              {% ams (L (comb2 $1 $2)
+                                               (mkHsDo DoExpr (snd $ unLoc $2)))
                                                (mj AnnDo $1:(fst $ unLoc $2)) }
-        | 'mdo' stmtlist                {% ams (L (comb2 $1 $2)
-                                                  (mkHsDo MDoExpr (snd $ unLoc $2)))
-                                               (mj AnnMdo $1:(fst $ unLoc $2)) }
+        | 'mdo' stmtlist            {% ams (L (comb2 $1 $2)
+                                              (mkHsDo MDoExpr (snd $ unLoc $2)))
+                                           (mj AnnMdo $1:(fst $ unLoc $2)) }
 
-        | scc_annot exp             {% do { on <- extension sccProfilingOn
-                                          ; ams (LL $ if on
-                                                       then HsSCC (snd $ unLoc $1) $2
-                                                       else HsPar $2)
-                                                (fst $ unLoc $1) } }
+        | scc_annot exp        {% do { on <- extension sccProfilingOn
+                                     ; ams (LL $ if on
+                                                  then HsSCC (snd $ unLoc $1) $2
+                                                  else HsPar $2)
+                                           (fst $ unLoc $1) } }
 
-        | hpc_annot exp             {% do { on <- extension hpcEnabled
-                                            ; ams (LL $ if on
-                                                         then HsTickPragma (snd $ unLoc $1) $2
-                                                         else HsPar $2)
-                                                  (fst $ unLoc $1) } }
+        | hpc_annot exp        {% do { on <- extension hpcEnabled
+                                       ; ams (LL $ if on
+                                                    then HsTickPragma
+                                                             (snd $ unLoc $1) $2
+                                                    else HsPar $2)
+                                             (fst $ unLoc $1) } }
 
         | 'proc' aexp '->' exp
-                        {% checkPattern empty $2 >>= \ p ->
-                            checkCommand $4 >>= \ cmd ->
-                            ams (LL $ HsProc p (LL $ HsCmdTop cmd placeHolderType
-                                                 placeHolderType []))
-                                             -- TODO: is LL right here?
-                                [mj AnnProc $1,mj AnnRarrow $3] }
+                       {% checkPattern empty $2 >>= \ p ->
+                           checkCommand $4 >>= \ cmd ->
+                           ams (LL $ HsProc p (LL $ HsCmdTop cmd placeHolderType
+                                                placeHolderType []))
+                                            -- TODO: is LL right here?
+                               [mj AnnProc $1,mj AnnRarrow $3] }
 
         | '{-# CORE' STRING '#-}' exp  {% ams (LL $ HsCoreAnn (getSTRING $2) $4)
                                               [mo $1,mj AnnVal $2
@@ -1887,10 +1924,11 @@ aexp    :: { LHsExpr RdrName }
         | aexp1                 { $1 }
 
 aexp1   :: { LHsExpr RdrName }
-        : aexp1 '{' fbinds '}'  {% do { r <- mkRecConstrOrUpdate $1 (comb2 $2 $4) (snd $3)
-                                      ; _ <- ams (LL ()) [mo $2,mc $4]
-                                      ; checkRecordSyntax (LL r) }}
-        | aexp2                 { $1 }
+        : aexp1 '{' fbinds '}' {% do { r <- mkRecConstrOrUpdate $1 (comb2 $2 $4)
+                                                                   (snd $3)
+                                     ; _ <- ams (LL ()) [mo $2,mc $4]
+                                     ; checkRecordSyntax (LL r) }}
+        | aexp2                { $1 }
 
 aexp2   :: { LHsExpr RdrName }
         : ipvar                         { L1 (HsIPVar $! unLoc $1) }
@@ -1913,7 +1951,8 @@ aexp2   :: { LHsExpr RdrName }
         | '(' tup_exprs ')'             {% ams (LL (ExplicitTuple $2 Boxed))
                                                [mo $1,mc $3] }
 
-        | '(#' texp '#)'                {% ams (LL (ExplicitTuple [L (gl $2) (Present $2)] Unboxed))
+        | '(#' texp '#)'                {% ams (LL (ExplicitTuple [L (gl $2)
+                                                         (Present $2)] Unboxed))
                                                [mo $1,mc $3] }
         | '(#' tup_exprs '#)'           {% ams (LL (ExplicitTuple $2 Unboxed))
                                                [mo $1,mc $3] }
@@ -1929,17 +1968,19 @@ aexp2   :: { LHsExpr RdrName }
         | SIMPLEQUOTE  qcon     { LL $ HsBracket (VarBr True  (unLoc $2)) }
         | TH_TY_QUOTE tyvar     { LL $ HsBracket (VarBr False (unLoc $2)) }
         | TH_TY_QUOTE gtycon    { LL $ HsBracket (VarBr False (unLoc $2)) }
-        | '[|' exp '|]'         {% ams (LL $ HsBracket (ExpBr $2)) [mo $1,mc $3] }
-        | '[||' exp '||]'       {% ams (LL $ HsBracket (TExpBr $2)) [mo $1,mc $3] }
-        | '[t|' ctype '|]'      {% ams (LL $ HsBracket (TypBr $2)) [mo $1,mc $3] }
-        | '[p|' infixexp '|]'   {% checkPattern empty $2 >>= \p ->
-                                        ams (LL $ HsBracket (PatBr p)) [mo $1,mc $3] }
-        | '[d|' cvtopbody '|]'  {% ams (LL $ HsBracket (DecBrL (snd $2)))
-                                       (mo $1:mc $3:fst $2) }
-        | quasiquote            { L1 (HsQuasiQuoteE (unLoc $1)) }
+        | '[|' exp '|]'       {% ams (LL $ HsBracket (ExpBr $2)) [mo $1,mc $3] }
+        | '[||' exp '||]'     {% ams (LL $ HsBracket (TExpBr $2)) [mo $1,mc $3]}
+        | '[t|' ctype '|]'    {% ams (LL $ HsBracket (TypBr $2)) [mo $1,mc $3] }
+        | '[p|' infixexp '|]' {% checkPattern empty $2 >>= \p ->
+                                      ams (LL $ HsBracket (PatBr p))
+                                          [mo $1,mc $3] }
+        | '[d|' cvtopbody '|]' {% ams (LL $ HsBracket (DecBrL (snd $2)))
+                                      (mo $1:mc $3:fst $2) }
+        | quasiquote          { L1 (HsQuasiQuoteE (unLoc $1)) }
 
         -- arrow notation extension
-        | '(|' aexp2 cmdargs '|)'  {% ams (LL $ HsArrForm $2 Nothing (reverse $3))
+        | '(|' aexp2 cmdargs '|)'  {% ams (LL $ HsArrForm $2
+                                                           Nothing (reverse $3))
                                           [mo $1,mc $4] }
 
 splice_exp :: { LHsExpr RdrName }
@@ -1949,7 +1990,7 @@ splice_exp :: { LHsExpr RdrName }
         | '$(' exp ')'          {% ams (LL $ mkHsSpliceE $2) [mo $1,mc $3] }
         | TH_ID_TY_SPLICE       { L1 $ mkHsSpliceTE 
                                         (L1 $ HsVar (mkUnqual varName 
-                                                        (getTH_ID_TY_SPLICE $1))) } 
+                                                     (getTH_ID_TY_SPLICE $1))) } 
         | '$$(' exp ')'         {% ams (LL $ mkHsSpliceTE $2) [mo $1,mc $3] }
 
 cmdargs :: { [LHsCmdTop RdrName] }
@@ -1997,35 +2038,35 @@ texp :: { LHsExpr RdrName }
 
 -- Always at least one comma
 tup_exprs :: { [LHsTupArg RdrName] }
-           : texp commas_tup_tail  {% do { addAnnotation (gl $1) AnnComma (fst $2)
-                                         -- ; mapM_ (\ll -> addAnnotation (gl ll) AnnComma (gl ll)) (tail $2)
-                                         ; return ((L (gl $1) (Present $1)) : snd $2) } }
+           : texp commas_tup_tail 
+                          {% do { addAnnotation (gl $1) AnnComma (fst $2)
+                                ; return ((L (gl $1) (Present $1)) : snd $2) } }
 
-           | commas tup_tail {% do { -- replicate (snd $1) missingTupArg ++ $2
-                                   -- ; mapM_ (\ll -> addAnnotation ll AnnComma ll) (fst $1)
-                                   ; mapM_ (\ll -> addAnnotation (gl ll) AnnComma (gl ll)) $2
-                                   ; return
-                                      (let tt = if null $2
-                                                  then [noLoc missingTupArg]
-                                                  else $2
-                                       in map (\l -> L l missingTupArg) (fst $1) ++ tt) } }
+           | commas tup_tail
+                {% do { mapM_ (\ll -> addAnnotation (gl ll) AnnComma (gl ll)) $2
+                      ; return
+                           (let tt = if null $2
+                                       then [noLoc missingTupArg]
+                                       else $2
+                            in map (\l -> L l missingTupArg) (fst $1) ++ tt) } }
 
 -- Always starts with commas; always follows an expr
 commas_tup_tail :: { (SrcSpan,[LHsTupArg RdrName]) }
-commas_tup_tail : commas tup_tail  {% do {  -- replicate ((snd $1)-1) missingTupArg ++ $2
-                                         ; mapM_ (\ll -> addAnnotation ll AnnComma ll) (tail $ fst $1)
-                                         ; return (
-                                     let tt = if null $2
-                                                then [L (last $ fst $1) missingTupArg]
-                                                else $2
-                                     in (head $ fst $1,(map (\l -> L l missingTupArg) (init $ fst $1)) ++ tt)) } }
+commas_tup_tail : commas tup_tail
+       {% do { mapM_ (\ll -> addAnnotation ll AnnComma ll) (tail $ fst $1)
+             ; return (
+         let tt = if null $2
+                    then [L (last $ fst $1) missingTupArg]
+                    else $2
+         in (head $ fst $1
+            ,(map (\l -> L l missingTupArg) (init $ fst $1)) ++ tt)) } }
 
 -- Always follows a comma
 tup_tail :: { [LHsTupArg RdrName] }
-          : texp commas_tup_tail        {% addAnnotation (gl $1) AnnComma (fst $2) >>
-                                           return ((L (gl $1) (Present $1)) : snd $2) }
-          | texp                        { [L (gl $1) (Present $1)] }
-          | {- empty -}                 { [] {- [noLoc missingTupArg] -} }
+          : texp commas_tup_tail {% addAnnotation (gl $1) AnnComma (fst $2) >>
+                                    return ((L (gl $1) (Present $1)) : snd $2) }
+          | texp                 { [L (gl $1) (Present $1)] }
+          | {- empty -}          { [] {- [noLoc missingTupArg] -} }
 
 -----------------------------------------------------------------------------
 -- List expressions
@@ -2036,10 +2077,16 @@ list :: { LHsExpr RdrName }
         : texp    { L1 $ ExplicitList placeHolderType Nothing [$1] }
         | lexps   { L1 $ ExplicitList placeHolderType Nothing
                                                    (reverse (unLoc $1)) }
-        | texp '..'             {% ams (LL $ ArithSeq noPostTcExpr Nothing (From $1)) [mj AnnDotdot $2] }
-        | texp ',' exp '..'     {% ams (LL $ ArithSeq noPostTcExpr Nothing (FromThen $1 $3)) [mj AnnComma $2,mj AnnDotdot $4] }
-        | texp '..' exp         {% ams (LL $ ArithSeq noPostTcExpr Nothing (FromTo $1 $3)) [mj AnnDotdot $2] }
-        | texp ',' exp '..' exp {% ams (LL $ ArithSeq noPostTcExpr Nothing (FromThenTo $1 $3 $5)) [mj AnnComma $2,mj AnnDotdot $4] }
+        | texp '..'             {% ams (LL $ ArithSeq noPostTcExpr Nothing
+                                       (From $1)) [mj AnnDotdot $2] }
+        | texp ',' exp '..'     {% ams (LL $ ArithSeq noPostTcExpr Nothing
+                                                               (FromThen $1 $3))
+                                       [mj AnnComma $2,mj AnnDotdot $4] }
+        | texp '..' exp         {% ams (LL $ ArithSeq noPostTcExpr Nothing
+                                       (FromTo $1 $3)) [mj AnnDotdot $2] }
+        | texp ',' exp '..' exp {% ams (LL $ ArithSeq noPostTcExpr Nothing
+                                       (FromThenTo $1 $3 $5))
+                                       [mj AnnComma $2,mj AnnDotdot $4] }
         | texp '|' flattenedpquals
              {% checkMonadComp >>= \ ctxt ->
                 ams (sL (comb2 $1 $>) $
@@ -2047,10 +2094,11 @@ list :: { LHsExpr RdrName }
                     [mj AnnVbar $2] }
 
 lexps :: { Located [LHsExpr RdrName] }
-        : lexps ',' texp              {% addAnnotation (gl $ head $ unLoc $1) AnnComma (gl $2) >>
-                                         return (LL (((:) $! $3) $! unLoc $1)) }
-        | texp ',' texp               {% addAnnotation (gl $1) AnnComma (gl $2) >>
-                                         return (LL [$3,$1]) }
+        : lexps ',' texp          {% addAnnotation (gl $ head $ unLoc $1)
+                                                            AnnComma (gl $2) >>
+                                      return (LL (((:) $! $3) $! unLoc $1)) }
+        | texp ',' texp            {% addAnnotation (gl $1) AnnComma (gl $2) >>
+                                      return (LL [$3,$1]) }
 
 -----------------------------------------------------------------------------
 -- List Comprehensions
@@ -2075,12 +2123,14 @@ pquals :: { Located [[LStmt RdrName (LHsExpr RdrName)]] }
 
 squals :: { Located [LStmt RdrName (LHsExpr RdrName)] }   -- In reverse order, because the last
                                         -- one can "grab" the earlier ones
-    : squals ',' transformqual               {% addAnnotation (gl $ last $ unLoc $1) AnnComma (gl $2) >>
-                                                return (LL [L (getLoc $3) ((unLoc $3) (reverse (unLoc $1)))]) }
-    | squals ',' qual                        {% addAnnotation (gl $ last $ unLoc $1) AnnComma (gl $2) >>
-                                                return (LL ($3 : unLoc $1)) }
-    | transformqual                          { LL [L (getLoc $1) ((unLoc $1) [])] }
-    | qual                                   { L1 [$1] }
+    : squals ',' transformqual
+             {% addAnnotation (gl $ last $ unLoc $1) AnnComma (gl $2) >>
+                return (LL [L (getLoc $3) ((unLoc $3) (reverse (unLoc $1)))]) }
+    | squals ',' qual
+             {% addAnnotation (gl $ last $ unLoc $1) AnnComma (gl $2) >>
+                return (LL ($3 : unLoc $1)) }
+    | transformqual                       { LL [L (getLoc $1) ((unLoc $1) [])] }
+    | qual                                { L1 [$1] }
 --  | transformquals1 ',' '{|' pquals '|}'   { LL ($4 : unLoc $1) }
 --  | '{|' pquals '|}'                       { L1 [$2] }
 
@@ -2092,14 +2142,17 @@ squals :: { Located [LStmt RdrName (LHsExpr RdrName)] }   -- In reverse order, b
 
 transformqual :: { Located ([LStmt RdrName (LHsExpr RdrName)] -> Stmt RdrName (LHsExpr RdrName)) }
                         -- Function is applied to a list of stmts *in order*
-    : 'then' exp                           {% ams (LL $ \ss -> (mkTransformStmt    ss $2))
-                                                  [mj AnnThen $1] }
-    | 'then' exp 'by' exp                  {% ams (LL $ \ss -> (mkTransformByStmt  ss $2 $4))
-                                                  [mj AnnThen $1,mj AnnBy  $3] }
-    | 'then' 'group' 'using' exp           {% ams (LL $ \ss -> (mkGroupUsingStmt   ss $4))
-                                                  [mj AnnThen $1,mj AnnGroup $2,mj AnnUsing $3]    }
-    | 'then' 'group' 'by' exp 'using' exp  {% ams (LL $ \ss -> (mkGroupByUsingStmt ss $4 $6))
-                                                  [mj AnnThen $1,mj AnnGroup $2,mj AnnBy $3,mj AnnUsing $5] }
+    : 'then' exp               {% ams (LL $ \ss -> (mkTransformStmt ss $2))
+                                      [mj AnnThen $1] }
+    | 'then' exp 'by' exp      {% ams (LL $ \ss -> (mkTransformByStmt ss $2 $4))
+                                      [mj AnnThen $1,mj AnnBy  $3] }
+    | 'then' 'group' 'using' exp
+             {% ams (LL $ \ss -> (mkGroupUsingStmt ss $4))
+                    [mj AnnThen $1,mj AnnGroup $2,mj AnnUsing $3] }
+
+    | 'then' 'group' 'by' exp 'using' exp
+             {% ams (LL $ \ss -> (mkGroupByUsingStmt ss $4 $6))
+                     [mj AnnThen $1,mj AnnGroup $2,mj AnnBy $3,mj AnnUsing $5] }
 
 -- Note that 'group' is a special_id, which means that you can enable
 -- TransformListComp while still using Data.List.group. However, this
@@ -2115,16 +2168,18 @@ transformqual :: { Located ([LStmt RdrName (LHsExpr RdrName)] -> Stmt RdrName (L
 -- constructor in the list case).
 
 parr :: { LHsExpr RdrName }
-        :                               { noLoc (ExplicitPArr placeHolderType []) }
-        | texp                          { L1 $ ExplicitPArr placeHolderType [$1] }
-        | lexps                         { L1 $ ExplicitPArr placeHolderType
-                                                       (reverse (unLoc $1)) }
-        | texp '..' exp                 {% ams (LL $ PArrSeq noPostTcExpr (FromTo $1 $3))
-                                               [mj AnnDotdot $2] }
-        | texp ',' exp '..' exp         {% ams (LL $ PArrSeq noPostTcExpr (FromThenTo $1 $3 $5))
-                                               [mj AnnComma $2,mj AnnDotdot $4] }
-        | texp '|' flattenedpquals      {% ams (LL $ mkHsComp PArrComp (unLoc $3) $1)
-                                               [mj AnnVbar $2] }
+        :                      { noLoc (ExplicitPArr placeHolderType []) }
+        | texp                 { L1 $ ExplicitPArr placeHolderType [$1] }
+        | lexps                { L1 $ ExplicitPArr placeHolderType
+                                                          (reverse (unLoc $1)) }
+        | texp '..' exp        {% ams (LL $ PArrSeq noPostTcExpr (FromTo $1 $3))
+                                      [mj AnnDotdot $2] }
+        | texp ',' exp '..' exp
+                        {% ams (LL $ PArrSeq noPostTcExpr (FromThenTo $1 $3 $5))
+                               [mj AnnComma $2,mj AnnDotdot $4] }
+        | texp '|' flattenedpquals
+                        {% ams (LL $ mkHsComp PArrComp (unLoc $3) $1)
+                               [mj AnnVbar $2] }
 
 -- We are reusing `lexps' and `flattenedpquals' from the list case.
 
@@ -2142,11 +2197,11 @@ guardquals1 :: { Located [LStmt RdrName (LHsExpr RdrName)] }
 -- Case alternatives
 
 altslist :: { Located ([MaybeAnn],[LMatch RdrName (LHsExpr RdrName)]) }
-        : '{'            alts '}'       { LL ([mo $1,mc $3],(reverse (unLoc $2))) }
+        : '{'            alts '}'    { LL ([mo $1,mc $3],(reverse (unLoc $2))) }
 
-        |     vocurly    alts  close    { L (getLoc $2) ([],(reverse (unLoc $2))) }
-        | '{'                 '}'       { noLoc ([mo $1,mc $2],[]) }
-        |     vocurly          close    { noLoc ([],[]) }
+        |     vocurly    alts  close { L (getLoc $2) ([],(reverse (unLoc $2))) }
+        | '{'                 '}'    { noLoc ([mo $1,mc $2],[]) }
+        |     vocurly          close { noLoc ([],[]) }
 
 alts    :: { Located [LMatch RdrName (LHsExpr RdrName)] }
         : alts1                         { L1 (unLoc $1) }
@@ -2163,7 +2218,7 @@ alt     :: { LMatch RdrName (LHsExpr RdrName) }
         : pat opt_sig alt_rhs           { LL (Match [$1] (snd $2) (unLoc $3)) }
 
 alt_rhs :: { Located (GRHSs RdrName (LHsExpr RdrName)) }
-        : ralt wherebinds               { LL (GRHSs (unLoc $1) (snd $ unLoc $2)) }
+        : ralt wherebinds             { LL (GRHSs (unLoc $1) (snd $ unLoc $2)) }
 
 ralt :: { Located [LGRHS RdrName (LHsExpr RdrName)] }
         : '->' exp             {% ams (LL (unguardedRHS $2)) [mj AnnRarrow $1] }
@@ -2184,30 +2239,37 @@ gdpatssemi :: { Located [LGRHS RdrName (LHsExpr RdrName)] }
 -- generate the open brace in addition to the vertical bar in the lexer, and
 -- we don't need it.
 ifgdpats :: { Located [LGRHS RdrName (LHsExpr RdrName)] }
-         : '{' gdpatssemi '}'              {% ams (LL (unLoc $2)) [mo $1,mc $3] }
-         |     gdpatssemi close            { $1 }
+         : '{' gdpatssemi '}'             {% ams (LL (unLoc $2)) [mo $1,mc $3] }
+         |     gdpatssemi close           { $1 }
 
 gdpat   :: { LGRHS RdrName (LHsExpr RdrName) }
-        : '|' guardquals '->' exp          {% ams (sL (comb2 $1 $>) $ GRHS (unLoc $2) $4)
-                                                  [mj AnnVbar $1,mj AnnRarrow $3] }
+        : '|' guardquals '->' exp
+                                  {% ams (sL (comb2 $1 $>) $ GRHS (unLoc $2) $4)
+                                         [mj AnnVbar $1,mj AnnRarrow $3] }
 
 -- 'pat' recognises a pattern, including one with a bang at the top
 --      e.g.  "!x" or "!(x,y)" or "C a b" etc
 -- Bangs inside are parsed as infix operator applications, so that
 -- we parse them right when bang-patterns are off
 pat     :: { LPat RdrName }
-pat     :  exp                  {% checkPattern empty $1 }
-        | '!' aexp              {% amms (checkPattern empty (LL (SectionR (L1 (HsVar bang_RDR)) $2)))
-                                        [mj AnnBang $1] }
+pat     :  exp          {% checkPattern empty $1 }
+        | '!' aexp      {% amms (checkPattern empty (LL (SectionR
+                                                     (L1 (HsVar bang_RDR)) $2)))
+                                [mj AnnBang $1] }
 
 bindpat :: { LPat RdrName }
-bindpat :  exp                  {% checkPattern (text "Possibly caused by a missing 'do'?") $1 }
-        | '!' aexp              {% amms (checkPattern (text "Possibly caused by a missing 'do'?") (LL (SectionR (L1 (HsVar bang_RDR)) $2)))
-                                       [mj AnnBang $1] }
+bindpat :  exp            {% checkPattern
+                                 (text "Possibly caused by a missing 'do'?") $1 }
+        | '!' aexp        {% amms (checkPattern
+                                     (text "Possibly caused by a missing 'do'?")
+                                     (LL (SectionR (L1 (HsVar bang_RDR)) $2)))
+                                  [mj AnnBang $1] }
 
 apat   :: { LPat RdrName }
 apat    : aexp                  {% checkPattern empty $1 }
-        | '!' aexp              {% amms (checkPattern empty (LL (SectionR (L1 (HsVar bang_RDR)) $2)))
+        | '!' aexp              {% amms (checkPattern empty
+                                            (LL (SectionR
+                                                (L1 (HsVar bang_RDR)) $2)))
                                         [mj AnnBang $1] }
 
 apats  :: { [LPat RdrName] }
@@ -2218,8 +2280,10 @@ apats  :: { [LPat RdrName] }
 -- Statement sequences
 
 stmtlist :: { Located ([MaybeAnn],[LStmt RdrName (LHsExpr RdrName)]) }
-        : '{'           stmts '}'       { LL ((mo $1:mc $3:(fst $ unLoc $2)),(snd $ unLoc $2)) }
-        |     vocurly   stmts close     { L (gl $2) (fst $ unLoc $2,snd $ unLoc $2) }
+        : '{'           stmts '}'       { LL ((mo $1:mc $3:(fst $ unLoc $2))
+                                             ,(snd $ unLoc $2)) }
+        |     vocurly   stmts close     { L (gl $2) (fst $ unLoc $2
+                                                    ,snd $ unLoc $2) }
 
 --      do { ;; s ; s ; ; s ;; }
 -- The last Stmt should be an expression, but that's hard to enforce
@@ -2227,17 +2291,18 @@ stmtlist :: { Located ([MaybeAnn],[LStmt RdrName (LHsExpr RdrName)]) }
 -- So we use BodyStmts throughout, and switch the last one over
 -- in ParseUtils.checkDo instead
 stmts :: { Located ([MaybeAnn],[LStmt RdrName (LHsExpr RdrName)]) }
-        : stmt stmts_help               { LL (fst $ unLoc $2,($1 : (snd $ unLoc $2))) }
-        | ';' stmts                     {% if null (snd $ unLoc $2)
-                                             then ams (LL ([mj AnnSemi $1],snd $ unLoc $2)) []
-                                             else ams (LL ([],snd $ unLoc $2)) [mj AnnSemi $1] }
+        : stmt stmts_help        { LL (fst $ unLoc $2,($1 : (snd $ unLoc $2))) }
+        | ';' stmts     {% if null (snd $ unLoc $2)
+                             then ams (LL ([mj AnnSemi $1],snd $ unLoc $2)) []
+                             else ams (LL ([],snd $ unLoc $2)) [mj AnnSemi $1] }
 
-        | {- empty -}                   { noLoc ([],[]) }
+        | {- empty -}            { noLoc ([],[]) }
 
-stmts_help :: { Located ([MaybeAnn],[LStmt RdrName (LHsExpr RdrName)]) } -- might be empty
-        : ';' stmts                     {% if null (snd $ unLoc $2)
-                                             then ams (LL ([mj AnnSemi $1],snd $ unLoc $2)) []
-                                             else ams (LL ([],snd $ unLoc $2)) [mj AnnSemi $1] }
+stmts_help :: { Located ([MaybeAnn],[LStmt RdrName (LHsExpr RdrName)]) }
+                                                               -- might be empty
+        : ';' stmts    {% if null (snd $ unLoc $2)
+                             then ams (LL ([mj AnnSemi $1],snd $ unLoc $2)) []
+                             else ams (LL ([],snd $ unLoc $2)) [mj AnnSemi $1] }
 
         | {- empty -}                   { noLoc ([],[]) }
 
@@ -2267,8 +2332,9 @@ fbinds  :: { ([MaybeAnn],([LHsRecField RdrName (LHsExpr RdrName)], Bool)) }
         | {- empty -}                   { ([],([], False)) }
 
 fbinds1 :: { ([MaybeAnn],([LHsRecField RdrName (LHsExpr RdrName)], Bool)) }
-        : fbind ',' fbinds1             {% addAnnotation (gl $1) AnnComma (gl $2) >>
-                                           return (case $3 of (ma,(flds, dd)) -> (ma,($1 : flds, dd))) }
+        : fbind ',' fbinds1
+                {% addAnnotation (gl $1) AnnComma (gl $2) >>
+                   return (case $3 of (ma,(flds, dd)) -> (ma,($1 : flds, dd))) }
         | fbind                         { ([],([$1], False)) }
         | '..'                          { ([mj AnnDotdot $1],([],   True)) }
 
@@ -2287,17 +2353,18 @@ fbind   :: { LHsRecField RdrName (LHsExpr RdrName) }
 -- Implicit Parameter Bindings
 
 dbinds  :: { Located [LIPBind RdrName] }
-        : dbinds ';' dbind              {% addAnnotation (gl $ last $ unLoc $1) AnnSemi (gl $2) >>
-                                           return (let { this = $3; rest = unLoc $1 }
+        : dbinds ';' dbind
+                      {% addAnnotation (gl $ last $ unLoc $1) AnnSemi (gl $2) >>
+                         return (let { this = $3; rest = unLoc $1 }
                               in rest `seq` this `seq` LL (this : rest)) }
-        | dbinds ';'                    {% addAnnotation (gl $ last $ unLoc $1) AnnSemi (gl $2) >>
-                                           return (LL (unLoc $1)) }
-        | dbind                         { let this = $1 in this `seq` L1 [this] }
---      | {- empty -}                   { [] }
+        | dbinds ';'  {% addAnnotation (gl $ last $ unLoc $1) AnnSemi (gl $2) >>
+                         return (LL (unLoc $1)) }
+        | dbind                        { let this = $1 in this `seq` L1 [this] }
+--      | {- empty -}                  { [] }
 
 dbind   :: { LIPBind RdrName }
-dbind   : ipvar '=' exp                 {% ams (LL (IPBind (Left (unLoc $1)) $3))
-                                               [mj AnnEqual $2] }
+dbind   : ipvar '=' exp                {% ams (LL (IPBind (Left (unLoc $1)) $3))
+                                              [mj AnnEqual $2] }
 
 ipvar   :: { Located HsIPName }
         : IPDUPVARID            { L1 (HsIPName (getIPDUPVARID $1)) }
@@ -2316,8 +2383,8 @@ name_boolformula :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
 
 name_boolformula_and :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
         : name_boolformula_atom                             { $1 }
-        | name_boolformula_atom ',' name_boolformula_and    { ((mj AnnComma $2:fst $1)++(fst $3)
-                                                              , mkAnd [snd $1,snd $3]) }
+        | name_boolformula_atom ',' name_boolformula_and
+                  { ((mj AnnComma $2:fst $1)++(fst $3), mkAnd [snd $1,snd $3]) }
 
 name_boolformula_atom :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
         : '(' name_boolformula ')'  { ([mo $1,mc $3],snd $2) }
@@ -2351,9 +2418,11 @@ con_list : con                  { L1 [$1] }
 
 sysdcon :: { Located DataCon }  -- Wired in data constructors
         : '(' ')'               {% ams (LL unitDataCon) [mo $1,mc $2] }
-        | '(' commas ')'        {% ams (LL $ tupleCon BoxedTuple (snd $2 + 1)) [mo $1,mc $3] }
+        | '(' commas ')'        {% ams (LL $ tupleCon BoxedTuple (snd $2 + 1))
+                                       [mo $1,mc $3] }
         | '(#' '#)'             {% ams (LL $ unboxedUnitDataCon) [mo $1,mc $2] }
-        | '(#' commas '#)'      {% ams (LL $ tupleCon UnboxedTuple (snd $2 + 1)) [mo $1,mc $3] }
+        | '(#' commas '#)'      {% ams (LL $ tupleCon UnboxedTuple (snd $2 + 1))
+                                       [mo $1,mc $3] }
         | '[' ']'               {% ams (LL nilDataCon) [mo $1,mc $2] }
 
 conop :: { Located RdrName }
@@ -2371,28 +2440,33 @@ qconop :: { Located RdrName }
 -- See Note [Unit tuples] in HsTypes for the distinction
 -- between gtycon and ntgtycon
 gtycon :: { Located RdrName }  -- A "general" qualified tycon, including unit tuples
-        : ntgtycon                      { $1 }
-        | '(' ')'                       {% ams (LL $ getRdrName unitTyCon) [mo $1,mc $2] }
-        | '(#' '#)'                     {% ams (LL $ getRdrName unboxedUnitTyCon) [mo $1,mc $2] }
+        : ntgtycon                     { $1 }
+        | '(' ')'                      {% ams (LL $ getRdrName unitTyCon)
+                                              [mo $1,mc $2] }
+        | '(#' '#)'                    {% ams (LL $ getRdrName unboxedUnitTyCon)
+                                              [mo $1,mc $2] }
 
 ntgtycon :: { Located RdrName }  -- A "general" qualified tycon, excluding unit tuples
-        : oqtycon                       { $1 }
-        | '(' commas ')'                {% ams (LL $ getRdrName (tupleTyCon BoxedTuple (snd $2 + 1)))
-                                               (mo $1:mc $3:(mcommas (fst $2))) }
-        | '(#' commas '#)'              {% ams (LL $ getRdrName (tupleTyCon UnboxedTuple (snd $2 + 1)))
-                                               (mo $1:mc $3:(mcommas (fst $2))) }
-        | '(' '->' ')'                  {% ams (LL $ getRdrName funTyCon)
-                                               [mo $1,mj AnnRarrow $2,mc $3] }
-        | '[' ']'                       {% ams (LL $ listTyCon_RDR) [mo $1,mc $2] }
-        | '[:' ':]'                     {% ams (LL $ parrTyCon_RDR) [mo $1,mc $2] }
-        | '(' '~#' ')'                  {% ams (LL $ getRdrName eqPrimTyCon)
-                                               [mo $1,mj AnnTildehsh $2,mc $3] }
+        : oqtycon               { $1 }
+        | '(' commas ')'        {% ams (LL $ getRdrName (tupleTyCon BoxedTuple
+                                                        (snd $2 + 1)))
+                                       (mo $1:mc $3:(mcommas (fst $2))) }
+        | '(#' commas '#)'      {% ams (LL $ getRdrName (tupleTyCon UnboxedTuple
+                                                        (snd $2 + 1)))
+                                       (mo $1:mc $3:(mcommas (fst $2))) }
+        | '(' '->' ')'          {% ams (LL $ getRdrName funTyCon)
+                                       [mo $1,mj AnnRarrow $2,mc $3] }
+        | '[' ']'               {% ams (LL $ listTyCon_RDR) [mo $1,mc $2] }
+        | '[:' ':]'             {% ams (LL $ parrTyCon_RDR) [mo $1,mc $2] }
+        | '(' '~#' ')'          {% ams (LL $ getRdrName eqPrimTyCon)
+                                        [mo $1,mj AnnTildehsh $2,mc $3] }
 
 oqtycon :: { Located RdrName }  -- An "ordinary" qualified tycon;
                                 -- These can appear in export lists
         : qtycon                        { $1 }
         | '(' qtyconsym ')'             {% ams (LL (unLoc $2)) [mo $1,mc $3] }
-        | '(' '~' ')'                   {% ams (LL $ eqTyCon_RDR) [mo $1,mj AnnTilde $2,mc $3] }
+        | '(' '~' ')'                   {% ams (LL $ eqTyCon_RDR)
+                                               [mo $1,mj AnnTilde $2,mc $3] }
 
 qtyconop :: { Located RdrName } -- Qualified or unqualified
         : qtyconsym                     { $1 }
@@ -2735,9 +2809,6 @@ type MaybeAnn = Maybe (SrcSpan -> P ())
 gl = getLoc
 gj x = Just (gl x)
 
-gl4 (a,b,c,d) = (gl a,gl b,gl c,gl d)
-
--- AZ TODO: remove extraneous stuff here
 aa :: Located a -> (Ann,Located c) -> P (Located a)
 aa a@(L l _) (b,s) = addAnnotation l b (gl s) >> return a
 
@@ -2748,10 +2819,6 @@ am a (b,s) = do
 
 ams :: Located a -> [MaybeAnn] -> P (Located a)
 ams a@(L l _) bs = (mapM_ (\a -> a l) $ catMaybes bs) >> return a
-
-as a@(L l _) bs = mapM_ (addAnnotation l) bs >> return a
-
-ass  a@(L l _) bs = mapM_ (\a -> a l) bs >> return a
 
 amms :: P (Located a) -> [MaybeAnn] -> P (Located a)
 amms a bs = do
@@ -2770,9 +2837,6 @@ mc ll = mj AnnClose ll
 mcommas :: [SrcSpan] -> [MaybeAnn]
 mcommas ss = map (\s -> mj AnnComma (L s ())) ss
 
-au a@(L l _) b = addAnnotation l b >> return (unitOL a)
-
-aj  a@(Just (L l _))       b s = addAnnotation l b s >> return a
 ajl a@(L _ (Just (L l _))) b s = addAnnotation l b s >> return a
 
 ajs a@(Just (L l _)) bs = (mapM_ (\a -> a l) $ catMaybes bs) >> return a
