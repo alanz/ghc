@@ -680,6 +680,9 @@ data Token
 
   deriving Show
 
+instance Outputable Token where
+  ppr x = text (show x)
+
 -- the bitmap provided as the third component indicates whether the
 -- corresponding extension keyword is valid under the extension options
 -- provided to the compiler; if the extension corresponding to *any* of the
@@ -2178,10 +2181,14 @@ lexer cont = do
   let lexTokenFun = if alr then lexTokenAlr else lexToken
   (L span tok) <- lexTokenFun
   --trace ("token: " ++ show tok) $ do
-  -- if False -- (isComment tok)
-  --   then queueComment (L (RealSrcSpan span) tok) >> lexer cont
-  --   else cont (L (RealSrcSpan span) tok)
-  cont (L (RealSrcSpan span) tok)
+
+  if (isDocComment tok)
+    then queueComment (L (RealSrcSpan span) tok)
+    else return ()
+
+  if (isComment tok)
+    then queueComment (L (RealSrcSpan span) tok) >> lexer cont
+    else cont (L (RealSrcSpan span) tok)
 
 lexTokenAlr :: P (RealLocated Token)
 lexTokenAlr = do mPending <- popPendingImplicitToken
@@ -2577,15 +2584,18 @@ getAnnotationComments (_,anns) span =
     Nothing -> []
 
 isComment :: Token -> Bool
-isComment (ITdocCommentNext  _)   = True
-isComment (ITdocCommentPrev  _)   = True
-isComment (ITdocCommentNamed _)   = True
-isComment (ITdocSection      _ _) = True
-isComment (ITdocOptions      _)   = True
-isComment (ITdocOptionsOld   _)   = True
 isComment (ITlineComment     _)   = True
 isComment (ITblockComment    _)   = True
 isComment _ = False
+
+isDocComment :: Token -> Bool
+isDocComment (ITdocCommentNext  _)   = True
+isDocComment (ITdocCommentPrev  _)   = True
+isDocComment (ITdocCommentNamed _)   = True
+isDocComment (ITdocSection      _ _) = True
+isDocComment (ITdocOptions      _)   = True
+isDocComment (ITdocOptionsOld   _)   = True
+isDocComment _ = False
 
 -- --------------------------------------------------------------------
 
@@ -2658,7 +2668,7 @@ data Ann = AnnAs
          | Annrarrowtail
             deriving (Eq,Ord,Data,Typeable,Show)
 
--- instance Outputable Ann where
---   ppr x = text (show x)
+instance Outputable Ann where
+  ppr x = text (show x)
 
 }
