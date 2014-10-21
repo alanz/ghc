@@ -11,7 +11,6 @@ import System.IO
 import GHC
 import BasicTypes
 import DynFlags
-import ApiAnnotation -- AZ needs to be in GHC
 import MonadUtils
 import Outputable
 import Bag (filterBag,isEmptyBag)
@@ -26,7 +25,7 @@ main = do
         testOneFile libdir "AnnotationTuple"
 
 testOneFile libdir fileName = do
-        (anns,p) <- runGhc (Just libdir) $ do
+       ((anns,cs),p) <- runGhc (Just libdir) $ do
                         dflags <- getSessionDynFlags
                         setSessionDynFlags dflags
                         let mn =mkModuleName fileName
@@ -43,10 +42,10 @@ testOneFile libdir fileName = do
                             r =renamedSource l
                         return (pm_annotations p,p)
 
-        let tupArgs = gq (pm_parsed_source p)
+       let tupArgs = gq (pm_parsed_source p)
 
-        putStrLn (pp tupArgs)
-        putStrLn (intercalate "\n" [showAnns anns])
+       putStrLn (pp tupArgs)
+       putStrLn (intercalate "\n" [showAnns anns])
 
     where
      gq ast = everything (++) ([] `mkQ` doLHsTupArg) ast
@@ -57,7 +56,7 @@ testOneFile libdir fileName = do
 
 
 showAnns anns = "[\n" ++ (intercalate "\n"
-   $ map (\(AK s k,v)
+   $ map (\((s,k),v)
               -> ("(AK " ++ pp s ++ " " ++ show k ++" = " ++ pp v ++ ")\n"))
    $ Map.toList anns)
     ++ "]\n"

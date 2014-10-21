@@ -143,7 +143,7 @@ import Id
 import IdInfo           ( IdDetails(..) )
 import Type
 
-import ApiAnnotation
+import Lexer            ( ApiAnns )
 import Annotations      ( Annotation, AnnEnv, mkAnnEnv, plusAnnEnv )
 import Class
 import TyCon
@@ -162,7 +162,6 @@ import Maybes
 import Outputable
 import BreakArray
 import SrcLoc
-import Lexer ( Token(..) )
 -- import Unique
 import UniqFM
 import UniqSupply
@@ -2581,7 +2580,7 @@ data HsParsedModule = HsParsedModule {
        -- leaves behind.  These files and their timestamps are stored in
        -- the .hi file, so that we can force recompilation if any of
        -- them change (#3589)
-    hpm_annotations :: ApiAnns (Located Token)
+    hpm_annotations :: ApiAnns
   }
 \end{code}
 

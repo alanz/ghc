@@ -63,7 +63,6 @@ import BooleanFormula   ( BooleanFormula, mkAnd, mkOr, mkTrue, mkVar )
 import FastString
 import Maybes           ( orElse )
 import Outputable
-import ApiAnnotation
 
 import Control.Monad    ( unless, liftM )
 import GHC.Exts

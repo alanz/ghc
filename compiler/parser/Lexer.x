@@ -43,6 +43,7 @@
 {
 -- XXX The above flags turn off warnings in the generated code:
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# OPTIONS_GHC -fno-warn-unused-matches #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}
@@ -72,7 +73,10 @@ module Lexer (
    sccProfilingOn, hpcEnabled,
    addWarning,
    lexTokenStream,
-   addAnnotation
+   ApiAnns,
+   Ann(..),
+   addAnnotation,
+   getAnnotation,getAnnotationComments
   ) where
 
 import Bag
@@ -87,13 +91,13 @@ import Module
 import Ctype
 import BasicTypes       ( InlineSpec(..), RuleMatchInfo(..), FractionalLit(..) )
 import Util             ( readRational )
-import ApiAnnotation
 
 import Control.Applicative
 import Control.Monad
 import Data.Bits
 import Data.ByteString (ByteString)
 import Data.Char
+import Data.Data
 import Data.List
 import Data.Maybe
 import Data.Map (Map)
@@ -2530,7 +2534,7 @@ clean_pragma prag = canon_ws (map toLower (unprefix prag))
 
 addAnnotation :: SrcSpan -> Ann -> SrcSpan -> P ()
 addAnnotation l a v = P $ \s -> POk s {
-  annotations = ((AK l a), v) : annotations s
+  annotations = ((l,a), v) : annotations s
   } ()
 
 queueComment :: Located Token -> P()
@@ -2554,6 +2558,23 @@ allocateComments ss = P $ \s ->
      , annotations_comments = newAnns ++ (annotations_comments s)
      } ()
 
+type ApiAnns = (Map.Map ApiAnnKey SrcSpan, Map.Map SrcSpan [Located Token])
+
+type ApiAnnKey = (SrcSpan,Ann)
+
+-- ---------------------------------------------------------------------
+
+-- | Retrieve an annotation based on the @SrcSpan@ of the annotated AST
+-- element, and the known type of the annotation.
+getAnnotation :: ApiAnns -> SrcSpan -> Ann -> Maybe SrcSpan
+getAnnotation (anns,_) span ann = Map.lookup (span,ann) anns
+
+-- |Retrieve the comments allocated to the current @SrcSpan@
+getAnnotationComments :: ApiAnns -> SrcSpan -> [Located Token]
+getAnnotationComments (_,anns) span =
+  case Map.lookup span anns of
+    Just cs -> cs
+    Nothing -> []
 
 isComment :: Token -> Bool
 isComment (ITdocCommentNext  _)   = True
@@ -2565,5 +2586,79 @@ isComment (ITdocOptionsOld   _)   = True
 isComment (ITlineComment     _)   = True
 isComment (ITblockComment    _)   = True
 isComment _ = False
+
+-- --------------------------------------------------------------------
+
+-- | Note: in general the names of these are taken from the
+-- corresponding token, unless otherwise noted
+data Ann = AnnAs
+         | AnnAt
+         | AnnBang
+         | AnnBy
+         | AnnCase
+         | AnnClass
+         | AnnClose -- ^  or ] or ) or #) etc
+         | AnnColon
+         | AnnColon2
+         | AnnComma
+         | AnnDarrow
+         | AnnData
+         | AnnDcolon
+         | AnnDefault
+         | AnnDeriving
+         | AnnDo
+         | AnnDot
+         | AnnDotdot
+         | AnnElse
+         | AnnEqual
+         | AnnExport
+         | AnnFamily
+         | AnnForall
+         | AnnForeign
+         | AnnGroup
+         | AnnHeader -- ^ for CType
+         | AnnHiding
+         | AnnIf
+         | AnnImport
+         | AnnIn
+         | AnnInstance
+         | AnnLam
+         | AnnLarrow
+         | AnnLarrowtail
+         | AnnLet
+         | AnnMdo
+         | AnnMinus
+         | AnnModule
+         | AnnNewtype
+         | AnnOf
+         | AnnOpen   -- ^ or [ or ( or (# etc
+         | AnnPackageName
+         | AnnPattern
+         | AnnProc
+         | AnnQualified
+         | AnnRarrow
+         | AnnRarrowtail
+         | AnnRec
+         | AnnRole
+         | AnnSafe
+         | AnnSemi
+         | AnnThen
+         | AnnTilde
+         | AnnTildehsh
+         | AnnType
+         | AnnUsing
+         | AnnVal  -- ^ e.g. INTEGER
+         | AnnVal2 -- ^ e.g. INTEGER
+         | AnnVal3 -- ^ e.g. INTEGER
+         | AnnVal4 -- ^ e.g. INTEGER
+         | AnnVal5 -- ^ e.g. INTEGER
+         | AnnVbar
+         | AnnWhere
+         | Annlarrowtail
+         | Annrarrowtail
+            deriving (Eq,Ord,Data,Typeable,Show)
+
+-- instance Outputable Ann where
+--   ppr x = text (show x)
 
 }

@@ -242,7 +242,8 @@ module GHC (
         parser,
 
         -- * API Annotations
-        module ApiAnnotation,
+        ApiAnns,Ann(..),
+        getAnnotation, getAnnotationComments,
 
         -- * Miscellaneous
         --sessionHscEnv,
@@ -314,7 +315,6 @@ import Maybes           ( expectJust )
 import FastString
 import qualified Parser
 import Lexer
-import ApiAnnotation
 
 import System.Directory ( doesFileExist )
 import Data.Maybe
@@ -719,7 +719,7 @@ data ParsedModule =
   ParsedModule { pm_mod_summary   :: ModSummary
                , pm_parsed_source :: ParsedSource
                , pm_extra_src_files :: [FilePath]
-               , pm_annotations :: ApiAnns (Located Token) }
+               , pm_annotations :: ApiAnns }
 
 instance ParsedMod ParsedModule where
   modSummary m    = pm_mod_summary m
