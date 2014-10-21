@@ -278,6 +278,7 @@ Library
         HsImpExp
         HsLit
         PlaceHolder
+        ApiAnnotation
         HsPat
         HsSyn
         HsTypes

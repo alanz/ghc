@@ -71,7 +71,8 @@ module Lexer (
    patternSynonymsEnabled,
    sccProfilingOn, hpcEnabled,
    addWarning,
-   lexTokenStream
+   lexTokenStream,
+   addAnnotation
   ) where
 
 import Bag
@@ -86,6 +87,7 @@ import Module
 import Ctype
 import BasicTypes       ( InlineSpec(..), RuleMatchInfo(..), FractionalLit(..) )
 import Util             ( readRational )
+import ApiAnnotation
 
 import Control.Applicative
 import Control.Monad
@@ -1662,7 +1664,12 @@ data PState = PState {
         alr_expecting_ocurly :: Maybe ALRLayout,
         -- Have we just had the '}' for a let block? If so, than an 'in'
         -- token doesn't need to close anything:
-        alr_justClosedExplicitLetBlock :: Bool
+        alr_justClosedExplicitLetBlock :: Bool,
+
+        annotations :: [(ApiAnnKey,SrcSpan)]
+        -- Annotations giving the locations of 'noise' tokens in the
+        -- source, so that users of the GHC API can do source to
+        -- source conversions.
      }
         -- last_loc and last_len are used when generating error messages,
         -- and in pushCurrentContext only.  Sigh, if only Happy passed the
@@ -2040,7 +2047,8 @@ mkPState flags buf loc =
       alr_last_loc = alrInitialLoc (fsLit "<no file>"),
       alr_context = [],
       alr_expecting_ocurly = Nothing,
-      alr_justClosedExplicitLetBlock = False
+      alr_justClosedExplicitLetBlock = False,
+      annotations = []
     }
     where
       bitmap =     FfiBit                      `setBitIf` xopt Opt_ForeignFunctionInterface flags
@@ -2503,4 +2511,19 @@ clean_pragma prag = canon_ws (map toLower (unprefix prag))
                                               "constructorlike" -> "conlike"
                                               _ -> prag'
                           canon_ws s = unwords (map canonical (words s))
+
+
+{-
+%************************************************************************
+%*                                                                      *
+        Helper functions for generating annotations in the parser
+%*                                                                      *
+%************************************************************************
+-}
+
+addAnnotation :: SrcSpan -> Ann -> SrcSpan -> P ()
+addAnnotation l a v = P $ \s -> POk s {
+  annotations = ((AK l a), v) : annotations s
+  } ()
+
 }

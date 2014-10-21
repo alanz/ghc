@@ -107,7 +107,8 @@ data IE name
   = IEVar               name
   | IEThingAbs          name             -- ^ Class/Type (can't tell)
   | IEThingAll          name             -- ^ Class/Type plus all methods/constructors
-  | IEThingWith         name [name]      -- ^ Class/Type plus some methods/constructors
+  | IEThingWith         name [Located name]
+                 -- ^ Class/Type plus some methods/constructors
   | IEModuleContents    ModuleName       -- ^ (Export Only)
   | IEGroup             Int HsDocString  -- ^ Doc section heading
   | IEDoc               HsDocString      -- ^ Some documentation
@@ -127,7 +128,7 @@ ieNames :: IE a -> [a]
 ieNames (IEVar            n   ) = [n]
 ieNames (IEThingAbs       n   ) = [n]
 ieNames (IEThingAll       n   ) = [n]
-ieNames (IEThingWith      n ns) = n : ns
+ieNames (IEThingWith      n ns) = n : map unLoc ns
 ieNames (IEModuleContents _   ) = []
 ieNames (IEGroup          _ _ ) = []
 ieNames (IEDoc            _   ) = []
@@ -148,12 +149,11 @@ instance (HasOccName name, OutputableBndr name) => Outputable (IE name) where
     ppr (IEThingAbs     thing)  = pprImpExp thing
     ppr (IEThingAll     thing)  = hcat [pprImpExp thing, text "(..)"]
     ppr (IEThingWith thing withs)
-        = pprImpExp thing <> parens (fsep (punctuate comma (map pprImpExp withs)))
+        = pprImpExp thing <> parens (fsep (punctuate comma
+                                             (map pprImpExp $ map unLoc withs)))
     ppr (IEModuleContents mod')
         = ptext (sLit "module") <+> ppr mod'
     ppr (IEGroup n _)           = text ("<IEGroup: " ++ (show n) ++ ">")
     ppr (IEDoc doc)             = ppr doc
     ppr (IEDocNamed string)     = text ("<IEDocNamed: " ++ string ++ ">")
 \end{code}
-
-

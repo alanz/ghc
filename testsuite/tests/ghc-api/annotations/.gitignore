@@ -1,0 +1,6 @@
+annotations
+parseTree
+*.hi
+*.o
+*.run.*
+*.normalised

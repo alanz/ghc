@@ -156,13 +156,13 @@ tcRnModuleTcRnM hsc_env hsc_src
    do {         -- Deal with imports; first add implicit prelude
         implicit_prelude <- xoptM Opt_ImplicitPrelude;
         let { prel_imports = mkPrelImports (moduleName this_mod) prel_imp_loc
-                                         implicit_prelude import_decls } ;
+                                      implicit_prelude (unLoc import_decls) } ;
 
         whenWOptM Opt_WarnImplicitPrelude $
              when (notNull prel_imports) $ addWarn (implicitPreludeWarn) ;
 
         tcg_env <- {-# SCC "tcRnImports" #-}
-                   tcRnImports hsc_env (prel_imports ++ import_decls) ;
+                   tcRnImports hsc_env (prel_imports ++ (unLoc import_decls)) ;
 
           -- If the whole module is warned about or deprecated 
           -- (via mod_deprec) record that in tcg_warns. If we do thereby add
@@ -989,8 +989,8 @@ tcTyClsInstDecls boot_details tycl_decls inst_decls deriv_decls
       = concatMap (get_fi_cons . unLoc) fids
 
     get_fi_cons :: DataFamInstDecl Name -> [Name]
-    get_fi_cons (DataFamInstDecl { dfid_defn = HsDataDefn { dd_cons = cons } }) 
-      = map (unLoc . con_name . unLoc) cons
+    get_fi_cons (DataFamInstDecl { dfid_defn = HsDataDefn { dd_cons = cons } })
+      = map (unLoc . con_name . unLoc) (concatMap unLoc cons)
 \end{code}
 
 Note [AFamDataCon: not promoting data family constructors]

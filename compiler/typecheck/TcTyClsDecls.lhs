@@ -381,10 +381,12 @@ getInitialKind decl@(ClassDecl { tcdLName = L _ name, tcdTyVars = ktvs, tcdATs =
        ; return (main_pr : inner_prs) }
 
 getInitialKind decl@(DataDecl { tcdLName = L _ name
-                                , tcdTyVars = ktvs
-                                , tcdDataDefn = HsDataDefn { dd_kindSig = m_sig
-                                                           , dd_cons = cons } })
-  = do { (decl_kind, _) <-
+                              , tcdTyVars = ktvs
+                              , tcdDataDefn = HsDataDefn { dd_kindSig = m_sig
+                                                         , dd_cons = cons' } })
+  = let cons = concatMap unLoc cons' -- AZ list monad coming
+    in
+     do { (decl_kind, _) <-
            kcHsTyVarBndrs (hsDeclHasCusk decl) ktvs $
            do { res_k <- case m_sig of
                            Just ksig -> tcLHsKind ksig
@@ -470,7 +472,7 @@ kcTyClDecl :: TyClDecl Name -> TcM ()
 
 kcTyClDecl (DataDecl { tcdLName = L _ name, tcdTyVars = hs_tvs, tcdDataDefn = defn })
   | HsDataDefn { dd_cons = cons, dd_kindSig = Just _ } <- defn
-  = mapM_ (wrapLocM kcConDecl) cons
+  = mapM_ (wrapLocM kcConDecl) (concatMap unLoc cons)
     -- hs_tvs and dd_kindSig already dealt with in getInitialKind
     -- If dd_kindSig is Just, this must be a GADT-style decl,
     --        (see invariants of DataDefn declaration)
@@ -481,7 +483,7 @@ kcTyClDecl (DataDecl { tcdLName = L _ name, tcdTyVars = hs_tvs, tcdDataDefn = de
   | HsDataDefn { dd_ctxt = ctxt, dd_cons = cons } <- defn
   = kcTyClTyVars name hs_tvs $
     do  { _ <- tcHsContext ctxt
-        ; mapM_ (wrapLocM kcConDecl) cons }
+        ; mapM_ (wrapLocM kcConDecl) (concatMap unLoc cons) }
 
 kcTyClDecl decl@(SynDecl {}) = pprPanic "kcTyClDecl" (ppr decl)
 
@@ -775,8 +777,9 @@ tcDataDefn :: RecTyInfo -> Name
 tcDataDefn rec_info tc_name tvs kind
          (HsDataDefn { dd_ND = new_or_data, dd_cType = cType
                      , dd_ctxt = ctxt, dd_kindSig = mb_ksig
-                     , dd_cons = cons })
-  = do { extra_tvs <- tcDataKindSig kind
+                     , dd_cons = cons' })
+ = let cons = concatMap unLoc cons' -- AZ List monad coming
+   in do { extra_tvs <- tcDataKindSig kind
        ; let final_tvs  = tvs ++ extra_tvs
              roles      = rti_roles rec_info tc_name
        ; stupid_tc_theta <- tcHsContext ctxt
@@ -804,7 +807,8 @@ tcDataDefn rec_info tc_name tvs kind
                    DataType -> return (mkDataTyConRhs data_cons)
                    NewType  -> ASSERT( not (null data_cons) )
                                     mkNewTyConRhs tc_name tycon (head data_cons)
-             ; return (buildAlgTyCon tc_name final_tvs roles cType stupid_theta tc_rhs
+             ; return (buildAlgTyCon tc_name final_tvs roles (fmap unLoc cType)
+                                     stupid_theta tc_rhs
                                      (rti_is_rec rec_info tc_name)
                                      (rti_promotable rec_info)
                                      gadt_syntax NoParentTyCon) }
@@ -929,7 +933,7 @@ kcDataDefn :: HsDataDefn Name -> TcKind -> TcM ()
 -- Ordinary 'data' is handled by kcTyClDec
 kcDataDefn (HsDataDefn { dd_ctxt = ctxt, dd_cons = cons, dd_kindSig = mb_kind }) res_k
   = do  { _ <- tcHsContext ctxt
-        ; checkNoErrs $ mapM_ (wrapLocM kcConDecl) cons
+        ; checkNoErrs $ mapM_ (wrapLocM kcConDecl) (concatMap unLoc cons)
           -- See Note [Failing early in kcDataDefn]
         ; kcResultKind mb_kind res_k }
 
@@ -1221,10 +1225,11 @@ tcConArgs new_or_data (InfixCon bty1 bty2)
   = do { bty1' <- tcConArg new_or_data bty1
        ; bty2' <- tcConArg new_or_data bty2
        ; return (True, [], [bty1', bty2']) }
-tcConArgs new_or_data (RecCon fields)
+tcConArgs new_or_data (RecCon fields')
   = do { btys' <- mapM (tcConArg new_or_data) btys
        ; return (False, field_names, btys') }
   where
+    fields = concatMap unLoc fields'
     field_names = map (unLoc . cd_fld_name) fields
     btys        = map cd_fld_type fields
 
@@ -1917,9 +1922,9 @@ mkRecSelBind (tycon, sel_name)
                                  (L loc (HsVar field_var))
     mk_sel_pat con = ConPatIn (L loc (getName con)) (RecCon rec_fields)
     rec_fields = HsRecFields { rec_flds = [rec_field], rec_dotdot = Nothing }
-    rec_field  = HsRecField { hsRecFieldId = sel_lname
-                            , hsRecFieldArg = L loc (VarPat field_var)
-                            , hsRecPun = False }
+    rec_field  = noLoc (HsRecField { hsRecFieldId = sel_lname
+                                   , hsRecFieldArg = L loc (VarPat field_var)
+                                   , hsRecPun = False })
     sel_lname = L loc sel_name
     field_var = mkInternalName (mkBuiltinUnique 1) (getOccName sel_name) loc
 

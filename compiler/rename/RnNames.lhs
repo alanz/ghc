@@ -744,11 +744,11 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
            case mb_parent of
              -- non-associated ty/cls
              Nothing     -> return ([(IEThingWith name children,
-                                      AvailTC name (name:children))],
+                                      AvailTC name (name:map unLoc children))],
                                     [])
              -- associated ty
              Just parent -> return ([(IEThingWith name children,
-                                      AvailTC name children),
+                                      AvailTC name (map unLoc children)),
                                      (IEThingWith name children,
                                       AvailTC parent [name])],
                                     [])
@@ -861,7 +861,7 @@ mkChildEnv gres = foldr add emptyNameEnv gres
 findChildren :: NameEnv [Name] -> Name -> [Name]
 findChildren env n = lookupNameEnv env n `orElse` []
 
-lookupChildren :: [Name] -> [RdrName] -> [Maybe Name]
+lookupChildren :: [Name] -> [Located RdrName] -> [Maybe (Located Name)]
 -- (lookupChildren all_kids rdr_items) maps each rdr_item to its
 -- corresponding Name all_kids, if the former exists
 -- The matching is done by FastString, not OccName, so that
@@ -870,8 +870,13 @@ lookupChildren :: [Name] -> [RdrName] -> [Maybe Name]
 -- the RdrName for AssocTy may have a (bogus) DataName namespace
 -- (Really the rdr_items should be FastStrings in the first place.)
 lookupChildren all_kids rdr_items
-  = map (lookupFsEnv kid_env . occNameFS . rdrNameOcc) rdr_items
+  -- = map (lookupFsEnv kid_env . occNameFS . rdrNameOcc) rdr_items
+  = map doOne rdr_items
   where
+    doOne (L l r) = case (lookupFsEnv kid_env . occNameFS . rdrNameOcc) r of
+      Just n -> Just (L l n)
+      Nothing -> Nothing
+
     kid_env = mkFsEnv [(occNameFS (nameOccName n), n) | n <- all_kids]
 
 -- | Combines 'AvailInfo's from the same family
@@ -949,7 +954,7 @@ type ExportOccMap = OccEnv (Name, IE RdrName)
         --   that have the same occurrence name
 
 rnExports :: Bool       -- False => no 'module M(..) where' header at all
-          -> Maybe [LIE RdrName]        -- Nothing => no explicit export list
+          -> Maybe (Located [LIE RdrName]) -- Nothing => no explicit export list
           -> TcGblEnv
           -> RnM TcGblEnv
 
@@ -976,7 +981,7 @@ rnExports explicit_mod exports
         ; let real_exports
                  | explicit_mod = exports
                  | ghcLink dflags == LinkInMemory = Nothing
-                 | otherwise = Just [noLoc (IEVar main_RDR_Unqual)]
+                 | otherwise = Just (noLoc [noLoc (IEVar main_RDR_Unqual)])
                         -- ToDo: the 'noLoc' here is unhelpful if 'main'
                         --       turns out to be out of scope
 
@@ -992,7 +997,7 @@ rnExports explicit_mod exports
                             tcg_dus = tcg_dus tcg_env `plusDU`
                                       usesOnly (availsToNameSet final_avails) }) }
 
-exports_from_avail :: Maybe [LIE RdrName]
+exports_from_avail :: Maybe (Located [LIE RdrName])
                          -- Nothing => no explicit export list
                    -> GlobalRdrEnv
                    -> ImportAvails
@@ -1010,8 +1015,8 @@ exports_from_avail Nothing rdr_env _imports _this_mod
    return (Nothing, avails)
 
 exports_from_avail (Just rdr_items) rdr_env imports this_mod
-  = do (ie_names, _, exports) <- foldlM do_litem emptyExportAccum rdr_items
-
+  = do (ie_names, _, exports) <- foldlM do_litem emptyExportAccum
+                                                               (unLoc rdr_items)
        return (Just ie_names, exports)
   where
     do_litem :: ExportAccum -> LIE RdrName -> RnM ExportAccum
@@ -1115,8 +1120,9 @@ exports_from_avail (Just rdr_items) rdr_env imports this_mod
                 then do addErr (exportItemErr ie)
                         return (IEThingWith name [], AvailTC name [name])
                 else do let names = catMaybes mb_names
-                        addUsedKids rdr names
-                        return (IEThingWith name names, AvailTC name (name:names))
+                        addUsedKids rdr (map unLoc names)
+                        return (IEThingWith name names
+                               , AvailTC name (name:map unLoc names))
 
     lookup_ie _ = panic "lookup_ie"    -- Other cases covered earlier
 
@@ -1239,7 +1245,7 @@ dupExport_ok n ie1 ie2
 %*********************************************************
 
 \begin{code}
-reportUnusedNames :: Maybe [LIE RdrName]    -- Export list
+reportUnusedNames :: Maybe (Located [LIE RdrName])  -- Export list
                   -> TcGblEnv -> RnM ()
 reportUnusedNames _export_decls gbl_env
   = do  { traceRn ((text "RUN") <+> (ppr (tcg_dus gbl_env)))
@@ -1373,7 +1379,7 @@ findImportUsage imports rdr_env rdrs
         add_unused (IEVar n)          acc = add_unused_name n acc
         add_unused (IEThingAbs n)     acc = add_unused_name n acc
         add_unused (IEThingAll n)     acc = add_unused_all  n acc
-        add_unused (IEThingWith p ns) acc = add_unused_with p ns acc
+        add_unused (IEThingWith p ns) acc = add_unused_with p (map unLoc ns) acc
         add_unused _                  acc = acc
 
         add_unused_name n acc
@@ -1530,7 +1536,7 @@ printMinimalImports imports_w_usage
                  , x `elem` xs    -- Note [Partial export]
                  ] of
            [xs] | all_used xs -> [IEThingAll n]
-                | otherwise   -> [IEThingWith n (filter (/= n) ns)]
+                | otherwise   -> [IEThingWith n (map noLoc (filter (/= n) ns))]
            _other             -> map IEVar ns
         where
           all_used avail_occs = all (`elem` ns) avail_occs

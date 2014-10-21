@@ -123,11 +123,11 @@ mkInstD (L loc d) = L loc (InstD d)
 mkClassDecl :: SrcSpan
             -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
             -> Located [Located (FunDep RdrName)]
-            -> Located (OrdList (LHsDecl RdrName))
+            -> OrdList (LHsDecl RdrName)
             -> P (LTyClDecl RdrName)
 
 mkClassDecl loc (L _ (mcxt, tycl_hdr)) fds where_cls
-  = do { let (binds, sigs, ats, at_insts, _, docs) = cvBindsAndSigs (unLoc where_cls)
+  = do { let (binds, sigs, ats, at_insts, _, docs) = cvBindsAndSigs where_cls
              cxt = fromMaybe (noLoc []) mcxt
        ; (cls, tparams) <- checkTyClHdr tycl_hdr
        ; tyvars <- checkTyVarsP (ptext (sLit "class")) whereDots cls tparams
@@ -154,10 +154,10 @@ mkATDefault (L loc (TyFamInstDecl { tfid_eqn = L _ e }))
 
 mkTyData :: SrcSpan
          -> NewOrData
-         -> Maybe CType
+         -> Maybe (Located CType)
          -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
          -> Maybe (LHsKind RdrName)
-         -> [LConDecl RdrName]
+         -> [Located [LConDecl RdrName]]
          -> Maybe [LHsType RdrName]
          -> P (LTyClDecl RdrName)
 mkTyData loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
@@ -169,10 +169,10 @@ mkTyData loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
                                    tcdFVs = placeHolderNames })) }
 
 mkDataDefn :: NewOrData
-           -> Maybe CType
+           -> Maybe (Located CType)
            -> Maybe (LHsContext RdrName)
            -> Maybe (LHsKind RdrName)
-           -> [LConDecl RdrName]
+           -> [Located [LConDecl RdrName]]
            -> Maybe [LHsType RdrName]
            -> P (HsDataDefn RdrName)
 mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
@@ -205,10 +205,10 @@ mkTyFamInstEqn lhs rhs
 
 mkDataFamInst :: SrcSpan
          -> NewOrData
-         -> Maybe CType
+         -> Maybe (Located CType)
          -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
          -> Maybe (LHsKind RdrName)
-         -> [LConDecl RdrName]
+         -> [Located [LConDecl RdrName]]
          -> Maybe [LHsType RdrName]
          -> P (LInstDecl RdrName)
 mkDataFamInst loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
@@ -473,7 +473,7 @@ toPatSynMatchGroup (L _ patsyn_name) (L _ decls) =
 
 mkDeprecatedGadtRecordDecl :: SrcSpan
                            -> Located RdrName
-                           -> [ConDeclField RdrName]
+                           -> [Located [ConDeclField RdrName]]
                            -> LHsType RdrName
                            ->  P (LConDecl  RdrName)
 -- This one uses the deprecated syntax
@@ -743,7 +743,8 @@ checkAPat msg loc e0 = do
                             return (PArrPat ps placeHolderType)
 
    ExplicitTuple es b
-     | all tupArgPresent es  -> do ps <- mapM (checkLPat msg) [e | Present e <- es]
+     | all tupArgPresent es  -> do ps <- mapM (checkLPat msg)
+                                              [e | L _ (Present e) <- es]
                                    return (TuplePat ps b [])
      | otherwise -> parseErrorSDoc loc (text "Illegal tuple section in pattern:" $$ ppr e0)
 
@@ -765,9 +766,10 @@ plus_RDR = mkUnqual varName (fsLit "+") -- Hack
 bang_RDR = mkUnqual varName (fsLit "!") -- Hack
 pun_RDR  = mkUnqual varName (fsLit "pun-right-hand-side")
 
-checkPatField :: SDoc -> HsRecField RdrName (LHsExpr RdrName) -> P (HsRecField RdrName (LPat RdrName))
-checkPatField msg fld = do p <- checkLPat msg (hsRecFieldArg fld)
-                           return (fld { hsRecFieldArg = p })
+checkPatField :: SDoc -> LHsRecField RdrName (LHsExpr RdrName)
+              -> P (LHsRecField RdrName (LPat RdrName))
+checkPatField msg (L l fld) = do p <- checkLPat msg (hsRecFieldArg fld)
+                                 return (L l (fld { hsRecFieldArg = p }))
 
 patFail :: SDoc -> SrcSpan -> HsExpr RdrName -> P a
 patFail msg loc e = parseErrorSDoc loc err
@@ -781,19 +783,19 @@ patFail msg loc e = parseErrorSDoc loc err
 checkValDef :: SDoc
             -> LHsExpr RdrName
             -> Maybe (LHsType RdrName)
-            -> Located (GRHSs RdrName (LHsExpr RdrName))
+            -> Located (a,GRHSs RdrName (LHsExpr RdrName))
             -> P (HsBind RdrName)
 
 checkValDef msg lhs (Just sig) grhss
         -- x :: ty = rhs  parses as a *pattern* binding
   = checkPatBind msg (L (combineLocs lhs sig) (ExprWithTySig lhs sig)) grhss
 
-checkValDef msg lhs opt_sig grhss
+checkValDef msg lhs opt_sig g@(L l (_,grhss))
   = do  { mb_fun <- isFunLhs lhs
         ; case mb_fun of
             Just (fun, is_infix, pats) -> checkFunBind msg (getLoc lhs)
-                                                fun is_infix pats opt_sig grhss
-            Nothing -> checkPatBind msg lhs grhss }
+                                           fun is_infix pats opt_sig (L l grhss)
+            Nothing -> checkPatBind msg lhs g }
 
 checkFunBind :: SDoc
              -> SrcSpan
@@ -819,9 +821,9 @@ makeFunBind fn is_infix ms
 
 checkPatBind :: SDoc
              -> LHsExpr RdrName
-             -> Located (GRHSs RdrName (LHsExpr RdrName))
+             -> Located (a,GRHSs RdrName (LHsExpr RdrName))
              -> P (HsBind RdrName)
-checkPatBind msg lhs (L _ grhss)
+checkPatBind msg lhs (L _ (_,grhss))
   = do  { lhs <- checkPattern msg lhs
         ; return (PatBind lhs grhss placeHolderType placeHolderNames
                     (Nothing,[])) }
@@ -1055,7 +1057,7 @@ checkPrecP (L l i)
 mkRecConstrOrUpdate
         :: LHsExpr RdrName
         -> SrcSpan
-        -> ([HsRecField RdrName (LHsExpr RdrName)], Bool)
+        -> ([LHsRecField RdrName (LHsExpr RdrName)], Bool)
         -> P (HsExpr RdrName)
 
 mkRecConstrOrUpdate (L l (HsVar c)) _ (fs,dd) 
@@ -1064,7 +1066,7 @@ mkRecConstrOrUpdate (L l (HsVar c)) _ (fs,dd)
 mkRecConstrOrUpdate exp _ (fs,dd)
   = return (RecordUpd exp (mk_rec_fields fs dd) [] [] [])
 
-mk_rec_fields :: [HsRecField id arg] -> Bool -> HsRecFields id arg
+mk_rec_fields :: [LHsRecField id arg] -> Bool -> HsRecFields id arg
 mk_rec_fields fs False = HsRecFields { rec_flds = fs, rec_dotdot = Nothing }
 mk_rec_fields fs True  = HsRecFields { rec_flds = fs, rec_dotdot = Just (length fs) }
 
@@ -1187,7 +1189,7 @@ mkExtName rdrNm = mkFastString (occNameString (rdrNameOcc rdrNm))
 -- Help with module system imports/exports
 
 \begin{code}
-data ImpExpSubSpec = ImpExpAbs | ImpExpAll | ImpExpList [ RdrName ]
+data ImpExpSubSpec = ImpExpAbs | ImpExpAll | ImpExpList [Located RdrName]
 
 mkModuleImpExp :: RdrName -> ImpExpSubSpec -> IE RdrName
 mkModuleImpExp name subs =
