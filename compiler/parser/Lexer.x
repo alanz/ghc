@@ -2540,7 +2540,12 @@ clean_pragma prag = canon_ws (map toLower (unprefix prag))
 -}
 
 addAnnotation :: SrcSpan -> Ann -> SrcSpan -> P ()
-addAnnotation l a v = P $ \s -> POk s {
+addAnnotation l a v = do
+  addAnnotationOnly l a v
+  allocateComments l
+
+addAnnotationOnly :: SrcSpan -> Ann -> SrcSpan -> P ()
+addAnnotationOnly l a v = P $ \s -> POk s {
   annotations = ((l,a), v) : annotations s
   } ()
 
