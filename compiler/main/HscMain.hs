@@ -374,7 +374,10 @@ hscParse' mod_summary = do
             return HsParsedModule {
                       hpm_module    = rdr_module,
                       hpm_src_files = srcs2,
-                      hpm_annotations = (Map.fromList $ annotations pst)
+                      hpm_annotations
+                              = (Map.fromList $ annotations pst,
+                                 Map.fromList $ ((noSrcSpan,comment_q pst)
+                                                 :(annotations_comments pst)))
                    }
 
 -- XXX: should this really be a Maybe X?  Check under which circumstances this

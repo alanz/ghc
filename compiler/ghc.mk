@@ -492,6 +492,7 @@ compiler_stage2_dll0_MODULES = \
 	CoreUnfold \
 	CoreUtils \
 	CostCentre \
+	Ctype \
 	DataCon \
 	Demand \
 	Digraph \
@@ -519,7 +520,6 @@ compiler_stage2_dll0_MODULES = \
 	HsImpExp \
 	HsLit \
 	PlaceHolder \
-	ApiAnnotation \
 	HsPat \
 	HsSyn \
 	HsTypes \
@@ -533,6 +533,7 @@ compiler_stage2_dll0_MODULES = \
 	IfaceType \
 	InstEnv \
 	Kind \
+	Lexer \
 	ListSetOps \
 	Literal \
 	LoadIface \

@@ -242,7 +242,8 @@ module GHC (
         parser,
 
         -- * API Annotations
-        module ApiAnnotation,
+        ApiAnns,Ann(..),
+        getAnnotation, getAnnotationComments,
 
         -- * Miscellaneous
         --sessionHscEnv,
@@ -314,7 +315,6 @@ import Maybes           ( expectJust )
 import FastString
 import qualified Parser
 import Lexer
-import ApiAnnotation
 
 import System.Directory ( doesFileExist )
 import Data.Maybe

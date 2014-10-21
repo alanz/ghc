@@ -1,0 +1,20 @@
+[
+( CommentsTest.hs:(9,7)-(12,14) =
+[(CommentsTest.hs:11:15-24,ITlineComment "-- value 2")])
+
+( <no location info> =
+[(CommentsTest.hs:8:1-33,ITdocCommentNext " The function @foo@ does blah"),
+
+(CommentsTest.hs:(2,1)-(4,2),ITblockComment "\nAn opening comment\n")])
+]
+
+[
+( CommentsTest.hs:(9,7)-(12,14) =
+[(CommentsTest.hs:11:15-24,ITlineComment "-- value 2")])
+
+( <no location info> =
+[(CommentsTest.hs:8:1-33,ITlineComment "-- | The function @foo@ does blah"),
+
+(CommentsTest.hs:(2,1)-(4,2),ITblockComment "\nAn opening comment\n")])
+]
+

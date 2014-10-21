@@ -10,7 +10,6 @@ import Data.List
 import System.IO
 import GHC
 import DynFlags
-import ApiAnnotation -- AZ needs to be in GHC
 import MonadUtils
 import Outputable
 import Bag (filterBag,isEmptyBag)
@@ -44,14 +43,14 @@ testOneFile libdir fileName = do
                         return (pm_annotations p)
 
         let anns = p
-            AK l _ = fst $ head $ Map.toList p
+            (l,_) = fst $ head $ Map.toList (fst anns)
             annModule = (getAnnotation anns l AnnModule)
             annLet    = (getAnnotation anns l AnnLet)
 
         putStrLn (intercalate "\n" [showAnns anns,pp annModule,pp annLet,pp l])
 
-showAnns anns = "[\n" ++ (intercalate "\n"
-   $ map (\(AK s k,v)
+showAnns (anns,_) = "[\n" ++ (intercalate "\n"
+   $ map (\((s,k),v)
               -> ("(AK " ++ pp s ++ " " ++ show k ++" = " ++ pp v ++ ")\n"))
    $ Map.toList anns)
     ++ "]\n"
