@@ -694,22 +694,22 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
     lookup_ie :: IE RdrName -> IELookupM ([(IE Name, AvailInfo)], [IELookupWarning])
     lookup_ie ie = handle_bad_import $ do
       case ie of
-        IEVar n -> do
+        IEVar (L l n) -> do
             (name, avail, _) <- lookup_name n
-            return ([(IEVar name, trimAvail avail name)], [])
+            return ([(IEVar (L l name), trimAvail avail name)], [])
 
-        IEThingAll tc -> do
+        IEThingAll (L l tc) -> do
             (name, avail@(AvailTC name2 subs), mb_parent) <- lookup_name tc
             let warns | null (drop 1 subs)      = [DodgyImport tc]
                       | not (is_qual decl_spec) = [MissingImportList]
                       | otherwise               = []
             case mb_parent of
               -- non-associated ty/cls
-              Nothing     -> return ([(IEThingAll name, avail)], warns)
+              Nothing     -> return ([(IEThingAll (L l name), avail)], warns)
               -- associated ty
-              Just parent -> return ([(IEThingAll name,
+              Just parent -> return ([(IEThingAll (L l name),
                                        AvailTC name2 (subs \\ [name])),
-                                      (IEThingAll name, AvailTC parent [name])],
+                                      (IEThingAll (L l name), AvailTC parent [name])],
                                      warns)
 
         IEThingAbs tc
@@ -726,7 +726,7 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
             -> do nameAvail <- lookup_name tc
                   return ([mkIEThingAbs nameAvail], [])
 
-        IEThingWith rdr_tc rdr_ns -> do
+        IEThingWith (L l rdr_tc) rdr_ns -> do
            (name, AvailTC _ ns, mb_parent) <- lookup_name rdr_tc
 
            -- Look up the children in the sub-names of the parent
@@ -743,13 +743,13 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
 
            case mb_parent of
              -- non-associated ty/cls
-             Nothing     -> return ([(IEThingWith name children,
+             Nothing     -> return ([(IEThingWith (L l name) children,
                                       AvailTC name (name:map unLoc children))],
                                     [])
              -- associated ty
-             Just parent -> return ([(IEThingWith name children,
+             Just parent -> return ([(IEThingWith (L l name) children,
                                       AvailTC name (map unLoc children)),
-                                     (IEThingWith name children,
+                                     (IEThingWith (L l name) children,
                                       AvailTC parent [name])],
                                     [])
 
@@ -845,8 +845,8 @@ gresFromIE decl_spec (L loc ie, avail)
   = gresFromAvail prov_fn avail
   where
     is_explicit = case ie of
-                    IEThingAll name -> \n -> n == name
-                    _               -> \_ -> True
+                    IEThingAll (L _ name) -> \n -> n == name
+                    _                     -> \_ -> True
     prov_fn name = Imported [imp_spec]
         where
           imp_spec  = ImpSpec { is_decl = decl_spec, is_item = item_spec }
@@ -981,7 +981,8 @@ rnExports explicit_mod exports
         ; let real_exports
                  | explicit_mod = exports
                  | ghcLink dflags == LinkInMemory = Nothing
-                 | otherwise = Just (noLoc [noLoc (IEVar main_RDR_Unqual)])
+                 | otherwise
+                          = Just (noLoc [noLoc (IEVar (noLoc main_RDR_Unqual))])
                         -- ToDo: the 'noLoc' here is unhelpful if 'main'
                         --       turns out to be out of scope
 
@@ -1086,9 +1087,9 @@ exports_from_avail (Just rdr_items) rdr_env imports this_mod
 
     -------------
     lookup_ie :: IE RdrName -> RnM (IE Name, AvailInfo)
-    lookup_ie (IEVar rdr)
+    lookup_ie (IEVar (L l rdr))
         = do gre <- lookupGreRn rdr
-             return (IEVar (gre_name gre), greExportAvail gre)
+             return (IEVar (L l (gre_name gre)), greExportAvail gre)
 
     lookup_ie (IEThingAbs rdr)
         = do gre <- lookupGreRn rdr
@@ -1096,7 +1097,7 @@ exports_from_avail (Just rdr_items) rdr_env imports this_mod
                  avail = greExportAvail gre
              return (IEThingAbs name, avail)
 
-    lookup_ie ie@(IEThingAll rdr)
+    lookup_ie ie@(IEThingAll (L l rdr))
         = do name <- lookupGlobalOccRn rdr
              let kids = findChildren kids_env name
              addUsedKids rdr kids
@@ -1108,20 +1109,20 @@ exports_from_avail (Just rdr_items) rdr_env imports this_mod
                        -- only import T abstractly, or T is a synonym.
                        addErr (exportItemErr ie)
 
-             return (IEThingAll name, AvailTC name (name:kids))
+             return (IEThingAll (L l name), AvailTC name (name:kids))
 
-    lookup_ie ie@(IEThingWith rdr sub_rdrs)
+    lookup_ie ie@(IEThingWith (L l rdr) sub_rdrs)
         = do name <- lookupGlobalOccRn rdr
              if isUnboundName name
-                then return (IEThingWith name [], AvailTC name [name])
+                then return (IEThingWith (L l name) [], AvailTC name [name])
                 else do
              let mb_names = lookupChildren (findChildren kids_env name) sub_rdrs
              if any isNothing mb_names
                 then do addErr (exportItemErr ie)
-                        return (IEThingWith name [], AvailTC name [name])
+                        return (IEThingWith (L l name) [], AvailTC name [name])
                 else do let names = catMaybes mb_names
                         addUsedKids rdr (map unLoc names)
-                        return (IEThingWith name names
+                        return (IEThingWith (L l name) names
                                , AvailTC name (name:map unLoc names))
 
     lookup_ie _ = panic "lookup_ie"    -- Other cases covered earlier
@@ -1229,7 +1230,7 @@ dupExport_ok n ie1 ie2
         || (explicit_in ie1 && explicit_in ie2) )
   where
     explicit_in (IEModuleContents _) = False                -- module M
-    explicit_in (IEThingAll r) = nameOccName n == rdrNameOcc r  -- T(..)
+    explicit_in (IEThingAll r) = nameOccName n == rdrNameOcc (unLoc r)  -- T(..)
     explicit_in _              = True
 
     single (IEVar {})      = True
@@ -1376,11 +1377,12 @@ findImportUsage imports rdr_env rdrs
               _other -> emptyNameSet -- No explicit import list => no unused-name list
 
         add_unused :: IE Name -> NameSet -> NameSet
-        add_unused (IEVar n)          acc = add_unused_name n acc
-        add_unused (IEThingAbs n)     acc = add_unused_name n acc
-        add_unused (IEThingAll n)     acc = add_unused_all  n acc
-        add_unused (IEThingWith p ns) acc = add_unused_with p (map unLoc ns) acc
-        add_unused _                  acc = acc
+        add_unused (IEVar (L _ n))      acc = add_unused_name n acc
+        add_unused (IEThingAbs n)       acc = add_unused_name n acc
+        add_unused (IEThingAll (L _ n)) acc = add_unused_all  n acc
+        add_unused (IEThingWith (L _ p) ns) acc
+                                          = add_unused_with p (map unLoc ns) acc
+        add_unused _                    acc = acc
 
         add_unused_name n acc
           | n `elemNameSet` used_names = acc
@@ -1527,7 +1529,7 @@ printMinimalImports imports_w_usage
     -- we want to say "T(..)", but if we're importing only a subset we want
     -- to say "T(A,B,C)".  So we have to find out what the module exports.
     to_ie _ (Avail n)
-       = [IEVar n]
+       = [IEVar (noLoc n)]
     to_ie _ (AvailTC n [m])
        | n==m = [IEThingAbs n]
     to_ie iface (AvailTC n ns)
@@ -1535,9 +1537,10 @@ printMinimalImports imports_w_usage
                  , x == n
                  , x `elem` xs    -- Note [Partial export]
                  ] of
-           [xs] | all_used xs -> [IEThingAll n]
-                | otherwise   -> [IEThingWith n (map noLoc (filter (/= n) ns))]
-           _other             -> map IEVar ns
+           [xs] | all_used xs -> [IEThingAll (noLoc n)]
+                | otherwise   -> [IEThingWith (noLoc n)
+                                              (map noLoc (filter (/= n) ns))]
+           _other             -> map (IEVar . noLoc)  ns
         where
           all_used avail_occs = all (`elem` ns) avail_occs
 \end{code}
@@ -1631,7 +1634,8 @@ dodgyExportWarn item = dodgyMsg (ptext (sLit "export")) item
 
 dodgyMsg :: (OutputableBndr n, HasOccName n) => SDoc -> n -> SDoc
 dodgyMsg kind tc
-  = sep [ ptext (sLit "The") <+> kind <+> ptext (sLit "item") <+> quotes (ppr (IEThingAll tc))
+  = sep [ ptext (sLit "The") <+> kind <+> ptext (sLit "item")
+                             <+> quotes (ppr (IEThingAll (noLoc tc)))
                 <+> ptext (sLit "suggests that"),
           quotes (ppr tc) <+> ptext (sLit "has (in-scope) constructors or class methods,"),
           ptext (sLit "but it has none") ]

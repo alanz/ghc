@@ -1191,14 +1191,14 @@ mkExtName rdrNm = mkFastString (occNameString (rdrNameOcc rdrNm))
 \begin{code}
 data ImpExpSubSpec = ImpExpAbs | ImpExpAll | ImpExpList [Located RdrName]
 
-mkModuleImpExp :: RdrName -> ImpExpSubSpec -> IE RdrName
-mkModuleImpExp name subs =
+mkModuleImpExp :: Located RdrName -> ImpExpSubSpec -> IE RdrName
+mkModuleImpExp n@(L l name) subs =
   case subs of
-    ImpExpAbs 
-      | isVarNameSpace (rdrNameSpace name) -> IEVar       name
+    ImpExpAbs
+      | isVarNameSpace (rdrNameSpace name) -> IEVar       n
       | otherwise                          -> IEThingAbs  nameT
-    ImpExpAll                              -> IEThingAll  nameT
-    ImpExpList xs                          -> IEThingWith nameT xs
+    ImpExpAll                              -> IEThingAll  (L l nameT)
+    ImpExpList xs                          -> IEThingWith (L l nameT) xs
 
   where
     nameT = setRdrNameSpace name tcClsName

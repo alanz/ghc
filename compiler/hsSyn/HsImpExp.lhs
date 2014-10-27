@@ -104,10 +104,10 @@ type LIE name = Located (IE name)
 
 -- | Imported or exported entity.
 data IE name
-  = IEVar               name
-  | IEThingAbs          name             -- ^ Class/Type (can't tell)
-  | IEThingAll          name             -- ^ Class/Type plus all methods/constructors
-  | IEThingWith         name [Located name]
+  = IEVar       (Located name)
+  | IEThingAbs           name      -- ^ Class/Type (can't tell)
+  | IEThingAll  (Located name)     -- ^ Class/Type plus all methods/constructors
+  | IEThingWith (Located name) [Located name]
                  -- ^ Class/Type plus some methods/constructors
   | IEModuleContents    ModuleName       -- ^ (Export Only)
   | IEGroup             Int HsDocString  -- ^ Doc section heading
@@ -118,21 +118,21 @@ data IE name
 
 \begin{code}
 ieName :: IE name -> name
-ieName (IEVar n)         = n
-ieName (IEThingAbs  n)   = n
-ieName (IEThingWith n _) = n
-ieName (IEThingAll  n)   = n
+ieName (IEVar (L _ n))         = n
+ieName (IEThingAbs  n)         = n
+ieName (IEThingWith (L _ n) _) = n
+ieName (IEThingAll  (L _ n))   = n
 ieName _ = panic "ieName failed pattern match!"
 
 ieNames :: IE a -> [a]
-ieNames (IEVar            n   ) = [n]
-ieNames (IEThingAbs       n   ) = [n]
-ieNames (IEThingAll       n   ) = [n]
-ieNames (IEThingWith      n ns) = n : map unLoc ns
-ieNames (IEModuleContents _   ) = []
-ieNames (IEGroup          _ _ ) = []
-ieNames (IEDoc            _   ) = []
-ieNames (IEDocNamed       _   ) = []
+ieNames (IEVar       (L _ n)   ) = [n]
+ieNames (IEThingAbs       n    ) = [n]
+ieNames (IEThingAll  (L _ n)   ) = [n]
+ieNames (IEThingWith (L _ n) ns) = n : map unLoc ns
+ieNames (IEModuleContents _    ) = []
+ieNames (IEGroup          _ _  ) = []
+ieNames (IEDoc            _    ) = []
+ieNames (IEDocNamed       _    ) = []
 \end{code}
 
 \begin{code}
@@ -145,12 +145,12 @@ pprImpExp name = type_pref <+> pprPrefixOcc name
               | otherwise                   = empty
 
 instance (HasOccName name, OutputableBndr name) => Outputable (IE name) where
-    ppr (IEVar          var)    = pprPrefixOcc var
+    ppr (IEVar          var)    = pprPrefixOcc (unLoc var)
     ppr (IEThingAbs     thing)  = pprImpExp thing
-    ppr (IEThingAll     thing)  = hcat [pprImpExp thing, text "(..)"]
+    ppr (IEThingAll      thing) = hcat [pprImpExp (unLoc thing), text "(..)"]
     ppr (IEThingWith thing withs)
-        = pprImpExp thing <> parens (fsep (punctuate comma
-                                             (map pprImpExp $ map unLoc withs)))
+        = pprImpExp (unLoc thing) <> parens (fsep (punctuate comma
+                                            (map pprImpExp $ map unLoc withs)))
     ppr (IEModuleContents mod')
         = ptext (sLit "module") <+> ppr mod'
     ppr (IEGroup n _)           = text ("<IEGroup: " ++ (show n) ++ ">")
