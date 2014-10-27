@@ -104,7 +104,7 @@ type LIE name = Located (IE name)
 
 -- | Imported or exported entity.
 data IE name
-  = IEVar               name
+  = IEVar               (Located name)
   | IEThingAbs          name             -- ^ Class/Type (can't tell)
   | IEThingAll          name             -- ^ Class/Type plus all methods/constructors
   | IEThingWith         name [Located name]
@@ -118,14 +118,14 @@ data IE name
 
 \begin{code}
 ieName :: IE name -> name
-ieName (IEVar n)         = n
+ieName (IEVar (L _ n))   = n
 ieName (IEThingAbs  n)   = n
 ieName (IEThingWith n _) = n
 ieName (IEThingAll  n)   = n
 ieName _ = panic "ieName failed pattern match!"
 
 ieNames :: IE a -> [a]
-ieNames (IEVar            n   ) = [n]
+ieNames (IEVar       (L _ n)  ) = [n]
 ieNames (IEThingAbs       n   ) = [n]
 ieNames (IEThingAll       n   ) = [n]
 ieNames (IEThingWith      n ns) = n : map unLoc ns
@@ -145,7 +145,7 @@ pprImpExp name = type_pref <+> pprPrefixOcc name
               | otherwise                   = empty
 
 instance (HasOccName name, OutputableBndr name) => Outputable (IE name) where
-    ppr (IEVar          var)    = pprPrefixOcc var
+    ppr (IEVar          var)    = pprPrefixOcc (unLoc var)
     ppr (IEThingAbs     thing)  = pprImpExp thing
     ppr (IEThingAll     thing)  = hcat [pprImpExp thing, text "(..)"]
     ppr (IEThingWith thing withs)

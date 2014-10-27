@@ -525,11 +525,11 @@ exp_doc :: { OrdList (LIE RdrName) }
    -- No longer allow things like [] and (,,,) to be exported
    -- They are built in syntax, always available
 export  :: { OrdList (LIE RdrName) }
-        : qcname_ext export_subspec  { unitOL (LL (mkModuleImpExp (unLoc $1)
+        : qcname_ext export_subspec  { unitOL (LL (mkModuleImpExp $1
                                                                   (unLoc $2))) }
         |  'module' modid            {% amsu (LL (IEModuleContents (unLoc $2)))
                                              [mj AnnModule $1] }
-        |  'pattern' qcon            {% amsu (LL (IEVar (unLoc $2)))
+        |  'pattern' qcon            {% amsu (LL (IEVar $2))
                                              [mj AnnPattern $1] }
 
 export_subspec :: { Located ImpExpSubSpec }

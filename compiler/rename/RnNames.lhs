@@ -709,9 +709,9 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
     lookup_ie :: IE RdrName -> IELookupM ([(IE Name, AvailInfo)], [IELookupWarning])
     lookup_ie ie = handle_bad_import $ do
       case ie of
-        IEVar n -> do
+        IEVar (L l n) -> do
             (name, avail, _) <- lookup_name n
-            return ([(IEVar name, trimAvail avail name)], [])
+            return ([(IEVar (L l name), trimAvail avail name)], [])
 
         IEThingAll tc -> do
             (name, avail@(AvailTC name2 subs), mb_parent) <- lookup_name tc
@@ -996,7 +996,8 @@ rnExports explicit_mod exports
         ; let real_exports
                  | explicit_mod = exports
                  | ghcLink dflags == LinkInMemory = Nothing
-                 | otherwise = Just (noLoc [noLoc (IEVar main_RDR_Unqual)])
+                 | otherwise
+                          = Just (noLoc [noLoc (IEVar (noLoc main_RDR_Unqual))])
                         -- ToDo: the 'noLoc' here is unhelpful if 'main'
                         --       turns out to be out of scope
 
@@ -1101,9 +1102,9 @@ exports_from_avail (Just rdr_items) rdr_env imports this_mod
 
     -------------
     lookup_ie :: IE RdrName -> RnM (IE Name, AvailInfo)
-    lookup_ie (IEVar rdr)
+    lookup_ie (IEVar (L l rdr))
         = do gre <- lookupGreRn rdr
-             return (IEVar (gre_name gre), greExportAvail gre)
+             return (IEVar (L l (gre_name gre)), greExportAvail gre)
 
     lookup_ie (IEThingAbs rdr)
         = do gre <- lookupGreRn rdr
@@ -1391,7 +1392,7 @@ findImportUsage imports rdr_env rdrs
               _other -> emptyNameSet -- No explicit import list => no unused-name list
 
         add_unused :: IE Name -> NameSet -> NameSet
-        add_unused (IEVar n)          acc = add_unused_name n acc
+        add_unused (IEVar (L _ n))    acc = add_unused_name n acc
         add_unused (IEThingAbs n)     acc = add_unused_name n acc
         add_unused (IEThingAll n)     acc = add_unused_all  n acc
         add_unused (IEThingWith p ns) acc = add_unused_with p (map unLoc ns) acc
@@ -1542,7 +1543,7 @@ printMinimalImports imports_w_usage
     -- we want to say "T(..)", but if we're importing only a subset we want
     -- to say "T(A,B,C)".  So we have to find out what the module exports.
     to_ie _ (Avail n)
-       = [IEVar n]
+       = [IEVar (noLoc n)]
     to_ie _ (AvailTC n [m])
        | n==m = [IEThingAbs n]
     to_ie iface (AvailTC n ns)
@@ -1552,7 +1553,7 @@ printMinimalImports imports_w_usage
                  ] of
            [xs] | all_used xs -> [IEThingAll n]
                 | otherwise   -> [IEThingWith n (map noLoc (filter (/= n) ns))]
-           _other             -> map IEVar ns
+           _other             -> map (IEVar . noLoc) ns
         where
           all_used avail_occs = all (`elem` ns) avail_occs
 \end{code}
