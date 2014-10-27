@@ -58,6 +58,7 @@ showAnns (_,anns) = "[\n" ++ (intercalate "\n"
    $ Map.toList anns)
     ++ "]\n"
 
-showToks ts = intercalate ",\n\n" $ map (\(L p t) -> "(" ++ pp p ++ "," ++ show t ++ ")") ts
+showToks ts = intercalate ",\n\n"
+            $ map (\(L p t) -> "(" ++ pp p ++ "," ++ show t ++ ")") ts
 
 pp a = showPpr unsafeGlobalDynFlags a

@@ -709,7 +709,8 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
               -- associated ty
               Just parent -> return ([(IEThingAll (L l name),
                                        AvailTC name2 (subs \\ [name])),
-                                      (IEThingAll (L l name), AvailTC parent [name])],
+                                      (IEThingAll (L l name),
+                                       AvailTC parent [name])],
                                      warns)
 
         IEThingAbs tc
