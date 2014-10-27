@@ -28,7 +28,9 @@ module HscTypes (
         SourceModified(..),
 
         -- * Information about the module being compiled
-        HscSource(..), isHsBoot, hscSourceString,       -- Re-exported from DriverPhases
+        -- (re-exported from DriverPhases)
+        HscSource(..), isHsBootOrSig, hscSourceString,
+
 
         -- * State relating to modules in this package
         HomePackageTable, HomeModInfo(..), emptyHomePackageTable,
@@ -38,7 +40,7 @@ module HscTypes (
         -- * State relating to known packages
         ExternalPackageState(..), EpsStats(..), addEpsInStats,
         PackageTypeEnv, PackageIfaceTable, emptyPackageIfaceTable,
-        lookupIfaceByModule, emptyModIface,
+        lookupIfaceByModule, emptyModIface, lookupHptByModule,
 
         PackageInstEnv, PackageFamInstEnv, PackageRuleBase,
 
@@ -154,7 +156,7 @@ import PatSyn
 import PrelNames        ( gHC_PRIM, ioTyConName, printName, mkInteractiveModule )
 import Packages hiding  ( Version(..) )
 import DynFlags
-import DriverPhases     ( Phase, HscSource(..), isHsBoot, hscSourceString )
+import DriverPhases     ( Phase, HscSource(..), isHsBootOrSig, hscSourceString )
 import BasicTypes
 import IfaceSyn
 import CoreSyn          ( CoreRule, CoreVect )
@@ -683,6 +685,7 @@ type ModLocationCache = ModuleEnv ModLocation
 data ModIface
   = ModIface {
         mi_module     :: !Module,             -- ^ Name of the module we are for
+        mi_sig_of     :: !(Maybe Module),     -- ^ Are we a sig of another mod?
         mi_iface_hash :: !Fingerprint,        -- ^ Hash of the whole interface
         mi_mod_hash   :: !Fingerprint,        -- ^ Hash of the ABI only
         mi_flag_hash  :: !Fingerprint,        -- ^ Hash of the important flags
@@ -791,6 +794,7 @@ data ModIface
 instance Binary ModIface where
    put_ bh (ModIface {
                  mi_module    = mod,
+                 mi_sig_of    = sig_of,
                  mi_boot      = is_boot,
                  mi_iface_hash= iface_hash,
                  mi_mod_hash  = mod_hash,
@@ -838,6 +842,7 @@ instance Binary ModIface where
         put_ bh hpc_info
         put_ bh trust
         put_ bh trust_pkg
+        put_ bh sig_of
 
    get bh = do
         mod_name    <- get bh
@@ -864,8 +869,10 @@ instance Binary ModIface where
         hpc_info    <- get bh
         trust       <- get bh
         trust_pkg   <- get bh
+        sig_of      <- get bh
         return (ModIface {
                  mi_module      = mod_name,
+                 mi_sig_of      = sig_of,
                  mi_boot        = is_boot,
                  mi_iface_hash  = iface_hash,
                  mi_mod_hash    = mod_hash,
@@ -902,6 +909,7 @@ type IfaceExport = AvailInfo
 emptyModIface :: Module -> ModIface
 emptyModIface mod
   = ModIface { mi_module      = mod,
+               mi_sig_of      = Nothing,
                mi_iface_hash  = fingerprint0,
                mi_mod_hash    = fingerprint0,
                mi_flag_hash   = fingerprint0,
@@ -2322,7 +2330,7 @@ msObjFilePath ms = ml_obj_file (ms_location ms)
 
 -- | Did this 'ModSummary' originate from a hs-boot file?
 isBootSummary :: ModSummary -> Bool
-isBootSummary ms = isHsBoot (ms_hsc_src ms)
+isBootSummary ms = ms_hsc_src ms == HsBootFile
 
 instance Outputable ModSummary where
    ppr ms
@@ -2344,11 +2352,24 @@ showModMsg dflags target recomp mod_summary
                   HscInterpreted | recomp
                              -> text "interpreted"
                   HscNothing -> text "nothing"
-                  _          -> text (normalise $ msObjFilePath mod_summary),
+                  _ | HsigFile == ms_hsc_src mod_summary -> text "nothing"
+                    | otherwise -> text (normalise $ msObjFilePath mod_summary),
               char ')']
  where
     mod     = moduleName (ms_mod mod_summary)
-    mod_str = showPpr dflags mod ++ hscSourceString (ms_hsc_src mod_summary)
+    mod_str = showPpr dflags mod
+                ++ hscSourceString' dflags mod (ms_hsc_src mod_summary)
+
+-- | Variant of hscSourceString which prints more information for signatures.
+-- This can't live in DriverPhases because this would cause a module loop.
+hscSourceString' :: DynFlags -> ModuleName -> HscSource -> String
+hscSourceString' _ _ HsSrcFile   = ""
+hscSourceString' _ _ HsBootFile  = "[boot]"
+hscSourceString' dflags mod HsigFile =
+     "[" ++ (maybe "abstract sig"
+               (("sig of "++).showPpr dflags)
+               (getSigOf dflags mod)) ++ "]"
+    -- NB: -sig-of could be missing if we're just typechecking
 \end{code}
 
 %************************************************************************
