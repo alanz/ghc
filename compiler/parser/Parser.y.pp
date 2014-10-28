@@ -525,22 +525,20 @@ exp_doc :: { OrdList (LIE RdrName) }
    -- No longer allow things like [] and (,,,) to be exported
    -- They are built in syntax, always available
 export  :: { OrdList (LIE RdrName) }
-        : qcname_ext export_subspec  { unitOL (LL (mkModuleImpExp $1
-                                                                  (unLoc $2))) }
+        : qcname_ext export_subspec  {% amsu (LL (mkModuleImpExp $1
+                                                           (snd $ unLoc $2)))
+                                             (fst $ unLoc $2) }
         |  'module' modid            {% amsu (LL (IEModuleContents (unLoc $2)))
                                              [mj AnnModule $1] }
         |  'pattern' qcon            {% amsu (LL (IEVar $2))
                                              [mj AnnPattern $1] }
 
-export_subspec :: { Located ImpExpSubSpec }
-        : {- empty -}             { L0 ImpExpAbs }
-        | '(' '..' ')'            {% ams (LL ImpExpAll)
-                                         [mo $1,mc $3
-                                         ,mj AnnDotdot $2] }
-        | '(' ')'                 {% ams (LL (ImpExpList []))
-                                         [mo $1,mc $2] }
-        | '(' qcnames ')'         {% ams (LL (ImpExpList (reverse $2)))
-                                         [mo $1,mc $3] }
+export_subspec :: { Located ([MaybeAnn],ImpExpSubSpec) }
+        : {- empty -}             { L0 ([],ImpExpAbs) }
+        | '(' '..' ')'            { LL ([mo $1,mc $3,mj AnnDotdot $2]
+                                       , ImpExpAll) }
+        | '(' ')'                 { LL ([mo $1,mc $2],ImpExpList []) }
+        | '(' qcnames ')'         { LL ([mo $1,mc $3],ImpExpList (reverse $2)) }
 
 qcnames :: { [Located RdrName] }     -- A reversed list
         :  qcnames ',' qcname_ext       {% (aa $3 (AnnComma, $2)) >>
