@@ -43,6 +43,7 @@
 {
 -- XXX The above flags turn off warnings in the generated code:
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# OPTIONS_GHC -fno-warn-unused-matches #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}
@@ -71,7 +72,11 @@ module Lexer (
    patternSynonymsEnabled,
    sccProfilingOn, hpcEnabled,
    addWarning,
-   lexTokenStream
+   lexTokenStream,
+   ApiAnns,
+   Ann(..),
+   addAnnotation,
+   getAnnotation,getAnnotationComments
   ) where
 
 import Bag
@@ -92,6 +97,7 @@ import Control.Monad
 import Data.Bits
 import Data.ByteString (ByteString)
 import Data.Char
+import Data.Data
 import Data.List
 import Data.Maybe
 import Data.Map (Map)
@@ -673,6 +679,9 @@ data Token
   | ITblockComment    String     -- comment in {- -}
 
   deriving Show
+
+instance Outputable Token where
+  ppr x = text (show x)
 
 -- the bitmap provided as the third component indicates whether the
 -- corresponding extension keyword is valid under the extension options
@@ -1662,7 +1671,14 @@ data PState = PState {
         alr_expecting_ocurly :: Maybe ALRLayout,
         -- Have we just had the '}' for a let block? If so, than an 'in'
         -- token doesn't need to close anything:
-        alr_justClosedExplicitLetBlock :: Bool
+        alr_justClosedExplicitLetBlock :: Bool,
+
+        annotations :: [(ApiAnnKey,SrcSpan)],
+        -- Annotations giving the locations of 'noise' tokens in the
+        -- source, so that users of the GHC API can do source to
+        -- source conversions.
+        comment_q :: [Located Token],
+        annotations_comments :: [(SrcSpan,[Located Token])]
      }
         -- last_loc and last_len are used when generating error messages,
         -- and in pushCurrentContext only.  Sigh, if only Happy passed the
@@ -2040,7 +2056,10 @@ mkPState flags buf loc =
       alr_last_loc = alrInitialLoc (fsLit "<no file>"),
       alr_context = [],
       alr_expecting_ocurly = Nothing,
-      alr_justClosedExplicitLetBlock = False
+      alr_justClosedExplicitLetBlock = False,
+      annotations = [],
+      comment_q = [],
+      annotations_comments = []
     }
     where
       bitmap =     FfiBit                      `setBitIf` xopt Opt_ForeignFunctionInterface flags
@@ -2162,7 +2181,14 @@ lexer cont = do
   let lexTokenFun = if alr then lexTokenAlr else lexToken
   (L span tok) <- lexTokenFun
   --trace ("token: " ++ show tok) $ do
-  cont (L (RealSrcSpan span) tok)
+
+  if (isDocComment tok)
+    then queueComment (L (RealSrcSpan span) tok)
+    else return ()
+
+  if (isComment tok)
+    then queueComment (L (RealSrcSpan span) tok) >> lexer cont
+    else cont (L (RealSrcSpan span) tok)
 
 lexTokenAlr :: P (RealLocated Token)
 lexTokenAlr = do mPending <- popPendingImplicitToken
@@ -2503,4 +2529,151 @@ clean_pragma prag = canon_ws (map toLower (unprefix prag))
                                               "constructorlike" -> "conlike"
                                               _ -> prag'
                           canon_ws s = unwords (map canonical (words s))
+
+
+{-
+%************************************************************************
+%*                                                                      *
+        Helper functions for generating annotations in the parser
+%*                                                                      *
+%************************************************************************
+-}
+
+addAnnotation :: SrcSpan -> Ann -> SrcSpan -> P ()
+addAnnotation l a v = do
+  addAnnotationOnly l a v
+  allocateComments l
+
+addAnnotationOnly :: SrcSpan -> Ann -> SrcSpan -> P ()
+addAnnotationOnly l a v = P $ \s -> POk s {
+  annotations = ((l,a), v) : annotations s
+  } ()
+
+queueComment :: Located Token -> P()
+queueComment c = P $ \s -> POk s {
+  comment_q = c : comment_q s
+  } ()
+
+-- | Go through the @comment_q@ in @PState@ and remove all comments
+-- that belong within the given span
+allocateComments :: SrcSpan -> P ()
+allocateComments ss = P $ \s ->
+  let
+    (before,rest)  = break (\(L l _) -> isSubspanOf l ss) (comment_q s)
+    (middle,after) = break (\(L l _) -> not (isSubspanOf l ss)) rest
+    comment_q' = before ++ after
+    newAnns = if null middle then []
+                             else [(ss,middle)]
+  in
+    POk s {
+       comment_q = comment_q'
+     , annotations_comments = newAnns ++ (annotations_comments s)
+     } ()
+
+type ApiAnns = (Map.Map ApiAnnKey SrcSpan, Map.Map SrcSpan [Located Token])
+
+type ApiAnnKey = (SrcSpan,Ann)
+
+-- ---------------------------------------------------------------------
+
+-- | Retrieve an annotation based on the @SrcSpan@ of the annotated AST
+-- element, and the known type of the annotation.
+getAnnotation :: ApiAnns -> SrcSpan -> Ann -> Maybe SrcSpan
+getAnnotation (anns,_) span ann = Map.lookup (span,ann) anns
+
+-- |Retrieve the comments allocated to the current @SrcSpan@
+getAnnotationComments :: ApiAnns -> SrcSpan -> [Located Token]
+getAnnotationComments (_,anns) span =
+  case Map.lookup span anns of
+    Just cs -> cs
+    Nothing -> []
+
+isComment :: Token -> Bool
+isComment (ITlineComment     _)   = True
+isComment (ITblockComment    _)   = True
+isComment _ = False
+
+isDocComment :: Token -> Bool
+isDocComment (ITdocCommentNext  _)   = True
+isDocComment (ITdocCommentPrev  _)   = True
+isDocComment (ITdocCommentNamed _)   = True
+isDocComment (ITdocSection      _ _) = True
+isDocComment (ITdocOptions      _)   = True
+isDocComment (ITdocOptionsOld   _)   = True
+isDocComment _ = False
+
+-- --------------------------------------------------------------------
+
+-- | Note: in general the names of these are taken from the
+-- corresponding token, unless otherwise noted
+data Ann = AnnAs
+         | AnnAt
+         | AnnBang
+         | AnnBy
+         | AnnCase
+         | AnnClass
+         | AnnClose -- ^  or ] or ) or #) etc
+         | AnnColon
+         | AnnColon2
+         | AnnComma
+         | AnnDarrow
+         | AnnData
+         | AnnDcolon
+         | AnnDefault
+         | AnnDeriving
+         | AnnDo
+         | AnnDot
+         | AnnDotdot
+         | AnnElse
+         | AnnEqual
+         | AnnExport
+         | AnnFamily
+         | AnnForall
+         | AnnForeign
+         | AnnGroup
+         | AnnHeader -- ^ for CType
+         | AnnHiding
+         | AnnIf
+         | AnnImport
+         | AnnIn
+         | AnnInstance
+         | AnnLam
+         | AnnLarrow
+         | AnnLarrowtail
+         | AnnLet
+         | AnnMdo
+         | AnnMinus
+         | AnnModule
+         | AnnNewtype
+         | AnnOf
+         | AnnOpen   -- ^ or [ or ( or (# etc
+         | AnnPackageName
+         | AnnPattern
+         | AnnProc
+         | AnnQualified
+         | AnnRarrow
+         | AnnRarrowtail
+         | AnnRec
+         | AnnRole
+         | AnnSafe
+         | AnnSemi
+         | AnnThen
+         | AnnTilde
+         | AnnTildehsh
+         | AnnType
+         | AnnUsing
+         | AnnVal  -- ^ e.g. INTEGER
+         | AnnVal2 -- ^ e.g. INTEGER
+         | AnnVal3 -- ^ e.g. INTEGER
+         | AnnVal4 -- ^ e.g. INTEGER
+         | AnnVal5 -- ^ e.g. INTEGER
+         | AnnVbar
+         | AnnWhere
+         | Annlarrowtail
+         | Annrarrowtail
+            deriving (Eq,Ord,Data,Typeable,Show)
+
+instance Outputable Ann where
+  ppr x = text (show x)
+
 }

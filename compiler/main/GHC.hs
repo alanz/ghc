@@ -241,6 +241,10 @@ module GHC (
         -- * Pure interface to the parser
         parser,
 
+        -- * API Annotations
+        ApiAnns,Ann(..),
+        getAnnotation, getAnnotationComments,
+
         -- * Miscellaneous
         --sessionHscEnv,
         cyclicModuleErr,
@@ -714,7 +718,8 @@ class TypecheckedMod m => DesugaredMod m where
 data ParsedModule =
   ParsedModule { pm_mod_summary   :: ModSummary
                , pm_parsed_source :: ParsedSource
-               , pm_extra_src_files :: [FilePath] }
+               , pm_extra_src_files :: [FilePath]
+               , pm_annotations :: ApiAnns }
 
 instance ParsedMod ParsedModule where
   modSummary m    = pm_mod_summary m
@@ -803,7 +808,8 @@ parseModule ms = do
    hsc_env <- getSession
    let hsc_env_tmp = hsc_env { hsc_dflags = ms_hspp_opts ms }
    hpm <- liftIO $ hscParse hsc_env_tmp ms
-   return (ParsedModule ms (hpm_module hpm) (hpm_src_files hpm))
+   return (ParsedModule ms (hpm_module hpm) (hpm_src_files hpm)
+                           (hpm_annotations hpm))
 
 -- | Typecheck and rename a parsed module.
 --
@@ -816,7 +822,8 @@ typecheckModule pmod = do
  (tc_gbl_env, rn_info)
        <- liftIO $ hscTypecheckRename hsc_env_tmp ms $
                       HsParsedModule { hpm_module = parsedSource pmod,
-                                       hpm_src_files = pm_extra_src_files pmod }
+                                       hpm_src_files = pm_extra_src_files pmod,
+                                       hpm_annotations = pm_annotations pmod }
  details <- liftIO $ makeSimpleDetails hsc_env_tmp tc_gbl_env
  safe    <- liftIO $ finalSafeMode (ms_hspp_opts ms) tc_gbl_env
  return $
