@@ -109,7 +109,7 @@ data IE name
   | IEThingAll  (Located name)     -- ^ Class/Type plus all methods/constructors
   | IEThingWith (Located name) [Located name]
                  -- ^ Class/Type plus some methods/constructors
-  | IEModuleContents    ModuleName       -- ^ (Export Only)
+  | IEModuleContents  (Located ModuleName) -- ^ (Export Only)
   | IEGroup             Int HsDocString  -- ^ Doc section heading
   | IEDoc               HsDocString      -- ^ Some documentation
   | IEDocNamed          String           -- ^ Reference to named doc

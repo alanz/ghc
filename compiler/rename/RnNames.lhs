@@ -1048,8 +1048,9 @@ exports_from_avail (Just rdr_items) rdr_env imports this_mod
 
     exports_from_item :: ExportAccum -> LIE RdrName -> RnM ExportAccum
     exports_from_item acc@(ie_names, occs, exports)
-                      (L loc (IEModuleContents mod))
-        | let earlier_mods = [ mod | (L _ (IEModuleContents mod)) <- ie_names ]
+                      (L loc (IEModuleContents (L lm mod)))
+        | let earlier_mods = [ mod
+                             | (L _ (IEModuleContents (L _ mod))) <- ie_names ]
         , mod `elem` earlier_mods    -- Duplicate export of M
         = do { warn_dup_exports <- woptM Opt_WarnDuplicateExports ;
                warnIf warn_dup_exports (dupModuleExport mod) ;
@@ -1074,7 +1075,7 @@ exports_from_avail (Just rdr_items) rdr_env imports this_mod
                         -- The qualified and unqualified version of all of
                         -- these names are, in effect, used by this export
 
-             ; occs' <- check_occs (IEModuleContents mod) occs names
+             ; occs' <- check_occs (IEModuleContents (noLoc mod)) occs names
                       -- This check_occs not only finds conflicts
                       -- between this item and others, but also
                       -- internally within this item.  That is, if
@@ -1083,7 +1084,7 @@ exports_from_avail (Just rdr_items) rdr_env imports this_mod
                       -- OccName.
              ; traceRn (vcat [ text "export mod" <+> ppr mod
                              , ppr new_exports ])
-             ; return (L loc (IEModuleContents mod) : ie_names,
+             ; return (L loc (IEModuleContents (L lm mod)) : ie_names,
                        occs', new_exports ++ exports) }
 
     exports_from_item acc@(lie_names, occs, exports) (L loc ie)

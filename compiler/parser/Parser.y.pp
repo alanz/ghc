@@ -528,7 +528,7 @@ export  :: { OrdList (LIE RdrName) }
         : qcname_ext export_subspec  {% amsu (LL (mkModuleImpExp $1
                                                            (snd $ unLoc $2)))
                                              (fst $ unLoc $2) }
-        |  'module' modid            {% amsu (LL (IEModuleContents (unLoc $2)))
+        |  'module' modid            {% amsu (LL (IEModuleContents $2))
                                              [mj AnnModule $1] }
         |  'pattern' qcon            {% amsu (LL (IEVar $2))
                                              [mj AnnPattern $1] }
@@ -541,7 +541,7 @@ export_subspec :: { Located ([MaybeAnn],ImpExpSubSpec) }
         | '(' qcnames ')'         { LL ([mo $1,mc $3],ImpExpList (reverse $2)) }
 
 qcnames :: { [Located RdrName] }     -- A reversed list
-        :  qcnames ',' qcname_ext       {% (aa $3 (AnnComma, $2)) >>
+        :  qcnames ',' qcname_ext       {% (aa (head $1) (AnnComma, $2)) >>
                                            return ($3  : $1) }
         |  qcname_ext                   { [$1]  }
 
