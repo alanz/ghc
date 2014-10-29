@@ -952,11 +952,12 @@ nested_comment cont span buf len = do
   input <- getInput
   go (reverse $ lexemeToString buf len) (1::Int) input
   where
-    go commentAcc 0 input = do setInput input
-                               b <- extension rawTokenStreamEnabled
-                               if b
-                                 then docCommentEnd input commentAcc ITblockComment buf span
-                                 else cont
+    go commentAcc 0 input = do
+      setInput input
+      b <- extension rawTokenStreamEnabled
+      if b
+        then docCommentEnd input commentAcc ITblockComment buf span
+        else cont
     go commentAcc n input = case alexGetChar' input of
       Nothing -> errBrace input span
       Just ('-',input) -> case alexGetChar' input of
