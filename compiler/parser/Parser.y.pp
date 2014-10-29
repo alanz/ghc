@@ -382,7 +382,7 @@ TH_QUASIQUOTE   { L _ (ITquasiQuote _) }
 TH_QQUASIQUOTE  { L _ (ITqQuasiQuote _) }
 
 %monad { P } { >>= } { return }
-%lexer { lexer } { L _ ITeof }
+%lexer { (lexer True) } { L _ ITeof }
 %tokentype { (Located Token) }
 
 -- Exported parsers

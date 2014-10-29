@@ -5,7 +5,7 @@
 ( <no location info> =
 [(CommentsTest.hs:8:1-33,ITdocCommentNext " The function @foo@ does blah"),
 
-(CommentsTest.hs:(2,1)-(4,2),ITblockComment "\nAn opening comment\n")])
+(CommentsTest.hs:(2,1)-(4,2),ITblockComment "{-\nAn opening comment\n")])
 ]
 
 [
@@ -15,6 +15,6 @@
 ( <no location info> =
 [(CommentsTest.hs:8:1-33,ITlineComment "-- | The function @foo@ does blah"),
 
-(CommentsTest.hs:(2,1)-(4,2),ITblockComment "\nAn opening comment\n")])
+(CommentsTest.hs:(2,1)-(4,2),ITblockComment "{-\nAn opening comment\n")])
 ]
 

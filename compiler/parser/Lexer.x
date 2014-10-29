@@ -948,14 +948,14 @@ lineCommentToken span buf len = do
   using regular expressions.
 -}
 nested_comment :: P (RealLocated Token) -> Action
-nested_comment cont span _str _len = do
+nested_comment cont span buf len = do
   input <- getInput
-  go "" (1::Int) input
+  go (reverse $ lexemeToString buf len) (1::Int) input
   where
     go commentAcc 0 input = do setInput input
                                b <- extension rawTokenStreamEnabled
                                if b
-                                 then docCommentEnd input commentAcc ITblockComment _str span
+                                 then docCommentEnd input commentAcc ITblockComment buf span
                                  else cont
     go commentAcc n input = case alexGetChar' input of
       Nothing -> errBrace input span
@@ -2175,19 +2175,19 @@ lexError str = do
 -- This is the top-level function: called from the parser each time a
 -- new token is to be read from the input.
 
-lexer :: (Located Token -> P a) -> P a
-lexer cont = do
+lexer :: Bool -> (Located Token -> P a) -> P a
+lexer queueComments cont = do
   alr <- extension alternativeLayoutRule
   let lexTokenFun = if alr then lexTokenAlr else lexToken
   (L span tok) <- lexTokenFun
   --trace ("token: " ++ show tok) $ do
 
-  if (isDocComment tok)
+  if (queueComments && isDocComment tok)
     then queueComment (L (RealSrcSpan span) tok)
     else return ()
 
-  if (isComment tok)
-    then queueComment (L (RealSrcSpan span) tok) >> lexer cont
+  if (queueComments && isComment tok)
+    then queueComment (L (RealSrcSpan span) tok) >> lexer queueComments cont
     else cont (L (RealSrcSpan span) tok)
 
 lexTokenAlr :: P (RealLocated Token)
@@ -2453,7 +2453,7 @@ lexTokenStream buf loc dflags = unP go initState
     where dflags' = gopt_set (gopt_unset dflags Opt_Haddock) Opt_KeepRawTokenStream
           initState = mkPState dflags' buf loc
           go = do
-            ltok <- lexer return
+            ltok <- lexer False return
             case ltok of
               L _ ITeof -> return []
               _ -> liftM (ltok:) go
