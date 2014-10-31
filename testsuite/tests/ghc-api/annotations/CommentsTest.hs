@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFoldable #-}
 module CommentsTest (foo) where
 {-
 An opening comment
