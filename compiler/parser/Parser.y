@@ -352,15 +352,15 @@ incorrect.
 
  IPDUPVARID     { L _ (ITdupipvarid   _) }              -- GHC extension
 
- CHAR           { L _ (ITchar     _) }
- STRING         { L _ (ITstring   _) }
- INTEGER        { L _ (ITinteger  _) }
+ CHAR           { L _ (ITchar   _ _) }
+ STRING         { L _ (ITstring _ _) }
+ INTEGER        { L _ (ITinteger _ _) }
  RATIONAL       { L _ (ITrational _) }
 
- PRIMCHAR       { L _ (ITprimchar   _) }
- PRIMSTRING     { L _ (ITprimstring _) }
- PRIMINTEGER    { L _ (ITprimint    _) }
- PRIMWORD       { L _ (ITprimword  _) }
+ PRIMCHAR       { L _ (ITprimchar   _ _) }
+ PRIMSTRING     { L _ (ITprimstring _ _) }
+ PRIMINTEGER    { L _ (ITprimint    _ _) }
+ PRIMWORD       { L _ (ITprimword   _ _) }
  PRIMFLOAT      { L _ (ITprimfloat  _) }
  PRIMDOUBLE     { L _ (ITprimdouble _) }
 
@@ -2304,15 +2304,15 @@ getQCONSYM      (L _ (ITqconsym  x)) = x
 getPREFIXQVARSYM (L _ (ITprefixqvarsym  x)) = x
 getPREFIXQCONSYM (L _ (ITprefixqconsym  x)) = x
 getIPDUPVARID   (L _ (ITdupipvarid   x)) = x
-getCHAR         (L _ (ITchar     x)) = x
-getSTRING       (L _ (ITstring   x)) = x
-getINTEGER      (L _ (ITinteger  x)) = x
+getCHAR         (L _ (ITchar   _ x)) = x
+getSTRING       (L _ (ITstring _ x)) = x
+getINTEGER      (L _ (ITinteger _ x)) = x
 getRATIONAL     (L _ (ITrational x)) = x
-getPRIMCHAR     (L _ (ITprimchar   x)) = x
-getPRIMSTRING   (L _ (ITprimstring x)) = x
-getPRIMINTEGER  (L _ (ITprimint    x)) = x
-getPRIMWORD     (L _ (ITprimword x)) = x
-getPRIMFLOAT    (L _ (ITprimfloat  x)) = x
+getPRIMCHAR     (L _ (ITprimchar _ x)) = x
+getPRIMSTRING   (L _ (ITprimstring _ x)) = x
+getPRIMINTEGER  (L _ (ITprimint  _ x)) = x
+getPRIMWORD     (L _ (ITprimword _ x)) = x
+getPRIMFLOAT    (L _ (ITprimfloat x)) = x
 getPRIMDOUBLE   (L _ (ITprimdouble x)) = x
 getTH_ID_SPLICE (L _ (ITidEscape x)) = x
 getTH_ID_TY_SPLICE (L _ (ITidTyEscape x)) = x

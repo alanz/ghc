@@ -1,0 +1,1 @@
+test('literals', normal, run_command, ['$MAKE -s --no-print-directory literals'])
