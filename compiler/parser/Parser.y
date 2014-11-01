@@ -1617,9 +1617,9 @@ aexp2   :: { LHsExpr RdrName }
         | literal                       { sL1 $1 (HsLit   $! unLoc $1) }
 -- This will enable overloaded strings permanently.  Normally the renamer turns HsString
 -- into HsOverLit when -foverloaded-strings is on.
---      | STRING     { sL (getLoc $1) (HsOverLit $! mkHsIsString
+--      | STRING     { sL (getLoc $1) (HsOverLit $! mkHsIsString (getSTRINGs $1)
 --                                        (getSTRING $1) placeHolderType) }
-        | INTEGER    { sL (getLoc $1) (HsOverLit $! mkHsIntegral
+        | INTEGER    { sL (getLoc $1) (HsOverLit $! mkHsIntegral (getINTEGERs $1)
                                           (getINTEGER $1) placeHolderType) }
         | RATIONAL   { sL (getLoc $1) (HsOverLit $! mkHsFractional
                                           (getRATIONAL $1) placeHolderType) }
@@ -2227,14 +2227,19 @@ consym :: { Located RdrName }
 -- Literals
 
 literal :: { Located HsLit }
-        : CHAR                  { sL1 $1 $ HsChar       $ getCHAR $1 }
-        | STRING                { sL1 $1 $ HsString     $ getSTRING $1 }
-        | PRIMINTEGER           { sL1 $1 $ HsIntPrim    $ getPRIMINTEGER $1 }
-        | PRIMWORD              { sL1 $1 $ HsWordPrim    $ getPRIMWORD $1 }
-        | PRIMCHAR              { sL1 $1 $ HsCharPrim   $ getPRIMCHAR $1 }
-        | PRIMSTRING            { sL1 $1 $ HsStringPrim $ getPRIMSTRING $1 }
-        | PRIMFLOAT             { sL1 $1 $ HsFloatPrim  $ getPRIMFLOAT $1 }
-        | PRIMDOUBLE            { sL1 $1 $ HsDoublePrim $ getPRIMDOUBLE $1 }
+        : CHAR              { sL1 $1 $ HsChar       (getCHARs $1) $ getCHAR $1 }
+        | STRING            { sL1 $1 $ HsString     (getSTRINGs $1)
+                                                   $ getSTRING $1 }
+        | PRIMINTEGER       { sL1 $1 $ HsIntPrim    (getPRIMINTEGERs $1)
+                                                   $ getPRIMINTEGER $1 }
+        | PRIMWORD          { sL1 $1 $ HsWordPrim   (getPRIMWORDs $1)
+                                                   $ getPRIMWORD $1 }
+        | PRIMCHAR          { sL1 $1 $ HsCharPrim   (getPRIMCHARs $1)
+                                                   $ getPRIMCHAR $1 }
+        | PRIMSTRING        { sL1 $1 $ HsStringPrim (getPRIMSTRINGs $1)
+                                                   $ getPRIMSTRING $1 }
+        | PRIMFLOAT         { sL1 $1 $ HsFloatPrim  $ getPRIMFLOAT $1 }
+        | PRIMDOUBLE        { sL1 $1 $ HsDoublePrim $ getPRIMDOUBLE $1 }
 
 -----------------------------------------------------------------------------
 -- Layout
@@ -2324,6 +2329,16 @@ getDOCNEXT (L _ (ITdocCommentNext x)) = x
 getDOCPREV (L _ (ITdocCommentPrev x)) = x
 getDOCNAMED (L _ (ITdocCommentNamed x)) = x
 getDOCSECTION (L _ (ITdocSection n x)) = (n, x)
+
+getCHARs        (L _ (ITchar       src _)) = src
+getSTRINGs      (L _ (ITstring     src _)) = src
+getINTEGERs     (L _ (ITinteger    src _)) = src
+getPRIMCHARs    (L _ (ITprimchar   src _)) = src
+getPRIMSTRINGs  (L _ (ITprimstring src _)) = src
+getPRIMINTEGERs (L _ (ITprimint    src _)) = src
+getPRIMWORDs    (L _ (ITprimword   src _)) = src
+
+
 
 getSCC :: Located Token -> P FastString
 getSCC lt = do let s = getSTRING lt

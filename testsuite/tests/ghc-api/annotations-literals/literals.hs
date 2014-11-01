@@ -36,12 +36,6 @@ testOneFile libdir fileName = do
 
     putStrLn (intercalate "\n" [showToks t])
 
-showAnns (_,anns) = "[\n" ++ (intercalate "\n"
-   $ map (\(s,v)
-              -> ("( " ++ pp s ++" =\n[" ++ showToks v ++ "])\n"))
-   $ Map.toList anns)
-    ++ "]\n"
-
 showToks ts = intercalate ",\n\n"
             $ map (\((L p t),s) -> "(" ++ pp p ++ "," ++ show t ++ ",[" ++ s ++ "])") ts
 
