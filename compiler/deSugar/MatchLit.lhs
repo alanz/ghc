@@ -267,7 +267,8 @@ tidyLitPat :: HsLit -> Pat Id
 tidyLitPat (HsChar src c) = unLoc (mkCharLitPat src c)
 tidyLitPat (HsString src s)
   | lengthFS s <= 1     -- Short string literals only
-  = unLoc $ foldr (\c pat -> mkPrefixConPat consDataCon [mkCharLitPat src c, pat] [charTy])
+  = unLoc $ foldr (\c pat -> mkPrefixConPat consDataCon
+                                             [mkCharLitPat src c, pat] [charTy])
                   (mkNilPat charTy) (unpackFS s)
         -- The stringTy is the type of the whole pattern, not
         -- the type to instantiate (:) or [] with!
@@ -293,11 +294,14 @@ tidyNPat tidy_lit_pat (OverLit val False _ ty) mb_neg _
         --     which might be ok if we hvae 'instance IsString Int'
         --
 
-  | isIntTy ty,    Just int_lit <- mb_int_lit = mk_con_pat intDataCon    (HsIntPrim    "" int_lit)
-  | isWordTy ty,   Just int_lit <- mb_int_lit = mk_con_pat wordDataCon   (HsWordPrim   "" int_lit)
+  | isIntTy ty,    Just int_lit <- mb_int_lit
+                            = mk_con_pat intDataCon    (HsIntPrim    "" int_lit)
+  | isWordTy ty,   Just int_lit <- mb_int_lit
+                            = mk_con_pat wordDataCon   (HsWordPrim   "" int_lit)
   | isFloatTy ty,  Just rat_lit <- mb_rat_lit = mk_con_pat floatDataCon  (HsFloatPrim  rat_lit)
   | isDoubleTy ty, Just rat_lit <- mb_rat_lit = mk_con_pat doubleDataCon (HsDoublePrim rat_lit)
-  | isStringTy ty, Just str_lit <- mb_str_lit = tidy_lit_pat (HsString "" str_lit)
+  | isStringTy ty, Just str_lit <- mb_str_lit
+                            = tidy_lit_pat (HsString "" str_lit)
   where
     mk_con_pat :: DataCon -> HsLit -> Pat Id
     mk_con_pat con lit = unLoc (mkPrefixConPat con [noLoc $ LitPat lit] [])
@@ -310,11 +314,12 @@ tidyNPat tidy_lit_pat (OverLit val False _ ty) mb_neg _
 
     mb_rat_lit :: Maybe FractionalLit
     mb_rat_lit = case (mb_neg, val) of
-                   (Nothing, HsIntegral _ i) -> Just (integralFractionalLit (fromInteger i))
-                   (Just _,  HsIntegral _ i) -> Just (integralFractionalLit (fromInteger (-i)))
-                   (Nothing, HsFractional f) -> Just f
-                   (Just _, HsFractional f)  -> Just (negateFractionalLit f)
-                   _ -> Nothing
+       (Nothing, HsIntegral _ i) -> Just (integralFractionalLit (fromInteger i))
+       (Just _,  HsIntegral _ i) -> Just (integralFractionalLit
+                                                             (fromInteger (-i)))
+       (Nothing, HsFractional f) -> Just f
+       (Just _, HsFractional f)  -> Just (negateFractionalLit f)
+       _ -> Nothing
 
     mb_str_lit :: Maybe FastString
     mb_str_lit = case (mb_neg, val) of
@@ -403,7 +408,8 @@ litValKey (HsIntegral _ i) False = MachInt i
 litValKey (HsIntegral _ i) True  = MachInt (-i)
 litValKey (HsFractional r) False = MachFloat (fl_value r)
 litValKey (HsFractional r) True  = MachFloat (negate (fl_value r))
-litValKey (HsIsString _ s) neg   = ASSERT( not neg) MachStr (fastStringToByteString s)
+litValKey (HsIsString _ s) neg   = ASSERT( not neg) MachStr
+                                                      (fastStringToByteString s)
 \end{code}
 
 %************************************************************************

@@ -458,9 +458,12 @@ get_lit :: Pat id -> Maybe HsLit
 -- It doesn't matter which one, because they will only be compared
 -- with other HsLits gotten in the same way
 get_lit (LitPat lit)                                      = Just lit
-get_lit (NPat (OverLit { ol_val = HsIntegral src i})    mb _) = Just (HsIntPrim src (mb_neg negate              mb i))
-get_lit (NPat (OverLit { ol_val = HsFractional f }) mb _)     = Just (HsFloatPrim (mb_neg negateFractionalLit mb f))
-get_lit (NPat (OverLit { ol_val = HsIsString src s })   _  _) = Just (HsStringPrim src (fastStringToByteString s))
+get_lit (NPat (OverLit { ol_val = HsIntegral src i})    mb _)
+                        = Just (HsIntPrim src (mb_neg negate              mb i))
+get_lit (NPat (OverLit { ol_val = HsFractional f }) mb _)
+                        = Just (HsFloatPrim (mb_neg negateFractionalLit mb f))
+get_lit (NPat (OverLit { ol_val = HsIsString src s })   _  _)
+                        = Just (HsStringPrim src (fastStringToByteString s))
 get_lit _                                                 = Nothing
 
 mb_neg :: (a -> a) -> Maybe b -> a -> a
@@ -743,7 +746,8 @@ tidy_lit_pat :: HsLit -> Pat Id
 -- overlap with each other, or even explicit lists of Chars.
 tidy_lit_pat lit
   | HsString src s <- lit
-  = unLoc $ foldr (\c pat -> mkPrefixConPat consDataCon [mkCharLitPat src c, pat] [charTy])
+  = unLoc $ foldr (\c pat -> mkPrefixConPat consDataCon
+                                             [mkCharLitPat src c, pat] [charTy])
                   (mkPrefixConPat nilDataCon [] [charTy]) (unpackFS s)
   | otherwise
   = tidyLitPat lit

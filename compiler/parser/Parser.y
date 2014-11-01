@@ -1617,11 +1617,11 @@ aexp2   :: { LHsExpr RdrName }
         | literal                       { sL1 $1 (HsLit   $! unLoc $1) }
 -- This will enable overloaded strings permanently.  Normally the renamer turns HsString
 -- into HsOverLit when -foverloaded-strings is on.
---      | STRING     { sL (getLoc $1) (HsOverLit $! mkHsIsString (getSTRINGs $1)
---                                        (getSTRING $1) placeHolderType) }
-        | INTEGER    { sL (getLoc $1) (HsOverLit $! mkHsIntegral (getINTEGERs $1)
-                                          (getINTEGER $1) placeHolderType) }
-        | RATIONAL   { sL (getLoc $1) (HsOverLit $! mkHsFractional
+--      | STRING    { sL (getLoc $1) (HsOverLit $! mkHsIsString (getSTRINGs $1)
+--                                       (getSTRING $1) placeHolderType) }
+        | INTEGER   { sL (getLoc $1) (HsOverLit $! mkHsIntegral (getINTEGERs $1)
+                                         (getINTEGER $1) placeHolderType) }
+        | RATIONAL  { sL (getLoc $1) (HsOverLit $! mkHsFractional
                                           (getRATIONAL $1) placeHolderType) }
 
         -- N.B.: sections get parsed by these next two productions.

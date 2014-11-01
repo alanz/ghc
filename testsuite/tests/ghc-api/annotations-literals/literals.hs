@@ -37,6 +37,7 @@ testOneFile libdir fileName = do
     putStrLn (intercalate "\n" [showToks t])
 
 showToks ts = intercalate ",\n\n"
-            $ map (\((L p t),s) -> "(" ++ pp p ++ "," ++ show t ++ ",[" ++ s ++ "])") ts
+            $ map (\((L p t),s) ->
+                         "(" ++ pp p ++ "," ++ show t ++ ",[" ++ s ++ "])") ts
 
 pp a = showPpr unsafeGlobalDynFlags a

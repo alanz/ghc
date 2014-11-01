@@ -1116,7 +1116,8 @@ gen_Show_binds get_fixity loc tycon
          ([nlWildPat, con_pat], mk_showString_app op_con_str)
       | otherwise   =
          ([a_Pat, con_pat],
-          showParen_Expr (nlHsPar (genOpApp a_Expr ge_RDR (nlHsLit (HsInt "" con_prec_plus_one))))
+          showParen_Expr (nlHsPar (genOpApp a_Expr ge_RDR
+                                        (nlHsLit (HsInt "" con_prec_plus_one))))
                          (nlHsPar (nested_compose_Expr show_thingies)))
         where
              data_con_RDR  = getRdrName data_con
@@ -1166,8 +1167,9 @@ gen_Show_binds get_fixity loc tycon
                 -- Generates (showsPrec p x) for argument x, but it also boxes
                 -- the argument first if necessary.  Note that this prints unboxed
                 -- things without any '#' decorations; could change that if need be
-             show_arg b arg_ty = nlHsApps showsPrec_RDR [nlHsLit (HsInt "" arg_prec),
-                                                         box_if_necy "Show" tycon (nlHsVar b) arg_ty]
+             show_arg b arg_ty = nlHsApps showsPrec_RDR
+                                    [nlHsLit (HsInt "" arg_prec),
+                                    box_if_necy "Show" tycon (nlHsVar b) arg_ty]
 
                 -- Fixity stuff
              is_infix = dataConIsInfix data_con

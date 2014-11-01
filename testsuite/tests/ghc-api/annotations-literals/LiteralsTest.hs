@@ -22,4 +22,3 @@ blah = x
     floatH = 3.20#
     doubleH = 04.16##
     x = 1
-

@@ -140,6 +140,6 @@
 
 (LiteralsTest.hs:24:9,ITinteger "1" 1,[1]),
 
-(LiteralsTest.hs:26:1,ITvccurly,[]),
+(LiteralsTest.hs:25:1,ITvccurly,[]),
 
-(LiteralsTest.hs:26:1,ITsemi,[])
+(LiteralsTest.hs:25:1,ITsemi,[])
