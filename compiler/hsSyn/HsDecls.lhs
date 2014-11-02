@@ -797,6 +797,11 @@ data HsDataDefn name   -- The payload of a data type defn
                      --   the 'LConDecl's all have 'ResTyH98'.
                      -- For @data T a where { T1 :: T a }@
                      --   the 'LConDecls' all have 'ResTyGADT'.
+                     --
+                     -- Stored as list of lists so that API
+                     -- annotations can be attached for GADT
+                     -- constructors of the form
+                     --  @A,B :: Txxx@
 
                  dd_derivs :: Maybe [LHsType name]
                      -- ^ Derivings; @Nothing@ => not specified,
