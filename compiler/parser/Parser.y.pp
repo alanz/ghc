@@ -1923,7 +1923,7 @@ aexp    :: { LHsExpr RdrName }
 aexp1   :: { LHsExpr RdrName }
         : aexp1 '{' fbinds '}' {% do { r <- mkRecConstrOrUpdate $1 (comb2 $2 $4)
                                                                    (snd $3)
-                                     ; _ <- ams (LL ()) [mo $2,mc $4]
+                                     ; _ <- ams (LL ()) (mo $2:mc $4:(fst $3))
                                      ; checkRecordSyntax (LL r) }}
         | aexp2                { $1 }
 
