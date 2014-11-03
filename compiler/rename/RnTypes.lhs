@@ -214,8 +214,8 @@ rnHsTyKi isType doc (HsBangTy b ty)
 rnHsTyKi _ doc ty@(HsRecTy flds)
   = do { addErr (hang (ptext (sLit "Record syntax is illegal here:"))
                     2 (ppr ty))
-       ; (flds', fvs) <- rnConDeclFields doc flds
-       ; return (HsRecTy flds', fvs) }
+       ; (flds', fvs) <- rnConDeclFields doc (concatMap unLoc flds)
+       ; return (HsRecTy [noLoc flds'], fvs) }
 
 rnHsTyKi isType doc (HsFunTy ty1 ty2)
   = do { (ty1', fvs1) <- rnLHsTyKi isType doc ty1
@@ -959,7 +959,7 @@ extractDataDefnKindVars (HsDataDefn { dd_ctxt = ctxt, dd_kindSig = ksig
   = fst $ extract_lctxt ctxt $
           extract_mb extract_lkind ksig $
           extract_mb extract_ltys derivs $
-          foldr (extract_con . unLoc) ([],[]) cons
+          foldr (extract_con . unLoc) ([],[]) (concatMap unLoc cons)
   where
     extract_con (ConDecl { con_res = ResTyGADT {} }) acc = acc
     extract_con (ConDecl { con_res = ResTyH98, con_qvars = qvs
@@ -989,7 +989,8 @@ extract_lty (L _ ty) acc
   = case ty of
       HsTyVar tv                -> extract_tv tv acc
       HsBangTy _ ty             -> extract_lty ty acc
-      HsRecTy flds              -> foldr (extract_lty . cd_fld_type) acc flds
+      HsRecTy flds              -> foldr (extract_lty . cd_fld_type) acc
+                                         (concatMap unLoc flds)
       HsAppTy ty1 ty2           -> extract_lty ty1 (extract_lty ty2 acc)
       HsListTy ty               -> extract_lty ty acc
       HsPArrTy ty               -> extract_lty ty acc

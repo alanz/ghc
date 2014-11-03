@@ -266,7 +266,7 @@ tcRnModuleTcRnM hsc_env hsc_src
                 (HsParsedModule {
                    hpm_module =
                       (L loc (HsModule maybe_mod export_ies
-                                       import_decls local_decls mod_deprec
+                                       (L _ import_decls) local_decls mod_deprec
                                        maybe_doc_hdr)),
                    hpm_src_files = src_files
                 })
@@ -1140,8 +1140,8 @@ tcTyClsInstDecls boot_details tycl_decls inst_decls deriv_decls
       = concatMap (get_fi_cons . unLoc) fids
 
     get_fi_cons :: DataFamInstDecl Name -> [Name]
-    get_fi_cons (DataFamInstDecl { dfid_defn = HsDataDefn { dd_cons = cons } }) 
-      = map (unLoc . con_name . unLoc) cons
+    get_fi_cons (DataFamInstDecl { dfid_defn = HsDataDefn { dd_cons = cons } })
+      = map (unLoc . con_name . unLoc) (concatMap unLoc cons)
 \end{code}
 
 Note [AFamDataCon: not promoting data family constructors]

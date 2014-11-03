@@ -42,7 +42,7 @@ module HsDecls (
   -- ** Standalone deriving declarations
   DerivDecl(..), LDerivDecl,
   -- ** @RULE@ declarations
-  RuleDecl(..), LRuleDecl, RuleBndr(..),
+  RuleDecl(..), LRuleDecl, RuleBndr(..),LRuleBndr,
   collectRuleBndrSigTys,
   -- ** @VECTORISE@ declarations
   VectDecl(..), LVectDecl,
@@ -770,7 +770,7 @@ data HsDataDefn name   -- The payload of a data type defn
     -- @
     HsDataDefn { dd_ND     :: NewOrData,
                  dd_ctxt   :: LHsContext name,           -- ^ Context
-                 dd_cType  :: Maybe CType,
+                 dd_cType  :: Maybe (Located CType),
                  dd_kindSig:: Maybe (LHsKind name),
                      -- ^ Optional kind signature.
                      --
@@ -779,13 +779,18 @@ data HsDataDefn name   -- The payload of a data type defn
                      --
                      -- Always @Nothing@ for H98-syntax decls
 
-                 dd_cons   :: [LConDecl name],
+                 dd_cons   :: [Located [LConDecl name]],
                      -- ^ Data constructors
                      --
                      -- For @data T a = T1 | T2 a@
                      --   the 'LConDecl's all have 'ResTyH98'.
                      -- For @data T a where { T1 :: T a }@
                      --   the 'LConDecls' all have 'ResTyGADT'.
+                     --
+                     -- Stored as list of lists so that API
+                     -- annotations can be attached for GADT
+                     -- constructors of the form
+                     --  @A,B :: Txxx@
 
                  dd_derivs :: Maybe [LHsType name]
                      -- ^ Derivings; @Nothing@ => not specified,
@@ -860,12 +865,13 @@ data ConDecl name
     } deriving (Typeable)
 deriving instance (DataId name) => Data (ConDecl name)
 
-type HsConDeclDetails name = HsConDetails (LBangType name) [ConDeclField name]
+type HsConDeclDetails name
+        = HsConDetails (LBangType name) [Located [ConDeclField name]]
 
 hsConDeclArgTys :: HsConDeclDetails name -> [LBangType name]
 hsConDeclArgTys (PrefixCon tys)    = tys
 hsConDeclArgTys (InfixCon ty1 ty2) = [ty1,ty2]
-hsConDeclArgTys (RecCon flds)      = map cd_fld_type flds
+hsConDeclArgTys (RecCon flds)      = map cd_fld_type (concatMap unLoc flds)
 
 data ResType ty
    = ResTyH98           -- Constructor was declared using Haskell 98 syntax
@@ -893,7 +899,7 @@ pp_data_defn pp_hdr (HsDataDefn { dd_ND = new_or_data, dd_ctxt = L _ context
 
   | otherwise
   = hang (ppr new_or_data <+> pp_hdr context <+> pp_sig)
-       2 (pp_condecls condecls $$ pp_derivings)
+       2 (pp_condecls (concatMap unLoc condecls) $$ pp_derivings)
   where
     pp_sig = case mb_sig of
                Nothing   -> empty
@@ -926,7 +932,8 @@ pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
   where
     ppr_details (InfixCon t1 t2) = hsep [ppr t1, pprInfixOcc (unLoc con), ppr t2]
     ppr_details (PrefixCon tys)  = hsep (pprPrefixOcc (unLoc con) : map (pprParendHsType . unLoc) tys)
-    ppr_details (RecCon fields)  = ppr con <+> pprConDeclFields fields
+    ppr_details (RecCon fields)  = ppr con
+                                 <+> pprConDeclFields (concatMap unLoc fields)
 
 pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
                     , con_cxt = cxt, con_details = PrefixCon arg_tys
@@ -939,7 +946,7 @@ pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
 pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
                     , con_cxt = cxt, con_details = RecCon fields, con_res = ResTyGADT res_ty })
   = sep [ppr con <+> dcolon <+> pprHsForAll expl tvs cxt,
-         pprConDeclFields fields <+> arrow <+> ppr res_ty]
+         pprConDeclFields (concatMap unLoc fields) <+> arrow <+> ppr res_ty]
 
 pprConDecl decl@(ConDecl { con_details = InfixCon ty1 ty2, con_res = ResTyGADT {} })
   = pprConDecl (decl { con_details = PrefixCon [ty1,ty2] })
@@ -1325,16 +1332,18 @@ type LRuleDecl name = Located (RuleDecl name)
 
 data RuleDecl name
   = HsRule                      -- Source rule
-        RuleName                -- Rule name
+        (Located RuleName)      -- Rule name
         Activation
-        [RuleBndr name]         -- Forall'd vars; after typechecking this includes tyvars
+        [LRuleBndr name]        -- Forall'd vars; after typechecking this
+                                --   includes tyvars
         (Located (HsExpr name)) -- LHS
-        (PostRn name NameSet)        -- Free-vars from the LHS
+        (PostRn name NameSet)   -- Free-vars from the LHS
         (Located (HsExpr name)) -- RHS
-        (PostRn name NameSet)        -- Free-vars from the RHS
+        (PostRn name NameSet)   -- Free-vars from the RHS
   deriving (Typeable)
 deriving instance (DataId name) => Data (RuleDecl name)
 
+type LRuleBndr name = Located (RuleBndr name)
 data RuleBndr name
   = RuleBndr (Located name)
   | RuleBndrSig (Located name) (HsWithBndrs name (LHsType name))
@@ -1346,7 +1355,8 @@ collectRuleBndrSigTys bndrs = [ty | RuleBndrSig _ ty <- bndrs]
 
 instance OutputableBndr name => Outputable (RuleDecl name) where
   ppr (HsRule name act ns lhs _fv_lhs rhs _fv_rhs)
-        = sep [text "{-# RULES" <+> doubleQuotes (ftext name) <+> ppr act,
+        = sep [text "{-# RULES" <+> doubleQuotes (ftext $ unLoc name)
+                                <+> ppr act,
                nest 4 (pp_forall <+> pprExpr (unLoc lhs)),
                nest 4 (equals <+> pprExpr (unLoc rhs) <+> text "#-}") ]
         where

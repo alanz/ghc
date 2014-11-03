@@ -193,7 +193,7 @@ cvtDec (DataD ctxt tc tvs constrs derivs)
         ; let defn = HsDataDefn { dd_ND = DataType, dd_cType = Nothing
                                 , dd_ctxt = ctxt'
                                 , dd_kindSig = Nothing
-                                , dd_cons = cons', dd_derivs = derivs' }
+                                , dd_cons = [noLoc cons'], dd_derivs = derivs' }
         ; returnJustL $ TyClD (DataDecl { tcdLName = tc', tcdTyVars = tvs'
                                         , tcdDataDefn = defn
                                         , tcdFVs = placeHolderNames }) }
@@ -205,7 +205,8 @@ cvtDec (NewtypeD ctxt tc tvs constr derivs)
         ; let defn = HsDataDefn { dd_ND = NewType, dd_cType = Nothing
                                 , dd_ctxt = ctxt'
                                 , dd_kindSig = Nothing
-                                , dd_cons = [con'], dd_derivs = derivs' }
+                                , dd_cons = [noLoc [con']]
+                                , dd_derivs = derivs' }
         ; returnJustL $ TyClD (DataDecl { tcdLName = tc', tcdTyVars = tvs'
                                     , tcdDataDefn = defn
                                     , tcdFVs = placeHolderNames }) }
@@ -262,7 +263,7 @@ cvtDec (DataInstD ctxt tc tys constrs derivs)
        ; let defn = HsDataDefn { dd_ND = DataType, dd_cType = Nothing
                                , dd_ctxt = ctxt'
                                , dd_kindSig = Nothing
-                               , dd_cons = cons', dd_derivs = derivs' }
+                               , dd_cons = [noLoc cons'], dd_derivs = derivs' }
 
        ; returnJustL $ InstD $ DataFamInstD
            { dfid_inst = DataFamInstDecl { dfid_tycon = tc', dfid_pats = typats'
@@ -276,7 +277,7 @@ cvtDec (NewtypeInstD ctxt tc tys constr derivs)
        ; let defn = HsDataDefn { dd_ND = NewType, dd_cType = Nothing
                                , dd_ctxt = ctxt'
                                , dd_kindSig = Nothing
-                               , dd_cons = [con'], dd_derivs = derivs' }
+                               , dd_cons = [noLoc [con']], dd_derivs = derivs' }
        ; returnJustL $ InstD $ DataFamInstD
            { dfid_inst = DataFamInstDecl { dfid_tycon = tc', dfid_pats = typats'
                                          , dfid_defn = defn
@@ -401,7 +402,8 @@ cvtConstr (RecC c varstrtys)
   = do  { c'    <- cNameL c
         ; cxt'  <- returnL []
         ; args' <- mapM cvt_id_arg varstrtys
-        ; returnL $ mkSimpleConDecl c' noExistentials cxt' (RecCon args') }
+        ; returnL $ mkSimpleConDecl c' noExistentials cxt'
+                                   (RecCon [noLoc args']) }
 
 cvtConstr (InfixC st1 c st2)
   = do  { c' <- cNameL c
@@ -508,7 +510,7 @@ cvtPragmaD (RuleP nm bndrs lhs rhs phases)
        ; bndrs' <- mapM cvtRuleBndr bndrs
        ; lhs'   <- cvtl lhs
        ; rhs'   <- cvtl rhs
-       ; returnJustL $ Hs.RuleD $ HsRule nm' act bndrs'
+       ; returnJustL $ Hs.RuleD $ HsRule (noLoc nm') act bndrs'
                                      lhs' placeHolderNames
                                      rhs' placeHolderNames
        }
@@ -549,14 +551,14 @@ cvtPhases AllPhases       dflt = dflt
 cvtPhases (FromPhase i)   _    = ActiveAfter i
 cvtPhases (BeforePhase i) _    = ActiveBefore i
 
-cvtRuleBndr :: TH.RuleBndr -> CvtM (Hs.RuleBndr RdrName)
+cvtRuleBndr :: TH.RuleBndr -> CvtM (Hs.LRuleBndr RdrName)
 cvtRuleBndr (RuleVar n)
   = do { n' <- vNameL n
-       ; return $ Hs.RuleBndr n' }
+       ; return $ noLoc $ Hs.RuleBndr n' }
 cvtRuleBndr (TypedRuleVar n ty)
   = do { n'  <- vNameL n
        ; ty' <- cvtType ty
-       ; return $ Hs.RuleBndrSig n' $ mkHsWithBndrs ty' }
+       ; return $ noLoc $ Hs.RuleBndrSig n' $ mkHsWithBndrs ty' }
 
 ---------------------------------------------------
 --              Declarations
@@ -604,8 +606,12 @@ cvtl e = wrapL (cvt e)
     cvt (TupE [e])     = do { e' <- cvtl e; return $ HsPar e' }
                                  -- Note [Dropping constructors]
                                  -- Singleton tuples treated like nothing (just parens)
-    cvt (TupE es)      = do { es' <- mapM cvtl es; return $ ExplicitTuple (map Present es') Boxed }
-    cvt (UnboxedTupE es)      = do { es' <- mapM cvtl es; return $ ExplicitTuple (map Present es') Unboxed }
+    cvt (TupE es)      = do { es' <- mapM cvtl es
+                            ; return $ ExplicitTuple (map (noLoc . Present) es')
+                                                      Boxed }
+    cvt (UnboxedTupE es)      = do { es' <- mapM cvtl es
+                                   ; return $ ExplicitTuple
+                                           (map (noLoc . Present) es') Unboxed }
     cvt (CondE x y z)  = do { x' <- cvtl x; y' <- cvtl y; z' <- cvtl z;
                             ; return $ HsIf (Just noSyntaxExpr) x' y' z' }
     cvt (MultiIfE alts)
@@ -676,10 +682,11 @@ and the above expression would be reassociated to
 which we don't want.
 -}
 
-cvtFld :: (TH.Name, TH.Exp) -> CvtM (HsRecField RdrName (LHsExpr RdrName))
+cvtFld :: (TH.Name, TH.Exp) -> CvtM (LHsRecField RdrName (LHsExpr RdrName))
 cvtFld (v,e)
   = do  { v' <- vNameL v; e' <- cvtl e
-        ; return (HsRecField { hsRecFieldId = v', hsRecFieldArg = e', hsRecPun = False}) }
+        ; return (noLoc $ HsRecField { hsRecFieldId = v', hsRecFieldArg = e'
+                                     , hsRecPun = False}) }
 
 cvtDD :: Range -> CvtM (ArithSeqInfo RdrName)
 cvtDD (FromR x)           = do { x' <- cvtl x; return $ From x' }
@@ -889,10 +896,11 @@ cvtp (SigP p t)        = do { p' <- cvtPat p; t' <- cvtType t
 cvtp (ViewP e p)       = do { e' <- cvtl e; p' <- cvtPat p
                             ; return $ ViewPat e' p' placeHolderType }
 
-cvtPatFld :: (TH.Name, TH.Pat) -> CvtM (HsRecField RdrName (LPat RdrName))
+cvtPatFld :: (TH.Name, TH.Pat) -> CvtM (LHsRecField RdrName (LPat RdrName))
 cvtPatFld (s,p)
   = do  { s' <- vNameL s; p' <- cvtPat p
-        ; return (HsRecField { hsRecFieldId = s', hsRecFieldArg = p', hsRecPun = False}) }
+        ; return (noLoc $ HsRecField { hsRecFieldId = s', hsRecFieldArg = p'
+                                     , hsRecPun = False}) }
 
 {- | @cvtOpAppP x op y@ converts @op@ and @y@ and produces the operator application @x `op` y@.
 The produced tree of infix patterns will be left-biased, provided @x@ is.
