@@ -511,10 +511,10 @@ exp_doc :: { OrdList (LIE RdrName) }
    -- No longer allow things like [] and (,,,) to be exported
    -- They are built in syntax, always available
 export  :: { OrdList (LIE RdrName) }
-        : qcname_ext export_subspec     { unitOL (sLL $1 $> (mkModuleImpExp (unLoc $1)
+        : qcname_ext export_subspec     { unitOL (sLL $1 $> (mkModuleImpExp $1
                                                                      (unLoc $2))) }
-        |  'module' modid               { unitOL (sLL $1 $> (IEModuleContents (unLoc $2))) }
-        |  'pattern' qcon               { unitOL (sLL $1 $> (IEVar (unLoc $2))) }
+        |  'module' modid               { unitOL (sLL $1 $> (IEModuleContents $2)) }
+        |  'pattern' qcon               { unitOL (sLL $1 $> (IEVar $2)) }
 
 export_subspec :: { Located ImpExpSubSpec }
         : {- empty -}                   { sL0 ImpExpAbs }
@@ -980,7 +980,7 @@ rules   :: { OrdList (LHsDecl RdrName) }
 
 rule    :: { LHsDecl RdrName }
         : STRING rule_activation rule_forall infixexp '=' exp
-             { sLL $1 $> $ RuleD (HsRule (getSTRING $1)
+             { sLL $1 $> $ RuleD (HsRule (L1 (getSTRING $1))
                                   ($2 `orElse` AlwaysActive)
                                   $3 $4 placeHolderNames $6 placeHolderNames) }
 
