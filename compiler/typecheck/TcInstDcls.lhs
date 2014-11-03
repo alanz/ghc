@@ -672,8 +672,10 @@ tcDataFamInstDecl mb_clsinfo
        { dfid_pats = pats
        , dfid_tycon = fam_tc_name
        , dfid_defn = defn@HsDataDefn { dd_ND = new_or_data, dd_cType = cType
-                                     , dd_ctxt = ctxt, dd_cons = cons } }))
-  = setSrcSpan loc             $
+                                     , dd_ctxt = ctxt, dd_cons = cons' } }))
+ = let cons = concatMap unLoc cons'
+   in
+    setSrcSpan loc             $
     tcAddDataFamInstCtxt decl  $
     do { fam_tc <- tcFamInstDeclCombined mb_clsinfo fam_tc_name
 

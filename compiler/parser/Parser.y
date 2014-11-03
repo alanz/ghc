@@ -445,18 +445,18 @@ maybemodwarning :: { Maybe WarningTxt }
     | '{-# WARNING' strings '#-}'    { Just (WarningTxt $ unLoc $2) }
     |  {- empty -}                  { Nothing }
 
-body    :: { ([LImportDecl RdrName], [LHsDecl RdrName]) }
+body    :: { (Located [LImportDecl RdrName], [LHsDecl RdrName]) }
         :  '{'            top '}'               { $2 }
         |      vocurly    top close             { $2 }
 
-body2   :: { ([LImportDecl RdrName], [LHsDecl RdrName]) }
+body2   :: { (Located [LImportDecl RdrName], [LHsDecl RdrName]) }
         :  '{' top '}'                          { $2 }
         |  missing_module_keyword top close     { $2 }
 
-top     :: { ([LImportDecl RdrName], [LHsDecl RdrName]) }
-        : importdecls                           { (reverse $1,[]) }
-        | importdecls ';' cvtopdecls            { (reverse $1,$3) }
-        | cvtopdecls                            { ([],$1) }
+top     :: { (Located [LImportDecl RdrName], [LHsDecl RdrName]) }
+        : importdecls                           { (L1 $ reverse (unLoc $1),[]) }
+        | importdecls ';' cvtopdecls            { (L1 $ reverse (unLoc $1),$3) }
+        | cvtopdecls                            { (noLoc [],$1) }
 
 cvtopdecls :: { [LHsDecl RdrName] }
         : topdecls                              { cvTopDecls $1 }
@@ -474,11 +474,11 @@ header  :: { Located (HsModule RdrName) }
                    return (L loc (HsModule Nothing Nothing $1 [] Nothing
                           Nothing)) }
 
-header_body :: { [LImportDecl RdrName] }
+header_body :: { Located [LImportDecl RdrName] }
         :  '{'            importdecls           { $2 }
         |      vocurly    importdecls           { $2 }
 
-header_body2 :: { [LImportDecl RdrName] }
+header_body2 :: { Located [LImportDecl RdrName] }
         :  '{' importdecls                      { $2 }
         |  missing_module_keyword importdecls   { $2 }
 
@@ -542,11 +542,11 @@ qcname  :: { Located RdrName }  -- Variable or data constructor
 -- import decls can be *empty*, or even just a string of semicolons
 -- whereas topdecls must contain at least one topdecl.
 
-importdecls :: { [LImportDecl RdrName] }
-        : importdecls ';' importdecl            { ($3 : $1) }
+importdecls :: { Located [LImportDecl RdrName] }
+        : importdecls ';' importdecl            { sLL $1 $> ($3 : unLoc $1) }
         | importdecls ';'                       { $1 }
-        | importdecl                            { [ $1 ] }
-        | {- empty -}                           { [] }
+        | importdecl                            { LL [ $1 ] }
+        | {- empty -}                           { noLoc [] }
 
 importdecl :: { LImportDecl RdrName }
         : 'import' maybe_src maybe_safe optqualified maybe_pkg modid maybeas maybeimpspec
@@ -672,7 +672,8 @@ ty_decl :: { LTyClDecl RdrName }
           -- ordinary data type or newtype declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
                 {% mkTyData (comb4 $1 $3 $4 $5) (unLoc $1) $2 $3
-                            Nothing (reverse (unLoc $4)) (unLoc $5) }
+                            Nothing [L (getLoc $4) (reverse (unLoc $4))]
+                                    (unLoc $5) }
                                    -- We need the location on tycl_hdr in case
                                    -- constrs and deriving are both empty
 
@@ -790,7 +791,8 @@ at_decl_inst :: { LInstDecl RdrName }
         -- data/newtype instance declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
                 {% mkDataFamInst (comb4 $1 $3 $4 $5) (unLoc $1) $2 $3
-                                 Nothing (reverse (unLoc $4)) (unLoc $5) }
+                                 Nothing [L (getLoc $4) (reverse (unLoc $4))]
+                                 (unLoc $5) }
 
         -- GADT instance declaration
         | data_or_newtype capi_ctype tycl_hdr opt_kind_sig
@@ -1323,12 +1325,12 @@ both become a HsTyVar ("Zero", DataName) after the renamer.
 -----------------------------------------------------------------------------
 -- Datatype declarations
 
-gadt_constrlist :: { Located [LConDecl RdrName] } -- Returned in order
+gadt_constrlist :: { Located [Located [LConDecl RdrName]] } -- Returned in order
         : 'where' '{'        gadt_constrs '}'      { L (comb2 $1 $3) (unLoc $3) }
         | 'where' vocurly    gadt_constrs close    { L (comb2 $1 $3) (unLoc $3) }
         | {- empty -}                              { noLoc [] }
 
-gadt_constrs :: { Located [LConDecl RdrName] }
+gadt_constrs :: { Located [Located [LConDecl RdrName]] }
         : gadt_constr ';' gadt_constrs  { sLL $1 $> ($1 : unLoc $3) }
         | gadt_constr                   { sLL $1 $> [$1] }
         | {- empty -}                   { noLoc [] }
