@@ -294,9 +294,10 @@ repDataDefn tc bndrs opt_tys tv_names
   = do { cxt1     <- repLContext cxt
        ; derivs1  <- repDerivs mb_derivs
        ; case new_or_data of
-           NewType  -> do { con1 <- repC tv_names (head cons)
+           NewType  -> do { con1 <- repC tv_names (head (concatMap unLoc cons))
                           ; repNewtype cxt1 tc bndrs opt_tys con1 derivs1 }
-           DataType -> do { cons1 <- repList conQTyConName (repC tv_names) cons
+           DataType -> do { cons1 <- repList conQTyConName (repC tv_names)
+                                             (concatMap unLoc cons)
                           ; repData cxt1 tc bndrs opt_tys cons1 derivs1 } }
 
 repSynDecl :: Core TH.Name -> Core [TH.TyVarBndr]
@@ -504,7 +505,7 @@ repRuleD (L loc (HsRule n act bndrs lhs _ rhs _))
        ; ss <- mkGenSyms bndr_names
        ; rule1 <- addBinds ss $
                   do { bndrs' <- repList ruleBndrQTyConName repRuleBndr bndrs
-                     ; n'   <- coreStringLit $ unpackFS n
+                     ; n'   <- coreStringLit $ unpackFS $ unLoc n
                      ; act' <- repPhases act
                      ; lhs' <- repLE lhs
                      ; rhs' <- repLE rhs
@@ -512,16 +513,16 @@ repRuleD (L loc (HsRule n act bndrs lhs _ rhs _))
        ; rule2 <- wrapGenSyms ss rule1
        ; return (loc, rule2) }
 
-ruleBndrNames :: RuleBndr Name -> [Name]
-ruleBndrNames (RuleBndr n)      = [unLoc n]
-ruleBndrNames (RuleBndrSig n (HsWB { hswb_kvs = kvs, hswb_tvs = tvs }))
+ruleBndrNames :: LRuleBndr Name -> [Name]
+ruleBndrNames (L _ (RuleBndr n))      = [unLoc n]
+ruleBndrNames (L _ (RuleBndrSig n (HsWB { hswb_kvs = kvs, hswb_tvs = tvs })))
   = unLoc n : kvs ++ tvs
 
-repRuleBndr :: RuleBndr Name -> DsM (Core TH.RuleBndrQ)
-repRuleBndr (RuleBndr n)
+repRuleBndr :: LRuleBndr Name -> DsM (Core TH.RuleBndrQ)
+repRuleBndr (L _ (RuleBndr n))
   = do { MkC n' <- lookupLBinder n
        ; rep2 ruleVarName [n'] }
-repRuleBndr (RuleBndrSig n (HsWB { hswb_cts = ty }))
+repRuleBndr (L _ (RuleBndrSig n (HsWB { hswb_cts = ty })))
   = do { MkC n'  <- lookupLBinder n
        ; MkC ty' <- repLTy ty
        ; rep2 typedRuleVarName [n', ty'] }
@@ -1036,8 +1037,9 @@ repE (ExplicitList _ _ es) = do { xs <- repLEs es; repListExp xs }
 repE e@(ExplicitPArr _ _) = notHandled "Parallel arrays" (ppr e)
 repE e@(ExplicitTuple es boxed)
   | not (all tupArgPresent es) = notHandled "Tuple sections" (ppr e)
-  | isBoxed boxed              = do { xs <- repLEs [e | Present e <- es]; repTup xs }
-  | otherwise                  = do { xs <- repLEs [e | Present e <- es]; repUnboxedTup xs }
+  | isBoxed boxed  = do { xs <- repLEs [e | L _ (Present e) <- es]; repTup xs }
+  | otherwise      = do { xs <- repLEs [e | L _ (Present e) <- es]
+                        ; repUnboxedTup xs }
 
 repE (RecordCon c _ flds)
  = do { x <- lookupLOcc c;
@@ -1123,9 +1125,9 @@ repFields :: HsRecordBinds Name -> DsM (Core [TH.Q TH.FieldExp])
 repFields (HsRecFields { rec_flds = flds })
   = repList fieldExpQTyConName rep_fld flds
   where
-    rep_fld fld = do { fn <- lookupLOcc (hsRecFieldId fld)
-                     ; e  <- repLE (hsRecFieldArg fld)
-                     ; repFieldExp fn e }
+    rep_fld (L _ fld) = do { fn <- lookupLOcc (hsRecFieldId fld)
+                           ; e  <- repLE (hsRecFieldArg fld)
+                           ; repFieldExp fn e }
 
 
 -----------------------------------------------------------------------------
@@ -1350,9 +1352,9 @@ repP (ConPatIn dc details)
                                 repPinfix p1' con_str p2' }
    }
  where
-   rep_fld fld = do { MkC v <- lookupLOcc (hsRecFieldId fld)
-                    ; MkC p <- repLP (hsRecFieldArg fld)
-                    ; rep2 fieldPatName [v,p] }
+   rep_fld (L _ fld) = do { MkC v <- lookupLOcc (hsRecFieldId fld)
+                          ; MkC p <- repLP (hsRecFieldArg fld)
+                          ; rep2 fieldPatName [v,p] }
 
 repP (NPat l Nothing _)  = do { a <- repOverloadedLiteral l; repPlit a }
 repP (ViewPat e p _) = do { e' <- repLE e; p' <- repLP p; repPview e' p' }
@@ -1819,7 +1821,8 @@ repConstr con (PrefixCon ps)
     = do arg_tys  <- repList strictTypeQTyConName repBangTy ps
          rep2 normalCName [unC con, unC arg_tys]
 repConstr con (RecCon ips)
-    = do { arg_vtys <- repList varStrictTypeQTyConName rep_ip ips
+    = do { arg_vtys <- repList varStrictTypeQTyConName rep_ip
+                               (concatMap unLoc ips)
          ; rep2 recCName [unC con, unC arg_vtys] }
     where
       rep_ip ip = do { MkC v  <- lookupLOcc (cd_fld_name ip)
