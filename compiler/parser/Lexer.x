@@ -74,7 +74,7 @@ module Lexer (
    addWarning,
    lexTokenStream,
    ApiAnns,
-   Ann(..),
+   AnnKeywordId(..),
    addAnnotation,
    getAnnotation,getAnnotationComments
   ) where
@@ -2540,12 +2540,12 @@ clean_pragma prag = canon_ws (map toLower (unprefix prag))
 %************************************************************************
 -}
 
-addAnnotation :: SrcSpan -> Ann -> SrcSpan -> P ()
+addAnnotation :: SrcSpan -> AnnKeywordId -> SrcSpan -> P ()
 addAnnotation l a v = do
   addAnnotationOnly l a v
   allocateComments l
 
-addAnnotationOnly :: SrcSpan -> Ann -> SrcSpan -> P ()
+addAnnotationOnly :: SrcSpan -> AnnKeywordId -> SrcSpan -> P ()
 addAnnotationOnly l a v = P $ \s -> POk s {
   annotations = ((l,a), v) : annotations s
   } ()
@@ -2573,13 +2573,13 @@ allocateComments ss = P $ \s ->
 
 type ApiAnns = (Map.Map ApiAnnKey SrcSpan, Map.Map SrcSpan [Located Token])
 
-type ApiAnnKey = (SrcSpan,Ann)
+type ApiAnnKey = (SrcSpan,AnnKeywordId)
 
 -- ---------------------------------------------------------------------
 
 -- | Retrieve an annotation based on the @SrcSpan@ of the annotated AST
 -- element, and the known type of the annotation.
-getAnnotation :: ApiAnns -> SrcSpan -> Ann -> Maybe SrcSpan
+getAnnotation :: ApiAnns -> SrcSpan -> AnnKeywordId -> Maybe SrcSpan
 getAnnotation (anns,_) span ann = Map.lookup (span,ann) anns
 
 -- |Retrieve the comments allocated to the current @SrcSpan@
@@ -2607,74 +2607,75 @@ isDocComment _ = False
 
 -- | Note: in general the names of these are taken from the
 -- corresponding token, unless otherwise noted
-data Ann = AnnAs
-         | AnnAt
-         | AnnBang
-         | AnnBy
-         | AnnCase
-         | AnnClass
-         | AnnClose -- ^  or ] or ) or #) etc
-         | AnnColon
-         | AnnColon2
-         | AnnComma
-         | AnnDarrow
-         | AnnData
-         | AnnDcolon
-         | AnnDefault
-         | AnnDeriving
-         | AnnDo
-         | AnnDot
-         | AnnDotdot
-         | AnnElse
-         | AnnEqual
-         | AnnExport
-         | AnnFamily
-         | AnnForall
-         | AnnForeign
-         | AnnGroup
-         | AnnHeader -- ^ for CType
-         | AnnHiding
-         | AnnIf
-         | AnnImport
-         | AnnIn
-         | AnnInstance
-         | AnnLam
-         | AnnLarrow
-         | AnnLarrowtail
-         | AnnLet
-         | AnnMdo
-         | AnnMinus
-         | AnnModule
-         | AnnNewtype
-         | AnnOf
-         | AnnOpen   -- ^ or [ or ( or (# etc
-         | AnnPackageName
-         | AnnPattern
-         | AnnProc
-         | AnnQualified
-         | AnnRarrow
-         | AnnRarrowtail
-         | AnnRec
-         | AnnRole
-         | AnnSafe
-         | AnnSemi
-         | AnnThen
-         | AnnTilde
-         | AnnTildehsh
-         | AnnType
-         | AnnUsing
-         | AnnVal  -- ^ e.g. INTEGER
-         | AnnVal2 -- ^ e.g. INTEGER
-         | AnnVal3 -- ^ e.g. INTEGER
-         | AnnVal4 -- ^ e.g. INTEGER
-         | AnnVal5 -- ^ e.g. INTEGER
-         | AnnVbar
-         | AnnWhere
-         | Annlarrowtail
-         | Annrarrowtail
-            deriving (Eq,Ord,Data,Typeable,Show)
+data AnnKeywordId
+    = AnnAs
+    | AnnAt
+    | AnnBang
+    | AnnBy
+    | AnnCase
+    | AnnClass
+    | AnnClose -- ^  or ] or ) or #) etc
+    | AnnColon
+    | AnnColon2
+    | AnnComma
+    | AnnDarrow
+    | AnnData
+    | AnnDcolon
+    | AnnDefault
+    | AnnDeriving
+    | AnnDo
+    | AnnDot
+    | AnnDotdot
+    | AnnElse
+    | AnnEqual
+    | AnnExport
+    | AnnFamily
+    | AnnForall
+    | AnnForeign
+    | AnnGroup
+    | AnnHeader -- ^ for CType
+    | AnnHiding
+    | AnnIf
+    | AnnImport
+    | AnnIn
+    | AnnInstance
+    | AnnLam
+    | AnnLarrow
+    | AnnLarrowtail
+    | AnnLet
+    | AnnMdo
+    | AnnMinus
+    | AnnModule
+    | AnnNewtype
+    | AnnOf
+    | AnnOpen   -- ^ or [ or ( or (# etc
+    | AnnPackageName
+    | AnnPattern
+    | AnnProc
+    | AnnQualified
+    | AnnRarrow
+    | AnnRarrowtail
+    | AnnRec
+    | AnnRole
+    | AnnSafe
+    | AnnSemi
+    | AnnThen
+    | AnnTilde
+    | AnnTildehsh
+    | AnnType
+    | AnnUsing
+    | AnnVal  -- ^ e.g. INTEGER
+    | AnnVal2 -- ^ e.g. INTEGER
+    | AnnVal3 -- ^ e.g. INTEGER
+    | AnnVal4 -- ^ e.g. INTEGER
+    | AnnVal5 -- ^ e.g. INTEGER
+    | AnnVbar
+    | AnnWhere
+    | Annlarrowtail
+    | Annrarrowtail
+    deriving (Eq,Ord,Data,Typeable,Show)
 
-instance Outputable Ann where
+instance Outputable AnnKeywordId where
   ppr x = text (show x)
 
 }

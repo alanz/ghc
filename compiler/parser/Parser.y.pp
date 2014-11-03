@@ -2808,7 +2808,7 @@ type MaybeAnn = Maybe (SrcSpan -> P ())
 gl = getLoc
 gj x = Just (gl x)
 
-aa :: Located a -> (Ann,Located c) -> P (Located a)
+aa :: Located a -> (AnnKeywordId,Located c) -> P (Located a)
 aa a@(L l _) (b,s) = addAnnotation l b (gl s) >> return a
 
 am a (b,s) = do
@@ -2827,7 +2827,7 @@ amms a bs = do
 amsu :: Located a -> [MaybeAnn] -> P (OrdList (Located a))
 amsu a@(L l _) bs = (mapM_ (\a -> a l) $ catMaybes bs) >> return (unitOL a)
 
-mj :: Ann -> Located e -> Maybe (SrcSpan -> P ())
+mj :: AnnKeywordId -> Located e -> Maybe (SrcSpan -> P ())
 mj a l = Just (\s -> addAnnotation s a (gl l))
 
 mo ll = mj AnnOpen ll

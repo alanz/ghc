@@ -242,7 +242,7 @@ module GHC (
         parser,
 
         -- * API Annotations
-        ApiAnns,Ann(..),
+        ApiAnns,AnnKeywordId(..),
         getAnnotation, getAnnotationComments,
 
         -- * Miscellaneous
