@@ -1302,10 +1302,11 @@ tcTySig :: LSig Name -> TcM [TcSigInfo]
 tcTySig (L loc (IdSig id))
   = do { sig <- instTcTySigFromId loc id
        ; return [sig] }
-tcTySig (L loc (TypeSig names@(L _ name1 : _) hs_ty))
-  = setSrcSpan loc $ 
+tcTySig (L loc (TypeSig names hs_ty))
+  = setSrcSpan loc $
     do { sigma_ty <- tcHsSigType (FunSigCtxt name1) hs_ty
        ; mapM (instTcTySig hs_ty sigma_ty) (map unLoc names) }
+    where (L _ name1 : _) = names
 tcTySig _ = return []
 
 instTcTySigFromId :: SrcSpan -> Id -> TcM TcSigInfo

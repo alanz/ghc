@@ -672,8 +672,10 @@ tcDataFamInstDecl mb_clsinfo
        { dfid_pats = pats
        , dfid_tycon = fam_tc_name
        , dfid_defn = defn@HsDataDefn { dd_ND = new_or_data, dd_cType = cType
-                                     , dd_ctxt = ctxt, dd_cons = cons } }))
-  = setSrcSpan loc             $
+                                     , dd_ctxt = ctxt, dd_cons = cons' } }))
+ = let cons = concatMap unLoc cons'
+   in
+    setSrcSpan loc             $
     tcAddDataFamInstCtxt decl  $
     do { fam_tc <- tcFamInstDeclCombined mb_clsinfo fam_tc_name
 
@@ -706,7 +708,7 @@ tcDataFamInstDecl mb_clsinfo
 
        ; (rep_tc, fam_inst) <- fixM $ \ ~(rec_rep_tc, _) ->
            do { data_cons <- tcConDecls new_or_data rec_rep_tc
-                                       (tvs', orig_res_ty) cons
+                                        (tvs', orig_res_ty) cons
               ; tc_rhs <- case new_or_data of
                      DataType -> return (mkDataTyConRhs data_cons)
                      NewType  -> ASSERT( not (null data_cons) )
@@ -717,7 +719,9 @@ tcDataFamInstDecl mb_clsinfo
                                                (mkTyConApp rep_tc (mkTyVarTys eta_tvs))
                     parent   = FamInstTyCon axiom fam_tc pats'
                     roles    = map (const Nominal) tvs'
-                    rep_tc   = buildAlgTyCon rep_tc_name tvs' roles cType stupid_theta tc_rhs
+                    rep_tc   = buildAlgTyCon rep_tc_name tvs' roles
+                                             (fmap unLoc cType) stupid_theta
+                                             tc_rhs
                                              Recursive
                                              False      -- No promotable to the kind level
                                              gadt_syntax parent
