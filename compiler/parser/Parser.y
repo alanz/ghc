@@ -646,7 +646,8 @@ topdecl :: { OrdList (LHsDecl RdrName) }
 -- Type classes
 --
 cl_decl :: { LTyClDecl RdrName }
-        : 'class' tycl_hdr fds where_cls        {% mkClassDecl (comb4 $1 $2 $3 $4) $2 $3 (unLoc $4) }
+        : 'class' tycl_hdr fds where_cls
+                           {% mkClassDecl (comb4 $1 $2 $3 $4) $2 $3 (unLoc $4) }
 
 -- Type declarations (toplevel)
 --
@@ -821,9 +822,13 @@ tycl_hdr :: { Located (Maybe (LHsContext RdrName), LHsType RdrName) }
         | type                          { sL1 $1 (Nothing, $1) }
 
 capi_ctype :: { Maybe (Located CType) }
-capi_ctype : '{-# CTYPE' STRING STRING '#-}' { Just $ LL (CType (Just (Header (getSTRING $2))) (getSTRING $3)) }
-           | '{-# CTYPE'        STRING '#-}' { Just $ LL (CType Nothing                        (getSTRING $2)) }
-           |                                 { Nothing }
+capi_ctype : '{-# CTYPE' STRING STRING '#-}'
+                           { Just $ LL (CType
+                                    (Just (Header (getSTRING $2)))
+                                                  (getSTRING $3)) }
+           | '{-# CTYPE'        STRING '#-}'
+                           { Just $ LL (CType Nothing (getSTRING $2)) }
+           |               { Nothing }
 
 -----------------------------------------------------------------------------
 -- Stand-alone deriving
@@ -1003,8 +1008,8 @@ rule_var_list :: { [LRuleBndr RdrName] }
         | rule_var rule_var_list                { $1 : $2 }
 
 rule_var :: { LRuleBndr RdrName }
-        : varid                                 { LL $ RuleBndr $1 }
-        | '(' varid '::' ctype ')'              { LL $ RuleBndrSig $2 (mkHsWithBndrs $4) }
+        : varid                       { LL $ RuleBndr $1 }
+        | '(' varid '::' ctype ')'    { LL $ RuleBndrSig $2 (mkHsWithBndrs $4) }
 
 -----------------------------------------------------------------------------
 -- Warnings and deprecations (c.f. rules)
@@ -1337,7 +1342,8 @@ gadt_constrs :: { Located [Located [LConDecl RdrName]] }
 --      D { x,y :: a } :: T a
 --      forall a. Eq a => D { x,y :: a } :: T a
 
-gadt_constr :: { Located [LConDecl RdrName] } -- Returns a list because of:   C,D :: ty
+gadt_constr :: { Located [LConDecl RdrName] }
+                                   -- Returns a list because of:   C,D :: ty
         : con_list '::' sigtype
                 { LL $ map (sL (comb2 $1 $3)) (mkGadtDecl (unLoc $1) $3) }
 
@@ -1385,11 +1391,12 @@ fielddecls :: { [Located [ConDeclField RdrName]] }
 
 fielddecls1 :: { [Located [ConDeclField RdrName]] }
         : fielddecl maybe_docnext ',' maybe_docprev fielddecls1
-                      { L1 [ addFieldDoc f $4 | f <- unLoc $1 ] : addFieldDocs $5 $2 }
+                { L1 [ addFieldDoc f $4 | f <- unLoc $1 ] : addFieldDocs $5 $2 }
                              -- This adds the doc $4 to each field separately
         | fielddecl   { [$1] }
 
-fielddecl :: { Located [ConDeclField RdrName] } -- A list because of   f,g :: Int
+fielddecl :: { Located [ConDeclField RdrName] }
+                                              -- A list because of   f,g :: Int
         : maybe_docnext sig_vars '::' ctype maybe_docprev
                   { L (comb2 $2 $4) [ ConDeclField fld $4 ($1 `mplus` $5)
                                     | fld <- reverse (unLoc $2) ] }
@@ -1722,7 +1729,8 @@ tup_exprs :: { [LHsTupArg RdrName] }
 
 -- Always starts with commas; always follows an expr
 commas_tup_tail :: { [LHsTupArg RdrName] }
-commas_tup_tail : commas tup_tail  { replicate ($1-1) (noLoc missingTupArg) ++ $2 }
+commas_tup_tail : commas tup_tail
+                                { replicate ($1-1) (noLoc missingTupArg) ++ $2 }
 
 -- Always follows a comma
 tup_tail :: { [LHsTupArg RdrName] }
