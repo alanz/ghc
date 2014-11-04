@@ -445,18 +445,18 @@ maybemodwarning :: { Maybe WarningTxt }
     | '{-# WARNING' strings '#-}'    { Just (WarningTxt $ unLoc $2) }
     |  {- empty -}                  { Nothing }
 
-body    :: { (Located [LImportDecl RdrName], [LHsDecl RdrName]) }
+body    :: { ([LImportDecl RdrName], [LHsDecl RdrName]) }
         :  '{'            top '}'               { $2 }
         |      vocurly    top close             { $2 }
 
-body2   :: { (Located [LImportDecl RdrName], [LHsDecl RdrName]) }
+body2   :: { ([LImportDecl RdrName], [LHsDecl RdrName]) }
         :  '{' top '}'                          { $2 }
         |  missing_module_keyword top close     { $2 }
 
-top     :: { (Located [LImportDecl RdrName], [LHsDecl RdrName]) }
-        : importdecls                           { (L1 $ reverse (unLoc $1),[]) }
-        | importdecls ';' cvtopdecls            { (L1 $ reverse (unLoc $1),$3) }
-        | cvtopdecls                            { (noLoc [],$1) }
+top     :: { ([LImportDecl RdrName], [LHsDecl RdrName]) }
+        : importdecls                           { (reverse $1,[]) }
+        | importdecls ';' cvtopdecls            { (reverse $1,$3) }
+        | cvtopdecls                            { ([],$1) }
 
 cvtopdecls :: { [LHsDecl RdrName] }
         : topdecls                              { cvTopDecls $1 }
@@ -474,19 +474,19 @@ header  :: { Located (HsModule RdrName) }
                    return (L loc (HsModule Nothing Nothing $1 [] Nothing
                           Nothing)) }
 
-header_body :: { Located [LImportDecl RdrName] }
+header_body :: { [LImportDecl RdrName] }
         :  '{'            importdecls           { $2 }
         |      vocurly    importdecls           { $2 }
 
-header_body2 :: { Located [LImportDecl RdrName] }
+header_body2 :: { [LImportDecl RdrName] }
         :  '{' importdecls                      { $2 }
         |  missing_module_keyword importdecls   { $2 }
 
 -----------------------------------------------------------------------------
 -- The Export List
 
-maybeexports :: { Maybe [LIE RdrName] }
-        :  '(' exportlist ')'                   { Just (fromOL $2) }
+maybeexports :: { Maybe (Located [LIE RdrName]) }
+        :  '(' exportlist ')'                   { Just (LL (fromOL $2)) }
         |  {- empty -}                          { Nothing }
 
 exportlist :: { OrdList (LIE RdrName) }
@@ -542,11 +542,11 @@ qcname  :: { Located RdrName }  -- Variable or data constructor
 -- import decls can be *empty*, or even just a string of semicolons
 -- whereas topdecls must contain at least one topdecl.
 
-importdecls :: { Located [LImportDecl RdrName] }
-        : importdecls ';' importdecl            { LL ($3 : unLoc $1) }
+importdecls :: { [LImportDecl RdrName] }
+        : importdecls ';' importdecl            { ($3 : $1) }
         | importdecls ';'                       { $1 }
-        | importdecl                            { LL [ $1 ] }
-        | {- empty -}                           { noLoc [] }
+        | importdecl                            { [ $1 ] }
+        | {- empty -}                           { [] }
 
 importdecl :: { LImportDecl RdrName }
         : 'import' maybe_src maybe_safe optqualified maybe_pkg modid maybeas maybeimpspec
