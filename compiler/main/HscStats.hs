@@ -89,7 +89,7 @@ ppSourceStats short (L _ (HsModule _ exports imports ldecls _ _))
         = sum3 (map count_bind val_decls)
 
     (imp_no, imp_safe, imp_qual, imp_as, imp_all, imp_partial, imp_hiding)
-        = sum7 (map import_info $ unLoc imports)
+        = sum7 (map import_info imports)
     (data_constrs, data_derivs)
         = sum2 (map data_info tycl_decls)
     (class_method_ds, default_method_ds)

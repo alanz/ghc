@@ -266,7 +266,7 @@ tcRnModuleTcRnM hsc_env hsc_src
                 (HsParsedModule {
                    hpm_module =
                       (L loc (HsModule maybe_mod export_ies
-                                       (L _ import_decls) local_decls mod_deprec
+                                       import_decls local_decls mod_deprec
                                        maybe_doc_hdr)),
                    hpm_src_files = src_files
                 })
