@@ -1,0 +1,37 @@
+[
+(AK AnnotationLet.hs:1:1 AnnClose = AnnotationLet.hs:11:1)
+
+(AK AnnotationLet.hs:1:1 AnnModule = AnnotationLet.hs:1:1-6)
+
+(AK AnnotationLet.hs:1:1 AnnOpen = AnnotationLet.hs:3:1)
+
+(AK AnnotationLet.hs:1:1 AnnSemi = AnnotationLet.hs:5:1)
+
+(AK AnnotationLet.hs:1:1 AnnWhere = AnnotationLet.hs:1:28-32)
+
+(AK AnnotationLet.hs:1:22-26 AnnClose = AnnotationLet.hs:1:26)
+
+(AK AnnotationLet.hs:1:22-26 AnnOpen = AnnotationLet.hs:1:22)
+
+(AK AnnotationLet.hs:4:1-32 AnnAs = AnnotationLet.hs:4:28-29)
+
+(AK AnnotationLet.hs:4:1-32 AnnImport = AnnotationLet.hs:4:1-6)
+
+(AK AnnotationLet.hs:4:1-32 AnnQualified = AnnotationLet.hs:4:8-16)
+
+(AK AnnotationLet.hs:(6,1)-(9,14) AnnEqual = AnnotationLet.hs:6:5)
+
+(AK AnnotationLet.hs:(6,7)-(9,14) AnnIn = AnnotationLet.hs:9:7-8)
+
+(AK AnnotationLet.hs:(6,7)-(9,14) AnnLet = AnnotationLet.hs:6:7-9)
+
+(AK AnnotationLet.hs:7:9-13 AnnEqual = AnnotationLet.hs:7:11)
+
+(AK AnnotationLet.hs:8:9-13 AnnEqual = AnnotationLet.hs:8:11)
+
+(AK AnnotationLet.hs:8:9-13 AnnSemi = AnnotationLet.hs:8:9)
+]
+
+Just AnnotationLet.hs:1:1-6
+Nothing
+AnnotationLet.hs:1:1
