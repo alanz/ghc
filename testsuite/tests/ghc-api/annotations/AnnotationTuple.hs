@@ -14,3 +14,6 @@ bar = print $ map (1, "hello"   , 6.5,, [5, 5, 6, 7]) [Just (), Nothing]
 ;
 baz = (1, "hello", 6.5,,) 'a' (Just ())
 }
+
+
+

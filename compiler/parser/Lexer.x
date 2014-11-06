@@ -2193,6 +2193,10 @@ lexer queueComments cont = do
   (L span tok) <- lexTokenFun
   --trace ("token: " ++ show tok) $ do
 
+  case tok of
+    ITeof -> addAnnotationOnly noSrcSpan AnnEofPos (RealSrcSpan span)
+    _ -> return ()
+
   if (queueComments && isDocComment tok)
     then queueComment (L (RealSrcSpan span) tok)
     else return ()
@@ -2683,6 +2687,7 @@ data AnnKeywordId
     | AnnWhere
     | Annlarrowtail
     | Annrarrowtail
+    | AnnEofPos
     deriving (Eq,Ord,Data,Typeable,Show)
 
 instance Outputable AnnKeywordId where

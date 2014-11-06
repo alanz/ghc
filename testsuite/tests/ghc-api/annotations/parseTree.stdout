@@ -100,5 +100,7 @@
 (AK AnnotationTuple.hs:15:37-38 AnnClose = AnnotationTuple.hs:15:38)
 
 (AK AnnotationTuple.hs:15:37-38 AnnOpen = AnnotationTuple.hs:15:37)
+
+(AK <no location info> AnnEofPos = AnnotationTuple.hs:20:1)
 ]
 

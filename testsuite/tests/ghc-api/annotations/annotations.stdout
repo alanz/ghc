@@ -30,6 +30,8 @@
 (AK AnnotationLet.hs:8:9-13 AnnEqual = AnnotationLet.hs:8:11)
 
 (AK AnnotationLet.hs:8:9-13 AnnSemi = AnnotationLet.hs:8:9)
+
+(AK <no location info> AnnEofPos = AnnotationLet.hs:12:1)
 ]
 
 Just AnnotationLet.hs:1:1-6
