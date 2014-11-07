@@ -12,6 +12,8 @@
 {-# LANGUAGE UndecidableInstances #-} -- Note [Pass sensitive types]
                                       -- in module PlaceHolder
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Abstract syntax of global declarations.
 --
@@ -779,18 +781,13 @@ data HsDataDefn name   -- The payload of a data type defn
                      --
                      -- Always @Nothing@ for H98-syntax decls
 
-                 dd_cons   :: [Located [LConDecl name]],
+                 dd_cons   :: [LConDecl name],
                      -- ^ Data constructors
                      --
                      -- For @data T a = T1 | T2 a@
                      --   the 'LConDecl's all have 'ResTyH98'.
                      -- For @data T a where { T1 :: T a }@
                      --   the 'LConDecls' all have 'ResTyGADT'.
-                     --
-                     -- Stored as list of lists so that API
-                     -- annotations can be attached for GADT
-                     -- constructors of the form
-                     --  @A,B :: Txxx@
 
                  dd_derivs :: Maybe [LHsType name]
                      -- ^ Derivings; @Nothing@ => not specified,
@@ -827,10 +824,11 @@ type LConDecl name = Located (ConDecl name)
 
 data ConDecl name
   = ConDecl
-    { con_name      :: Located name
+    { con_name      :: [Located name]
         -- ^ Constructor name.  This is used for the DataCon itself, and for
         -- the user-callable wrapper Id.
-
+        -- It is a list to deal with GADT constructors of the form
+        --   T1, T2, T3 :: <payload>
     , con_explicit  :: HsExplicitFlag
         -- ^ Is there an user-written forall? (cf. 'HsTypes.HsForAllTy')
 
@@ -899,7 +897,7 @@ pp_data_defn pp_hdr (HsDataDefn { dd_ND = new_or_data, dd_ctxt = L _ context
 
   | otherwise
   = hang (ppr new_or_data <+> pp_hdr context <+> pp_sig)
-       2 (pp_condecls (concatMap unLoc condecls) $$ pp_derivings)
+       2 (pp_condecls condecls $$ pp_derivings)
   where
     pp_sig = case mb_sig of
                Nothing   -> empty
@@ -930,8 +928,8 @@ pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
                     , con_res = ResTyH98, con_doc = doc })
   = sep [ppr_mbDoc doc, pprHsForAll expl tvs cxt, ppr_details details]
   where
-    ppr_details (InfixCon t1 t2) = hsep [ppr t1, pprInfixOcc (unLoc con), ppr t2]
-    ppr_details (PrefixCon tys)  = hsep (pprPrefixOcc (unLoc con) : map (pprParendHsType . unLoc) tys)
+    ppr_details (InfixCon t1 t2) = hsep [ppr t1, pprInfixOcc con, ppr t2]
+    ppr_details (PrefixCon tys)  = hsep (pprPrefixOcc con : map (pprParendHsType . unLoc) tys)
     ppr_details (RecCon fields)  = ppr con
                                  <+> pprConDeclFields (concatMap unLoc fields)
 
@@ -952,6 +950,15 @@ pprConDecl decl@(ConDecl { con_details = InfixCon ty1 ty2, con_res = ResTyGADT {
   = pprConDecl (decl { con_details = PrefixCon [ty1,ty2] })
         -- In GADT syntax we don't allow infix constructors
         -- but the renamer puts them in this form (Note [Infix GADT constructors] in RnSource)
+
+instance (Outputable name) => OutputableBndr [Located name] where
+  pprBndr _bs xs = cat $ punctuate comma (map ppr xs)
+
+  pprPrefixOcc [x] = ppr x
+  pprPrefixOcc xs  = cat $ punctuate comma (map ppr xs)
+
+  pprInfixOcc [x] = ppr x
+  pprInfixOcc xs  = cat $ punctuate comma (map ppr xs)
 \end{code}
 
 %************************************************************************

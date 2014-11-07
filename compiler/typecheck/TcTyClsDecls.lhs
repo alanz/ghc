@@ -381,7 +381,7 @@ getInitialKind decl@(DataDecl { tcdLName = L _ name
                               , tcdTyVars = ktvs
                               , tcdDataDefn = HsDataDefn { dd_kindSig = m_sig
                                                          , dd_cons = cons' } })
-  = let cons = concatMap unLoc cons' -- AZ list monad coming
+  = let cons = cons' -- AZ list monad coming
     in
      do { (decl_kind, _) <-
            kcHsTyVarBndrs (hsDeclHasCusk decl) ktvs $
