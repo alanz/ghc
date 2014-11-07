@@ -1106,8 +1106,7 @@ rnDataDefn doc (HsDataDefn { dd_ND = new_or_data, dd_cType = cType
         -- data T a where { T1 :: forall b. b-> b }
         ; let { zap_lcl_env | h98_style = \ thing -> thing
                             | otherwise = setLocalRdrEnv emptyLocalRdrEnv }
-        ; (condecls', con_fvs) <- zap_lcl_env $
-                            rnConDecls (concatMap unLoc condecls)
+        ; (condecls', con_fvs) <- zap_lcl_env $ rnConDecls condecls
            -- No need to check for duplicate constructor decls
            -- since that is done by RnNames.extendGlobalRdrEnvRn
 
@@ -1115,12 +1114,12 @@ rnDataDefn doc (HsDataDefn { dd_ND = new_or_data, dd_cType = cType
                         con_fvs `plusFV` sig_fvs
         ; return ( HsDataDefn { dd_ND = new_or_data, dd_cType = cType
                               , dd_ctxt = context', dd_kindSig = sig'
-                              , dd_cons = [noLoc condecls']
+                              , dd_cons = condecls'
                               , dd_derivs = derivs' }
                  , all_fvs )
         }
   where
-    h98_style = case (concatMap unLoc condecls) of  -- Note [Stupid theta]
+    h98_style = case condecls of  -- Note [Stupid theta]
                      L _ (ConDecl { con_res = ResTyGADT {} }) : _  -> False
                      _                                             -> True
 
@@ -1188,19 +1187,18 @@ depAnalTyClDecls ds_w_fvs
 
     assoc_env :: NameEnv Name   -- Maps a data constructor back
                                 -- to its parent type constructor
-    assoc_env = mkNameEnv assoc_env_list
+    assoc_env = mkNameEnv $ concat assoc_env_list
     assoc_env_list = do
       (L _ d, _) <- ds_w_fvs
       case d of
         ClassDecl { tcdLName = L _ cls_name
                   , tcdATs = ats }
           -> do L _ (FamilyDecl { fdLName = L _ fam_name }) <- ats
-                return (fam_name, cls_name)
+                return [(fam_name, cls_name)]
         DataDecl { tcdLName = L _ data_name
-                 , tcdDataDefn = HsDataDefn { dd_cons = cons' } }
-          -> let cons = concatMap unLoc cons' -- AZ for List monad
-             in do L _ dc <- cons
-                   return (unLoc (con_name dc), data_name)
+                 , tcdDataDefn = HsDataDefn { dd_cons = cons } }
+          -> do L _ dc <- cons
+                return $ zip (map unLoc $ con_name dc) (repeat data_name)
         _ -> []
 \end{code}
 
@@ -1271,9 +1269,9 @@ rnConDecl decl@(ConDecl { con_name = name, con_qvars = tvs
                         , con_cxt = lcxt@(L loc cxt), con_details = details
                         , con_res = res_ty, con_doc = mb_doc
                         , con_old_rec = old_rec, con_explicit = expl })
-  = do  { addLocM checkConName name
+  = do  { mapM_ (addLocM checkConName) name
         ; when old_rec (addWarn (deprecRecSyntax decl))
-        ; new_name <- lookupLocatedTopBndrRn name
+        ; new_name <- mapM lookupLocatedTopBndrRn name
 
            -- For H98 syntax, the tvs are the existential ones
            -- For GADT syntax, the tvs are all the quantified tyvars
@@ -1301,7 +1299,7 @@ rnConDecl decl@(ConDecl { con_name = name, con_qvars = tvs
         ; bindHsTyVars doc Nothing free_kvs new_tvs $ \new_tyvars -> do
         { (new_context, fvs1) <- rnContext doc lcxt
         ; (new_details, fvs2) <- rnConDeclDetails doc details
-        ; (new_details', new_res_ty, fvs3) <- rnConResult doc (unLoc new_name) new_details res_ty
+        ; (new_details', new_res_ty, fvs3) <- rnConResult doc (map unLoc new_name) new_details res_ty
         ; return (decl { con_name = new_name, con_qvars = new_tyvars, con_cxt = new_context
                        , con_details = new_details', con_res = new_res_ty, con_doc = mb_doc' },
                   fvs1 `plusFV` fvs2 `plusFV` fvs3) }}
@@ -1309,13 +1307,13 @@ rnConDecl decl@(ConDecl { con_name = name, con_qvars = tvs
     doc = ConDeclCtx name
     get_rdr_tvs tys = extractHsTysRdrTyVars (cxt ++ tys)
 
-rnConResult :: HsDocContext -> Name
+rnConResult :: HsDocContext -> [Name]
             -> HsConDetails (LHsType Name) [Located [ConDeclField Name]]
             -> ResType (LHsType RdrName)
             -> RnM (HsConDetails (LHsType Name) [Located [ConDeclField Name]],
                     ResType (LHsType Name), FreeVars)
 rnConResult _   _   details ResTyH98 = return (details, ResTyH98, emptyFVs)
-rnConResult doc con details (ResTyGADT ty)
+rnConResult doc _con details (ResTyGADT ty)
   = do { (ty', fvs) <- rnLHsType doc ty
        ; let (arg_tys, res_ty) = splitHsFunType ty'
                 -- We can finally split it up,
@@ -1330,6 +1328,7 @@ rnConResult doc con details (ResTyGADT ty)
                                        (addErr (badRecResTy (docOfHsDocContext doc)))
                               ; return (details, ResTyGADT res_ty, fvs) }
 
+{-
            PrefixCon {} | isSymOcc (getOccName con)  -- See Note [Infix GADT cons]
                         , [ty1,ty2] <- arg_tys
                         -> do { fix_env <- getFixityEnv
@@ -1339,6 +1338,8 @@ rnConResult doc con details (ResTyGADT ty)
                                        , ResTyGADT res_ty, fvs) }
                         | otherwise
                         -> return (PrefixCon arg_tys, ResTyGADT res_ty, fvs) }
+-}
+           PrefixCon {} -> return (PrefixCon arg_tys, ResTyGADT res_ty, fvs) }
 
 rnConDeclDetails
     :: HsDocContext
@@ -1410,7 +1411,7 @@ extendRecordFieldEnv tycl_decls inst_decls
 
     all_data_cons :: [ConDecl RdrName]
     all_data_cons = [con | HsDataDefn { dd_cons = cons } <- all_ty_defs
-                         , L _ con <- (concatMap unLoc cons) ]
+                         , L _ con <- cons ]
     all_ty_defs = [ defn | L _ (DataDecl { tcdDataDefn = defn })
                                                  <- tyClGroupConcat tycl_decls ]
                ++ map dfid_defn (instDeclDataFamInsts inst_decls)
@@ -1418,9 +1419,11 @@ extendRecordFieldEnv tycl_decls inst_decls
 
     get_con (ConDecl { con_name = con, con_details = RecCon flds })
             (RecFields env fld_set)
-        = do { con' <- lookup con
+        = do { con' <- mapM lookup con
              ; flds' <- mapM lookup (map cd_fld_name (concatMap unLoc flds))
-             ; let env'    = extendNameEnv env con' flds'
+             -- ; let env'    = extendNameEnv env con' flds'
+             ; let env'    = foldl (\e c -> extendNameEnv e c flds') env con'
+
                    fld_set' = addListToNameSet fld_set flds'
              ; return $ (RecFields env' fld_set') }
     get_con _ env = return env

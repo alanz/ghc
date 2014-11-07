@@ -672,8 +672,7 @@ ty_decl :: { LTyClDecl RdrName }
           -- ordinary data type or newtype declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
                 {% mkTyData (comb4 $1 $3 $4 $5) (unLoc $1) $2 $3
-                            Nothing [L (getLoc $4) (reverse (unLoc $4))]
-                                    (unLoc $5) }
+                            Nothing (reverse (unLoc $4)) (unLoc $5) }
                                    -- We need the location on tycl_hdr in case
                                    -- constrs and deriving are both empty
 
@@ -706,8 +705,7 @@ inst_decl :: { LInstDecl RdrName }
           -- data/newtype instance declaration
         | data_or_newtype 'instance' capi_ctype tycl_hdr constrs deriving
                 {% mkDataFamInst (comb4 $1 $4 $5 $6) (unLoc $1) $3 $4
-                                 Nothing [L (getLoc $5) (reverse (unLoc $5))]
-                                 (unLoc $6) }
+                                 Nothing (reverse (unLoc $5)) (unLoc $6) }
 
           -- GADT instance declaration
         | data_or_newtype 'instance' capi_ctype tycl_hdr opt_kind_sig
@@ -792,8 +790,7 @@ at_decl_inst :: { LInstDecl RdrName }
         -- data/newtype instance declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
                 {% mkDataFamInst (comb4 $1 $3 $4 $5) (unLoc $1) $2 $3
-                                 Nothing [L (getLoc $4) (reverse (unLoc $4))]
-                                 (unLoc $5) }
+                                 Nothing (reverse (unLoc $4)) (unLoc $5) }
 
         -- GADT instance declaration
         | data_or_newtype capi_ctype tycl_hdr opt_kind_sig
@@ -1326,12 +1323,12 @@ both become a HsTyVar ("Zero", DataName) after the renamer.
 -----------------------------------------------------------------------------
 -- Datatype declarations
 
-gadt_constrlist :: { Located [Located [LConDecl RdrName]] } -- Returned in order
+gadt_constrlist :: { Located [LConDecl RdrName] } -- Returned in order
         : 'where' '{'        gadt_constrs '}'      { L (comb2 $1 $3) (unLoc $3) }
         | 'where' vocurly    gadt_constrs close    { L (comb2 $1 $3) (unLoc $3) }
         | {- empty -}                              { noLoc [] }
 
-gadt_constrs :: { Located [Located [LConDecl RdrName]] }
+gadt_constrs :: { Located [LConDecl RdrName] }
         : gadt_constr ';' gadt_constrs  { LL ($1 : unLoc $3) }
         | gadt_constr                   { LL [$1] }
         | {- empty -}                   { noLoc [] }
@@ -1342,16 +1339,16 @@ gadt_constrs :: { Located [Located [LConDecl RdrName]] }
 --      D { x,y :: a } :: T a
 --      forall a. Eq a => D { x,y :: a } :: T a
 
-gadt_constr :: { Located [LConDecl RdrName] }
+gadt_constr :: { LConDecl RdrName }
                                    -- Returns a list because of:   C,D :: ty
         : con_list '::' sigtype
-                { LL $ map (sL (comb2 $1 $3)) (mkGadtDecl (unLoc $1) $3) }
+                { LL $ mkGadtDecl (unLoc $1) $3 }
 
                 -- Deprecated syntax for GADT record declarations
         | oqtycon '{' fielddecls '}' '::' sigtype
                 {% do { cd <- mkDeprecatedGadtRecordDecl (comb2 $1 $6) $1 $3 $6
                       ; cd' <- checkRecordSyntax cd
-                      ; return $ LL [cd'] } }
+                      ; return cd' } }
 
 constrs :: { Located [LConDecl RdrName] }
         : maybe_docnext '=' constrs1    { L (comb2 $2 $3) (addConDocs (unLoc $3) $1) }

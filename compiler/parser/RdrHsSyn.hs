@@ -155,7 +155,7 @@ mkTyData :: SrcSpan
          -> Maybe (Located CType)
          -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
          -> Maybe (LHsKind RdrName)
-         -> [Located [LConDecl RdrName]]
+         -> [LConDecl RdrName]
          -> Maybe [LHsType RdrName]
          -> P (LTyClDecl RdrName)
 mkTyData loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
@@ -170,7 +170,7 @@ mkDataDefn :: NewOrData
            -> Maybe (Located CType)
            -> Maybe (LHsContext RdrName)
            -> Maybe (LHsKind RdrName)
-           -> [Located [LConDecl RdrName]]
+           -> [LConDecl RdrName]
            -> Maybe [LHsType RdrName]
            -> P (HsDataDefn RdrName)
 mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
@@ -206,7 +206,7 @@ mkDataFamInst :: SrcSpan
          -> Maybe (Located CType)
          -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
          -> Maybe (LHsKind RdrName)
-         -> [Located [LConDecl RdrName]]
+         -> [LConDecl RdrName]
          -> Maybe [LHsType RdrName]
          -> P (LInstDecl RdrName)
 mkDataFamInst loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
@@ -475,7 +475,7 @@ mkDeprecatedGadtRecordDecl :: SrcSpan
 mkDeprecatedGadtRecordDecl loc (L con_loc con) flds res_ty
   = do { data_con <- tyConToDataCon con_loc con
        ; return (L loc (ConDecl { con_old_rec  = True
-                                , con_name     = data_con
+                                , con_name     = [data_con]
                                 , con_explicit = Implicit
                                 , con_qvars    = mkHsQTvs []
                                 , con_cxt      = noLoc []
@@ -489,7 +489,7 @@ mkSimpleConDecl :: Located RdrName -> [LHsTyVarBndr RdrName]
 
 mkSimpleConDecl name qvars cxt details
   = ConDecl { con_old_rec  = False
-            , con_name     = name
+            , con_name     = [name]
             , con_explicit = Explicit
             , con_qvars    = mkHsQTvs qvars
             , con_cxt      = cxt
@@ -499,22 +499,22 @@ mkSimpleConDecl name qvars cxt details
 
 mkGadtDecl :: [Located RdrName]
            -> LHsType RdrName     -- Always a HsForAllTy
-           -> [ConDecl RdrName]
+           -> ConDecl RdrName
 -- We allow C,D :: ty
 -- and expand it as if it had been
 --    C :: ty; D :: ty
 -- (Just like type signatures in general.)
 mkGadtDecl names (L _ (HsForAllTy imp qvars cxt tau))
-  = [mk_gadt_con name | name <- names]
+  = mk_gadt_con names
   where
     (details, res_ty)           -- See Note [Sorting out the result type]
       = case tau of
           L _ (HsFunTy (L _ (HsRecTy flds)) res_ty) -> (RecCon flds,  res_ty)
           _other                                    -> (PrefixCon [], tau)
 
-    mk_gadt_con name
+    mk_gadt_con names
        = ConDecl { con_old_rec  = False
-                 , con_name     = name
+                 , con_name     = names
                  , con_explicit = imp
                  , con_qvars    = qvars
                  , con_cxt      = cxt
