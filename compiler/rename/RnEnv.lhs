@@ -1863,8 +1863,12 @@ docOfHsDocContext (RuleCtx name) = text "In the transformation rule" <+> ftext n
 docOfHsDocContext (TyDataCtx tycon) = text "In the data type declaration for" <+> quotes (ppr tycon)
 docOfHsDocContext (TySynCtx name) = text "In the declaration for type synonym" <+> quotes (ppr name)
 docOfHsDocContext (TyFamilyCtx name) = text "In the declaration for type family" <+> quotes (ppr name)
+
+docOfHsDocContext (ConDeclCtx [name])
+   = text "In the definition of data constructor" <+> quotes (ppr name)
 docOfHsDocContext (ConDeclCtx names)
-   = text "In the definition of data constructor" <+> pprQuotedList names
+   = text "In the definition of data constructors" <+> interpp'SP names
+
 docOfHsDocContext (ClassDeclCtx name) = text "In the declaration for class"     <+> ppr name
 docOfHsDocContext ExprWithTySigCtx = text "In an expression type signature"
 docOfHsDocContext TypBrCtx = ptext (sLit "In a Template-Haskell quoted type")
