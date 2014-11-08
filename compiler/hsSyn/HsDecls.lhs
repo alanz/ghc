@@ -929,27 +929,32 @@ pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
   = sep [ppr_mbDoc doc, pprHsForAll expl tvs cxt, ppr_details details]
   where
     ppr_details (InfixCon t1 t2) = hsep [ppr t1, pprInfixOcc con, ppr t2]
-    ppr_details (PrefixCon tys)  = hsep (pprPrefixOcc con : map (pprParendHsType . unLoc) tys)
-    ppr_details (RecCon fields)  = ppr con
+    ppr_details (PrefixCon tys)  = hsep (pprPrefixOcc con
+                                   : map (pprParendHsType . unLoc) tys)
+    ppr_details (RecCon fields)  = ppr_con_name con
                                  <+> pprConDeclFields (concatMap unLoc fields)
 
 pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
                     , con_cxt = cxt, con_details = PrefixCon arg_tys
                     , con_res = ResTyGADT res_ty })
-  = ppr con <+> dcolon <+>
+  = ppr_con_name con <+> dcolon <+>
     sep [pprHsForAll expl tvs cxt, ppr (foldr mk_fun_ty res_ty arg_tys)]
   where
     mk_fun_ty a b = noLoc (HsFunTy a b)
 
 pprConDecl (ConDecl { con_name = con, con_explicit = expl, con_qvars = tvs
                     , con_cxt = cxt, con_details = RecCon fields, con_res = ResTyGADT res_ty })
-  = sep [ppr con <+> dcolon <+> pprHsForAll expl tvs cxt,
+  = sep [ppr_con_name con <+> dcolon <+> pprHsForAll expl tvs cxt,
          pprConDeclFields (concatMap unLoc fields) <+> arrow <+> ppr res_ty]
 
 pprConDecl decl@(ConDecl { con_details = InfixCon ty1 ty2, con_res = ResTyGADT {} })
   = pprConDecl (decl { con_details = PrefixCon [ty1,ty2] })
         -- In GADT syntax we don't allow infix constructors
         -- but the renamer puts them in this form (Note [Infix GADT constructors] in RnSource)
+
+ppr_con_name :: (OutputableBndr name) => [Located name] -> SDoc
+ppr_con_name [x] = ppr x
+ppr_con_name xs  = interpp'SP xs
 
 instance (Outputable name) => OutputableBndr [Located name] where
   pprBndr _bs xs = cat $ punctuate comma (map ppr xs)

@@ -63,6 +63,7 @@ import DynFlags
 import FastString
 import ForeignCall
 import Util
+import MonadUtils
 
 import Data.Maybe
 import Control.Monad
@@ -294,10 +295,16 @@ repDataDefn tc bndrs opt_tys tv_names
   = do { cxt1     <- repLContext cxt
        ; derivs1  <- repDerivs mb_derivs
        ; case new_or_data of
-           NewType  -> do { con1 <- repC tv_names (head (concatMap unLoc cons))
-                          ; repNewtype cxt1 tc bndrs opt_tys con1 derivs1 }
-           DataType -> do { cons1 <- repList conQTyConName (repC tv_names)
-                                             (concatMap unLoc cons)
+           NewType  -> do { con1 <- repC tv_names (head cons)
+                          ; case con1 of
+                             [c] -> repNewtype cxt1 tc bndrs opt_tys c derivs1
+                             _cs -> failWithDs (ptext
+                                     (sLit "Multiple constructors for newtype:")
+                                      <+> pprQuotedList
+                                                 (con_name $ unLoc $ head cons))
+                          }
+           DataType -> do { consL <- concatMapM (repC tv_names) cons
+                          ; cons1 <- coreList conQTyConName consL
                           ; repData cxt1 tc bndrs opt_tys cons1 derivs1 } }
 
 repSynDecl :: Core TH.Name -> Core [TH.TyVarBndr]
@@ -551,12 +558,12 @@ ds_msg = ptext (sLit "Cannot desugar this Template Haskell declaration:")
 --                      Constructors
 -------------------------------------------------------
 
-repC :: [Name] -> LConDecl Name -> DsM (Core TH.ConQ)
+repC :: [Name] -> LConDecl Name -> DsM [Core TH.ConQ]
 repC _ (L _ (ConDecl { con_name = con, con_qvars = con_tvs, con_cxt = L _ []
                      , con_details = details, con_res = ResTyH98 }))
   | null (hsQTvBndrs con_tvs)
-  = do { con1 <- lookupLOcc con         -- See Note [Binders and occurrences]
-       ; repConstr con1 details  }
+  = do { con1 <- mapM lookupLOcc con       -- See Note [Binders and occurrences]
+       ; mapM (\c -> repConstr c details) con1  }
 
 repC tvs (L _ (ConDecl { con_name = con
                        , con_qvars = con_tvs, con_cxt = L _ ctxt
@@ -567,12 +574,14 @@ repC tvs (L _ (ConDecl { con_name = con
                              , hsq_tvs = filterOut (in_subst con_tv_subst . hsLTyVarName) (hsq_tvs con_tvs) }
 
        ; binds <- mapM dupBinder con_tv_subst
-       ; dsExtendMetaEnv (mkNameEnv binds) $     -- Binds some of the con_tvs
+       ; b <- dsExtendMetaEnv (mkNameEnv binds) $ -- Binds some of the con_tvs
          addTyVarBinds ex_tvs $ \ ex_bndrs ->   -- Binds the remaining con_tvs
-    do { con1      <- lookupLOcc con    -- See Note [Binders and occurrences]
-       ; c'        <- repConstr con1 details
+    do { con1      <- mapM lookupLOcc con  -- See Note [Binders and occurrences]
+       ; c'        <- mapM (\c -> repConstr c details) con1
        ; ctxt'     <- repContext (eq_ctxt ++ ctxt)
-       ; rep2 forallCName [unC ex_bndrs, unC ctxt', unC c'] } }
+       ; rep2 forallCName ([unC ex_bndrs, unC ctxt'] ++ (map unC c')) }
+    ; return [b]
+    }
 
 in_subst :: [(Name,Name)] -> Name -> Bool
 in_subst []          _ = False
