@@ -486,7 +486,7 @@ header_body2 :: { [LImportDecl RdrName] }
 -- The Export List
 
 maybeexports :: { Maybe (Located [LIE RdrName]) }
-        :  '(' exportlist ')'                   { Just (LL (fromOL $2)) }
+        :  '(' exportlist ')'                   { Just (sLL $1 $> (fromOL $2)) }
         |  {- empty -}                          { Nothing }
 
 exportlist :: { OrdList (LIE RdrName) }
@@ -820,11 +820,11 @@ tycl_hdr :: { Located (Maybe (LHsContext RdrName), LHsType RdrName) }
 
 capi_ctype :: { Maybe (Located CType) }
 capi_ctype : '{-# CTYPE' STRING STRING '#-}'
-                           { Just $ LL (CType
+                           { Just $ sLL $1 $> (CType
                                     (Just (Header (getSTRING $2)))
                                                   (getSTRING $3)) }
            | '{-# CTYPE'        STRING '#-}'
-                           { Just $ LL (CType Nothing (getSTRING $2)) }
+                           { Just $ sLL $1 $> (CType Nothing (getSTRING $2)) }
            |               { Nothing }
 
 -----------------------------------------------------------------------------
@@ -982,7 +982,7 @@ rules   :: { OrdList (LHsDecl RdrName) }
 
 rule    :: { LHsDecl RdrName }
         : STRING rule_activation rule_forall infixexp '=' exp
-             { sLL $1 $> $ RuleD (HsRule (L1 (getSTRING $1))
+             { sLL $1 $> $ RuleD (HsRule (sL1 $1 (getSTRING $1))
                                   ($2 `orElse` AlwaysActive)
                                   $3 $4 placeHolderNames $6 placeHolderNames) }
 
@@ -1005,8 +1005,8 @@ rule_var_list :: { [LRuleBndr RdrName] }
         | rule_var rule_var_list                { $1 : $2 }
 
 rule_var :: { LRuleBndr RdrName }
-        : varid                       { LL $ RuleBndr $1 }
-        | '(' varid '::' ctype ')'    { LL $ RuleBndrSig $2 (mkHsWithBndrs $4) }
+        : varid                       { sLL $1 $> $ RuleBndr $1 }
+        | '(' varid '::' ctype ')'    { sLL $1 $> $ RuleBndrSig $2 (mkHsWithBndrs $4) }
 
 -----------------------------------------------------------------------------
 -- Warnings and deprecations (c.f. rules)
@@ -1036,13 +1036,13 @@ deprecation :: { OrdList (LHsDecl RdrName) }
                        | n <- unLoc $1 ] }
 
 strings :: { Located [Located FastString] }
-    : STRING { L1 [L1 (getSTRING $1)] }
-    | '[' stringlist ']' { LL $ fromOL (unLoc $2) }
+    : STRING { sL1 $1 [sL1 $1 (getSTRING $1)] }
+    | '[' stringlist ']' { sLL $1 $> $ fromOL (unLoc $2) }
 
 stringlist :: { Located (OrdList (Located FastString)) }
-    : stringlist ',' STRING { LL (unLoc $1 `snocOL`
+    : stringlist ',' STRING { sLL $1 $> (unLoc $1 `snocOL`
                                                (L (getLoc $3) (getSTRING $3))) }
-    | STRING                { LL (unitOL (LL (getSTRING $1))) }
+    | STRING                { sLL $1 $> (unitOL (sLL $1 $> (getSTRING $1))) }
 
 -----------------------------------------------------------------------------
 -- Annotations
@@ -1329,8 +1329,8 @@ gadt_constrlist :: { Located [LConDecl RdrName] } -- Returned in order
         | {- empty -}                              { noLoc [] }
 
 gadt_constrs :: { Located [LConDecl RdrName] }
-        : gadt_constr ';' gadt_constrs  { LL ($1 : unLoc $3) }
-        | gadt_constr                   { LL [$1] }
+        : gadt_constr ';' gadt_constrs  { sLL $1 $> ($1 : unLoc $3) }
+        | gadt_constr                   { sLL $1 $> [$1] }
         | {- empty -}                   { noLoc [] }
 
 -- We allow the following forms:
@@ -1342,7 +1342,7 @@ gadt_constrs :: { Located [LConDecl RdrName] }
 gadt_constr :: { LConDecl RdrName }
                                    -- Returns a list because of:   C,D :: ty
         : con_list '::' sigtype
-                { LL $ mkGadtDecl (unLoc $1) $3 }
+                { sLL $1 $> $ mkGadtDecl (unLoc $1) $3 }
 
                 -- Deprecated syntax for GADT record declarations
         | oqtycon '{' fielddecls '}' '::' sigtype
@@ -1388,7 +1388,7 @@ fielddecls :: { [Located [ConDeclField RdrName]] }
 
 fielddecls1 :: { [Located [ConDeclField RdrName]] }
         : fielddecl maybe_docnext ',' maybe_docprev fielddecls1
-                { L1 [ addFieldDoc f $4 | f <- unLoc $1 ] : addFieldDocs $5 $2 }
+            { sL1 $1 [ addFieldDoc f $4 | f <- unLoc $1 ] : addFieldDocs $5 $2 }
                              -- This adds the doc $4 to each field separately
         | fielddecl   { [$1] }
 
@@ -1721,7 +1721,7 @@ texp :: { LHsExpr RdrName }
 
 -- Always at least one comma
 tup_exprs :: { [LHsTupArg RdrName] }
-           : texp commas_tup_tail  { L1 (Present $1) : $2 }
+           : texp commas_tup_tail  { sL1 $1 (Present $1) : $2 }
            | commas tup_tail       { replicate $1 (noLoc missingTupArg) ++ $2 }
 
 -- Always starts with commas; always follows an expr
@@ -1731,8 +1731,8 @@ commas_tup_tail : commas tup_tail
 
 -- Always follows a comma
 tup_tail :: { [LHsTupArg RdrName] }
-          : texp commas_tup_tail        { L1 (Present $1) : $2 }
-          | texp                        { [L1 $ Present $1] }
+          : texp commas_tup_tail        { sL1 $1 (Present $1) : $2 }
+          | texp                        { [sL1 $1 $ Present $1] }
           | {- empty -}                 { [noLoc missingTupArg] }
 
 -----------------------------------------------------------------------------
@@ -1951,12 +1951,12 @@ fbinds1 :: { ([LHsRecField RdrName (LHsExpr RdrName)], Bool) }
         | '..'                          { ([],   True) }
 
 fbind   :: { LHsRecField RdrName (LHsExpr RdrName) }
-        : qvar '=' texp { LL $ HsRecField $1 $3                False }
+        : qvar '=' texp { sLL $1 $> $ HsRecField $1 $3                False }
                         -- RHS is a 'texp', allowing view patterns (Trac #6038)
                         -- and, incidentaly, sections.  Eg
                         -- f (R { x = show -> s }) = ...
 
-        | qvar          { LL $ HsRecField $1 placeHolderPunRhs True }
+        | qvar          { sLL $1 $> $ HsRecField $1 placeHolderPunRhs True }
                         -- In the punning case, use a place-holder
                         -- The renamer fills in the final value
 
@@ -2367,7 +2367,7 @@ sL span a = span `seq` a `seq` L span a
 sL0 = L noSrcSpan       -- #define L0   L noSrcSpan
 
 {-# INLINE sL1 #-}
-sL1 x = sL (getLoc x)   -- #define L1   sL (getLoc $1)
+sL1 x = sL (getLoc x)   -- #define sL1   sL (getLoc $1)
 
 {-# INLINE sLL #-}
 sLL x y = sL (comb2 x y) -- #define LL   sL (comb2 $1 $>)

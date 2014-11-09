@@ -1176,7 +1176,6 @@ mkExtName rdrNm = mkFastString (occNameString (rdrNameOcc rdrNm))
 --------------------------------------------------------------------------------
 -- Help with module system imports/exports
 
-\begin{code}
 data ImpExpSubSpec = ImpExpAbs | ImpExpAll | ImpExpList [Located RdrName]
 
 mkModuleImpExp :: Located RdrName -> ImpExpSubSpec -> IE RdrName
