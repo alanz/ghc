@@ -193,7 +193,7 @@ cvtDec (DataD ctxt tc tvs constrs derivs)
         ; let defn = HsDataDefn { dd_ND = DataType, dd_cType = Nothing
                                 , dd_ctxt = ctxt'
                                 , dd_kindSig = Nothing
-                                , dd_cons = [noLoc cons'], dd_derivs = derivs' }
+                                , dd_cons = cons', dd_derivs = derivs' }
         ; returnJustL $ TyClD (DataDecl { tcdLName = tc', tcdTyVars = tvs'
                                         , tcdDataDefn = defn
                                         , tcdFVs = placeHolderNames }) }
@@ -263,7 +263,7 @@ cvtDec (DataInstD ctxt tc tys constrs derivs)
        ; let defn = HsDataDefn { dd_ND = DataType, dd_cType = Nothing
                                , dd_ctxt = ctxt'
                                , dd_kindSig = Nothing
-                               , dd_cons = [noLoc cons'], dd_derivs = derivs' }
+                               , dd_cons = cons', dd_derivs = derivs' }
 
        ; returnJustL $ InstD $ DataFamInstD
            { dfid_inst = DataFamInstDecl { dfid_tycon = tc', dfid_pats = typats'
@@ -277,7 +277,7 @@ cvtDec (NewtypeInstD ctxt tc tys constr derivs)
        ; let defn = HsDataDefn { dd_ND = NewType, dd_cType = Nothing
                                , dd_ctxt = ctxt'
                                , dd_kindSig = Nothing
-                               , dd_cons = [noLoc [con']], dd_derivs = derivs' }
+                               , dd_cons = [con'], dd_derivs = derivs' }
        ; returnJustL $ InstD $ DataFamInstD
            { dfid_inst = DataFamInstDecl { dfid_tycon = tc', dfid_pats = typats'
                                          , dfid_defn = defn

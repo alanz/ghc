@@ -781,18 +781,13 @@ data HsDataDefn name   -- The payload of a data type defn
                      --
                      -- Always @Nothing@ for H98-syntax decls
 
-                 dd_cons   :: [Located [LConDecl name]],
+                 dd_cons   :: [LConDecl name],
                      -- ^ Data constructors
                      --
                      -- For @data T a = T1 | T2 a@
                      --   the 'LConDecl's all have 'ResTyH98'.
                      -- For @data T a where { T1 :: T a }@
                      --   the 'LConDecls' all have 'ResTyGADT'.
-                     --
-                     -- Stored as list of lists so that API
-                     -- annotations can be attached for GADT
-                     -- constructors of the form
-                     --  @A,B :: Txxx@
 
                  dd_derivs :: Maybe [LHsType name]
                      -- ^ Derivings; @Nothing@ => not specified,
@@ -902,7 +897,7 @@ pp_data_defn pp_hdr (HsDataDefn { dd_ND = new_or_data, dd_ctxt = L _ context
 
   | otherwise
   = hang (ppr new_or_data <+> pp_hdr context <+> pp_sig)
-       2 (pp_condecls (concatMap unLoc condecls) $$ pp_derivings)
+       2 (pp_condecls condecls $$ pp_derivings)
   where
     pp_sig = case mb_sig of
                Nothing   -> empty

@@ -82,6 +82,9 @@ import TysPrim          ( liftedTypeKindTyConName, eqPrimTyCon )
 import TysWiredIn       ( unitTyCon, unitDataCon, tupleTyCon, tupleCon, nilDataCon,
                           unboxedUnitTyCon, unboxedUnitDataCon,
                           listTyCon_RDR, parrTyCon_RDR, consDataCon_RDR, eqTyCon_RDR )
+
+-- standard library
+import Data.Maybe       ( catMaybes )
 }
 
 {-
@@ -538,11 +541,11 @@ export  :: { OrdList (LIE RdrName) }
                                              [mj AnnPattern $1] }
 
 export_subspec :: { Located ([MaybeAnn],ImpExpSubSpec) }
-        : {- empty -}             { L0 ([],ImpExpAbs) }
-        | '(' '..' ')'            { LL ([mo $1,mc $3,mj AnnDotdot $2]
+        : {- empty -}             { sL0 ([],ImpExpAbs) }
+        | '(' '..' ')'            { sLL $1 $> ([mo $1,mc $3,mj AnnDotdot $2]
                                        , ImpExpAll) }
-        | '(' ')'                 { LL ([mo $1,mc $2],ImpExpList []) }
-        | '(' qcnames ')'         { LL ([mo $1,mc $3],ImpExpList (reverse $2)) }
+        | '(' ')'                 { sLL $1 $> ([mo $1,mc $2],ImpExpList []) }
+        | '(' qcnames ')'         { sLL $1 $> ([mo $1,mc $3],ImpExpList (reverse $2)) }
 
 qcnames :: { [Located RdrName] }     -- A reversed list
         :  qcnames ',' qcname_ext       {% (aa (head $1) (AnnComma, $2)) >>
@@ -730,7 +733,7 @@ ty_decl :: { LTyClDecl RdrName }
           -- ordinary data type or newtype declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
                 {% amms (mkTyData (comb4 $1 $3 $4 $5) (snd $ unLoc $1) $2 $3
-                           Nothing [L (gl $4) (reverse (unLoc $4))]
+                           Nothing (reverse (unLoc $4))
                                    (snd $ unLoc $5))
                                    -- We need the location on tycl_hdr in case
                                    -- constrs and deriving are both empty
@@ -770,7 +773,7 @@ inst_decl :: { LInstDecl RdrName }
           -- data/newtype instance declaration
         | data_or_newtype 'instance' capi_ctype tycl_hdr constrs deriving
             {% amms (mkDataFamInst (comb4 $1 $4 $5 $6) (snd $ unLoc $1) $3 $4
-                                      Nothing [L (gl $5) (reverse (unLoc $5))]
+                                      Nothing (reverse (unLoc $5))
                                               (snd $ unLoc $6))
                     ((fst $ unLoc $1):mj AnnInstance $2:(fst $ unLoc $6)) }
 
@@ -876,7 +879,7 @@ at_decl_inst :: { LInstDecl RdrName }
         -- data/newtype instance declaration
         | data_or_newtype capi_ctype tycl_hdr constrs deriving
                {% amms (mkDataFamInst (comb4 $1 $3 $4 $5) (snd $ unLoc $1) $2 $3
-                                    Nothing [L (gl $4) (reverse (unLoc $4))]
+                                    Nothing (reverse (unLoc $4))
                                             (snd $ unLoc $5))
                        ((fst $ unLoc $1):(fst $ unLoc $5)) }
 
@@ -909,7 +912,7 @@ tycl_hdr :: { Located (Maybe (LHsContext RdrName), LHsType RdrName) }
                                          (addAnnotation l AnnDarrow (gl $2))
                                        >> (return (sLL $1 $> (Just c, $3)))
                                     }
-        | type                      { L1 (Nothing, $1) }
+        | type                      { sL1 $1 (Nothing, $1) }
 
 capi_ctype :: { Maybe (Located CType) }
 capi_ctype : '{-# CTYPE' STRING STRING '#-}'
@@ -979,7 +982,7 @@ pattern_synonym_decl :: { LHsDecl RdrName }
 
 where_decls :: { Located ([MaybeAnn]
                          , Located (OrdList (LHsDecl RdrName))) }
-        : 'where' '{' decls '}'       { LL ([mj AnnWhere $1,mo $2
+        : 'where' '{' decls '}'       { sLL $1 $> ([mj AnnWhere $1,mo $2
                                             ,mc $4],$3) }
         | 'where' vocurly decls close { L (comb2 $1 $3) ([mj AnnWhere $1]
                                           ,$3) }
@@ -1006,7 +1009,7 @@ decl_cls  : at_decl_cls                 { sLL $1 $> (unitOL $1) }
           -- A 'default' signature used with the generic-programming extension
           | 'default' infixexp '::' sigtypedoc
                     {% do { (TypeSig l ty) <- checkValSig $2 $4
-                          ; ams (sLL $1 $> $ unitOL (LL $ SigD (GenericSig l ty)))
+                          ; ams (sLL $1 $> $ unitOL (sLL $1 $> $ SigD (GenericSig l ty)))
                                 [mj AnnDefault $1,mj AnnDotdot $3] } }
 
 decls_cls :: { Located (OrdList (LHsDecl RdrName)) }    -- Reversed
@@ -1410,7 +1413,7 @@ atype :: { LHsType RdrName }
         | quasiquote                  { sL1 $1 (HsQuasiQuoteTy (unLoc $1)) }
         | '$(' exp ')'                {% ams (sLL $1 $> $ mkHsSpliceTy $2)
                                              [mo $1,mc $3] }
-        | TH_ID_SPLICE                { sLL $1 $> $ mkHsSpliceTy $ L1 $ HsVar $
+        | TH_ID_SPLICE                { sLL $1 $> $ mkHsSpliceTy $ sL1 $1 $ HsVar $
                                         mkUnqual varName (getTH_ID_SPLICE $1) }
                                       -- see Note [Promotion] for the followings
         | SIMPLEQUOTE qcon                    { sLL $1 $> $ HsTyVar $ unLoc $2 }
@@ -1468,7 +1471,7 @@ fds :: { Located [Located (FunDep RdrName)] }
 fds1 :: { Located [Located (FunDep RdrName)] }
         : fds1 ',' fd                  {% addAnnotation (gl $3) AnnComma (gl $2)
                                           >> return (sLL $1 $> ($3 : unLoc $1)) }
-        | fd                           { L1 [$1] }
+        | fd                           { sL1 $1 [$1] }
 
 fd :: { Located (FunDep RdrName) }
         : varids0 '->' varids0  {% ams (L (comb3 $1 $2 $3)
@@ -1545,7 +1548,7 @@ both become a HsTyVar ("Zero", DataName) after the renamer.
 -- Datatype declarations
 
 gadt_constrlist :: { Located ([MaybeAnn]
-                          ,[Located [LConDecl RdrName]]) } -- Returned in order
+                          ,[LConDecl RdrName]) } -- Returned in order
         : 'where' '{'        gadt_constrs '}'   { L (comb2 $1 $3)
                                                     ([mj AnnWhere $1
                                                      ,mo $2
@@ -1556,7 +1559,7 @@ gadt_constrlist :: { Located ([MaybeAnn]
                                                      , unLoc $3) }
         | {- empty -}                            { noLoc ([],[]) }
 
-gadt_constrs :: { Located [Located [LConDecl RdrName]] }
+gadt_constrs :: { Located [LConDecl RdrName] }
         : gadt_constr ';' gadt_constrs
                   {% addAnnotation (gl $1) AnnSemi (gl $2)
                      >> return (L (comb2 $1 $3) ((snd $ unLoc $1) : unLoc $3)) }
@@ -1569,13 +1572,11 @@ gadt_constrs :: { Located [Located [LConDecl RdrName]] }
 --      D { x,y :: a } :: T a
 --      forall a. Eq a => D { x,y :: a } :: T a
 
-gadt_constr :: { Located ([MaybeAnn],Located [LConDecl RdrName]) }
+gadt_constr :: { Located ([MaybeAnn],LConDecl RdrName) }
                    -- Returns a list because of:   C,D :: ty
         : con_list '::' sigtype
                 { sL (comb2 $1 $3) ([mj AnnDotdot $2]
-                  ,sL (comb2 $1 $3) (map (sL (comb2 $1 $3))
-                                          (mkGadtDecl (unLoc $1) $3))) }
-
+                  ,sLL $1 $> $ mkGadtDecl (unLoc $1) $3) }
 
                 -- Deprecated syntax for GADT record declarations
         | oqtycon '{' fielddecls '}' '::' sigtype
@@ -1583,7 +1584,7 @@ gadt_constr :: { Located ([MaybeAnn],Located [LConDecl RdrName]) }
                       ; cd' <- checkRecordSyntax cd
                       ; return (L (comb2 $1 $6)
                                    ([mo $2,mc $4,mj AnnDotdot $5]
-                                   ,L (comb2 $1 $6) [cd'])) } }
+                                   ,cd')) } }
 
 constrs :: { Located [LConDecl RdrName] }
         : maybe_docnext '=' constrs1    {% ams (L (comb2 $2 $3)
@@ -1700,7 +1701,7 @@ decl_no_th :: { Located (OrdList (LHsDecl RdrName)) }
                                         pat <- checkPattern empty e;
                                         _ <- ams (sLL $1 $> ())
                                                (mj AnnBang $1:(fst $ unLoc $3));
-                                        return $ sLL $1 $> $ unitOL $ LL $ ValD $
+                                        return $ sLL $1 $> $ unitOL $ sLL $1 $> $ ValD $
                                             PatBind pat (snd $ unLoc $3)
                                                     placeHolderType
                                                     placeHolderNames
@@ -1710,7 +1711,7 @@ decl_no_th :: { Located (OrdList (LHsDecl RdrName)) }
 
         | infixexp opt_sig rhs  {% do { r <- checkValDef empty $1 (snd $2) $3;
                                         let { l = comb2 $1 $> };
-                                        _ <- ams (LL ()) (fst $ unLoc $3);
+                                        _ <- ams (sLL $1 $> ()) (fst $ unLoc $3);
                                         return $! (sL l (unitOL $! (sL l $ ValD r))) } }
         | pattern_synonym_decl  { sLL $1 $> $ unitOL $1 }
         | docdecl               { sLL $1 $> $ unitOL $1 }
@@ -1971,7 +1972,7 @@ aexp2   :: { LHsExpr RdrName }
         | SIMPLEQUOTE  qvar     { sLL $1 $> $ HsBracket (VarBr True  (unLoc $2)) }
         | SIMPLEQUOTE  qcon     { sLL $1 $> $ HsBracket (VarBr True  (unLoc $2)) }
         | TH_TY_QUOTE tyvar     { sLL $1 $> $ HsBracket (VarBr False (unLoc $2)) }
-        | TH_TY_QUOTE gtycon    { sLL #1 $> $ HsBracket (VarBr False (unLoc $2)) }
+        | TH_TY_QUOTE gtycon    { sLL $1 $> $ HsBracket (VarBr False (unLoc $2)) }
         | '[|' exp '|]'       {% ams (sLL $1 $> $ HsBracket (ExpBr $2)) [mo $1,mc $3] }
         | '[||' exp '||]'     {% ams (sLL $1 $> $ HsBracket (TExpBr $2)) [mo $1,mc $3]}
         | '[t|' ctype '|]'    {% ams (sLL $1 $> $ HsBracket (TypBr $2)) [mo $1,mc $3] }
@@ -2267,13 +2268,13 @@ bindpat :  exp            {% checkPattern
                                 (text "Possibly caused by a missing 'do'?") $1 }
         | '!' aexp        {% amms (checkPattern
                                      (text "Possibly caused by a missing 'do'?")
-                                     (sLL $1 $> (SectionR (L1 (HsVar bang_RDR)) $2)))
+                                     (sLL $1 $> (SectionR (sL1 $1 (HsVar bang_RDR)) $2)))
                                   [mj AnnBang $1] }
 
 apat   :: { LPat RdrName }
 apat    : aexp                  {% checkPattern empty $1 }
         | '!' aexp              {% amms (checkPattern empty
-                                            (sLL$1 $> (SectionR
+                                            (sLL $1 $> (SectionR
                                                 (sL1 $1 (HsVar bang_RDR)) $2)))
                                         [mj AnnBang $1] }
 
@@ -2364,7 +2365,7 @@ dbinds  :: { Located [LIPBind RdrName] }
                               in rest `seq` this `seq` sLL $1 $> (this : rest)) }
         | dbinds ';'  {% addAnnotation (gl $ last $ unLoc $1) AnnSemi (gl $2) >>
                          return (sLL $1 $> (unLoc $1)) }
-        | dbind                        { let this = $1 in this `seq` L1 [this] }
+        | dbind                        { let this = $1 in this `seq` sL1 $1 [this] }
 --      | {- empty -}                  { [] }
 
 dbind   :: { LIPBind RdrName }

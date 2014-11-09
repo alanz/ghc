@@ -96,6 +96,10 @@ import Data.ByteString (ByteString)
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+-- data/typeable
+import Data.Data
+import Data.Typeable
+
 -- compiler/utils
 import Bag
 import Outputable
