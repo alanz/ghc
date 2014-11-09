@@ -83,8 +83,6 @@ import TysWiredIn       ( unitTyCon, unitDataCon, tupleTyCon, tupleCon, nilDataC
                           unboxedUnitTyCon, unboxedUnitDataCon,
                           listTyCon_RDR, parrTyCon_RDR, consDataCon_RDR, eqTyCon_RDR )
 
--- standard library
-import Data.Maybe       ( catMaybes )
 }
 
 {-
@@ -445,7 +443,7 @@ maybedocheader :: { Maybe LHsDocString }
 missing_module_keyword :: { () }
         : {- empty -}                           {% pushCurrentContext }
 
-maybemodwarning :: { ([MaybeAnn],Maybe WarningTxt) }
+maybemodwarning :: { ([AddAnn],Maybe WarningTxt) }
     : '{-# DEPRECATED' strings '#-}' { (mo $1:mc $1
                                                     : (fst $ unLoc $2)
                                        ,Just (DeprecatedTxt $ snd $ unLoc $2)) }
@@ -454,25 +452,25 @@ maybemodwarning :: { ([MaybeAnn],Maybe WarningTxt) }
                                        , Just (WarningTxt $ snd $ unLoc $2)) }
     |  {- empty -}                  { ([],Nothing) }
 
-body    :: { ([MaybeAnn]
+body    :: { ([AddAnn]
              ,([LImportDecl RdrName], [LHsDecl RdrName])) }
-        :  '{'            top '}'      { ([mo $1,mc $3,fst $2]
+        :  '{'            top '}'      { (mo $1:mc $3:(fst $2)
                                          , snd $2) }
-        |      vocurly    top close    { ([], snd $2) }
+        |      vocurly    top close    { (fst $2, snd $2) }
 
-body2   :: { ([MaybeAnn]
+body2   :: { ([AddAnn]
              ,([LImportDecl RdrName], [LHsDecl RdrName])) }
-        :  '{' top '}'                          { ([mo $1,mc $3
-                                                   ,fst $2], snd $2) }
+        :  '{' top '}'                          { (mo $1:mc $3
+                                                   :(fst $2), snd $2) }
         |  missing_module_keyword top close     { ([],snd $2) }
 
-top     :: { (MaybeAnn
+top     :: { ([AddAnn]
              ,([LImportDecl RdrName], [LHsDecl RdrName])) }
-        : importdecls                   { (Nothing
+        : importdecls                   { ([]
                                           ,(reverse $1,[]))}
-        | importdecls ';' cvtopdecls    { (mj AnnSemi $2
+        | importdecls ';' cvtopdecls    { ([mj AnnSemi $2]
                                           ,(reverse $1,$3))}
-        | cvtopdecls                    { (Nothing,([],$1)) }
+        | cvtopdecls                    { ([],([],$1)) }
 
 cvtopdecls :: { [LHsDecl RdrName] }
         : topdecls                              { cvTopDecls $1 }
@@ -540,7 +538,7 @@ export  :: { OrdList (LIE RdrName) }
         |  'pattern' qcon            {% amsu (sLL $1 $> (IEVar $2))
                                              [mj AnnPattern $1] }
 
-export_subspec :: { Located ([MaybeAnn],ImpExpSubSpec) }
+export_subspec :: { Located ([AddAnn],ImpExpSubSpec) }
         : {- empty -}             { sL0 ([],ImpExpAbs) }
         | '(' '..' ')'            { sLL $1 $> ([mo $1,mc $3,mj AnnDotdot $2]
                                        , ImpExpAll) }
@@ -586,37 +584,37 @@ importdecl :: { LImportDecl RdrName }
                              , ideclQualified = snd $4, ideclImplicit = False
                              , ideclAs = unLoc (snd $7)
                              , ideclHiding = unLoc (snd $8) })
-                   (mj AnnImport $1 : fst $2 ++ fst $3 : fst $4 : fst $5
-                                    : fst $7 : fst $8) }
+                   ((mj AnnImport $1 : fst $2 ++ fst $3 ++ fst $4
+                                    ++ fst $7 ++ fst $8) ++ (fst $5)) }
 
-maybe_src :: { ([MaybeAnn],IsBootInterface) }
+maybe_src :: { ([AddAnn],IsBootInterface) }
         : '{-# SOURCE' '#-}'           { ([mo $1,mc $2],True) }
         | {- empty -}                  { ([],False) }
 
-maybe_safe :: { (MaybeAnn,Bool) }
-        : 'safe'                                { (mj AnnSafe $1,True) }
-        | {- empty -}                           { (Nothing,False) }
+maybe_safe :: { ([AddAnn],Bool) }
+        : 'safe'                                { ([mj AnnSafe $1],True) }
+        | {- empty -}                           { ([],False) }
 
-maybe_pkg :: { (MaybeAnn,Maybe FastString) }
-        : STRING                                { (mj AnnPackageName $1
+maybe_pkg :: { ([AddAnn],Maybe FastString) }
+        : STRING                                { ([mj AnnPackageName $1]
                                                   ,Just (getSTRING $1)) }
-        | {- empty -}                           { (Nothing,Nothing) }
+        | {- empty -}                           { ([],Nothing) }
 
-optqualified :: { (MaybeAnn,Bool) }
-        : 'qualified'                           { (mj AnnQualified $1,True)  }
-        | {- empty -}                           { (Nothing,False) }
+optqualified :: { ([AddAnn],Bool) }
+        : 'qualified'                           { ([mj AnnQualified $1],True)  }
+        | {- empty -}                           { ([],False) }
 
-maybeas :: { (MaybeAnn,Located (Maybe ModuleName)) }
-        : 'as' modid                            { (mj AnnAs $1
+maybeas :: { ([AddAnn],Located (Maybe ModuleName)) }
+        : 'as' modid                            { ([mj AnnAs $1]
                                                   ,sLL $1 $> (Just (unLoc $2))) }
-        | {- empty -}                           { (Nothing,noLoc Nothing) }
+        | {- empty -}                           { ([],noLoc Nothing) }
 
-maybeimpspec :: { ([MaybeAnn],Located (Maybe (Bool, [LIE RdrName]))) }
+maybeimpspec :: { ([AddAnn],Located (Maybe (Bool, [LIE RdrName]))) }
         : impspec                  { (fst $1
                                      ,L (gl (snd $1)) (Just (unLoc (snd $1)))) }
         | {- empty -}              { ([],noLoc Nothing) }
 
-impspec :: { ([MaybeAnn],Located (Bool, [LIE RdrName])) }
+impspec :: { ([AddAnn],Located (Bool, [LIE RdrName])) }
         :  '(' exportlist ')'                 { ([mo $1,mc $3]
                                                 ,sLL $1 $> (False, fromOL $2)) }
         |  'hiding' '(' exportlist ')'        { ([mj AnnHiding $1,mo $2
@@ -786,7 +784,7 @@ inst_decl :: { LInstDecl RdrName }
                     ((fst $ unLoc $1):mj AnnInstance $2
                        :(fst $ unLoc $6)++(fst $ unLoc $7)) }
 
-overlap_pragma :: { ([MaybeAnn],Maybe OverlapMode) }
+overlap_pragma :: { ([AddAnn],Maybe OverlapMode) }
   : '{-# OVERLAPPABLE'    '#-}' { ([mo $1,mc $2], Just Overlappable) }
   | '{-# OVERLAPPING'     '#-}' { ([mo $1,mc $2], Just Overlapping) }
   | '{-# OVERLAPS'        '#-}' { ([mo $1,mc $2], Just Overlaps) }
@@ -796,13 +794,13 @@ overlap_pragma :: { ([MaybeAnn],Maybe OverlapMode) }
 
 -- Closed type families
 
-where_type_family :: { Located ([MaybeAnn],FamilyInfo RdrName) }
+where_type_family :: { Located ([AddAnn],FamilyInfo RdrName) }
         : {- empty -}                      { noLoc ([],OpenTypeFamily) }
         | 'where' ty_fam_inst_eqn_list
                { sLL $1 $> (mj AnnWhere $1:(fst $ unLoc $2)
                     ,ClosedTypeFamily (reverse (snd $ unLoc $2))) }
 
-ty_fam_inst_eqn_list :: { Located ([MaybeAnn],[LTyFamInstEqn RdrName]) }
+ty_fam_inst_eqn_list :: { Located ([AddAnn],[LTyFamInstEqn RdrName]) }
         :     '{' ty_fam_inst_eqns '}'     { sLL $1 $> ([mo $1,mc $3]
                                                 ,unLoc $2) }
         | vocurly ty_fam_inst_eqns close   { let L loc _ = $2 in
@@ -862,7 +860,7 @@ at_decl_cls :: { LHsDecl RdrName }
                 {% amms (liftM mkInstD (mkTyFamInst (comb2 $1 $3) $3))
                         [mj AnnType $1,mj AnnInstance $2] }
 
-opt_family   :: { [MaybeAnn] }
+opt_family   :: { [AddAnn] }
               : {- empty -}   { [] }
               | 'family'      { [mj AnnFamily $1] }
 
@@ -891,7 +889,7 @@ at_decl_inst :: { LInstDecl RdrName }
                                 $3 (unLoc $4) (snd $ unLoc $5) (snd $ unLoc $6))
                         ((fst $ unLoc $1):(fst $ unLoc $5)++(fst $ unLoc $6)) }
 
-data_or_newtype :: { Located (MaybeAnn,NewOrData) }
+data_or_newtype :: { Located (AddAnn,NewOrData) }
         : 'data'        { sL1 $1 (mj AnnData    $1,DataType) }
         | 'newtype'     { sL1 $1 (mj AnnNewtype $1,NewType) }
 
@@ -980,7 +978,7 @@ pattern_synonym_decl :: { LHsDecl RdrName }
                        (mj AnnPattern $1:mj AnnLarrow $3:(fst $ unLoc $5))
                   }}
 
-where_decls :: { Located ([MaybeAnn]
+where_decls :: { Located ([AddAnn]
                          , Located (OrdList (LHsDecl RdrName))) }
         : 'where' '{' decls '}'       { sLL $1 $> ([mj AnnWhere $1,mo $2
                                             ,mc $4],$3) }
@@ -1022,7 +1020,7 @@ decls_cls :: { Located (OrdList (LHsDecl RdrName)) }    -- Reversed
           | {- empty -}                 { noLoc nilOL }
 
 decllist_cls
-        :: { Located ([MaybeAnn]
+        :: { Located ([AddAnn]
                      , OrdList (LHsDecl RdrName)) }      -- Reversed
         : '{'         decls_cls '}'     { sLL $1 $>  ([mo $1,mc $3]
                                              ,unLoc $2) }
@@ -1030,7 +1028,7 @@ decllist_cls
 
 -- Class body
 --
-where_cls :: { Located ([MaybeAnn]
+where_cls :: { Located ([AddAnn]
                        ,(OrdList (LHsDecl RdrName))) }    -- Reversed
                                 -- No implicit parameters
                                 -- May have type declarations
@@ -1054,14 +1052,14 @@ decls_inst :: { Located (OrdList (LHsDecl RdrName)) }   -- Reversed
            | {- empty -}                { noLoc nilOL }
 
 decllist_inst
-        :: { Located ([MaybeAnn]
+        :: { Located ([AddAnn]
                      , OrdList (LHsDecl RdrName)) }      -- Reversed
         : '{'         decls_inst '}'    { sLL $1 $> ([mo $1,mc $3],unLoc $2) }
         |     vocurly decls_inst close  { L (gl $2) ([],unLoc $2) }
 
 -- Instance body
 --
-where_inst :: { Located ([MaybeAnn]
+where_inst :: { Located ([AddAnn]
                         , OrdList (LHsDecl RdrName)) }   -- Reversed
                                 -- No implicit parameters
                                 -- May have type declarations
@@ -1084,13 +1082,13 @@ decls   :: { Located (OrdList (LHsDecl RdrName)) }
         | decl                          { $1 }
         | {- empty -}                   { noLoc nilOL }
 
-decllist :: { Located ([MaybeAnn],OrdList (LHsDecl RdrName)) }
+decllist :: { Located ([AddAnn],OrdList (LHsDecl RdrName)) }
         : '{'            decls '}'      { sLL $1 $> ([mo $1,mc $3],unLoc $2) }
         |     vocurly    decls close    { L (gl $2) ([],unLoc $2) }
 
 -- Binding groups other than those of class and instance declarations
 --
-binds   ::  { Located ([MaybeAnn],HsLocalBinds RdrName) }
+binds   ::  { Located ([AddAnn],HsLocalBinds RdrName) }
                                          -- May have implicit parameters
                                                 -- No type declarations
         : decllist          { sL1 $1 (fst $ unLoc $1
@@ -1105,7 +1103,7 @@ binds   ::  { Located ([MaybeAnn],HsLocalBinds RdrName) }
                                                         emptyTcEvBinds)) }
 
 
-wherebinds :: { Located ([MaybeAnn],HsLocalBinds RdrName) }
+wherebinds :: { Located ([AddAnn],HsLocalBinds RdrName) }
                                                 -- May have implicit parameters
                                                 -- No type declarations
         : 'where' binds                 { sLL $1 $> (mj AnnWhere $1 : (fst $ unLoc $2)
@@ -1133,11 +1131,11 @@ rule    :: { LHsDecl RdrName }
                (mj AnnEqual $5 : (fst $2) ++ (fst $3)) }
 
 -- Rules can be specified to be NeverActive, unlike inline/specialize pragmas
-rule_activation :: { ([MaybeAnn],Maybe Activation) }
+rule_activation :: { ([AddAnn],Maybe Activation) }
         : {- empty -}                           { ([],Nothing) }
         | rule_explicit_activation              { (fst $1,Just (snd $1)) }
 
-rule_explicit_activation :: { ([MaybeAnn]
+rule_explicit_activation :: { ([AddAnn]
                               ,Activation) }  -- In brackets
         : '[' INTEGER ']'       { ([mo $1,mj AnnVal $2,mc $3]
                                   ,ActiveAfter  (fromInteger (getINTEGER $2))) }
@@ -1146,7 +1144,7 @@ rule_explicit_activation :: { ([MaybeAnn]
         | '[' '~' ']'           { ([mo $1,mj AnnTilde $2,mc $3]
                                   ,NeverActive) }
 
-rule_forall :: { ([MaybeAnn],[LRuleBndr RdrName]) }
+rule_forall :: { ([AddAnn],[LRuleBndr RdrName]) }
         : 'forall' rule_var_list '.'     { ([mj AnnForall $1,mj AnnDot $3],$2) }
         | {- empty -}                    { ([],[]) }
 
@@ -1192,7 +1190,7 @@ deprecation :: { OrdList (LHsDecl RdrName) }
              { toOL [ sLL $1 $> $ WarningD (Warning n (DeprecatedTxt $ snd $ unLoc $2))
                     | n <- unLoc $1 ] }
 
-strings :: { Located ([MaybeAnn],[Located FastString]) }
+strings :: { Located ([AddAnn],[Located FastString]) }
     : STRING { sL1 $1 ([],[L (gl $1) (getSTRING $1)]) }
     | '[' stringlist ']' { sLL $1 $> $ ([mo $1,mc $3],fromOL (unLoc $2)) }
 
@@ -1244,7 +1242,7 @@ safety :: { Located Safety }
         | 'safe'                        { sLL $1 $> PlaySafe }
         | 'interruptible'               { sLL $1 $> PlayInterruptible }
 
-fspec :: { Located ([MaybeAnn]
+fspec :: { Located ([AddAnn]
                     ,(Located FastString, Located RdrName, LHsType RdrName)) }
        : STRING var '::' sigtypedoc     { sLL $1 $> ([mj AnnDcolon $3]
                                              ,(L (getLoc $1)
@@ -1258,11 +1256,11 @@ fspec :: { Located ([MaybeAnn]
 -----------------------------------------------------------------------------
 -- Type signatures
 
-opt_sig :: { ([MaybeAnn],Maybe (LHsType RdrName)) }
+opt_sig :: { ([AddAnn],Maybe (LHsType RdrName)) }
         : {- empty -}                   { ([],Nothing) }
         | '::' sigtype                  { ([mj AnnDotdot $1],Just $2) }
 
-opt_asig :: { ([MaybeAnn],Maybe (LHsType RdrName)) }
+opt_asig :: { ([AddAnn],Maybe (LHsType RdrName)) }
         : {- empty -}                   { ([],Nothing) }
         | '::' atype                    { ([mj AnnDotdot $1],Just $2) }
 
@@ -1547,7 +1545,7 @@ both become a HsTyVar ("Zero", DataName) after the renamer.
 -----------------------------------------------------------------------------
 -- Datatype declarations
 
-gadt_constrlist :: { Located ([MaybeAnn]
+gadt_constrlist :: { Located ([AddAnn]
                           ,[LConDecl RdrName]) } -- Returned in order
         : 'where' '{'        gadt_constrs '}'   { L (comb2 $1 $3)
                                                     ([mj AnnWhere $1
@@ -1572,7 +1570,7 @@ gadt_constrs :: { Located [LConDecl RdrName] }
 --      D { x,y :: a } :: T a
 --      forall a. Eq a => D { x,y :: a } :: T a
 
-gadt_constr :: { Located ([MaybeAnn],LConDecl RdrName) }
+gadt_constr :: { Located ([AddAnn],LConDecl RdrName) }
                    -- Returns a list because of:   C,D :: ty
         : con_list '::' sigtype
                 { sL (comb2 $1 $3) ([mj AnnDotdot $2]
@@ -1611,7 +1609,7 @@ constr :: { LConDecl RdrName }
                             ($1 `mplus` $4))
                        (fst $ unLoc $2) }
 
-forall :: { Located ([MaybeAnn],[LHsTyVarBndr RdrName]) }
+forall :: { Located ([AddAnn],[LHsTyVarBndr RdrName]) }
         : 'forall' tv_bndrs '.'       { sLL $1 $> ([mj AnnForall $1,mj AnnDot $3],$2) }
         | {- empty -}                 { noLoc ([],[]) }
 
@@ -1647,7 +1645,7 @@ fielddecl :: { Located [ConDeclField RdrName] } -- A list because of  f,g :: Int
 -- we can do deriving( forall a. C [a] ) in a newtype (GHC extension).
 -- The 'C [a]' part is converted to an HsPredTy by checkInstType
 -- We don't allow a context, but that's sorted out by the type checker.
-deriving :: { Located ([MaybeAnn]
+deriving :: { Located ([AddAnn]
                       ,Maybe [LHsType RdrName]) }
         : {- empty -}                     { noLoc ([],Nothing) }
         | 'deriving' qtycon               { let { L loc tv = $2 }
@@ -1724,7 +1722,7 @@ decl    :: { Located (OrdList (LHsDecl RdrName)) }
         -- fails terribly with a panic in cvBindsAndSigs otherwise.
         | splice_exp            { sLL $1 $> $ unitOL (sLL $1 $> $ mkSpliceDecl $1) }
 
-rhs     :: { Located ([MaybeAnn],GRHSs RdrName (LHsExpr RdrName)) }
+rhs     :: { Located ([AddAnn],GRHSs RdrName (LHsExpr RdrName)) }
         : '=' exp wherebinds    { sL (comb3 $1 $2 $3)
                                     ((mj AnnEqual $1 : (fst $ unLoc $3))
                                     ,GRHSs (unguardedRHS $2) (snd $ unLoc $3)) }
@@ -1780,11 +1778,11 @@ sigdecl :: { Located (OrdList (LHsDecl RdrName)) }
                 {% ams (sLL $1 $> $ unitOL (sLL $1 $> $ SigD (MinimalSig (snd $2))))
                        (mo $1:mc $3:fst $2) }
 
-activation :: { ([MaybeAnn],Maybe Activation) }
+activation :: { ([AddAnn],Maybe Activation) }
         : {- empty -}                           { ([],Nothing) }
         | explicit_activation                   { (fst $1,Just (snd $1)) }
 
-explicit_activation :: { ([MaybeAnn],Activation) }  -- In brackets
+explicit_activation :: { ([AddAnn],Activation) }  -- In brackets
         : '[' INTEGER ']'       { ([mo $1,mj AnnVal $2,mc $3]
                                   ,ActiveAfter  (fromInteger (getINTEGER $2))) }
         | '[' '~' INTEGER ']'   { ([mo $1,mj AnnTilde $2,mj AnnVal $3
@@ -1889,11 +1887,11 @@ exp10 :: { LHsExpr RdrName }
                                           -- hdaume: core annotation
         | fexp                         { $1 }
 
-optSemi :: { ([MaybeAnn],Bool) }
+optSemi :: { ([AddAnn],Bool) }
         : ';'         { ([mj AnnSemi $1],True) }
         | {- empty -} { ([],False) }
 
-scc_annot :: { Located ([MaybeAnn],FastString) }
+scc_annot :: { Located ([AddAnn],FastString) }
         : '{-# SCC' STRING '#-}'      {% do scc <- getSCC $2
                                             ; return $ sLL $1 $>
                                                ([mo $1,mj AnnVal $2
@@ -1902,7 +1900,7 @@ scc_annot :: { Located ([MaybeAnn],FastString) }
                                          ,mc $3]
                                         ,(getVARID $2)) }
 
-hpc_annot :: { Located ([MaybeAnn],(FastString,(Int,Int),(Int,Int))) }
+hpc_annot :: { Located ([AddAnn],(FastString,(Int,Int),(Int,Int))) }
       : '{-# GENERATED' STRING INTEGER ':' INTEGER '-' INTEGER ':' INTEGER '#-}'
                                       { sLL $1 $> $ ([mo $1,mj AnnVal $2
                                               ,mj AnnVal2 $3,mj AnnColon $4
@@ -2007,7 +2005,7 @@ acmd    :: { LHsCmdTop RdrName }
                                     return (sL1 $1 $ HsCmdTop cmd
                                            placeHolderType placeHolderType []) }
 
-cvtopbody :: { ([MaybeAnn],[LHsDecl RdrName]) }
+cvtopbody :: { ([AddAnn],[LHsDecl RdrName]) }
         :  '{'            cvtopdecls0 '}'               { ([mo $1,mc $3],$2) }
         |      vocurly    cvtopdecls0 close             { ([],$2) }
 
@@ -2202,7 +2200,7 @@ guardquals1 :: { Located [LStmt RdrName (LHsExpr RdrName)] }
 -----------------------------------------------------------------------------
 -- Case alternatives
 
-altslist :: { Located ([MaybeAnn],[LMatch RdrName (LHsExpr RdrName)]) }
+altslist :: { Located ([AddAnn],[LMatch RdrName (LHsExpr RdrName)]) }
         : '{'            alts '}'    { sLL $1 $> ([mo $1,mc $3],(reverse (unLoc $2))) }
 
         |     vocurly    alts  close { L (getLoc $2) ([],(reverse (unLoc $2))) }
@@ -2285,7 +2283,7 @@ apats  :: { [LPat RdrName] }
 -----------------------------------------------------------------------------
 -- Statement sequences
 
-stmtlist :: { Located ([MaybeAnn],[LStmt RdrName (LHsExpr RdrName)]) }
+stmtlist :: { Located ([AddAnn],[LStmt RdrName (LHsExpr RdrName)]) }
         : '{'           stmts '}'       { sLL $1 $> ((mo $1:mc $3:(fst $ unLoc $2))
                                              ,(snd $ unLoc $2)) }
         |     vocurly   stmts close     { L (gl $2) (fst $ unLoc $2
@@ -2296,7 +2294,7 @@ stmtlist :: { Located ([MaybeAnn],[LStmt RdrName (LHsExpr RdrName)]) }
 -- here, because we need too much lookahead if we see do { e ; }
 -- So we use BodyStmts throughout, and switch the last one over
 -- in ParseUtils.checkDo instead
-stmts :: { Located ([MaybeAnn],[LStmt RdrName (LHsExpr RdrName)]) }
+stmts :: { Located ([AddAnn],[LStmt RdrName (LHsExpr RdrName)]) }
         : stmt stmts_help        { sLL $1 $> (fst $ unLoc $2,($1 : (snd $ unLoc $2))) }
         | ';' stmts     {% if null (snd $ unLoc $2)
                              then ams (sLL $1 $> ([mj AnnSemi $1],snd $ unLoc $2)) []
@@ -2304,7 +2302,7 @@ stmts :: { Located ([MaybeAnn],[LStmt RdrName (LHsExpr RdrName)]) }
 
         | {- empty -}            { noLoc ([],[]) }
 
-stmts_help :: { Located ([MaybeAnn],[LStmt RdrName (LHsExpr RdrName)]) }
+stmts_help :: { Located ([AddAnn],[LStmt RdrName (LHsExpr RdrName)]) }
                                                                -- might be empty
         : ';' stmts    {% if null (snd $ unLoc $2)
                              then ams (sLL $1 $> ([mj AnnSemi $1],snd $ unLoc $2)) []
@@ -2333,11 +2331,11 @@ qual  :: { LStmt RdrName (LHsExpr RdrName) }
 -----------------------------------------------------------------------------
 -- Record Field Update/Construction
 
-fbinds  :: { ([MaybeAnn],([LHsRecField RdrName (LHsExpr RdrName)], Bool)) }
+fbinds  :: { ([AddAnn],([LHsRecField RdrName (LHsExpr RdrName)], Bool)) }
         : fbinds1                       { $1 }
         | {- empty -}                   { ([],([], False)) }
 
-fbinds1 :: { ([MaybeAnn],([LHsRecField RdrName (LHsExpr RdrName)], Bool)) }
+fbinds1 :: { ([AddAnn],([LHsRecField RdrName (LHsExpr RdrName)], Bool)) }
         : fbind ',' fbinds1
                 {% addAnnotation (gl $1) AnnComma (gl $2) >>
                    return (case $3 of (ma,(flds, dd)) -> (ma,($1 : flds, dd))) }
@@ -2378,22 +2376,22 @@ ipvar   :: { Located HsIPName }
 -----------------------------------------------------------------------------
 -- Warnings and deprecations
 
-name_boolformula_opt :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
+name_boolformula_opt :: { ([AddAnn],BooleanFormula (Located RdrName)) }
         : name_boolformula          { $1 }
         | {- empty -}               { ([],mkTrue) }
 
-name_boolformula :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
+name_boolformula :: { ([AddAnn],BooleanFormula (Located RdrName)) }
         : name_boolformula_and                      { $1 }
         | name_boolformula_and '|' name_boolformula
                                              { ((mj AnnVbar $2:fst $1)++(fst $3)
                                                 ,mkOr [snd $1,snd $3]) }
 
-name_boolformula_and :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
+name_boolformula_and :: { ([AddAnn],BooleanFormula (Located RdrName)) }
         : name_boolformula_atom                             { $1 }
         | name_boolformula_atom ',' name_boolformula_and
                   { ((mj AnnComma $2:fst $1)++(fst $3), mkAnd [snd $1,snd $3]) }
 
-name_boolformula_atom :: { ([MaybeAnn],BooleanFormula (Located RdrName)) }
+name_boolformula_atom :: { ([AddAnn],BooleanFormula (Located RdrName)) }
         : '(' name_boolformula ')'  { ([mo $1,mc $3],snd $2) }
         | name_var                  { ([],mkVar $1) }
 
@@ -2821,10 +2819,9 @@ hintExplicitForall span = do
 %************************************************************************
 -}
 
-type MaybeAnn = Maybe (SrcSpan -> P ())
+type AddAnn = (SrcSpan -> P ())
 
 gl = getLoc
-gj x = Just (gl x)
 
 aa :: Located a -> (AnnKeywordId,Located c) -> P (Located a)
 aa a@(L l _) (b,s) = addAnnotation l b (gl s) >> return a
@@ -2834,29 +2831,29 @@ am a (b,s) = do
   addAnnotation l b (gl s)
   return av
 
-ams :: Located a -> [MaybeAnn] -> P (Located a)
-ams a@(L l _) bs = (mapM_ (\a -> a l) $ catMaybes bs) >> return a
+ams :: Located a -> [AddAnn] -> P (Located a)
+ams a@(L l _) bs = mapM_ (\a -> a l) bs >> return a
 
-amms :: P (Located a) -> [MaybeAnn] -> P (Located a)
+amms :: P (Located a) -> [AddAnn] -> P (Located a)
 amms a bs = do
   av@(L l _) <- a
-  (mapM_ (\a -> a l) $ catMaybes bs) >> return av
+  (mapM_ (\a -> a l) bs) >> return av
 
-amsu :: Located a -> [MaybeAnn] -> P (OrdList (Located a))
-amsu a@(L l _) bs = (mapM_ (\a -> a l) $ catMaybes bs) >> return (unitOL a)
+amsu :: Located a -> [AddAnn] -> P (OrdList (Located a))
+amsu a@(L l _) bs = (mapM_ (\a -> a l) bs) >> return (unitOL a)
 
-mj :: AnnKeywordId -> Located e -> Maybe (SrcSpan -> P ())
-mj a l = Just (\s -> addAnnotation s a (gl l))
+mj :: AnnKeywordId -> Located e -> (SrcSpan -> P ())
+mj a l = (\s -> addAnnotation s a (gl l))
 
 mo ll = mj AnnOpen ll
 mc ll = mj AnnClose ll
 
-mcommas :: [SrcSpan] -> [MaybeAnn]
+mcommas :: [SrcSpan] -> [AddAnn]
 mcommas ss = map (\s -> mj AnnComma (L s ())) ss
 
 ajl a@(L _ (Just (L l _))) b s = addAnnotation l b s >> return a
 
-ajs a@(Just (L l _)) bs = (mapM_ (\a -> a l) $ catMaybes bs) >> return a
+ajs a@(Just (L l _)) bs = (mapM_ (\a -> a l) bs) >> return a
 
 -- |Get the location of the last element of a OrdList, or noLoc
 oll :: OrdList (Located a) -> SrcSpan
