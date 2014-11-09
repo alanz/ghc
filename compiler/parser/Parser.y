@@ -2817,6 +2817,10 @@ hintExplicitForall span = do
         Helper functions for generating annotations in the parser
 %*                                                                      *
 %************************************************************************
+
+For the general principles of the following routines, see Note [Api annotations]
+in Lexer.x
+
 -}
 
 type AddAnn = (SrcSpan -> P ())

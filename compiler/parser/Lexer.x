@@ -2549,6 +2549,102 @@ clean_pragma prag = canon_ws (map toLower (unprefix prag))
                                               _ -> prag'
                           canon_ws s = unwords (map canonical (words s))
 
+{- Note [Api annotations]
+   ~~~~~~~~~~~~~~~~~~~~~~
+
+In order to do source to source conversions using the GHC API, the
+locations of all elements of the original source needs to be tracked.
+The includes keywords such as 'let' / 'in' / 'do' etc as well as
+punctuation such as commas and braces, and also comments.
+
+These are captured in a structure separate from the parse tree, and
+returned in the pm_annotations field of the ParsedModule type.
+
+The non-comment annotations are stored indexed to the SrcSpan of the
+AST element containing them, together with a AnnKeywordId value
+identifying the specific keyword being captured.
+
+> type ApiAnnKey = (SrcSpan,AnnKeywordId)
+>
+> Map.Map ApiAnnKey SrcSpan
+
+So
+
+> let X = 1 in 2 *x
+
+would result in the AST element
+
+  L span (HsLet (binds for x = 1) (2 * x))
+
+and the annotations
+
+  (span,AnnLet) having the location of the 'let' keyword
+  (span,AnnIn)  having the location of the 'in' keyword
+
+
+The comments are indexed to the SrcSpan of the lowest AST element
+enclosing them
+
+> Map.Map SrcSpan [Located Token]
+
+So the full ApiAnns type is
+
+> type ApiAnns = (Map.Map ApiAnnKey SrcSpan, Map.Map SrcSpan [Located Token])
+
+
+This is done in the lexer / parser as follows.
+
+
+The PState variable in the lexer has the following variables added
+
+>  annotations :: [(ApiAnnKey,SrcSpan)],
+>  comment_q :: [Located Token],
+>  annotations_comments :: [(SrcSpan,[Located Token])]
+
+The first and last store the values that end up in the ApiAnns value
+at the end via Map.fromList
+
+The comment_q captures comments as they are seen in the token stream,
+so that when they are ready to be allocated via the parser they are
+available.
+
+The parser interacts with the lexer using the function
+
+> addAnnotation :: SrcSpan -> AnnKeywordId -> SrcSpan -> P ()
+
+which takes the AST element SrcSpan, the annotation keyword and the
+target SrcSpan.
+
+This adds the annotation to the `annotations` field of `PState` and
+transfers any comments in `comment_q` to the `annotations_comments`
+field.
+
+Parser
+------
+
+The parser implements a number of helper types and methods for the
+capture of annotations
+
+> type AddAnn = (SrcSpan -> P ())
+>
+> mj :: AnnKeywordId -> Located e -> (SrcSpan -> P ())
+> mj a l = (\s -> addAnnotation s a (gl l))
+
+AddAnn represents the addition of an annotation a to a provided
+SrcSpan, and `mj` constructs an AddAnn value.
+
+> ams :: Located a -> [AddAnn] -> P (Located a)
+> ams a@(L l _) bs = (mapM_ (\a -> a l) $ catMaybes bs) >> return a
+
+So the production in Parser.y for the HsLet AST element is
+
+        | 'let' binds 'in' exp    {% ams (sLL $1 $> $ HsLet (snd $ unLoc $2) $4)
+                                         (mj AnnLet $1:mj AnnIn $3
+                                           :(fst $ unLoc $2)) }
+
+
+-}
+
 
 {-
 %************************************************************************
