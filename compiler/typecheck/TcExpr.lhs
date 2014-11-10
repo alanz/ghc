@@ -1121,7 +1121,8 @@ lookup_id id_name
 
 srcSpanPrimLit :: DynFlags -> SrcSpan -> HsExpr TcId
 srcSpanPrimLit dflags span
-    = HsLit (HsStringPrim (unsafeMkByteString (showSDocOneLine dflags (ppr span))))
+    = HsLit (HsStringPrim "" (unsafeMkByteString
+                             (showSDocOneLine dflags (ppr span))))
 
 ------------------------
 instantiateOuter :: CtOrigin -> TcId -> TcM (HsExpr TcId, TcSigmaType)

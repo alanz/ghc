@@ -55,7 +55,7 @@
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 
 module Lexer (
-   Token(..), lexer, pragState, mkPState, PState(..),
+   Token(..), SourceText, lexer, pragState, mkPState, PState(..),
    P(..), ParseResult(..), getSrcLoc,
    getPState, getDynFlags, withThisPackage,
    failLocMsgP, failSpanMsgP, srcParseFail,
@@ -496,6 +496,9 @@ $tab+         { warn Opt_WarnTabs (text "Tab character") }
 -- Alex "Haskell code fragment bottom"
 
 {
+
+type SourceText = String -- Note [literal source text] in HsLit
+
 -- -----------------------------------------------------------------------------
 -- The token type
 
@@ -626,15 +629,15 @@ data Token
 
   | ITdupipvarid   FastString   -- GHC extension: implicit param: ?x
 
-  | ITchar       String Char
-  | ITstring     String FastString
-  | ITinteger    String Integer
+  | ITchar       SourceText Char        -- Note [literal source text] in HsLit
+  | ITstring     SourceText FastString  -- Note [literal source text] in HsLit
+  | ITinteger    SourceText Integer     -- Note [literal source text] in HsLit
   | ITrational   FractionalLit
 
-  | ITprimchar   String Char
-  | ITprimstring String ByteString
-  | ITprimint    String Integer
-  | ITprimword   String Integer
+  | ITprimchar   SourceText Char        -- Note [literal source text] in HsLit
+  | ITprimstring SourceText ByteString  -- Note [literal source text] in HsLit
+  | ITprimint    SourceText Integer     -- Note [literal source text] in HsLit
+  | ITprimword   SourceText Integer     -- Note [literal source text] in HsLit
   | ITprimfloat  FractionalLit
   | ITprimdouble FractionalLit
 

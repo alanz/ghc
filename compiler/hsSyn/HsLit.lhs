@@ -24,6 +24,7 @@ import Type       ( Type )
 import Outputable
 import FastString
 import PlaceHolder ( PostTc,PostRn,DataId )
+import Lexer       ( SourceText )
 
 import Data.ByteString (ByteString)
 import Data.Data hiding ( Fixity )
@@ -42,19 +43,19 @@ import Data.Data hiding ( Fixity )
 
 \begin{code}
 data HsLit
-  = HsChar          String Char        -- Character
-  | HsCharPrim      String Char        -- Unboxed character
-  | HsString        String FastString  -- String
-  | HsStringPrim    String ByteString  -- Packed bytes
-  | HsInt           String Integer     -- Genuinely an Int; arises from
+  = HsChar          SourceText Char        -- Character
+  | HsCharPrim      SourceText Char        -- Unboxed character
+  | HsString        SourceText FastString  -- String
+  | HsStringPrim    SourceText ByteString  -- Packed bytes
+  | HsInt           SourceText Integer     -- Genuinely an Int; arises from
                                        --     TcGenDeriv, and from TRANSLATION
-  | HsIntPrim       String Integer     -- literal Int#
-  | HsWordPrim      String Integer     -- literal Word#
-  | HsInt64Prim     String Integer     -- literal Int64#
-  | HsWord64Prim    String Integer     -- literal Word64#
-  | HsInteger       String Integer  Type -- Genuinely an integer; arises only
-                                         --   from TRANSLATION (overloaded
-                                         --   literals are done with HsOverLit)
+  | HsIntPrim       SourceText Integer     -- literal Int#
+  | HsWordPrim      SourceText Integer     -- literal Word#
+  | HsInt64Prim     SourceText Integer     -- literal Int64#
+  | HsWord64Prim    SourceText Integer     -- literal Word64#
+  | HsInteger       SourceText Integer Type -- Genuinely an integer; arises only
+                                          --   from TRANSLATION (overloaded
+                                          --   literals are done with HsOverLit)
   | HsRat           FractionalLit Type -- Genuinely a rational; arises only from
                                        --   TRANSLATION (overloaded literals are
                                        --   done with HsOverLit)
@@ -96,6 +97,36 @@ data OverLitVal
 overLitType :: HsOverLit a -> PostTc a Type
 overLitType = ol_type
 \end{code}
+
+Note [literal source text]
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The lexer/parser converts literals from their original source text
+versions to an appropriate internal representation. This is a problem
+for tools doing source to source conversions, so the original source
+text is stored in literals where this can occur.
+
+Motivating examples for HsLit
+
+  HsChar          '\n', '\x20`
+  HsCharPrim      '\x41`#
+  HsString        "\x20\x41" == " A"
+  HsStringPrim    "\x20"#
+  HsInt           001
+  HsIntPrim       002#
+  HsWordPrim      003##
+  HsInt64Prim     004##
+  HsWord64Prim    005##
+  HsInteger       006
+
+For OverLitVal
+
+  HsIntegral      003,0x001
+  HsIsString      "\x41nd"
+
+
+
+
 
 Note [ol_rebindable]
 ~~~~~~~~~~~~~~~~~~~~
