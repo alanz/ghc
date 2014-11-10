@@ -2602,6 +2602,7 @@ data HsParsedModule = HsParsedModule {
        -- the .hi file, so that we can force recompilation if any of
        -- them change (#3589)
     hpm_annotations :: ApiAnns
+    -- See note [Api annotations] in ApiAnnotation.hs
   }
 \end{code}
 
