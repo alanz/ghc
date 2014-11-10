@@ -73,10 +73,7 @@ module Lexer (
    sccProfilingOn, hpcEnabled,
    addWarning,
    lexTokenStream,
-   ApiAnns,
-   AnnKeywordId(..),
-   addAnnotation,
-   getAnnotation,getAnnotationComments
+   addAnnotation
   ) where
 
 -- base
@@ -119,6 +116,8 @@ import BasicTypes       ( InlineSpec(..), RuleMatchInfo(..), FractionalLit(..) )
 
 -- compiler/parser
 import Ctype
+
+import ApiAnnotation
 }
 
 -- -----------------------------------------------------------------------------
@@ -1692,8 +1691,8 @@ data PState = PState {
         -- Annotations giving the locations of 'noise' tokens in the
         -- source, so that users of the GHC API can do source to
         -- source conversions.
-        comment_q :: [Located Token],
-        annotations_comments :: [(SrcSpan,[Located Token])]
+        comment_q :: [Located AnnotationComment],
+        annotations_comments :: [(SrcSpan,[Located AnnotationComment])]
      }
         -- last_loc and last_len are used when generating error messages,
         -- and in pushCurrentContext only.  Sigh, if only Happy passed the
@@ -2549,101 +2548,6 @@ clean_pragma prag = canon_ws (map toLower (unprefix prag))
                                               _ -> prag'
                           canon_ws s = unwords (map canonical (words s))
 
-{- Note [Api annotations]
-   ~~~~~~~~~~~~~~~~~~~~~~
-
-In order to do source to source conversions using the GHC API, the
-locations of all elements of the original source needs to be tracked.
-The includes keywords such as 'let' / 'in' / 'do' etc as well as
-punctuation such as commas and braces, and also comments.
-
-These are captured in a structure separate from the parse tree, and
-returned in the pm_annotations field of the ParsedModule type.
-
-The non-comment annotations are stored indexed to the SrcSpan of the
-AST element containing them, together with a AnnKeywordId value
-identifying the specific keyword being captured.
-
-> type ApiAnnKey = (SrcSpan,AnnKeywordId)
->
-> Map.Map ApiAnnKey SrcSpan
-
-So
-
-> let X = 1 in 2 *x
-
-would result in the AST element
-
-  L span (HsLet (binds for x = 1) (2 * x))
-
-and the annotations
-
-  (span,AnnLet) having the location of the 'let' keyword
-  (span,AnnIn)  having the location of the 'in' keyword
-
-
-The comments are indexed to the SrcSpan of the lowest AST element
-enclosing them
-
-> Map.Map SrcSpan [Located Token]
-
-So the full ApiAnns type is
-
-> type ApiAnns = (Map.Map ApiAnnKey SrcSpan, Map.Map SrcSpan [Located Token])
-
-
-This is done in the lexer / parser as follows.
-
-
-The PState variable in the lexer has the following variables added
-
->  annotations :: [(ApiAnnKey,SrcSpan)],
->  comment_q :: [Located Token],
->  annotations_comments :: [(SrcSpan,[Located Token])]
-
-The first and last store the values that end up in the ApiAnns value
-at the end via Map.fromList
-
-The comment_q captures comments as they are seen in the token stream,
-so that when they are ready to be allocated via the parser they are
-available.
-
-The parser interacts with the lexer using the function
-
-> addAnnotation :: SrcSpan -> AnnKeywordId -> SrcSpan -> P ()
-
-which takes the AST element SrcSpan, the annotation keyword and the
-target SrcSpan.
-
-This adds the annotation to the `annotations` field of `PState` and
-transfers any comments in `comment_q` to the `annotations_comments`
-field.
-
-Parser
-------
-
-The parser implements a number of helper types and methods for the
-capture of annotations
-
-> type AddAnn = (SrcSpan -> P ())
->
-> mj :: AnnKeywordId -> Located e -> (SrcSpan -> P ())
-> mj a l = (\s -> addAnnotation s a (gl l))
-
-AddAnn represents the addition of an annotation a to a provided
-SrcSpan, and `mj` constructs an AddAnn value.
-
-> ams :: Located a -> [AddAnn] -> P (Located a)
-> ams a@(L l _) bs = (mapM_ (\a -> a l) $ catMaybes bs) >> return a
-
-So the production in Parser.y for the HsLet AST element is
-
-        | 'let' binds 'in' exp    {% ams (sLL $1 $> $ HsLet (snd $ unLoc $2) $4)
-                                         (mj AnnLet $1:mj AnnIn $3
-                                           :(fst $ unLoc $2)) }
-
-
--}
 
 
 {-
@@ -2666,7 +2570,7 @@ addAnnotationOnly l a v = P $ \s -> POk s {
 
 queueComment :: Located Token -> P()
 queueComment c = P $ \s -> POk s {
-  comment_q = c : comment_q s
+  comment_q = commentToAnnotation c : comment_q s
   } ()
 
 -- | Go through the @comment_q@ in @PState@ and remove all comments
@@ -2685,23 +2589,17 @@ allocateComments ss = P $ \s ->
      , annotations_comments = newAnns ++ (annotations_comments s)
      } ()
 
-type ApiAnns = (Map.Map ApiAnnKey SrcSpan, Map.Map SrcSpan [Located Token])
-
-type ApiAnnKey = (SrcSpan,AnnKeywordId)
+commentToAnnotation :: Located Token -> Located AnnotationComment
+commentToAnnotation (L l (ITdocCommentNext s))  = L l (AnnDocCommentNext s)
+commentToAnnotation (L l (ITdocCommentPrev s))  = L l (AnnDocCommentPrev s)
+commentToAnnotation (L l (ITdocCommentNamed s)) = L l (AnnDocCommentNamed s)
+commentToAnnotation (L l (ITdocSection n s))    = L l (AnnDocSection n s)
+commentToAnnotation (L l (ITdocOptions s))      = L l (AnnDocOptions s)
+commentToAnnotation (L l (ITdocOptionsOld s))   = L l (AnnDocOptionsOld s)
+commentToAnnotation (L l (ITlineComment s))     = L l (AnnLineComment s)
+commentToAnnotation (L l (ITblockComment s))    = L l (AnnBlockComment s)
 
 -- ---------------------------------------------------------------------
-
--- | Retrieve an annotation based on the @SrcSpan@ of the annotated AST
--- element, and the known type of the annotation.
-getAnnotation :: ApiAnns -> SrcSpan -> AnnKeywordId -> Maybe SrcSpan
-getAnnotation (anns,_) span ann = Map.lookup (span,ann) anns
-
--- |Retrieve the comments allocated to the current @SrcSpan@
-getAnnotationComments :: ApiAnns -> SrcSpan -> [Located Token]
-getAnnotationComments (_,anns) span =
-  case Map.lookup span anns of
-    Just cs -> cs
-    Nothing -> []
 
 isComment :: Token -> Bool
 isComment (ITlineComment     _)   = True
@@ -2716,81 +2614,4 @@ isDocComment (ITdocSection      _ _) = True
 isDocComment (ITdocOptions      _)   = True
 isDocComment (ITdocOptionsOld   _)   = True
 isDocComment _ = False
-
--- --------------------------------------------------------------------
-
--- | Note: in general the names of these are taken from the
--- corresponding token, unless otherwise noted
-data AnnKeywordId
-    = AnnAs
-    | AnnAt
-    | AnnBang
-    | AnnBy
-    | AnnCase
-    | AnnClass
-    | AnnClose -- ^  or ] or ) or #) etc
-    | AnnColon
-    | AnnColon2
-    | AnnComma
-    | AnnDarrow
-    | AnnData
-    | AnnDcolon
-    | AnnDefault
-    | AnnDeriving
-    | AnnDo
-    | AnnDot
-    | AnnDotdot
-    | AnnElse
-    | AnnEqual
-    | AnnExport
-    | AnnFamily
-    | AnnForall
-    | AnnForeign
-    | AnnGroup
-    | AnnHeader -- ^ for CType
-    | AnnHiding
-    | AnnIf
-    | AnnImport
-    | AnnIn
-    | AnnInstance
-    | AnnLam
-    | AnnLarrow
-    | AnnLarrowtail
-    | AnnLet
-    | AnnMdo
-    | AnnMinus
-    | AnnModule
-    | AnnNewtype
-    | AnnOf
-    | AnnOpen   -- ^ or [ or ( or (# etc
-    | AnnPackageName
-    | AnnPattern
-    | AnnProc
-    | AnnQualified
-    | AnnRarrow
-    | AnnRarrowtail
-    | AnnRec
-    | AnnRole
-    | AnnSafe
-    | AnnSemi
-    | AnnThen
-    | AnnTilde
-    | AnnTildehsh
-    | AnnType
-    | AnnUsing
-    | AnnVal  -- ^ e.g. INTEGER
-    | AnnVal2 -- ^ e.g. INTEGER
-    | AnnVal3 -- ^ e.g. INTEGER
-    | AnnVal4 -- ^ e.g. INTEGER
-    | AnnVal5 -- ^ e.g. INTEGER
-    | AnnVbar
-    | AnnWhere
-    | Annlarrowtail
-    | Annrarrowtail
-    | AnnEofPos
-    deriving (Eq,Ord,Data,Typeable,Show)
-
-instance Outputable AnnKeywordId where
-  ppr x = text (show x)
-
 }

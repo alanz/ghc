@@ -145,7 +145,7 @@ import Id
 import IdInfo           ( IdDetails(..) )
 import Type
 
-import Lexer            ( ApiAnns )
+import ApiAnnotation    ( ApiAnns )
 import Annotations      ( Annotation, AnnEnv, mkAnnEnv, plusAnnEnv )
 import Class
 import TyCon

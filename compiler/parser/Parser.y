@@ -72,6 +72,7 @@ import Class            ( FunDep )
 import RdrHsSyn
 import Lexer
 import HaddockUtils
+import ApiAnnotation
 
 -- compiler/typecheck
 import TcEvidence       ( emptyTcEvBinds )
@@ -355,7 +356,7 @@ incorrect.
 
  CHAR           { L _ (ITchar     _) }
  STRING         { L _ (ITstring   _) }
- INTEGER        { L _ (ITinteger  _) } -- AZ TODO: capture original source text
+ INTEGER        { L _ (ITinteger  _) }
  RATIONAL       { L _ (ITrational _) }
 
  PRIMCHAR       { L _ (ITprimchar   _) }
@@ -2823,40 +2824,59 @@ in Lexer.x
 
 -}
 
+-- |Encapsulated call to addAnnotation, requiring only the SrcSpan of
+-- the AST element the annotation belongs to
 type AddAnn = (SrcSpan -> P ())
+
+-- |Construct an AddAnn from the annotation keyword and the location
+-- of the keyword
+mj :: AnnKeywordId -> Located e -> AddAnn
+mj a l = (\s -> addAnnotation s a (gl l))
+
 
 gl = getLoc
 
+-- |Add an annotation to the located element, and return the located
+-- element as a pass through
 aa :: Located a -> (AnnKeywordId,Located c) -> P (Located a)
 aa a@(L l _) (b,s) = addAnnotation l b (gl s) >> return a
 
+-- |Add an annotation to a located element resulting from a monadic action
 am a (b,s) = do
   av@(L l _) <- a
   addAnnotation l b (gl s)
   return av
 
+-- |Add a list of AddAnns to the given AST element
 ams :: Located a -> [AddAnn] -> P (Located a)
 ams a@(L l _) bs = mapM_ (\a -> a l) bs >> return a
 
+
+-- |Add a list of AddAnns to the given AST element, where the AST element is the
+--  result of a monadic action
 amms :: P (Located a) -> [AddAnn] -> P (Located a)
 amms a bs = do
   av@(L l _) <- a
   (mapM_ (\a -> a l) bs) >> return av
 
+-- |Add a list of AddAnns to the AST element, and return the element as a
+--  OrdList
 amsu :: Located a -> [AddAnn] -> P (OrdList (Located a))
 amsu a@(L l _) bs = (mapM_ (\a -> a l) bs) >> return (unitOL a)
 
-mj :: AnnKeywordId -> Located e -> (SrcSpan -> P ())
-mj a l = (\s -> addAnnotation s a (gl l))
-
+-- |Synonyms for AddAnn versions of AnnOpen and AnnClose
 mo ll = mj AnnOpen ll
 mc ll = mj AnnClose ll
 
+-- |Given a list of the locations of commas, provide a [AddAnn] with an AnnComma
+--  entry for each SrcSpan
 mcommas :: [SrcSpan] -> [AddAnn]
 mcommas ss = map (\s -> mj AnnComma (L s ())) ss
 
+-- |Add the annotation to an AST element wrapped in a Just
 ajl a@(L _ (Just (L l _))) b s = addAnnotation l b s >> return a
 
+-- |Add all [AddAnn] to an AST element wrapped in a Just
 ajs a@(Just (L l _)) bs = (mapM_ (\a -> a l) bs) >> return a
 
 -- |Get the location of the last element of a OrdList, or noLoc
