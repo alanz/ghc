@@ -42,6 +42,7 @@ import Data.Data hiding ( Fixity )
 
 
 \begin{code}
+-- Note [literal source text] for SourceText fields in the following
 data HsLit
   = HsChar          SourceText Char        -- Character
   | HsCharPrim      SourceText Char        -- Unboxed character
@@ -88,10 +89,11 @@ data HsOverLit id       -- An overloaded literal
   deriving (Typeable)
 deriving instance (DataId id) => Data (HsOverLit id)
 
+-- Note [literal source text] for SourceText fields in the following
 data OverLitVal
-  = HsIntegral   !String !Integer       -- Integer-looking literals;
-  | HsFractional !FractionalLit         -- Frac-looking literals
-  | HsIsString   !String !FastString    -- String-looking literals
+  = HsIntegral   !SourceText !Integer    -- Integer-looking literals;
+  | HsFractional !FractionalLit          -- Frac-looking literals
+  | HsIsString   !SourceText !FastString -- String-looking literals
   deriving (Data, Typeable)
 
 overLitType :: HsOverLit a -> PostTc a Type
