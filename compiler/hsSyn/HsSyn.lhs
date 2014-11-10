@@ -78,7 +78,7 @@ data HsModule name
         -- downstream.
       hsmodDecls :: [LHsDecl name],
         -- ^ Type, class, value, and interface signature decls
-      hsmodDeprecMessage :: Maybe WarningTxt,
+      hsmodDeprecMessage :: Maybe (Located WarningTxt),
         -- ^ reason\/explanation for warning/deprecation of this module
       hsmodHaddockModHeader :: Maybe LHsDocString
         -- ^ Haddock module info and description, unparsed

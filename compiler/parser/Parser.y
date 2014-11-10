@@ -440,9 +440,11 @@ maybedocheader :: { Maybe LHsDocString }
 missing_module_keyword :: { () }
         : {- empty -}                           {% pushCurrentContext }
 
-maybemodwarning :: { Maybe WarningTxt }
-    : '{-# DEPRECATED' strings '#-}' { Just (DeprecatedTxt $ unLoc $2) }
-    | '{-# WARNING' strings '#-}'    { Just (WarningTxt $ unLoc $2) }
+maybemodwarning :: { Maybe (Located WarningTxt) }
+    : '{-# DEPRECATED' strings '#-}' { Just (sLL $1 $> $
+                                                    DeprecatedTxt $ unLoc $2) }
+    | '{-# WARNING' strings '#-}'    { Just (sLL $1 $> $
+                                                    WarningTxt $ unLoc $2) }
     |  {- empty -}                  { Nothing }
 
 body    :: { ([LImportDecl RdrName], [LHsDecl RdrName]) }
