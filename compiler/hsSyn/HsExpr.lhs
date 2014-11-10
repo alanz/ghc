@@ -62,7 +62,7 @@ type PostTcExpr  = HsExpr Id
 type PostTcTable = [(Name, PostTcExpr)]
 
 noPostTcExpr :: PostTcExpr
-noPostTcExpr = HsLit (HsString (fsLit "noPostTcExpr"))
+noPostTcExpr = HsLit (HsString "" (fsLit "noPostTcExpr"))
 
 noPostTcTable :: PostTcTable
 noPostTcTable = []
@@ -79,7 +79,7 @@ type SyntaxExpr id = HsExpr id
 
 noSyntaxExpr :: SyntaxExpr id -- Before renaming, and sometimes after,
                               -- (if the syntax slot makes no sense)
-noSyntaxExpr = HsLit (HsString (fsLit "noSyntaxExpr"))
+noSyntaxExpr = HsLit (HsString "" (fsLit "noSyntaxExpr"))
 
 
 type CmdSyntaxTable id = [(Name, SyntaxExpr id)]

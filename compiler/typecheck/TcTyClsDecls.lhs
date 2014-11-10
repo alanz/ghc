@@ -1942,7 +1942,7 @@ mkRecSelBind (tycon, sel_name)
     inst_tys = substTyVars (mkTopTvSubst (dataConEqSpec con1)) (dataConUnivTyVars con1)
 
     unit_rhs = mkLHsTupleExpr []
-    msg_lit = HsStringPrim $ unsafeMkByteString $
+    msg_lit = HsStringPrim "" $ unsafeMkByteString $
               occNameString (getOccName sel_name)
 
 ---------------
