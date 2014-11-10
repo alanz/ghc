@@ -51,11 +51,12 @@ and the annotations
 The comments are indexed to the SrcSpan of the lowest AST element
 enclosing them
 
-> Map.Map SrcSpan [Located Token]
+> Map.Map SrcSpan [Located AnnotationComment]
 
 So the full ApiAnns type is
 
-> type ApiAnns = (Map.Map ApiAnnKey SrcSpan, Map.Map SrcSpan [Located Token])
+> type ApiAnns = ( Map.Map ApiAnnKey SrcSpan
+>                , Map.Map SrcSpan [Located AnnotationComment])
 
 
 This is done in the lexer / parser as follows.
@@ -65,7 +66,7 @@ The PState variable in the lexer has the following variables added
 
 >  annotations :: [(ApiAnnKey,SrcSpan)],
 >  comment_q :: [Located Token],
->  annotations_comments :: [(SrcSpan,[Located Token])]
+>  annotations_comments :: [(SrcSpan,[Located AnnotationComment])]
 
 The first and last store the values that end up in the ApiAnns value
 at the end via Map.fromList
@@ -100,7 +101,7 @@ AddAnn represents the addition of an annotation a to a provided
 SrcSpan, and `mj` constructs an AddAnn value.
 
 > ams :: Located a -> [AddAnn] -> P (Located a)
-> ams a@(L l _) bs = (mapM_ (\a -> a l) $ catMaybes bs) >> return a
+> ams a@(L l _) bs = (mapM_ (\a -> a l) bs) >> return a
 
 So the production in Parser.y for the HsLet AST element is
 
@@ -108,6 +109,9 @@ So the production in Parser.y for the HsLet AST element is
                                          (mj AnnLet $1:mj AnnIn $3
                                            :(fst $ unLoc $2)) }
 
+This adds an AnnLet annotation for 'let', an AnnIn for 'in', as well
+as any annotations that may arise in the binds. This will include open
+and closing braces if they are used to delimit the let expressions.
 
 -}
 -- ---------------------------------------------------------------------
@@ -134,6 +138,7 @@ getAnnotationComments (_,anns) span =
 
 -- | Note: in general the names of these are taken from the
 -- corresponding token, unless otherwise noted
+-- See note [Api annotations] above for details of the usage
 data AnnKeywordId
     = AnnAs
     | AnnAt
@@ -219,3 +224,5 @@ data AnnotationComment =
   | AnnLineComment     String     -- comment starting by "--"
   | AnnBlockComment    String     -- comment in {- -}
     deriving (Eq,Ord,Data,Typeable,Show)
+-- Note: these are based on the Token versions, but the Token type is
+-- defined in Lexer.x and bringing it in here would create a loop

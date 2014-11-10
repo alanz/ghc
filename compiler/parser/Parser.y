@@ -2820,7 +2820,7 @@ hintExplicitForall span = do
 %************************************************************************
 
 For the general principles of the following routines, see Note [Api annotations]
-in Lexer.x
+in ApiAnnotation.hs
 
 -}
 

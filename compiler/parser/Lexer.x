@@ -1687,10 +1687,11 @@ data PState = PState {
         -- token doesn't need to close anything:
         alr_justClosedExplicitLetBlock :: Bool,
 
+        -- The next three are used to implement Annotations giving the
+        -- locations of 'noise' tokens in the source, so that users of
+        -- the GHC API can do source to source conversions.
+        -- See note [Api annotations] in ApiAnnotation.hs
         annotations :: [(ApiAnnKey,SrcSpan)],
-        -- Annotations giving the locations of 'noise' tokens in the
-        -- source, so that users of the GHC API can do source to
-        -- source conversions.
         comment_q :: [Located AnnotationComment],
         annotations_comments :: [(SrcSpan,[Located AnnotationComment])]
      }
