@@ -1300,7 +1300,7 @@ rnConDecl decl@(ConDecl { con_names = names, con_qvars = tvs
         { (new_context, fvs1) <- rnContext doc lcxt
         ; (new_details, fvs2) <- rnConDeclDetails doc details
         ; (new_details', new_res_ty, fvs3)
-                      <- rnConResult doc (map unLoc new_names) new_details res_ty
+                     <- rnConResult doc (map unLoc new_names) new_details res_ty
         ; return (decl { con_names = new_names, con_qvars = new_tyvars
                        , con_cxt = new_context, con_details = new_details'
                        , con_res = new_res_ty, con_doc = mb_doc' },

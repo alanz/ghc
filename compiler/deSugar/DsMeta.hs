@@ -301,7 +301,7 @@ repDataDefn tc bndrs opt_tys tv_names
                              _cs -> failWithDs (ptext
                                      (sLit "Multiple constructors for newtype:")
                                       <+> pprQuotedList
-                                                 (con_names $ unLoc $ head cons))
+                                                (con_names $ unLoc $ head cons))
                           }
            DataType -> do { consL <- concatMapM (repC tv_names) cons
                           ; cons1 <- coreList conQTyConName consL
@@ -576,7 +576,7 @@ repC tvs (L _ (ConDecl { con_names = cons
        ; binds <- mapM dupBinder con_tv_subst
        ; b <- dsExtendMetaEnv (mkNameEnv binds) $ -- Binds some of the con_tvs
          addTyVarBinds ex_tvs $ \ ex_bndrs ->   -- Binds the remaining con_tvs
-    do { cons1     <- mapM lookupLOcc cons  -- See Note [Binders and occurrences]
+    do { cons1     <- mapM lookupLOcc cons -- See Note [Binders and occurrences]
        ; c'        <- mapM (\c -> repConstr c details) cons1
        ; ctxt'     <- repContext (eq_ctxt ++ ctxt)
        ; rep2 forallCName ([unC ex_bndrs, unC ctxt'] ++ (map unC c')) }
