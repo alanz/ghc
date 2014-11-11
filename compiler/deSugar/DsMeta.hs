@@ -301,7 +301,7 @@ repDataDefn tc bndrs opt_tys tv_names
                              _cs -> failWithDs (ptext
                                      (sLit "Multiple constructors for newtype:")
                                       <+> pprQuotedList
-                                                 (con_name $ unLoc $ head cons))
+                                                 (con_names $ unLoc $ head cons))
                           }
            DataType -> do { consL <- concatMapM (repC tv_names) cons
                           ; cons1 <- coreList conQTyConName consL
@@ -559,13 +559,13 @@ ds_msg = ptext (sLit "Cannot desugar this Template Haskell declaration:")
 -------------------------------------------------------
 
 repC :: [Name] -> LConDecl Name -> DsM [Core TH.ConQ]
-repC _ (L _ (ConDecl { con_name = con, con_qvars = con_tvs, con_cxt = L _ []
+repC _ (L _ (ConDecl { con_names = con, con_qvars = con_tvs, con_cxt = L _ []
                      , con_details = details, con_res = ResTyH98 }))
   | null (hsQTvBndrs con_tvs)
   = do { con1 <- mapM lookupLOcc con       -- See Note [Binders and occurrences]
        ; mapM (\c -> repConstr c details) con1  }
 
-repC tvs (L _ (ConDecl { con_name = con
+repC tvs (L _ (ConDecl { con_names = cons
                        , con_qvars = con_tvs, con_cxt = L _ ctxt
                        , con_details = details
                        , con_res = res_ty }))
@@ -576,8 +576,8 @@ repC tvs (L _ (ConDecl { con_name = con
        ; binds <- mapM dupBinder con_tv_subst
        ; b <- dsExtendMetaEnv (mkNameEnv binds) $ -- Binds some of the con_tvs
          addTyVarBinds ex_tvs $ \ ex_bndrs ->   -- Binds the remaining con_tvs
-    do { con1      <- mapM lookupLOcc con  -- See Note [Binders and occurrences]
-       ; c'        <- mapM (\c -> repConstr c details) con1
+    do { cons1     <- mapM lookupLOcc cons  -- See Note [Binders and occurrences]
+       ; c'        <- mapM (\c -> repConstr c details) cons1
        ; ctxt'     <- repContext (eq_ctxt ++ ctxt)
        ; rep2 forallCName ([unC ex_bndrs, unC ctxt'] ++ (map unC c')) }
     ; return [b]

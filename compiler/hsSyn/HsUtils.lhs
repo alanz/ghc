@@ -807,11 +807,11 @@ hsConDeclsBinders cons = go id cons
           case r of
              -- remove only the first occurrence of any seen field in order to
              -- avoid circumventing detection of duplicate fields (#9156)
-             L loc (ConDecl { con_name = names , con_details = RecCon flds }) ->
+             L loc (ConDecl { con_names = names , con_details = RecCon flds }) ->
                (map (L loc . unLoc) names) ++ r' ++ go remSeen' rs
                   where r' = remSeen (map cd_fld_name (concatMap unLoc flds))
                         remSeen' = foldr (.) remSeen [deleteBy ((==) `on` unLoc) v | v <- r']
-             L loc (ConDecl { con_name = names }) ->
+             L loc (ConDecl { con_names = names }) ->
                 (map (L loc . unLoc) names) ++ go remSeen rs
 
 \end{code}

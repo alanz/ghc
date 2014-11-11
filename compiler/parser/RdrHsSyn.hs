@@ -475,7 +475,7 @@ mkDeprecatedGadtRecordDecl :: SrcSpan
 mkDeprecatedGadtRecordDecl loc (L con_loc con) flds res_ty
   = do { data_con <- tyConToDataCon con_loc con
        ; return (L loc (ConDecl { con_old_rec  = True
-                                , con_name     = [data_con]
+                                , con_names    = [data_con]
                                 , con_explicit = Implicit
                                 , con_qvars    = mkHsQTvs []
                                 , con_cxt      = noLoc []
@@ -489,7 +489,7 @@ mkSimpleConDecl :: Located RdrName -> [LHsTyVarBndr RdrName]
 
 mkSimpleConDecl name qvars cxt details
   = ConDecl { con_old_rec  = False
-            , con_name     = [name]
+            , con_names    = [name]
             , con_explicit = Explicit
             , con_qvars    = mkHsQTvs qvars
             , con_cxt      = cxt
@@ -514,7 +514,7 @@ mkGadtDecl names (L _ (HsForAllTy imp qvars cxt tau))
 
     mk_gadt_con names
        = ConDecl { con_old_rec  = False
-                 , con_name     = names
+                 , con_names    = names
                  , con_explicit = imp
                  , con_qvars    = qvars
                  , con_cxt      = cxt

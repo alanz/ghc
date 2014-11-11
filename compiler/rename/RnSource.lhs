@@ -1198,7 +1198,7 @@ depAnalTyClDecls ds_w_fvs
         DataDecl { tcdLName = L _ data_name
                  , tcdDataDefn = HsDataDefn { dd_cons = cons } }
           -> do L _ dc <- cons
-                return $ zip (map unLoc $ con_name dc) (repeat data_name)
+                return $ zip (map unLoc $ con_names dc) (repeat data_name)
         _ -> []
 \end{code}
 
@@ -1265,13 +1265,13 @@ rnConDecls :: [LConDecl RdrName] -> RnM ([LConDecl Name], FreeVars)
 rnConDecls = mapFvRn (wrapLocFstM rnConDecl)
 
 rnConDecl :: ConDecl RdrName -> RnM (ConDecl Name, FreeVars)
-rnConDecl decl@(ConDecl { con_name = name, con_qvars = tvs
+rnConDecl decl@(ConDecl { con_names = names, con_qvars = tvs
                         , con_cxt = lcxt@(L loc cxt), con_details = details
                         , con_res = res_ty, con_doc = mb_doc
                         , con_old_rec = old_rec, con_explicit = expl })
-  = do  { mapM_ (addLocM checkConName) name
+  = do  { mapM_ (addLocM checkConName) names
         ; when old_rec (addWarn (deprecRecSyntax decl))
-        ; new_name <- mapM lookupLocatedTopBndrRn name
+        ; new_names <- mapM lookupLocatedTopBndrRn names
 
            -- For H98 syntax, the tvs are the existential ones
            -- For GADT syntax, the tvs are all the quantified tyvars
@@ -1300,12 +1300,13 @@ rnConDecl decl@(ConDecl { con_name = name, con_qvars = tvs
         { (new_context, fvs1) <- rnContext doc lcxt
         ; (new_details, fvs2) <- rnConDeclDetails doc details
         ; (new_details', new_res_ty, fvs3)
-                      <- rnConResult doc (map unLoc new_name) new_details res_ty
-        ; return (decl { con_name = new_name, con_qvars = new_tyvars, con_cxt = new_context
-                       , con_details = new_details', con_res = new_res_ty, con_doc = mb_doc' },
+                      <- rnConResult doc (map unLoc new_names) new_details res_ty
+        ; return (decl { con_names = new_names, con_qvars = new_tyvars
+                       , con_cxt = new_context, con_details = new_details'
+                       , con_res = new_res_ty, con_doc = mb_doc' },
                   fvs1 `plusFV` fvs2 `plusFV` fvs3) }}
  where
-    doc = ConDeclCtx name
+    doc = ConDeclCtx names
     get_rdr_tvs tys = extractHsTysRdrTyVars (cxt ++ tys)
 
 rnConResult :: HsDocContext -> [Name]
@@ -1353,7 +1354,7 @@ rnConDeclDetails doc (RecCon fields)
 -------------------------------------------------
 deprecRecSyntax :: ConDecl RdrName -> SDoc
 deprecRecSyntax decl
-  = vcat [ ptext (sLit "Declaration of") <+> quotes (ppr (con_name decl))
+  = vcat [ ptext (sLit "Declaration of") <+> quotes (ppr (con_names decl))
                  <+> ptext (sLit "uses deprecated syntax")
          , ptext (sLit "Instead, use the form")
          , nest 2 (ppr decl) ]   -- Pretty printer uses new form
@@ -1361,19 +1362,6 @@ deprecRecSyntax decl
 badRecResTy :: SDoc -> SDoc
 badRecResTy doc = ptext (sLit "Malformed constructor signature") $$ doc
 \end{code}
-
-Note [Infix GADT constructors]
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-We do not currently have syntax to declare an infix constructor in GADT syntax,
-but it makes a (small) difference to the Show instance.  So as a slightly
-ad-hoc solution, we regard a GADT data constructor as infix if
-  a) it is an operator symbol
-  b) it has two arguments
-  c) there is a fixity declaration for it
-For example:
-   infix 6 (:--:)
-   data T a where
-     (:--:) :: t1 -> t2 -> T Int
 
 %*********************************************************
 %*                                                      *
@@ -1407,12 +1395,11 @@ extendRecordFieldEnv tycl_decls inst_decls
                ++ map dfid_defn (instDeclDataFamInsts inst_decls)
                                               -- Do not forget associated types!
 
-    get_con (ConDecl { con_name = con, con_details = RecCon flds })
+    get_con (ConDecl { con_names = cons, con_details = RecCon flds })
             (RecFields env fld_set)
-        = do { con' <- mapM lookup con
+        = do { cons' <- mapM lookup cons
              ; flds' <- mapM lookup (map cd_fld_name (concatMap unLoc flds))
-             -- ; let env'    = extendNameEnv env con' flds'
-             ; let env'    = foldl (\e c -> extendNameEnv e c flds') env con'
+             ; let env'    = foldl (\e c -> extendNameEnv e c flds') env cons'
 
                    fld_set' = addListToNameSet fld_set flds'
              ; return $ (RecFields env' fld_set') }

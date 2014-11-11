@@ -391,7 +391,7 @@ getInitialKind decl@(DataDecl { tcdLName = L _ name
               ; return (res_k, ()) }
        ; let main_pr = (name, AThing decl_kind)
              inner_prs = [ (unLoc con, APromotionErr RecDataConPE)
-                         | L _ con' <- cons, con <- con_name con' ]
+                         | L _ con' <- cons, con <- con_names con' ]
        ; return (main_pr : inner_prs) }
 
 getInitialKind (FamDecl { tcdFam = decl }) 
@@ -503,10 +503,10 @@ kcTyClDecl (FamDecl {})    = return ()
 
 -------------------
 kcConDecl :: ConDecl Name -> TcM ()
-kcConDecl (ConDecl { con_name = name, con_qvars = ex_tvs
+kcConDecl (ConDecl { con_names = names, con_qvars = ex_tvs
                    , con_cxt = ex_ctxt, con_details = details
                    , con_res = res })
-  = addErrCtxt (dataConCtxtName name) $
+  = addErrCtxt (dataConCtxtName names) $
          -- the 'False' says that the existentials don't have a CUSK, as the
          -- concept doesn't really apply here. We just need to bring the variables
          -- into scope!
@@ -1162,11 +1162,11 @@ tcConDecl :: NewOrData
           -> TcM [DataCon]
 
 tcConDecl new_or_data rep_tycon tmpl_tvs res_tmpl        -- Data types
-          (ConDecl { con_name = name
+          (ConDecl { con_names = names
                    , con_qvars = hs_tvs, con_cxt = hs_ctxt
                    , con_details = hs_details, con_res = hs_res_ty })
-  = addErrCtxt (dataConCtxtName name) $
-    do { traceTc "tcConDecl 1" (ppr name)
+  = addErrCtxt (dataConCtxtName names) $
+    do { traceTc "tcConDecl 1" (ppr names)
        ; (ctxt, arg_tys, res_ty, field_lbls, stricts)
            <- tcHsTyVarBndrs hs_tvs $ \ _ ->
               do { ctxt    <- tcHsContext hs_ctxt
@@ -1199,7 +1199,7 @@ tcConDecl new_or_data rep_tycon tmpl_tvs res_tmpl        -- Data types
 
        ; fam_envs <- tcGetFamInstEnvs
        ; let
-           buildOneDataCon name = do
+           buildOneDataCon (L _ name) = do
              { is_infix <- tcConIsInfix name hs_details res_ty
              ; buildDataCon fam_envs name is_infix
                             stricts field_lbls
@@ -1209,7 +1209,7 @@ tcConDecl new_or_data rep_tycon tmpl_tvs res_tmpl        -- Data types
                   --      constructor type signature into the data constructor;
                   --      that way checkValidDataCon can complain if it's wrong.
              }
-       ; mapM buildOneDataCon (map unLoc name)
+       ; mapM buildOneDataCon names
        }
 
 
@@ -1225,7 +1225,7 @@ tcConIsInfix con details (ResTyGADT _)
   = case details of
            InfixCon {}  -> return True
            RecCon {}    -> return False
-           PrefixCon arg_tys           -- See Note [Infix GADT cons] in RnSource
+           PrefixCon arg_tys           -- See Note [Infix GADT cons]
                | isSymOcc (getOccName con)
                , [_ty1,_ty2] <- arg_tys
                   -> do { fix_env <- getFixityEnv
@@ -1264,6 +1264,20 @@ tcConRes (ResTyGADT res_ty) = do { res_ty' <- tcHsLiftedType res_ty
                                  ; return (ResTyGADT res_ty') }
 
 \end{code}
+
+Note [Infix GADT constructors]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+We do not currently have syntax to declare an infix constructor in GADT syntax,
+but it makes a (small) difference to the Show instance.  So as a slightly
+ad-hoc solution, we regard a GADT data constructor as infix if
+  a) it is an operator symbol
+  b) it has two arguments
+  c) there is a fixity declaration for it
+For example:
+   infix 6 (:--:)
+   data T a where
+     (:--:) :: t1 -> t2 -> T Int
+
 
 Note [Checking GADT return types]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
