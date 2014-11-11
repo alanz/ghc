@@ -1329,17 +1329,6 @@ rnConResult doc _con details (ResTyGADT ty)
                                        (addErr (badRecResTy (docOfHsDocContext doc)))
                               ; return (details, ResTyGADT res_ty, fvs) }
 
-{-
-           PrefixCon {} | isSymOcc (getOccName con)  -- See Note [Infix GADT cons]
-                        , [ty1,ty2] <- arg_tys
-                        -> do { fix_env <- getFixityEnv
-                              ; return (if   con `elemNameEnv` fix_env
-                                        then InfixCon ty1 ty2
-                                        else PrefixCon arg_tys
-                                       , ResTyGADT res_ty, fvs) }
-                        | otherwise
-                        -> return (PrefixCon arg_tys, ResTyGADT res_ty, fvs) }
--}
            PrefixCon {} -> return (PrefixCon arg_tys, ResTyGADT res_ty, fvs) }
 
 rnConDeclDetails

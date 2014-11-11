@@ -1167,14 +1167,15 @@ tcConDecl new_or_data rep_tycon tmpl_tvs res_tmpl        -- Data types
                    , con_details = hs_details, con_res = hs_res_ty })
   = addErrCtxt (dataConCtxtName name) $
     do { traceTc "tcConDecl 1" (ppr name)
-       ; (ctxt, arg_tys, res_ty, is_infix, field_lbls, stricts)
+       ; (ctxt, arg_tys, res_ty, field_lbls, stricts)
            <- tcHsTyVarBndrs hs_tvs $ \ _ ->
               do { ctxt    <- tcHsContext hs_ctxt
                  ; details <- tcConArgs new_or_data hs_details
                  ; res_ty  <- tcConRes hs_res_ty
-                 ; let (is_infix, field_lbls, btys) = details
-                       (arg_tys, stricts)           = unzip btys
-                 ; return (ctxt, arg_tys, res_ty, is_infix, field_lbls, stricts) }
+                 ; let (field_lbls, btys) = details
+                       (arg_tys, stricts) = unzip btys
+                 ; return (ctxt, arg_tys, res_ty, field_lbls, stricts)
+                 }
 
              -- Generalise the kind variables (returning quantified TcKindVars)
              -- and quantify the type variables (substituting their kinds)
@@ -1198,28 +1199,52 @@ tcConDecl new_or_data rep_tycon tmpl_tvs res_tmpl        -- Data types
 
        ; fam_envs <- tcGetFamInstEnvs
        ; let
-           buildOneDataCon name =
-             buildDataCon fam_envs name is_infix
-                          stricts field_lbls
-                          univ_tvs ex_tvs eq_preds ctxt arg_tys
-                          res_ty' rep_tycon
+           buildOneDataCon name = do
+             { is_infix <- tcConIsInfix name hs_details res_ty
+             ; buildDataCon fam_envs name is_infix
+                            stricts field_lbls
+                            univ_tvs ex_tvs eq_preds ctxt arg_tys
+                            res_ty' rep_tycon
                   -- NB:  we put data_tc, the type constructor gotten from the
                   --      constructor type signature into the data constructor;
                   --      that way checkValidDataCon can complain if it's wrong.
+             }
        ; mapM buildOneDataCon (map unLoc name)
        }
 
-tcConArgs :: NewOrData -> HsConDeclDetails Name -> TcM (Bool, [Name], [(TcType, HsBang)])
+
+tcConIsInfix :: Name
+             -> HsConDetails (LHsType Name) [Located [ConDeclField Name]]
+             -> ResType Type
+             -> TcM Bool
+tcConIsInfix _   details ResTyH98
+  = case details of
+           InfixCon {}  -> return True
+           _            -> return False
+tcConIsInfix con details (ResTyGADT _)
+  = case details of
+           InfixCon {}  -> return True
+           RecCon {}    -> return False
+           PrefixCon arg_tys           -- See Note [Infix GADT cons] in RnSource
+               | isSymOcc (getOccName con)
+               , [_ty1,_ty2] <- arg_tys
+                  -> do { fix_env <- getFixityEnv
+                        ; return (con `elemNameEnv` fix_env) }
+               | otherwise -> return False
+
+
+
+tcConArgs :: NewOrData -> HsConDeclDetails Name -> TcM ([Name], [(TcType, HsBang)])
 tcConArgs new_or_data (PrefixCon btys)
   = do { btys' <- mapM (tcConArg new_or_data) btys
-       ; return (False, [], btys') }
+       ; return ([], btys') }
 tcConArgs new_or_data (InfixCon bty1 bty2)
   = do { bty1' <- tcConArg new_or_data bty1
        ; bty2' <- tcConArg new_or_data bty2
-       ; return (True, [], [bty1', bty2']) }
+       ; return ([], [bty1', bty2']) }
 tcConArgs new_or_data (RecCon fields')
   = do { btys' <- mapM (tcConArg new_or_data) btys
-       ; return (False, field_names, btys') }
+       ; return (field_names, btys') }
   where
     fields = concatMap unLoc fields'
     field_names = map (unLoc . cd_fld_name) fields
