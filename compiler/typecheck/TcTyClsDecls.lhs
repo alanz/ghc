@@ -1234,7 +1234,8 @@ tcConIsInfix con details (ResTyGADT _)
 
 
 
-tcConArgs :: NewOrData -> HsConDeclDetails Name -> TcM ([Name], [(TcType, HsBang)])
+tcConArgs :: NewOrData -> HsConDeclDetails Name
+          -> TcM ([Name], [(TcType, HsBang)])
 tcConArgs new_or_data (PrefixCon btys)
   = do { btys' <- mapM (tcConArg new_or_data) btys
        ; return ([], btys') }
