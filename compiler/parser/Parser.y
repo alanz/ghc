@@ -578,13 +578,15 @@ maybeas :: { Located (Maybe ModuleName) }
         : 'as' modid                            { sLL $1 $> (Just (unLoc $2)) }
         | {- empty -}                           { noLoc Nothing }
 
-maybeimpspec :: { Located (Maybe (Bool, [LIE RdrName])) }
+maybeimpspec :: { Located (Maybe (Bool, Located [LIE RdrName])) }
         : impspec                               { sL1 $1 (Just (unLoc $1)) }
         | {- empty -}                           { noLoc Nothing }
 
-impspec :: { Located (Bool, [LIE RdrName]) }
-        :  '(' exportlist ')'                   { sLL $1 $> (False, fromOL $2) }
-        |  'hiding' '(' exportlist ')'          { sLL $1 $> (True,  fromOL $3) }
+impspec :: { Located (Bool, Located [LIE RdrName]) }
+        :  '(' exportlist ')'                   { sLL $1 $> (False,
+                                                      (sLL $1 $> $ fromOL $2)) }
+        |  'hiding' '(' exportlist ')'          { sLL $1 $> (True,
+                                                      (sLL $2 $> $ fromOL $3)) }
 
 -----------------------------------------------------------------------------
 -- Fixity Declarations

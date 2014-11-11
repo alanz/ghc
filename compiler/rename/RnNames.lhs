@@ -227,7 +227,7 @@ rnImportDecl this_mod
 
         -- True <=> import M ()
         import_all = case imp_details of
-                        Just (is_hiding, ls) -> not is_hiding && null ls
+                        Just (is_hiding, L _ ls) -> not is_hiding && null ls
                         _                    -> False
 
         -- should the import be safe?
@@ -613,18 +613,19 @@ Note that the imp_occ_env will have entries for data constructors too,
 although we never look up data constructors.
 
 \begin{code}
-filterImports :: ModIface
-              -> ImpDeclSpec                    -- The span for the entire import decl
-              -> Maybe (Bool, [LIE RdrName])    -- Import spec; True => hiding
-              -> RnM (Maybe (Bool, [LIE Name]), -- Import spec w/ Names
-                      [GlobalRdrElt])           -- Same again, but in GRE form
+filterImports
+    :: ModIface
+    -> ImpDeclSpec                     -- The span for the entire import decl
+    -> Maybe (Bool, Located [LIE RdrName])    -- Import spec; True => hiding
+    -> RnM (Maybe (Bool, Located [LIE Name]), -- Import spec w/ Names
+            [GlobalRdrElt])                   -- Same again, but in GRE form
 filterImports iface decl_spec Nothing
   = return (Nothing, gresFromAvails prov (mi_exports iface))
   where
     prov = Imported [ImpSpec { is_decl = decl_spec, is_item = ImpAll }]
 
 
-filterImports iface decl_spec (Just (want_hiding, import_items))
+filterImports iface decl_spec (Just (want_hiding, L l import_items))
   = do  -- check for errors, convert RdrNames to Names
         items1 <- mapM lookup_lie import_items
 
@@ -641,7 +642,7 @@ filterImports iface decl_spec (Just (want_hiding, import_items))
             gres | want_hiding = gresFromAvails hiding_prov pruned_avails
                  | otherwise   = concatMap (gresFromIE decl_spec) items2
 
-        return (Just (want_hiding, map fst items2), gres)
+        return (Just (want_hiding, L l (map fst items2)), gres)
   where
     all_avails = mi_exports iface
 
@@ -1389,7 +1390,8 @@ findImportUsage imports rdr_env rdrs
 
         unused_imps   -- Not trivial; see eg Trac #7454
           = case imps of
-              Just (False, imp_ies) -> foldr (add_unused . unLoc) emptyNameSet imp_ies
+              Just (False, L _ imp_ies) ->
+                                 foldr (add_unused . unLoc) emptyNameSet imp_ies
               _other -> emptyNameSet -- No explicit import list => no unused-name list
 
         add_unused :: IE Name -> NameSet -> NameSet
@@ -1456,10 +1458,10 @@ extendImportMap rdr_env rdr imp_map
 \begin{code}
 warnUnusedImport :: ImportDeclUsage -> RnM ()
 warnUnusedImport (L loc decl, used, unused)
-  | Just (False,[]) <- ideclHiding decl
+  | Just (False,L _ []) <- ideclHiding decl
                 = return ()            -- Do not warn for 'import M()'
 
-  | Just (True, hides) <- ideclHiding decl
+  | Just (True, L _ hides) <- ideclHiding decl
   , not (null hides)
   , pRELUDE_NAME == unLoc (ideclName decl)
                 = return ()            -- Note [Do not warn about Prelude hiding]
@@ -1536,7 +1538,7 @@ printMinimalImports imports_w_usage
                             , ideclPkgQual = mb_pkg } = decl
            ; iface <- loadSrcInterface doc mod_name is_boot mb_pkg
            ; let lies = map (L l) (concatMap (to_ie iface) used)
-           ; return (L l (decl { ideclHiding = Just (False, lies) })) }
+           ; return (L l (decl { ideclHiding = Just (False, L l lies) })) }
       where
         doc = text "Compute minimal imports for" <+> ppr decl
 

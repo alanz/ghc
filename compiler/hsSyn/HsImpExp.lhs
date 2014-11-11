@@ -41,7 +41,8 @@ data ImportDecl name
       ideclQualified :: Bool,               -- ^ True => qualified
       ideclImplicit  :: Bool,               -- ^ True => implicit import (of Prelude)
       ideclAs        :: Maybe ModuleName,   -- ^ as Module
-      ideclHiding    :: Maybe (Bool, [LIE name]) -- ^ (True => hiding, names)
+      ideclHiding    :: Maybe (Bool, Located [LIE name])
+                                            -- ^ (True => hiding, names)
     } deriving (Data, Typeable)
 
 simpleImportDecl :: ModuleName -> ImportDecl name
@@ -86,8 +87,8 @@ instance (OutputableBndr name, HasOccName name) => Outputable (ImportDecl name) 
         ppr_imp False = empty
 
         pp_spec Nothing             = empty
-        pp_spec (Just (False, ies)) = ppr_ies ies
-        pp_spec (Just (True,  ies)) = ptext (sLit "hiding") <+> ppr_ies ies
+        pp_spec (Just (False, (L _ ies))) = ppr_ies ies
+        pp_spec (Just (True, (L _ ies))) = ptext (sLit "hiding") <+> ppr_ies ies
 
         ppr_ies []  = ptext (sLit "()")
         ppr_ies ies = char '(' <+> interpp'SP ies <+> char ')'
