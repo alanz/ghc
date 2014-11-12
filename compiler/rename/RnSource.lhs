@@ -273,12 +273,17 @@ rnSrcFixityDecls bndr_set fix_decls
         -- for con-like things; hence returning a list
         -- If neither are in scope, report an error; otherwise
         -- return a fixity sig for each (slightly odd)
-    rn_decl (L loc (FixitySig (L name_loc rdr_name) fixity))
+    rn_decl (L loc (FixitySig fnames fixity))
+      = do names <- mapM lookup_one fnames
+           return [ L loc (FixitySig name fixity)
+                  | name <- names ]
+
+    lookup_one :: Located RdrName -> RnM [Located Name]
+    lookup_one (L name_loc rdr_name)
       = setSrcSpan name_loc $
                     -- this lookup will fail if the definition isn't local
         do names <- lookupLocalTcNames sig_ctxt what rdr_name
-           return [ L loc (FixitySig (L name_loc name) fixity)
-                  | name <- names ]
+           return [ L name_loc name | name <- names ]
     what = ptext (sLit "fixity signature")
 \end{code}
 

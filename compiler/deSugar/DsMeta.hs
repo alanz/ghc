@@ -155,7 +155,8 @@ repTopDs group@(HsGroup { hs_valds   = valds
 
                         -- more needed
                      ;  return (de_loc $ sort_by_loc $
-                                val_ds ++ catMaybes tycl_ds ++ role_ds ++ fix_ds
+                                val_ds ++ catMaybes tycl_ds ++ role_ds
+                                       ++ (concat fix_ds)
                                        ++ inst_ds ++ rule_ds ++ for_ds
                                        ++ ann_ds) }) ;
 
@@ -495,16 +496,18 @@ repSafety PlayRisky = rep2 unsafeName []
 repSafety PlayInterruptible = rep2 interruptibleName []
 repSafety PlaySafe = rep2 safeName []
 
-repFixD :: LFixitySig Name -> DsM (SrcSpan, Core TH.DecQ)
-repFixD (L loc (FixitySig name (Fixity prec dir)))
-  = do { MkC name' <- lookupLOcc name
-       ; MkC prec' <- coreIntLit prec
+repFixD :: LFixitySig Name -> DsM [(SrcSpan, Core TH.DecQ)]
+repFixD (L loc (FixitySig names (Fixity prec dir)))
+  = do { MkC prec' <- coreIntLit prec
        ; let rep_fn = case dir of
                         InfixL -> infixLDName
                         InfixR -> infixRDName
                         InfixN -> infixNDName
-       ; dec <- rep2 rep_fn [prec', name']
-       ; return (loc, dec) }
+       ; let do_one name
+              = do { MkC name' <- lookupLOcc name
+                   ; dec <- rep2 rep_fn [prec', name']
+                   ; return (loc,dec) }
+       ; mapM do_one names }
 
 repRuleD :: LRuleDecl Name -> DsM (SrcSpan, Core TH.DecQ)
 repRuleD (L loc (HsRule n act bndrs lhs _ rhs _))

@@ -1494,9 +1494,12 @@ sigdecl :: { Located (OrdList (LHsDecl RdrName)) }
                         {% do s <- checkValSig $1 $3
                         ; return (sLL $1 $> $ unitOL (sLL $1 $> $ SigD s)) }
         | var ',' sig_vars '::' sigtypedoc
-                                { sLL $1 $> $ toOL [ sLL $1 $> $ SigD (TypeSig ($1 : reverse (unLoc $3)) $5) ] }
-        | infix prec ops        { sLL $1 $> $ toOL [ sLL $1 $> $ SigD (FixSig (FixitySig n (Fixity $2 (unLoc $1))))
-                                             | n <- unLoc $3 ] }
+                { sLL $1 $> $ toOL [ sLL $1 $> $ SigD
+                              (TypeSig ($1 : reverse (unLoc $3)) $5) ] }
+        | infix prec ops
+                { sLL $1 $> $ toOL [ sLL $1 $> $ SigD
+                      (FixSig (FixitySig (unLoc $3) (Fixity $2 (unLoc $1)))) ] }
+
         | '{-# INLINE' activation qvar '#-}'
                 { sLL $1 $> $ unitOL (sLL $1 $> $ SigD (InlineSig $3 (mkInlinePragma (getINLINE $1) $2))) }
         | '{-# SPECIALISE' activation qvar '::' sigtypes1 '#-}'

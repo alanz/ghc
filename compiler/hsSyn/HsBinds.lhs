@@ -629,7 +629,7 @@ deriving instance (DataId name) => Data (Sig name)
 
 
 type LFixitySig name = Located (FixitySig name)
-data FixitySig name = FixitySig (Located name) Fixity
+data FixitySig name = FixitySig [Located name] Fixity
   deriving (Data, Typeable)
 
 -- | TsSpecPrags conveys pragmas from the type checker to the desugarer
@@ -760,7 +760,9 @@ pprPatSynSig ident is_bidir args rhs_ty prov_theta req_theta
     colon = if is_bidir then dcolon else dcolon -- TODO
 
 instance OutputableBndr name => Outputable (FixitySig name) where
-  ppr (FixitySig name fixity) = sep [ppr fixity, pprInfixOcc (unLoc name)]
+  ppr (FixitySig names fixity) = sep [ppr fixity, pprops]
+    where
+      pprops = hsep $ punctuate comma (map (pprInfixOcc . unLoc) names)
 
 pragBrackets :: SDoc -> SDoc
 pragBrackets doc = ptext (sLit "{-#") <+> doc <+> ptext (sLit "#-}")

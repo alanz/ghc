@@ -173,7 +173,7 @@ cvtDec (TH.SigD nm typ)
 
 cvtDec (TH.InfixD fx nm)
   = do { nm' <- vNameL nm
-       ; returnJustL (Hs.SigD (FixSig (FixitySig nm' (cvtFixity fx)))) }
+       ; returnJustL (Hs.SigD (FixSig (FixitySig [nm'] (cvtFixity fx)))) }
 
 cvtDec (PragmaD prag)
   = cvtPragmaD prag
