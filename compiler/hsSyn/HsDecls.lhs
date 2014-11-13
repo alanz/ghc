@@ -789,7 +789,7 @@ data HsDataDefn name   -- The payload of a data type defn
                      -- For @data T a where { T1 :: T a }@
                      --   the 'LConDecls' all have 'ResTyGADT'.
 
-                 dd_derivs :: Maybe [LHsType name]
+                 dd_derivs :: Maybe (Located [LHsType name])
                      -- ^ Derivings; @Nothing@ => not specified,
                      --              @Just []@ => derive exactly what is asked
                      --
@@ -903,8 +903,9 @@ pp_data_defn pp_hdr (HsDataDefn { dd_ND = new_or_data, dd_ctxt = L _ context
                Nothing   -> empty
                Just kind -> dcolon <+> ppr kind
     pp_derivings = case derivings of
-                     Nothing -> empty
-                     Just ds -> hsep [ptext (sLit "deriving"), parens (interpp'SP ds)]
+                     Nothing       -> empty
+                     Just (L _ ds) -> hsep [ptext (sLit "deriving"),
+                                            parens (interpp'SP ds)]
 
 instance OutputableBndr name => Outputable (HsDataDefn name) where
    ppr d = pp_data_defn (\_ -> ptext (sLit "Naked HsDataDefn")) d

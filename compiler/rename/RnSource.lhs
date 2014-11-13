@@ -1129,8 +1129,8 @@ rnDataDefn doc (HsDataDefn { dd_ND = new_or_data, dd_cType = cType
                      _                                             -> True
 
     rn_derivs Nothing   = return (Nothing, emptyFVs)
-    rn_derivs (Just ds) = do { (ds', fvs) <- rnLHsTypes doc ds
-                             ; return (Just ds', fvs) }
+    rn_derivs (Just (L ld ds)) = do { (ds', fvs) <- rnLHsTypes doc ds
+                                    ; return (Just (L ld ds'), fvs) }
 
 badGadtStupidTheta :: HsDocContext -> SDoc
 badGadtStupidTheta _

@@ -430,10 +430,10 @@ cvt_id_arg (i, str, ty)
         ; ty' <- cvt_arg (str,ty)
         ; return (ConDeclField { cd_fld_name = i', cd_fld_type =  ty', cd_fld_doc = Nothing}) }
 
-cvtDerivs :: [TH.Name] -> CvtM (Maybe [LHsType RdrName])
+cvtDerivs :: [TH.Name] -> CvtM (Maybe (Located [LHsType RdrName]))
 cvtDerivs [] = return Nothing
 cvtDerivs cs = do { cs' <- mapM cvt_one cs
-                  ; return (Just cs') }
+                  ; return (Just (noLoc cs')) }
         where
           cvt_one c = do { c' <- tconName c
                          ; returnL $ HsTyVar c' }

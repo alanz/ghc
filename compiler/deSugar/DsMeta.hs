@@ -647,9 +647,9 @@ repBangTy ty= do
 --                      Deriving clause
 -------------------------------------------------------
 
-repDerivs :: Maybe [LHsType Name] -> DsM (Core [TH.Name])
+repDerivs :: Maybe (Located [LHsType Name]) -> DsM (Core [TH.Name])
 repDerivs Nothing = coreList nameTyConName []
-repDerivs (Just ctxt)
+repDerivs (Just (L _ ctxt))
   = repList nameTyConName rep_deriv ctxt
   where
     rep_deriv :: LHsType Name -> DsM (Core TH.Name)

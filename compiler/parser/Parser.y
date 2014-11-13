@@ -1406,12 +1406,13 @@ fielddecl :: { Located [ConDeclField RdrName] }
 -- we can do deriving( forall a. C [a] ) in a newtype (GHC extension).
 -- The 'C [a]' part is converted to an HsPredTy by checkInstType
 -- We don't allow a context, but that's sorted out by the type checker.
-deriving :: { Located (Maybe [LHsType RdrName]) }
-        : {- empty -}                           { noLoc Nothing }
-        | 'deriving' qtycon                     { let { L loc tv = $2 }
-                                                  in sLL $1 $> (Just [L loc (HsTyVar tv)]) }
-        | 'deriving' '(' ')'                    { sLL $1 $> (Just []) }
-        | 'deriving' '(' inst_types1 ')'        { sLL $1 $> (Just $3) }
+deriving :: { Located (Maybe (Located [LHsType RdrName])) }
+        : {- empty -}                       { noLoc Nothing }
+        | 'deriving' qtycon
+                       { let { L loc tv = $2 }
+                         in sLL $1 $>  (Just (sLL $1 $> [L loc (HsTyVar tv)])) }
+        | 'deriving' '(' ')'                { sLL $1 $> (Just (noLoc [])) }
+        | 'deriving' '(' inst_types1 ')'    { sLL $1 $> (Just (sLL $1 $> $3)) }
              -- Glasgow extension: allow partial
              -- applications in derivings
 
