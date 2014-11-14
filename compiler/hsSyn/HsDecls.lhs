@@ -117,6 +117,10 @@ import Data.Maybe
 
 \begin{code}
 type LHsDecl id = Located (HsDecl id)
+        -- ^ When in a list this may have
+        --
+        --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnSemi'
+        --
 
 -- | A Haskell Declaration
 data HsDecl id
@@ -459,9 +463,18 @@ type LTyClDecl name = Located (TyClDecl name)
 -- | A type or class declaration.
 data TyClDecl name
   = -- | @type/data family T :: *->*@
+    --
+    --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnType',
+    --             'ApiAnnotation.AnnFamily','ApiAnnotation.AnnWhere',
+    --             'ApiAnnotation.AnnOpen','ApiAnnotation.AnnDotdot',
+    --             'ApiAnnotation.AnnClose'
+
     FamDecl { tcdFam :: FamilyDecl name }
 
   | -- | @type@ declaration
+    --
+    --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnType',
+    --             'ApiAnnotation.AnnEqual',
     SynDecl { tcdLName  :: Located name            -- ^ Type constructor
             , tcdTyVars :: LHsTyVarBndrs name      -- ^ Type variables; for an associated type
                                                   --   these include outer binders
@@ -469,6 +482,11 @@ data TyClDecl name
             , tcdFVs    :: PostRn name NameSet }
 
   | -- | @data@ declaration
+    --
+    --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnData',
+    --              'ApiAnnotation.AnnNewType','ApiAnnotation.AnnDeriving',
+    --              'ApiAnnotation.AnnNewType','ApiAnnotation.AnnOpen',
+    --              'ApiAnnotation.AnnClose'
     DataDecl { tcdLName    :: Located name        -- ^ Type constructor
              , tcdTyVars   :: LHsTyVarBndrs name  -- ^ Type variables; for an assoicated type
                                                   --   these include outer binders
@@ -491,6 +509,9 @@ data TyClDecl name
                 tcdDocs    :: [LDocDecl],               -- ^ Haddock docs
                 tcdFVs     :: PostRn name NameSet
     }
+        -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnClass',
+        --           'ApiAnnotation.AnnWhere','ApiAnnotation.AnnOpen',
+        --           'ApiAnnotation.AnnClose'
 
   deriving (Typeable)
 deriving instance (DataId id) => Data (TyClDecl id)
@@ -1208,6 +1229,9 @@ type LDefaultDecl name = Located (DefaultDecl name)
 
 data DefaultDecl name
   = DefaultDecl [LHsType name]
+        -- ^ - 'ApiAnnotation.AnnKeywordId's : 'ApiAnnotation.AnnDefault',
+        --          'ApiAnnotation.AnnOpen','ApiAnnotation.AnnClose'
+
   deriving (Typeable)
 deriving instance (DataId name) => Data (DefaultDecl name)
 
@@ -1243,6 +1267,10 @@ data ForeignDecl name
                   (LHsType name) -- sig_ty
                   (PostTc name Coercion)  -- sig_ty ~ rep_ty
                   ForeignExport
+        -- ^
+        --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnForeign',
+        --           'ApiAnnotation.AnnImport','ApiAnnotation.AnnExport',
+        --           'ApiAnnotation.AnnDcolon'
   deriving (Typeable)
 deriving instance (DataId name) => Data (ForeignDecl name)
 {-
@@ -1404,18 +1432,27 @@ data VectDecl name
   = HsVect
       (Located name)
       (LHsExpr name)
+        -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
+        --           'ApiAnnotation.AnnEqual','ApiAnnotation.AnnClose'
   | HsNoVect
       (Located name)
+        -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
+        --                                    'ApiAnnotation.AnnClose'
   | HsVectTypeIn                -- pre type-checking
       Bool                      -- 'TRUE' => SCALAR declaration
       (Located name)
       (Maybe (Located name))    -- 'Nothing' => no right-hand side
+        -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
+        --           'ApiAnnotation.AnnType','ApiAnnotation.AnnClose',
+        --           'ApiAnnotation.AnnEqual'
   | HsVectTypeOut               -- post type-checking
       Bool                      -- 'TRUE' => SCALAR declaration
       TyCon
       (Maybe TyCon)             -- 'Nothing' => no right-hand side
   | HsVectClassIn               -- pre type-checking
       (Located name)
+        -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
+        --           'ApiAnnotation.AnnClass','ApiAnnotation.AnnClose',
   | HsVectClassOut              -- post type-checking
       Class
   | HsVectInstIn                -- pre type-checking (always SCALAR)  !!!FIXME: should be superfluous now

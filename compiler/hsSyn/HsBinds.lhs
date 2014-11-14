@@ -118,6 +118,10 @@ data HsBindLR idL idR
     -- But note that the form                 @f :: a->a = ...@
     -- parses as a pattern binding, just like
     --                                        @(f :: a -> a) = ... @
+    --
+    --  'ApiAnnotation.AnnKeywordId's
+    --
+    --  - 'ApiAnnotation.AnnFunId', attached to each element of fun_matches
     FunBind {
 
         fun_id :: Located idL,
@@ -590,7 +594,7 @@ data Sig name
 
         -- | An ordinary fixity declaration
         --
-        -- >     infixl *** 8
+        -- >     infixl 8 ***
         --
   | FixSig (FixitySig name)
 
