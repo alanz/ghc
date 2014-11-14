@@ -738,7 +738,6 @@ ty_decl :: { LTyClDecl RdrName }
                                    -- constrs and deriving are both empty
                         [fst $ unLoc $1] }
 
--- ++AZ++ up to here : problem - multiple open/close for gadt_constrlist and deriving
           -- ordinary GADT declaration
         | data_or_newtype capi_ctype tycl_hdr opt_kind_sig
                  gadt_constrlist
@@ -754,6 +753,7 @@ ty_decl :: { LTyClDecl RdrName }
                 {% amms (mkFamDecl (comb3 $1 $2 $4) DataFamily $3 (unLoc $4))
                         [mj AnnData $1,mj AnnFamily $2] }
 
+-- ++AZ++ up to here
 inst_decl :: { LInstDecl RdrName }
         : 'instance' overlap_pragma inst_type where_inst
         {% do

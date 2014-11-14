@@ -484,6 +484,7 @@ data TyClDecl name
   | -- | @data@ declaration
     --
     --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnData',
+    --              'ApiAnnotation.AnnFamily',
     --              'ApiAnnotation.AnnNewType','ApiAnnotation.AnnDeriving',
     --              'ApiAnnotation.AnnNewType','ApiAnnotation.AnnOpen',
     --              'ApiAnnotation.AnnClose'
@@ -1070,6 +1071,11 @@ data ClsInstDecl name
       , cid_datafam_insts :: [LDataFamInstDecl name] -- Data family instances
       , cid_overlap_mode :: Maybe OverlapMode
       }
+    --
+    --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnInstance',
+    --           'ApiAnnotation.AnnOpen','ApiAnnotation.AnnClose',
+    --           'ApiAnnotation.AnnWhere',
+
   deriving (Typeable)
 deriving instance (DataId id) => Data (ClsInstDecl id)
 
