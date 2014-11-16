@@ -3,7 +3,6 @@ module HaddockUtils where
 
 import HsSyn
 import SrcLoc
-import Outputable (panic)
 
 import Control.Monad
 
@@ -11,18 +10,12 @@ import Control.Monad
 -- Adding documentation to record fields (used in parsing).
 
 addFieldDoc :: LConDeclField a -> Maybe LHsDocString -> LConDeclField a
-<<<<<<< HEAD
 addFieldDoc (L l fld) doc
   = L l (fld { cd_fld_doc = cd_fld_doc fld `mplus` doc })
-=======
-addFieldDoc (L l fld) doc = L l (fld { cd_fld_doc = cd_fld_doc fld `mplus` doc })
->>>>>>> Add locations to AST elements to prepare for API annotations
 
 addFieldDocs :: [LConDeclField a] -> Maybe LHsDocString -> [LConDeclField a]
 addFieldDocs [] _ = []
--- addFieldDocs (x:xs) doc = addFieldDoc x doc : xs
-addFieldDocs ((L _ []):_) _ = panic "addFieldDocs empty ConDeclField"
-addFieldDocs ((L l (f:fs)):xs) doc = L l ((addFieldDoc f doc):fs) : xs
+addFieldDocs (x:xs) doc = addFieldDoc x doc : xs
 
 
 addConDoc :: LConDecl a -> Maybe LHsDocString -> LConDecl a
