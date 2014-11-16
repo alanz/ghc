@@ -606,7 +606,7 @@ data Sig name
         -- > {-# SPECIALISE f :: Int -> Int #-}
         --
   | SpecSig     (Located name)  -- Specialise a function or datatype  ...
-                (LHsType name)  -- ... to these types
+                [LHsType name]  -- ... to these types
                 InlinePragma    -- The pragma on SPECIALISE_INLINE form.
                                 -- If it's just defaultInlinePragma, then we said
                                 --    SPECIALISE, not SPECIALISE_INLINE
@@ -629,7 +629,7 @@ deriving instance (DataId name) => Data (Sig name)
 
 
 type LFixitySig name = Located (FixitySig name)
-data FixitySig name = FixitySig (Located name) Fixity
+data FixitySig name = FixitySig [Located name] Fixity
   deriving (Data, Typeable)
 
 -- | TsSpecPrags conveys pragmas from the type checker to the desugarer
@@ -726,7 +726,8 @@ ppr_sig (TypeSig vars ty)         = pprVarSig (map unLoc vars) (ppr ty)
 ppr_sig (GenericSig vars ty)      = ptext (sLit "default") <+> pprVarSig (map unLoc vars) (ppr ty)
 ppr_sig (IdSig id)                = pprVarSig [id] (ppr (varType id))
 ppr_sig (FixSig fix_sig)          = ppr fix_sig
-ppr_sig (SpecSig var ty inl)      = pragBrackets (pprSpec (unLoc var) (ppr ty) inl)
+ppr_sig (SpecSig var ty inl)
+  = pragBrackets (pprSpec (unLoc var) (interpp'SP ty) inl)
 ppr_sig (InlineSig var inl)       = pragBrackets (ppr inl <+> pprPrefixOcc (unLoc var))
 ppr_sig (SpecInstSig ty)          = pragBrackets (ptext (sLit "SPECIALIZE instance") <+> ppr ty)
 ppr_sig (MinimalSig bf)           = pragBrackets (pprMinimalSig bf)
@@ -760,7 +761,9 @@ pprPatSynSig ident is_bidir args rhs_ty prov_theta req_theta
     colon = if is_bidir then dcolon else dcolon -- TODO
 
 instance OutputableBndr name => Outputable (FixitySig name) where
-  ppr (FixitySig name fixity) = sep [ppr fixity, pprInfixOcc (unLoc name)]
+  ppr (FixitySig names fixity) = sep [ppr fixity, pprops]
+    where
+      pprops = hsep $ punctuate comma (map (pprInfixOcc . unLoc) names)
 
 pragBrackets :: SDoc -> SDoc
 pragBrackets doc = ptext (sLit "{-#") <+> doc <+> ptext (sLit "#-}")
