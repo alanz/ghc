@@ -118,6 +118,13 @@ data HsBindLR idL idR
     -- But note that the form                 @f :: a->a = ...@
     -- parses as a pattern binding, just like
     --                                        @(f :: a -> a) = ... @
+    --
+    --  'ApiAnnotation.AnnKeywordId's
+    --
+    --  - 'ApiAnnotation.AnnFunId', attached to each element of fun_matches
+    --
+    --  - 'ApiAnnotation.AnnEqual','ApiAnnotation.AnnWhere',
+    --    'ApiAnnotation.AnnOpen','ApiAnnotation.AnnClose',
     FunBind {
 
         fun_id :: Located idL,
@@ -149,6 +156,10 @@ data HsBindLR idL idR
 
   -- | The pattern is never a simple variable;
   -- That case is done by FunBind
+  --
+  --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnBang',
+  --       'ApiAnnotation.AnnEqual','ApiAnnotation.AnnWhere',
+  --       'ApiAnnotation.AnnOpen','ApiAnnotation.AnnClose',
   | PatBind {
         pat_lhs    :: LPat idL,
         pat_rhs    :: GRHSs idR (LHsExpr idR),
@@ -182,6 +193,9 @@ data HsBindLR idL idR
     }
 
   | PatSynBind (PatSynBind idL idR)
+        -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnPattern',
+        --           'ApiAnnotation.AnnLarrow','ApiAnnotation.AnnWhere'
+        --           'ApiAnnotation.AnnOpen','ApiAnnotation.AnnClose'
 
   deriving (Typeable)
 deriving instance (DataId idL, DataId idR)
@@ -524,12 +538,16 @@ isEmptyIPBinds :: HsIPBinds id -> Bool
 isEmptyIPBinds (IPBinds is ds) = null is && isEmptyTcEvBinds ds
 
 type LIPBind id = Located (IPBind id)
+-- ^ May have 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnSemi' when in a
+--   list
 
 -- | Implicit parameter bindings.
+--
+-- - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnEqual'
 {- These bindings start off as (Left "x") in the parser and stay
 that way until after type-checking when they are replaced with
 (Right d), where "d" is the name of the dictionary holding the
-evidene for the implicit parameter. -}
+evidence for the implicit parameter. -}
 data IPBind id
   = IPBind (Either HsIPName id) (LHsExpr id)
   deriving (Typeable)
@@ -565,6 +583,9 @@ type LSig name = Located (Sig name)
 data Sig name
   =   -- | An ordinary type signature
       -- @f :: Num a => a -> a@
+      --
+      --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnDcolon',
+      --          'ApiAnnotation.AnnComma'
     TypeSig [Located name] (LHsType name)
 
       -- | A pattern synonym type signature
@@ -586,11 +607,15 @@ data Sig name
         -- the desired Id itself, replete with its name, type
         -- and IdDetails.  Otherwise it's just like a type
         -- signature: there should be an accompanying binding
+        --
+        --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnDefault',
+        --           'ApiAnnotation.AnnDcolon','ApiAnnotation.AnnDotdot'
+
   | IdSig Id
 
         -- | An ordinary fixity declaration
         --
-        -- >     infixl *** 8
+        -- >     infixl 8 ***
         --
   | FixSig (FixitySig name)
 
@@ -598,6 +623,10 @@ data Sig name
         --
         -- > {#- INLINE f #-}
         --
+        --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
+        --       'ApiAnnotation.AnnClose','ApiAnnotation.AnnOpen2',
+        --       'ApiAnnotation.AnnVal','ApiAnnotation.AnnTilde',
+        --       'ApiAnnotation.AnnClose2'
   | InlineSig   (Located name)  -- Function name
                 InlinePragma    -- Never defaultInlinePragma
 
@@ -605,6 +634,10 @@ data Sig name
         --
         -- > {-# SPECIALISE f :: Int -> Int #-}
         --
+        --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
+        --      'ApiAnnotation.AnnOpen2','ApiAnnotation.AnnTilde',
+        --      'ApiAnnotation.AnnVal','ApiAnnotation.AnnClose2',
+        --      'ApiAnnotation.AnnDcolon','ApiAnnotation.AnnClose',
   | SpecSig     (Located name)  -- Specialise a function or datatype  ...
                 [LHsType name]  -- ... to these types
                 InlinePragma    -- The pragma on SPECIALISE_INLINE form.
@@ -617,11 +650,18 @@ data Sig name
         --
         -- (Class tys); should be a specialisation of the
         -- current instance declaration
+        --
+        --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
+        --      'ApiAnnotation.AnnInstance','ApiAnnotation.AnnClose'
   | SpecInstSig (LHsType name)
 
         -- | A minimal complete definition pragma
         --
         -- > {-# MINIMAL a | (b, c | (d | e)) #-}
+        --
+        --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
+        --      'ApiAnnotation.AnnVbar','ApiAnnotation.AnnComma',
+        --      'ApiAnnotation.AnnClose'
   | MinimalSig (BooleanFormula (Located name))
 
   deriving (Typeable)

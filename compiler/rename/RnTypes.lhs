@@ -214,8 +214,8 @@ rnHsTyKi isType doc (HsBangTy b ty)
 rnHsTyKi _ doc ty@(HsRecTy flds)
   = do { addErr (hang (ptext (sLit "Record syntax is illegal here:"))
                     2 (ppr ty))
-       ; (flds', fvs) <- rnConDeclFields doc (concatMap unLoc flds)
-       ; return (HsRecTy [noLoc flds'], fvs) }
+       ; (flds', fvs) <- rnConDeclFields doc flds
+       ; return (HsRecTy flds', fvs) }
 
 rnHsTyKi isType doc (HsFunTy ty1 ty2)
   = do { (ty1', fvs1) <- rnLHsTyKi isType doc ty1

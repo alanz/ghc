@@ -543,7 +543,8 @@ tcClsInstDecl (L loc (ClsInstDecl { cid_poly_ty = poly_ty, cid_binds = binds
         ; dfun_name <- newDFunName clas inst_tys (getLoc poly_ty)
                 -- Dfun location is that of instance *header*
 
-        ; ispec <- newClsInst (fmap unLoc overlap_mode) dfun_name tyvars theta clas inst_tys
+        ; ispec <- newClsInst (fmap unLoc overlap_mode) dfun_name tyvars theta
+                              clas inst_tys
         ; let inst_info = InstInfo { iSpec  = ispec
                                    , iBinds = InstBindings
                                      { ib_binds = binds

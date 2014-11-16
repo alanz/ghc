@@ -1351,10 +1351,10 @@ rnConDeclDetails doc (InfixCon ty1 ty2)
        ; return (InfixCon new_ty1 new_ty2, fvs1 `plusFV` fvs2) }
 
 rnConDeclDetails doc (RecCon fields)
-  = do  { (new_fields, fvs) <- rnConDeclFields doc (concatMap unLoc fields)
+  = do  { (new_fields, fvs) <- rnConDeclFields doc fields
                 -- No need to check for duplicate fields
                 -- since that is done by RnNames.extendGlobalRdrEnvRn
-        ; return (RecCon [noLoc new_fields], fvs) }
+        ; return (RecCon new_fields, fvs) }
 
 -------------------------------------------------
 deprecRecSyntax :: ConDecl RdrName -> SDoc
