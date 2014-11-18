@@ -1317,7 +1317,6 @@ tcTySig (L loc (TypeSig names@(L _ name1 : _) hs_ty))
   = setSrcSpan loc $
     do { sigma_ty <- tcHsSigType (FunSigCtxt name1) hs_ty
        ; mapM (instTcTySig hs_ty sigma_ty) (map unLoc names) }
-    where (L _ name1 : _) = names
 tcTySig (L loc (PatSynSig (L _ name) (_, qtvs) prov req ty))
   = setSrcSpan loc $
     do { traceTc "tcTySig {" $ ppr name $$ ppr qtvs $$ ppr prov $$ ppr req $$ ppr ty
