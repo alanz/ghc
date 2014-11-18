@@ -134,6 +134,8 @@ type LHsContext name = Located (HsContext name)
 type HsContext name = [LHsType name]
 
 type LHsType name = Located (HsType name)
+      -- ^ May have 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnComma' when
+      --   in a list
 type HsKind name = HsType name
 type LHsKind name = Located (HsKind name)
 
@@ -197,6 +199,9 @@ data HsTyVarBndr name
   | KindedTyVar
          name
          (LHsKind name)  -- The user-supplied kind signature
+        -- ^
+        --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
+        --          'ApiAnnotation.AnnDcolon', 'ApiAnnotation.AnnClose'
   deriving (Typeable)
 deriving instance (DataId name) => Data (HsTyVarBndr name)
 
@@ -209,6 +214,10 @@ isHsKindedTyVar (KindedTyVar {}) = True
 hsTvbAllKinded :: LHsTyVarBndrs name -> Bool
 hsTvbAllKinded = all (isHsKindedTyVar . unLoc) . hsQTvBndrs
 
+-- | - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnDcolon',
+--            'ApiAnnotation.AnnTilde','ApiAnnotation.AnnRarrow',
+--            'ApiAnnotation.AnnOpen','ApiAnnotation.AnnClose',
+--            'ApiAnnotation.AnnComma'
 data HsType name
   = HsForAllTy  HsExplicitFlag          -- Renamer leaves this flag unchanged, to record the way
                                         -- the user wrote it originally, so that the printer can
@@ -216,7 +225,8 @@ data HsType name
                 (LHsTyVarBndrs name) 
                 (LHsContext name)
                 (LHsType name)
-
+      -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnForall',
+      --         'ApiAnnotation.AnnDot','ApiAnnotation.AnnDarrow'
   | HsTyVar             name            -- Type variable, type constructor, or data constructor
                                         -- see Note [Promotions (HsTyVar)]
 
@@ -397,10 +407,13 @@ data HsTupleSort = HsUnboxedTuple
 data HsExplicitFlag = Qualified | Implicit | Explicit deriving (Data, Typeable)
 
 type LConDeclField name = Located (ConDeclField name)
+      -- ^ May have 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnComma' when
+      --   in a list
 data ConDeclField name  -- Record fields have Haddoc docs on them
   = ConDeclField { cd_fld_names :: [Located name],
                    cd_fld_type  :: LBangType name,
                    cd_fld_doc   :: Maybe LHsDocString }
+      -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnDcolon'
   deriving (Typeable)
 deriving instance (DataId name) => Data (ConDeclField name)
 
