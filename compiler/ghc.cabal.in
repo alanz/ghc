@@ -330,6 +330,7 @@ Library
         OptCoercion
         Parser
         RdrHsSyn
+        ApiAnnotation
         ForeignCall
         PrelInfo
         PrelNames
