@@ -522,12 +522,12 @@ tc_hs_type ty@(HsSpliceTy {}) _exp_kind
 tc_hs_type (HsWrapTy {}) _exp_kind
   = panic "tc_hs_type HsWrapTy"  -- We kind checked something twice
 
-tc_hs_type hs_ty@(HsTyLit (HsNumTy n)) exp_kind
+tc_hs_type hs_ty@(HsTyLit (HsNumTy _ n)) exp_kind
   = do { checkExpectedKind hs_ty typeNatKind exp_kind
        ; checkWiredInTyCon typeNatKindCon
        ; return (mkNumLitTy n) }
 
-tc_hs_type hs_ty@(HsTyLit (HsStrTy s)) exp_kind
+tc_hs_type hs_ty@(HsTyLit (HsStrTy _ s)) exp_kind
   = do { checkExpectedKind hs_ty typeSymbolKind exp_kind
        ; checkWiredInTyCon typeSymbolKindCon
        ; return (mkStrLitTy s) }

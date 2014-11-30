@@ -588,11 +588,11 @@ dataConArgRep
 dataConArgRep _ _ arg_ty HsNoBang
   = (HsNoBang, [(arg_ty, NotMarkedStrict)], (unitUnboxer, unitBoxer))
 
-dataConArgRep _ _ arg_ty (HsUserBang _ False)  -- No '!'
+dataConArgRep _ _ arg_ty (HsUserBang _ _ False)  -- No '!'
   = (HsNoBang, [(arg_ty, NotMarkedStrict)], (unitUnboxer, unitBoxer))
 
 dataConArgRep dflags fam_envs arg_ty
-    (HsUserBang unpk_prag True)  -- {-# UNPACK #-} !
+    (HsUserBang _ unpk_prag True)  -- {-# UNPACK #-} !
   | not (gopt Opt_OmitInterfacePragmas dflags) -- Don't unpack if -fomit-iface-pragmas
           -- Don't unpack if we aren't optimising; rather arbitrarily,
           -- we use -fomit-iface-pragmas as the indication
@@ -720,11 +720,11 @@ isUnpackableType fam_envs ty
          -- NB: dataConStrictMarks gives the *user* request;
          -- We'd get a black hole if we used dataConRepBangs
 
-    attempt_unpack (HsUnpack {})                 = True
-    attempt_unpack (HsUserBang (Just unpk) bang) = bang && unpk
-    attempt_unpack (HsUserBang Nothing bang)     = bang  -- Be conservative
-    attempt_unpack HsStrict                      = False
-    attempt_unpack HsNoBang                      = False
+    attempt_unpack (HsUnpack {})                   = True
+    attempt_unpack (HsUserBang _ (Just unpk) bang) = bang && unpk
+    attempt_unpack (HsUserBang _ Nothing bang)     = bang  -- Be conservative
+    attempt_unpack HsStrict                        = False
+    attempt_unpack HsNoBang                        = False
 
 {-
 Note [Unpack one-wide fields]

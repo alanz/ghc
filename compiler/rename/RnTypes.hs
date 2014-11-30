@@ -265,8 +265,8 @@ rnHsTyKi isType _ tyLit@(HsTyLit t)
        ; when (negLit t) (addErr negLitErr)
        ; return (HsTyLit t, emptyFVs) }
   where
-    negLit (HsStrTy _) = False
-    negLit (HsNumTy i) = i < 0
+    negLit (HsStrTy _ _) = False
+    negLit (HsNumTy _ i) = i < 0
     negLitErr = ptext (sLit "Illegal literal in type (type literals must not be negative):") <+> ppr tyLit
 
 rnHsTyKi isType doc (HsAppTy ty1 ty2)

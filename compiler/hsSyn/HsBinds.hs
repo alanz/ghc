@@ -197,8 +197,9 @@ data HsBindLR idL idR
 
   | PatSynBind (PatSynBind idL idR)
         -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnPattern',
-        --           'ApiAnnotation.AnnLarrow','ApiAnnotation.AnnWhere'
-        --           'ApiAnnotation.AnnOpen','ApiAnnotation.AnnClose'
+        --          'ApiAnnotation.AnnLarrow','ApiAnnotation.AnnEqual',
+        --          'ApiAnnotation.AnnWhere'
+        --          'ApiAnnotation.AnnOpen' @'{'@,'ApiAnnotation.AnnClose' @'}'@
 
   deriving (Typeable)
 deriving instance (DataId idL, DataId idR)
@@ -224,6 +225,10 @@ data ABExport id
         , abe_prags :: TcSpecPrags  -- ^ SPECIALISE pragmas
   } deriving (Data, Typeable)
 
+-- | - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnPattern',
+--             'ApiAnnotation.AnnEqual','ApiAnnotation.AnnLarrow'
+--             'ApiAnnotation.AnnWhere','ApiAnnotation.AnnOpen' @'{'@,
+--             'ApiAnnotation.AnnClose' @'}'@,
 data PatSynBind idL idR
   = PSB { psb_id   :: Located idL,             -- ^ Name of the pattern synonym
           psb_fvs  :: PostRn idR NameSet,      -- ^ See Note [Bind free vars]
@@ -541,13 +546,14 @@ type LIPBind id = Located (IPBind id)
 
 -- | Implicit parameter bindings.
 --
+-- These bindings start off as (Left "x") in the parser and stay
+-- that way until after type-checking when they are replaced with
+-- (Right d), where "d" is the name of the dictionary holding the
+-- evidence for the implicit parameter.
+--
 -- - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnEqual'
-{- These bindings start off as (Left "x") in the parser and stay
-that way until after type-checking when they are replaced with
-(Right d), where "d" is the name of the dictionary holding the
-evidence for the implicit parameter. -}
 data IPBind id
-  = IPBind (Either HsIPName id) (LHsExpr id)
+  = IPBind (Either (Located HsIPName) id) (LHsExpr id)
   deriving (Typeable)
 deriving instance (DataId name) => Data (IPBind name)
 
@@ -558,8 +564,8 @@ instance (OutputableBndr id) => Outputable (HsIPBinds id) where
 instance (OutputableBndr id) => Outputable (IPBind id) where
   ppr (IPBind lr rhs) = name <+> equals <+> pprExpr (unLoc rhs)
     where name = case lr of
-                   Left ip  -> pprBndr LetBind ip
-                   Right id -> pprBndr LetBind id
+                   Left (L _ ip) -> pprBndr LetBind ip
+                   Right     id  -> pprBndr LetBind id
 
 {-
 ************************************************************************
@@ -635,7 +641,8 @@ data Sig name
         --
         -- > {#- INLINE f #-}
         --
-        --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
+        --  - 'ApiAnnotation.AnnKeywordId' :
+        --       'ApiAnnotation.AnnOpen' @'{-\# INLINE'@ and @'['@,
         --       'ApiAnnotation.AnnClose','ApiAnnotation.AnnOpen',
         --       'ApiAnnotation.AnnVal','ApiAnnotation.AnnTilde',
         --       'ApiAnnotation.AnnClose'
@@ -647,9 +654,11 @@ data Sig name
         -- > {-# SPECIALISE f :: Int -> Int #-}
         --
         --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
-        --      'ApiAnnotation.AnnOpen','ApiAnnotation.AnnTilde',
-        --      'ApiAnnotation.AnnVal','ApiAnnotation.AnnClose',
-        --      'ApiAnnotation.AnnDcolon','ApiAnnotation.AnnClose',
+        --      'ApiAnnotation.AnnOpen' @'{-\# SPECIALISE'@ and @'['@,
+        --      'ApiAnnotation.AnnTilde',
+        --      'ApiAnnotation.AnnVal',
+        --      'ApiAnnotation.AnnClose' @']'@ and @'\#-}'@,
+        --      'ApiAnnotation.AnnDcolon'
   | SpecSig     (Located name)  -- Specialise a function or datatype  ...
                 [LHsType name]  -- ... to these types
                 InlinePragma    -- The pragma on SPECIALISE_INLINE form.
@@ -665,7 +674,7 @@ data Sig name
         --
         --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
         --      'ApiAnnotation.AnnInstance','ApiAnnotation.AnnClose'
-  | SpecInstSig (LHsType name)
+  | SpecInstSig SourceText (LHsType name) -- Note [Pragma source text] in Lexer
 
         -- | A minimal complete definition pragma
         --
@@ -674,7 +683,8 @@ data Sig name
         --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
         --      'ApiAnnotation.AnnVbar','ApiAnnotation.AnnComma',
         --      'ApiAnnotation.AnnClose'
-  | MinimalSig (BooleanFormula (Located name))
+  | MinimalSig SourceText (BooleanFormula (Located name))
+               -- Note [Pragma source text] in Lexer.x
 
   deriving (Typeable)
 deriving instance (DataId name) => Data (Sig name)
@@ -781,8 +791,9 @@ ppr_sig (FixSig fix_sig)          = ppr fix_sig
 ppr_sig (SpecSig var ty inl)
   = pragBrackets (pprSpec (unLoc var) (interpp'SP ty) inl)
 ppr_sig (InlineSig var inl)       = pragBrackets (ppr inl <+> pprPrefixOcc (unLoc var))
-ppr_sig (SpecInstSig ty)          = pragBrackets (ptext (sLit "SPECIALIZE instance") <+> ppr ty)
-ppr_sig (MinimalSig bf)           = pragBrackets (pprMinimalSig bf)
+ppr_sig (SpecInstSig _ ty)
+  = pragBrackets (ptext (sLit "SPECIALIZE instance") <+> ppr ty)
+ppr_sig (MinimalSig _ bf)         = pragBrackets (pprMinimalSig bf)
 ppr_sig (PatSynSig name (flag, qtvs) (L _ prov) (L _ req) ty)
   = pprPatSynSig (unLoc name) False -- TODO: is_bindir
                  (pprHsForAll flag qtvs (noLoc []))

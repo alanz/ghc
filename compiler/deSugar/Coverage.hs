@@ -567,7 +567,7 @@ addTickHsExpr (HsTick t e) =
 addTickHsExpr (HsBinTick t0 t1 e) =
         liftM (HsBinTick t0 t1) (addTickLHsExprNever e)
 
-addTickHsExpr (HsTickPragma _ (L pos e0)) = do
+addTickHsExpr (HsTickPragma _ _ (L pos e0)) = do
     e2 <- allocTickBox (ExpBox False) False False pos $
                 addTickHsExpr e0
     return $ unLoc e2
@@ -575,12 +575,14 @@ addTickHsExpr (PArrSeq   ty arith_seq) =
         liftM2 PArrSeq
                 (return ty)
                 (addTickArithSeqInfo arith_seq)
-addTickHsExpr (HsSCC nm e) =
-        liftM2 HsSCC
+addTickHsExpr (HsSCC src nm e) =
+        liftM3 HsSCC
+                (return src)
                 (return nm)
                 (addTickLHsExpr e)
-addTickHsExpr (HsCoreAnn nm e) =
-        liftM2 HsCoreAnn
+addTickHsExpr (HsCoreAnn src nm e) =
+        liftM3 HsCoreAnn
+                (return src)
                 (return nm)
                 (addTickLHsExpr e)
 addTickHsExpr e@(HsBracket     {})   = return e

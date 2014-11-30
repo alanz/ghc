@@ -19,12 +19,11 @@ module HsLit where
 #include "HsVersions.h"
 
 import {-# SOURCE #-} HsExpr( SyntaxExpr, pprExpr )
-import BasicTypes ( FractionalLit(..) )
+import BasicTypes ( FractionalLit(..),SourceText )
 import Type       ( Type )
 import Outputable
 import FastString
 import PlaceHolder ( PostTc,PostRn,DataId )
-import Lexer       ( SourceText )
 
 import Data.ByteString (ByteString)
 import Data.Data hiding ( Fixity )

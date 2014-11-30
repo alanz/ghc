@@ -651,8 +651,8 @@ tcTyClDecl1 _parent rec_info
          -- NB: Order is important due to the call to `mkGlobalThings' when
          --     tying the the type and class declaration type checking knot.
   where
-    tc_fundep (tvs1, tvs2) = do { tvs1' <- mapM tc_fd_tyvar tvs1 ;
-                                ; tvs2' <- mapM tc_fd_tyvar tvs2 ;
+    tc_fundep (tvs1, tvs2) = do { tvs1' <- mapM (tc_fd_tyvar . unLoc) tvs1 ;
+                                ; tvs2' <- mapM (tc_fd_tyvar . unLoc) tvs2 ;
                                 ; return (tvs1', tvs2') }
     tc_fd_tyvar name   -- Scoped kind variables are bound to unification variables
                        -- which are now fixed, so we can zonk
@@ -1206,7 +1206,7 @@ tcConDecl new_or_data rep_tycon tmpl_tvs res_tmpl        -- Data types
 
 
 tcConIsInfix :: Name
-             -> HsConDetails (LHsType Name) [LConDeclField Name]
+             -> HsConDetails (LHsType Name) (Located [LConDeclField Name])
              -> ResType Type
              -> TcM Bool
 tcConIsInfix _   details ResTyH98
@@ -1240,7 +1240,7 @@ tcConArgs new_or_data (RecCon fields)
        ; return (field_names, btys') }
   where
     -- We need a one-to-one mapping from field_names to btys
-    combined = map (\(L _ f) -> (cd_fld_names f,cd_fld_type f)) fields
+    combined = map (\(L _ f) -> (cd_fld_names f,cd_fld_type f)) (unLoc fields)
     explode (ns,ty) = zip (map unLoc ns) (repeat ty)
     exploded = concatMap explode combined
     (field_names,btys) = unzip exploded
@@ -1589,7 +1589,7 @@ checkValidDataCon dflags existential_ok tc con
     }
   where
     ctxt = ConArgCtxt (dataConName con)
-    check_bang (HsUserBang (Just want_unpack) has_bang, rep_bang, n)
+    check_bang (HsUserBang _ (Just want_unpack) has_bang, rep_bang, n)
       | want_unpack, not has_bang
       = addWarnTc (bad_bang n (ptext (sLit "UNPACK pragma lacks '!'")))
       | want_unpack

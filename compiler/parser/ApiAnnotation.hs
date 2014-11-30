@@ -148,6 +148,7 @@ data AnnKeywordId
     = AnnAs
     | AnnAt
     | AnnBang  -- ^ '!'
+    | AnnBackquote -- ^ '`'
     | AnnBy
     | AnnCase -- ^ case or lambda case
     | AnnClass
@@ -200,8 +201,10 @@ data AnnKeywordId
     | AnnTilde -- ^ '~'
     | AnnTildehsh -- ^ '~#'
     | AnnType
+    | AnnUnit -- ^ '()' for types
     | AnnUsing
     | AnnVal  -- ^ e.g. INTEGER
+    | AnnValStr  -- ^ String value, will need quotes when output
     | AnnVbar -- ^ '|'
     | AnnWhere
     | Annlarrowtail -- ^ '-<'

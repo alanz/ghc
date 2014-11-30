@@ -450,7 +450,7 @@ We generate:
 matchNPlusKPats :: [Id] -> Type -> [EquationInfo] -> DsM MatchResult
 -- All NPlusKPats, for the *same* literal k
 matchNPlusKPats (var:vars) ty (eqn1:eqns)
-  = do  { let NPlusKPat (L _ n1) lit ge minus = firstPat eqn1
+  = do  { let NPlusKPat (L _ n1) (L _ lit) ge minus = firstPat eqn1
         ; ge_expr     <- dsExpr ge
         ; minus_expr  <- dsExpr minus
         ; lit_expr    <- dsOverLit lit

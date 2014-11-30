@@ -391,12 +391,13 @@ rnPatAndThen _ (NPat lit mb_neg _eq)
        ; eq' <- liftCpsFV $ lookupSyntaxName eqName
        ; return (NPat lit' mb_neg' eq') }
 
-rnPatAndThen mk (NPlusKPat rdr lit _ _)
+rnPatAndThen mk (NPlusKPat rdr (L l lit) _ _)
   = do { new_name <- newPatName mk rdr
        ; lit'  <- liftCpsFV $ rnOverLit lit
        ; minus <- liftCpsFV $ lookupSyntaxName minusName
        ; ge    <- liftCpsFV $ lookupSyntaxName geName
-       ; return (NPlusKPat (L (nameSrcSpan new_name) new_name) lit' ge minus) }
+       ; return (NPlusKPat (L (nameSrcSpan new_name) new_name)
+                           (L l lit') ge minus) }
                 -- The Report says that n+k patterns must be in Integral
 
 rnPatAndThen mk (AsPat rdr pat)

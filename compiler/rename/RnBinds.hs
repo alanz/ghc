@@ -818,9 +818,9 @@ renameSig ctxt sig@(GenericSig vs ty)
         ; (new_ty, fvs) <- rnHsSigType (ppr_sig_bndrs vs) ty
         ; return (GenericSig new_v new_ty, fvs) }
 
-renameSig _ (SpecInstSig ty)
+renameSig _ (SpecInstSig src ty)
   = do  { (new_ty, fvs) <- rnLHsType SpecInstSigCtx ty
-        ; return (SpecInstSig new_ty,fvs) }
+        ; return (SpecInstSig src new_ty,fvs) }
 
 -- {-# SPECIALISE #-} pragmas can refer to imported Ids
 -- so, in the top-level case (when mb_names is Nothing)
@@ -846,9 +846,9 @@ renameSig ctxt sig@(FixSig (FixitySig vs f))
   = do  { new_vs <- mapM (lookupSigOccRn ctxt sig) vs
         ; return (FixSig (FixitySig new_vs f), emptyFVs) }
 
-renameSig ctxt sig@(MinimalSig bf)
+renameSig ctxt sig@(MinimalSig s bf)
   = do new_bf <- traverse (lookupSigOccRn ctxt sig) bf
-       return (MinimalSig new_bf, emptyFVs)
+       return (MinimalSig s new_bf, emptyFVs)
 
 renameSig ctxt sig@(PatSynSig v (flag, qtvs) prov req ty)
   = do  { v' <- lookupSigOccRn ctxt sig v

@@ -440,19 +440,36 @@ data DataConRep
 -- HsBang describes what the *programmer* wrote
 -- This info is retained in the DataCon.dcStrictMarks field
 data HsBang
-  = HsUserBang   -- The user's source-code request
+  = HsUserBang -- The user's source-code request
+       (Maybe SourceText) -- Note [Pragma source text] in Lexer.x
        (Maybe Bool)       -- Just True    {-# UNPACK #-}
                           -- Just False   {-# NOUNPACK #-}
                           -- Nothing      no pragma
        Bool               -- True <=> '!' specified
+      -- ^ The user's source-code request
+      --
+      -- - First field: original lexical source of the pragma
+      --
+      -- - Second field
+      --
+      -- >   Just True    {-# UNPACK #-}
+      -- >   Just False   {-# NOUNPACK #-}
+      -- >   Nothing      no pragma
+      --
+      -- - Third field
+      --
+      -- >   True <=> '!' specified
+      --
+  | HsNoBang          -- ^ Lazy field
+                      -- @HsUserBang Nothing False@ means the same as HsNoBang
 
-  | HsNoBang              -- Lazy field
-                          -- HsUserBang Nothing False means the same as HsNoBang
-
-  | HsUnpack              -- Definite commitment: this field is strict and unboxed
-       (Maybe Coercion)   --    co :: arg-ty ~ product-ty
-
-  | HsStrict              -- Definite commitment: this field is strict but not unboxed
+  | HsUnpack
+       (Maybe Coercion)
+   -- ^ Definite commitment: this field is strict and unboxed
+   --
+   -- >   co :: arg-ty ~ product-ty
+   --
+  | HsStrict  -- ^ Definite commitment: this field is strict but not unboxed
   deriving (Data.Data, Data.Typeable)
 
 -------------------------
@@ -539,11 +556,11 @@ instance Data.Data DataCon where
     dataTypeOf _ = mkNoRepType "DataCon"
 
 instance Outputable HsBang where
-    ppr HsNoBang               = empty
-    ppr (HsUserBang prag bang) = pp_unpk prag <+> ppWhen bang (char '!')
-    ppr (HsUnpack Nothing)     = ptext (sLit "Unpk")
-    ppr (HsUnpack (Just co))   = ptext (sLit "Unpk") <> parens (ppr co)
-    ppr HsStrict               = ptext (sLit "SrictNotUnpacked")
+    ppr HsNoBang                 = empty
+    ppr (HsUserBang _ prag bang) = pp_unpk prag <+> ppWhen bang (char '!')
+    ppr (HsUnpack Nothing)       = ptext (sLit "Unpk")
+    ppr (HsUnpack (Just co))     = ptext (sLit "Unpk") <> parens (ppr co)
+    ppr HsStrict                 = ptext (sLit "SrictNotUnpacked")
 
 pp_unpk :: Maybe Bool -> SDoc
 pp_unpk Nothing      = empty
@@ -558,15 +575,15 @@ instance Outputable StrictnessMark where
 eqHsBang :: HsBang -> HsBang -> Bool
 eqHsBang HsNoBang             HsNoBang             = True
 eqHsBang HsStrict             HsStrict             = True
-eqHsBang (HsUserBang u1 b1)   (HsUserBang u2 b2)   = u1==u2 && b1==b2
+eqHsBang (HsUserBang _ u1 b1) (HsUserBang _ u2 b2) = u1==u2 && b1==b2
 eqHsBang (HsUnpack Nothing)   (HsUnpack Nothing)   = True
 eqHsBang (HsUnpack (Just c1)) (HsUnpack (Just c2)) = eqType (coercionType c1) (coercionType c2)
 eqHsBang _ _ = False
 
 isBanged :: HsBang -> Bool
-isBanged HsNoBang                  = False
-isBanged (HsUserBang Nothing bang) = bang
-isBanged _                         = True
+isBanged HsNoBang                    = False
+isBanged (HsUserBang _ Nothing bang) = bang
+isBanged _                           = True
 
 isMarkedStrict :: StrictnessMark -> Bool
 isMarkedStrict NotMarkedStrict = False

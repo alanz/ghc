@@ -731,18 +731,18 @@ zonkExpr env (PArrSeq expr info)
        new_info <- zonkArithSeq env info
        return (PArrSeq new_expr new_info)
 
-zonkExpr env (HsSCC lbl expr)
+zonkExpr env (HsSCC src lbl expr)
   = do new_expr <- zonkLExpr env expr
-       return (HsSCC lbl new_expr)
+       return (HsSCC src lbl new_expr)
 
-zonkExpr env (HsTickPragma info expr)
+zonkExpr env (HsTickPragma src info expr)
   = do new_expr <- zonkLExpr env expr
-       return (HsTickPragma info new_expr)
+       return (HsTickPragma src info new_expr)
 
 -- hdaume: core annotations
-zonkExpr env (HsCoreAnn lbl expr)
+zonkExpr env (HsCoreAnn src lbl expr)
   = do new_expr <- zonkLExpr env expr
-       return (HsCoreAnn lbl new_expr)
+       return (HsCoreAnn src lbl new_expr)
 
 -- arrow notation extensions
 zonkExpr env (HsProc pat body)
@@ -996,7 +996,8 @@ zonkRecFields env (HsRecFields flds dd)
                               , hsRecFieldArg = new_expr })) }
 
 -------------------------------------------------------------------------
-mapIPNameTc :: (a -> TcM b) -> Either HsIPName a -> TcM (Either HsIPName b)
+mapIPNameTc :: (a -> TcM b) -> Either (Located HsIPName) a
+            -> TcM (Either (Located HsIPName) b)
 mapIPNameTc _ (Left x)  = return (Left x)
 mapIPNameTc f (Right x) = do r <- f x
                              return (Right r)
@@ -1102,12 +1103,13 @@ zonk_pat env (NPat lit mb_neg eq_expr)
         ; eq_expr' <- zonkExpr env eq_expr
         ; return (env, NPat lit' mb_neg' eq_expr') }
 
-zonk_pat env (NPlusKPat (L loc n) lit e1 e2)
+zonk_pat env (NPlusKPat (L loc n) (L l lit) e1 e2)
   = do  { n' <- zonkIdBndr env n
         ; lit' <- zonkOverLit env lit
         ; e1' <- zonkExpr env e1
         ; e2' <- zonkExpr env e2
-        ; return (extendIdZonkEnv1 env n', NPlusKPat (L loc n') lit' e1' e2') }
+        ; return (extendIdZonkEnv1 env n',
+                  NPlusKPat (L loc n') (L l lit') e1' e2') }
 
 zonk_pat env (CoPat co_fn pat ty)
   = do { (env', co_fn') <- zonkCoFn env co_fn
@@ -1204,21 +1206,21 @@ zonkVects :: ZonkEnv -> [LVectDecl TcId] -> TcM [LVectDecl Id]
 zonkVects env = mapM (wrapLocM (zonkVect env))
 
 zonkVect :: ZonkEnv -> VectDecl TcId -> TcM (VectDecl Id)
-zonkVect env (HsVect v e)
+zonkVect env (HsVect s v e)
   = do { v' <- wrapLocM (zonkIdBndr env) v
        ; e' <- zonkLExpr env e
-       ; return $ HsVect v' e'
+       ; return $ HsVect s v' e'
        }
-zonkVect env (HsNoVect v)
+zonkVect env (HsNoVect s v)
   = do { v' <- wrapLocM (zonkIdBndr env) v
-       ; return $ HsNoVect v'
+       ; return $ HsNoVect s v'
        }
 zonkVect _env (HsVectTypeOut s t rt)
   = return $ HsVectTypeOut s t rt
-zonkVect _ (HsVectTypeIn _ _ _) = panic "TcHsSyn.zonkVect: HsVectTypeIn"
+zonkVect _ (HsVectTypeIn _ _ _ _) = panic "TcHsSyn.zonkVect: HsVectTypeIn"
 zonkVect _env (HsVectClassOut c)
   = return $ HsVectClassOut c
-zonkVect _ (HsVectClassIn _) = panic "TcHsSyn.zonkVect: HsVectClassIn"
+zonkVect _ (HsVectClassIn _ _) = panic "TcHsSyn.zonkVect: HsVectClassIn"
 zonkVect _env (HsVectInstOut i)
   = return $ HsVectInstOut i
 zonkVect _ (HsVectInstIn _) = panic "TcHsSyn.zonkVect: HsVectInstIn"

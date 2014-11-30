@@ -72,7 +72,8 @@ import RdrName          ( RdrName, isRdrTyVar, isRdrTc, mkUnqual, rdrNameOcc,
 import OccName          ( tcClsName, isVarNameSpace )
 import Name             ( Name )
 import BasicTypes       ( maxPrecedence, Activation(..), RuleMatchInfo,
-                          InlinePragma(..), InlineSpec(..), Origin(..) )
+                          InlinePragma(..), InlineSpec(..), Origin(..),
+                          SourceText )
 import TcEvidence       ( idHsWrapper )
 import Lexer
 import TysWiredIn       ( unitTyCon, unitDataCon )
@@ -126,7 +127,7 @@ mkInstD (L loc d) = L loc (InstD d)
 
 mkClassDecl :: SrcSpan
             -> Located (Maybe (LHsContext RdrName), LHsType RdrName)
-            -> Located [Located (FunDep RdrName)]
+            -> Located (a,[Located (FunDep (Located RdrName))])
             -> OrdList (LHsDecl RdrName)
             -> P (LTyClDecl RdrName)
 
@@ -139,7 +140,8 @@ mkClassDecl loc (L _ (mcxt, tycl_hdr)) fds where_cls
        ; tyvars <- checkTyVarsP (ptext (sLit "class")) whereDots cls tparams
        ; at_defs <- mapM (eitherToP . mkATDefault) at_insts
        ; return (L loc (ClassDecl { tcdCtxt = cxt, tcdLName = cls, tcdTyVars = tyvars,
-                                    tcdFDs = unLoc fds, tcdSigs = sigs, tcdMeths = binds,
+                                    tcdFDs = snd (unLoc fds), tcdSigs = sigs,
+                                    tcdMeths = binds,
                                     tcdATs = ats, tcdATDefs = at_defs, tcdDocs  = docs,
                                     tcdFVs = placeHolderNames })) }
 
@@ -540,7 +542,7 @@ splitCon ty
                                          -- See Note [Unit tuples] in HsTypes
    split (L l _) _                 = parseErrorSDoc l (text "Cannot parse data constructor in a data/newtype declaration:" <+> ppr ty)
 
-   mk_rest [L _ (HsRecTy flds)] = RecCon flds
+   mk_rest [L l (HsRecTy flds)] = RecCon (L l flds)
    mk_rest ts                   = PrefixCon ts
 
 recordPatSynErr :: SrcSpan -> LPat RdrName -> P a
@@ -578,7 +580,7 @@ mkPatSynMatchGroup (L _ patsyn_name) (L _ decls) =
 
 mkDeprecatedGadtRecordDecl :: SrcSpan
                            -> Located RdrName
-                           -> [LConDeclField RdrName]
+                           -> Located [LConDeclField RdrName]
                            -> LHsType RdrName
                            ->  P (LConDecl  RdrName)
 -- This one uses the deprecated syntax
@@ -625,7 +627,8 @@ mkGadtDecl names (L _ (HsForAllTy imp Nothing qvars cxt tau))
   where
     (details, res_ty)           -- See Note [Sorting out the result type]
       = case tau of
-          L _ (HsFunTy (L _ (HsRecTy flds)) res_ty) -> (RecCon flds,  res_ty)
+          L _ (HsFunTy (L l (HsRecTy flds)) res_ty)
+                                            -> (RecCon (L l flds), res_ty)
           _other                                    -> (PrefixCon [], tau)
 
     mk_gadt_con names
@@ -835,9 +838,9 @@ checkAPat msg loc e0 = do
 
    -- n+k patterns
    OpApp (L nloc (HsVar n)) (L _ (HsVar plus)) _
-         (L _ (HsOverLit lit@(OverLit {ol_val = HsIntegral {}})))
+         (L lloc (HsOverLit lit@(OverLit {ol_val = HsIntegral {}})))
                       | xopt Opt_NPlusKPatterns dynflags && (plus == plus_RDR)
-                      -> return (mkNPlusKPat (L nloc n) lit)
+                      -> return (mkNPlusKPat (L nloc n) (L lloc lit))
 
    OpApp l op _fix r  -> do l <- checkLPat msg l
                             r <- checkLPat msg r
@@ -1321,11 +1324,13 @@ mk_rec_fields :: [LHsRecField id arg] -> Bool -> HsRecFields id arg
 mk_rec_fields fs False = HsRecFields { rec_flds = fs, rec_dotdot = Nothing }
 mk_rec_fields fs True  = HsRecFields { rec_flds = fs, rec_dotdot = Just (length fs) }
 
-mkInlinePragma :: (InlineSpec, RuleMatchInfo) -> Maybe Activation -> InlinePragma
+mkInlinePragma :: String -> (InlineSpec, RuleMatchInfo) -> Maybe Activation
+               -> InlinePragma
 -- The (Maybe Activation) is because the user can omit
 -- the activation spec (and usually does)
-mkInlinePragma (inl, match_info) mb_act
-  = InlinePragma { inl_inline = inl
+mkInlinePragma src (inl, match_info) mb_act
+  = InlinePragma { inl_src = src -- Note [Pragma source text] in Lexer.x
+                 , inl_inline = inl
                  , inl_sat    = Nothing
                  , inl_act    = act
                  , inl_rule   = match_info }
@@ -1355,16 +1360,16 @@ mkImport (L lc cconv) (L ls safety) (L loc entity, v, ty)
   | cconv == PrimCallConv                      = do
   let funcTarget = CFunction (StaticTarget entity Nothing True)
       importSpec = CImport (L lc PrimCallConv) (L ls safety) Nothing funcTarget
-                           (L loc entity)
+                           (L loc (unpackFS entity))
   return (ForD (ForeignImport v ty noForeignImportCoercionYet importSpec))
   | cconv == JavaScriptCallConv = do
   let funcTarget = CFunction (StaticTarget entity Nothing True)
       importSpec = CImport (L lc JavaScriptCallConv) (L ls safety) Nothing
-                           funcTarget (L loc entity)
+                           funcTarget (L loc (unpackFS entity))
   return (ForD (ForeignImport v ty noForeignImportCoercionYet importSpec))
   | otherwise = do
     case parseCImport (L lc cconv) (L ls safety) (mkExtName (unLoc v))
-                      (unpackFS entity) (L loc entity) of
+                      (unpackFS entity) (L loc (unpackFS entity)) of
       Nothing         -> parseErrorSDoc loc (text "Malformed entity string")
       Just importSpec -> return (ForD (ForeignImport v ty noForeignImportCoercionYet importSpec))
 
@@ -1372,7 +1377,7 @@ mkImport (L lc cconv) (L ls safety) (L loc entity, v, ty)
 -- C identifier case comes first in the alternatives below, so we pick
 -- that one.
 parseCImport :: Located CCallConv -> Located Safety -> FastString -> String
-             -> Located FastString
+             -> Located SourceText
              -> Maybe ForeignImport
 parseCImport cconv safety nm str sourceText =
  listToMaybe $ map fst $ filter (null.snd) $
@@ -1433,7 +1438,8 @@ mkExport (L lc cconv) (L le entity, v, ty) = do
   checkNoPartialType (ptext (sLit "In foreign export declaration") <+>
                       quotes (ppr v) $$ ppr ty) ty
   return $ ForD (ForeignExport v ty noForeignExportCoercionYet
-                 (CExport (L lc (CExportStatic entity' cconv)) (L le entity)))
+                 (CExport (L lc (CExportStatic entity' cconv))
+                          (L le (unpackFS entity))))
   where
     entity' | nullFS entity = mkExtName (unLoc v)
             | otherwise     = entity
@@ -1457,7 +1463,7 @@ mkModuleImpExp n@(L l name) subs =
   case subs of
     ImpExpAbs
       | isVarNameSpace (rdrNameSpace name) -> IEVar       n
-      | otherwise                          -> IEThingAbs  nameT
+      | otherwise                          -> IEThingAbs  (L l nameT)
     ImpExpAll                              -> IEThingAll  (L l nameT)
     ImpExpList xs                          -> IEThingWith (L l nameT) xs
 

@@ -147,9 +147,11 @@ repTopDs group@(HsGroup { hs_valds   = valds
                      ; fix_ds   <- mapM repFixD fixds
                      ; _        <- mapM no_default_decl defds
                      ; for_ds   <- mapM repForD fords
-                     ; _        <- mapM no_warn warnds
+                     ; _        <- mapM no_warn (concatMap (wd_warnings . unLoc)
+                                                           warnds)
                      ; ann_ds   <- mapM repAnnD annds
-                     ; rule_ds  <- mapM repRuleD ruleds
+                     ; rule_ds  <- mapM repRuleD (concatMap (rds_rules . unLoc)
+                                                            ruleds)
                      ; _        <- mapM no_vect vects
                      ; _        <- mapM no_doc docs
 
@@ -374,13 +376,14 @@ mk_extra_tvs tc tvs defn
 -------------------------
 -- represent fundeps
 --
-repLFunDeps :: [Located (FunDep Name)] -> DsM (Core [TH.FunDep])
+repLFunDeps :: [Located (FunDep (Located Name))] -> DsM (Core [TH.FunDep])
 repLFunDeps fds = repList funDepTyConName repLFunDep fds
 
-repLFunDep :: Located (FunDep Name) -> DsM (Core TH.FunDep)
-repLFunDep (L _ (xs, ys)) = do xs' <- repList nameTyConName lookupBinder xs
-                               ys' <- repList nameTyConName lookupBinder ys
-                               repFunDep xs' ys'
+repLFunDep :: Located (FunDep (Located Name)) -> DsM (Core TH.FunDep)
+repLFunDep (L _ (xs, ys))
+   = do xs' <- repList nameTyConName (lookupBinder . unLoc) xs
+        ys' <- repList nameTyConName (lookupBinder . unLoc) ys
+        repFunDep xs' ys'
 
 -- represent family declaration flavours
 --
@@ -550,17 +553,17 @@ repRuleBndr (L _ (RuleBndrSig n (HsWB { hswb_cts = ty })))
        ; rep2 typedRuleVarName [n', ty'] }
 
 repAnnD :: LAnnDecl Name -> DsM (SrcSpan, Core TH.DecQ)
-repAnnD (L loc (HsAnnotation ann_prov (L _ exp)))
+repAnnD (L loc (HsAnnotation _ ann_prov (L _ exp)))
   = do { target <- repAnnProv ann_prov
        ; exp'   <- repE exp
        ; dec    <- repPragAnn target exp'
        ; return (loc, dec) }
 
 repAnnProv :: AnnProvenance Name -> DsM (Core TH.AnnTarget)
-repAnnProv (ValueAnnProvenance n)
+repAnnProv (ValueAnnProvenance (L _ n))
   = do { MkC n' <- globalVar n  -- ANNs are allowed only at top-level
        ; rep2 valueAnnotationName [ n' ] }
-repAnnProv (TypeAnnProvenance n)
+repAnnProv (TypeAnnProvenance (L _ n))
   = do { MkC n' <- globalVar n
        ; rep2 typeAnnotationName [ n' ] }
 repAnnProv ModuleAnnProvenance
@@ -651,9 +654,9 @@ repBangTy ty= do
   rep2 strictTypeName [s, t]
   where
     (str, ty') = case ty of
-                   L _ (HsBangTy (HsUserBang (Just True) True) ty) -> (unpackedName,  ty)
-                   L _ (HsBangTy (HsUserBang _     True) ty)       -> (isStrictName,  ty)
-                   _                               -> (notStrictName, ty)
+        L _ (HsBangTy (HsUserBang _ (Just True) True) ty) -> (unpackedName,  ty)
+        L _ (HsBangTy (HsUserBang _ _     True) ty)       -> (isStrictName,  ty)
+        _                                                 -> (notStrictName, ty)
 
 -------------------------------------------------------
 --                      Deriving clause
@@ -695,7 +698,7 @@ rep_sig (L _   (FixSig {}))           = return [] -- fixity sigs at top level
 rep_sig (L loc (InlineSig nm ispec))  = rep_inline nm ispec loc
 rep_sig (L loc (SpecSig nm tys ispec))
    = concatMapM (\t -> rep_specialise nm t ispec loc) tys
-rep_sig (L loc (SpecInstSig ty))      = rep_specialiseInst ty loc
+rep_sig (L loc (SpecInstSig _ ty))    = rep_specialiseInst ty loc
 rep_sig (L _   (MinimalSig {}))       = notHandled "MINIMAL pragmas" empty
 
 rep_ty_sig :: Name -> SrcSpan -> LHsType Name -> Located Name
@@ -913,11 +916,11 @@ repTy (HsTyLit lit) = do
 repTy ty                      = notHandled "Exotic form of type" (ppr ty)
 
 repTyLit :: HsTyLit -> DsM (Core TH.TyLitQ)
-repTyLit (HsNumTy i) = do iExpr <- mkIntegerExpr i
-                          rep2 numTyLitName [iExpr]
-repTyLit (HsStrTy s) = do { s' <- mkStringExprFS s
-                         ; rep2 strTyLitName [s']
-                         }
+repTyLit (HsNumTy _ i) = do iExpr <- mkIntegerExpr i
+                            rep2 numTyLitName [iExpr]
+repTyLit (HsStrTy _ s) = do { s' <- mkStringExprFS s
+                            ; rep2 strTyLitName [s']
+                            }
 
 -- represent a kind
 --
@@ -1848,7 +1851,7 @@ repConstr con (PrefixCon ps)
     = do arg_tys  <- repList strictTypeQTyConName repBangTy ps
          rep2 normalCName [unC con, unC arg_tys]
 
-repConstr con (RecCon ips)
+repConstr con (RecCon (L _ ips))
     = do { args <- concatMapM rep_ip ips
          ; arg_vtys <- coreList varStrictTypeQTyConName args
          ; rep2 recCName [unC con, unC arg_vtys] }

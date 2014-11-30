@@ -418,7 +418,7 @@ cvtConstr (RecC c varstrtys)
         ; cxt'  <- returnL []
         ; args' <- mapM cvt_id_arg varstrtys
         ; returnL $ mkSimpleConDecl c' noExistentials cxt'
-                                   (RecCon args') }
+                                   (RecCon (noLoc args')) }
 
 cvtConstr (InfixC st1 c st2)
   = do  { c' <- cNameL c
@@ -436,8 +436,12 @@ cvtConstr (ForallC tvs ctxt con)
 
 cvt_arg :: (TH.Strict, TH.Type) -> CvtM (LHsType RdrName)
 cvt_arg (NotStrict, ty) = cvtType ty
-cvt_arg (IsStrict,  ty) = do { ty' <- cvtType ty; returnL $ HsBangTy (HsUserBang Nothing     True) ty' }
-cvt_arg (Unpacked,  ty) = do { ty' <- cvtType ty; returnL $ HsBangTy (HsUserBang (Just True) True) ty' }
+cvt_arg (IsStrict,  ty)
+  = do { ty' <- cvtType ty
+       ; returnL $ HsBangTy (HsUserBang Nothing Nothing True) ty' }
+cvt_arg (Unpacked,  ty)
+  = do { ty' <- cvtType ty
+       ; returnL $ HsBangTy (HsUserBang Nothing (Just True) True) ty' }
 
 cvt_id_arg :: (TH.Name, TH.Strict, TH.Type) -> CvtM (LConDeclField RdrName)
 cvt_id_arg (i, str, ty)
@@ -455,8 +459,10 @@ cvtDerivs cs = do { cs' <- mapM cvt_one cs
           cvt_one c = do { c' <- tconName c
                          ; returnL $ HsTyVar c' }
 
-cvt_fundep :: FunDep -> CvtM (Located (Class.FunDep RdrName))
-cvt_fundep (FunDep xs ys) = do { xs' <- mapM tName xs; ys' <- mapM tName ys; returnL (xs', ys') }
+cvt_fundep :: FunDep -> CvtM (Located (Class.FunDep (Located RdrName)))
+cvt_fundep (FunDep xs ys) = do { xs' <- mapM tName xs
+                               ; ys' <- mapM tName ys
+                               ; returnL (map noLoc xs', map noLoc ys') }
 
 noExistentials :: [LHsTyVarBndr RdrName]
 noExistentials = []
@@ -469,7 +475,7 @@ cvtForD :: Foreign -> CvtM (ForeignDecl RdrName)
 cvtForD (ImportF callconv safety from nm ty)
   | Just impspec <- parseCImport (noLoc (cvt_conv callconv)) (noLoc safety')
                                  (mkFastString (TH.nameBase nm))
-                                 from (noLoc (mkFastString from))
+                                 from (noLoc from)
   = do { nm' <- vNameL nm
        ; ty' <- cvtType ty
        ; return (ForeignImport nm' ty' noForeignImportCoercionYet impspec)
@@ -487,7 +493,7 @@ cvtForD (ExportF callconv as nm ty)
         ; ty' <- cvtType ty
         ; let e = CExport (noLoc (CExportStatic (mkFastString as)
                                                 (cvt_conv callconv)))
-                                                (noLoc (mkFastString as))
+                                                (noLoc as)
         ; return $ ForeignExport nm' ty' noForeignExportCoercionYet e }
 
 cvt_conv :: TH.Callconv -> CCallConv
@@ -505,7 +511,8 @@ cvtPragmaD :: Pragma -> CvtM (Maybe (LHsDecl RdrName))
 cvtPragmaD (InlineP nm inline rm phases)
   = do { nm' <- vNameL nm
        ; let dflt = dfltActivation inline
-       ; let ip   = InlinePragma { inl_inline = cvtInline inline
+       ; let ip   = InlinePragma { inl_src    = ""
+                                 , inl_inline = cvtInline inline
                                  , inl_rule   = cvtRuleMatch rm
                                  , inl_act    = cvtPhases phases dflt
                                  , inl_sat    = Nothing }
@@ -517,7 +524,8 @@ cvtPragmaD (SpecialiseP nm ty inline phases)
        ; let (inline', dflt) = case inline of
                Just inline1 -> (cvtInline inline1, dfltActivation inline1)
                Nothing      -> (EmptyInlineSpec,   AlwaysActive)
-       ; let ip = InlinePragma { inl_inline = inline'
+       ; let ip = InlinePragma { inl_src    = ""
+                               , inl_inline = inline'
                                , inl_rule   = Hs.FunLike
                                , inl_act    = cvtPhases phases dflt
                                , inl_sat    = Nothing }
@@ -525,7 +533,7 @@ cvtPragmaD (SpecialiseP nm ty inline phases)
 
 cvtPragmaD (SpecialiseInstP ty)
   = do { ty' <- cvtType ty
-       ; returnJustL $ Hs.SigD $ SpecInstSig ty' }
+       ; returnJustL $ Hs.SigD $ SpecInstSig "" ty' }
 
 cvtPragmaD (RuleP nm bndrs lhs rhs phases)
   = do { let nm' = mkFastString nm
@@ -533,9 +541,10 @@ cvtPragmaD (RuleP nm bndrs lhs rhs phases)
        ; bndrs' <- mapM cvtRuleBndr bndrs
        ; lhs'   <- cvtl lhs
        ; rhs'   <- cvtl rhs
-       ; returnJustL $ Hs.RuleD $ HsRule (noLoc nm') act bndrs'
-                                     lhs' placeHolderNames
-                                     rhs' placeHolderNames
+       ; returnJustL $ Hs.RuleD
+                     $ HsRules "" [noLoc $ HsRule (noLoc nm') act bndrs'
+                                                  lhs' placeHolderNames
+                                                  rhs' placeHolderNames]
        }
 
 cvtPragmaD (AnnP target exp)
@@ -544,11 +553,11 @@ cvtPragmaD (AnnP target exp)
          ModuleAnnotation  -> return ModuleAnnProvenance
          TypeAnnotation n  -> do
            n' <- tconName n
-           return (TypeAnnProvenance  n')
+           return (TypeAnnProvenance  (noLoc n'))
          ValueAnnotation n -> do
            n' <- vcName n
-           return (ValueAnnProvenance n')
-       ; returnJustL $ Hs.AnnD $ HsAnnotation target' exp'
+           return (ValueAnnProvenance (noLoc n'))
+       ; returnJustL $ Hs.AnnD $ HsAnnotation "" target' exp'
        }
 
 cvtPragmaD (LineP line file)
@@ -1064,8 +1073,8 @@ split_ty_app ty = go ty []
     go f as           = return (f,as)
 
 cvtTyLit :: TH.TyLit -> HsTyLit
-cvtTyLit (NumTyLit i) = HsNumTy i
-cvtTyLit (StrTyLit s) = HsStrTy (fsLit s)
+cvtTyLit (NumTyLit i) = HsNumTy (show i) i
+cvtTyLit (StrTyLit s) = HsStrTy s        (fsLit s)
 
 cvtKind :: TH.Kind -> CvtM (LHsKind RdrName)
 cvtKind = cvtTypeKind "kind"

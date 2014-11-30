@@ -56,7 +56,7 @@
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 
 module Lexer (
-   Token(..), SourceText, lexer, pragState, mkPState, PState(..),
+   Token(..), lexer, pragState, mkPState, PState(..),
    P(..), ParseResult(..), getSrcLoc,
    getPState, getDynFlags, withThisPackage,
    failLocMsgP, failSpanMsgP, srcParseFail,
@@ -112,7 +112,8 @@ import DynFlags
 -- compiler/basicTypes
 import SrcLoc
 import Module
-import BasicTypes       ( InlineSpec(..), RuleMatchInfo(..), FractionalLit(..) )
+import BasicTypes     ( InlineSpec(..), RuleMatchInfo(..), FractionalLit(..),
+                        SourceText )
 
 -- compiler/parser
 import Ctype
@@ -507,8 +508,6 @@ $tab+         { warn Opt_WarnTabs (text "Tab character") }
 
 {
 
-type SourceText = String -- Note [literal source text] in HsLit
-
 -- -----------------------------------------------------------------------------
 -- The token type
 
@@ -560,34 +559,34 @@ data Token
   | ITpattern
   | ITstatic
 
-  -- Pragmas
-  | ITinline_prag InlineSpec RuleMatchInfo
-  | ITspec_prag                 -- SPECIALISE
-  | ITspec_inline_prag Bool     -- SPECIALISE INLINE (or NOINLINE)
-  | ITsource_prag
-  | ITrules_prag
-  | ITwarning_prag
-  | ITdeprecated_prag
+  -- Pragmas, see  note [Pragma source text]
+  | ITinline_prag       SourceText InlineSpec RuleMatchInfo
+  | ITspec_prag         SourceText                -- SPECIALISE
+  | ITspec_inline_prag  SourceText Bool    -- SPECIALISE INLINE (or NOINLINE)
+  | ITsource_prag       SourceText
+  | ITrules_prag        SourceText
+  | ITwarning_prag      SourceText
+  | ITdeprecated_prag   SourceText
   | ITline_prag
-  | ITscc_prag
-  | ITgenerated_prag
-  | ITcore_prag                 -- hdaume: core annotations
-  | ITunpack_prag
-  | ITnounpack_prag
-  | ITann_prag
+  | ITscc_prag          SourceText
+  | ITgenerated_prag    SourceText
+  | ITcore_prag         SourceText         -- hdaume: core annotations
+  | ITunpack_prag       SourceText
+  | ITnounpack_prag     SourceText
+  | ITann_prag          SourceText
   | ITclose_prag
   | IToptions_prag String
   | ITinclude_prag String
   | ITlanguage_prag
-  | ITvect_prag
-  | ITvect_scalar_prag
-  | ITnovect_prag
-  | ITminimal_prag
-  | IToverlappable_prag         -- instance overlap mode
-  | IToverlapping_prag          -- instance overlap mode
-  | IToverlaps_prag             -- instance overlap mode
-  | ITincoherent_prag           -- instance overlap mode
-  | ITctype
+  | ITvect_prag         SourceText
+  | ITvect_scalar_prag  SourceText
+  | ITnovect_prag       SourceText
+  | ITminimal_prag      SourceText
+  | IToverlappable_prag SourceText  -- instance overlap mode
+  | IToverlapping_prag  SourceText  -- instance overlap mode
+  | IToverlaps_prag     SourceText  -- instance overlap mode
+  | ITincoherent_prag   SourceText  -- instance overlap mode
+  | ITctype             SourceText
 
   | ITdotdot                    -- reserved symbols
   | ITcolon
@@ -701,6 +700,27 @@ data Token
 
 instance Outputable Token where
   ppr x = text (show x)
+
+{-
+Note [Pragma source text]
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The lexer does a case-insensitive match for pragmas, as well as
+accepting both UK and US spelling variants.
+
+So
+
+  {-# SPECIALISE #-}
+  {-# SPECIALIZE #-}
+  {-# Specialize #-}
+
+will all generate ITspec_prag
+
+In order to be able to do source to source conversions, the original
+source text needs to be preserved, hence the `SourceText` field.
+
+-}
+
 
 -- the bitmap provided as the third component indicates whether the
 -- corresponding extension keyword is valid under the extension options
@@ -1029,9 +1049,10 @@ withLexedDocType lexDocComment = do
 -- RULES pragmas turn on the forall and '.' keywords, and we turn them
 -- off again at the end of the pragma.
 rulePrag :: Action
-rulePrag span _buf _len = do
+rulePrag span buf len = do
   setExts (.|. xbit InRulePragBit)
-  return (L span ITrules_prag)
+  let !src = lexemeToString buf len
+  return (L span (ITrules_prag src))
 
 endPrag :: Action
 endPrag span _buf _len = do
@@ -2518,36 +2539,38 @@ ignoredPrags = Map.fromList (map ignored pragmas)
                      -- CFILES is a hugs-only thing.
                      pragmas = options_pragmas ++ ["cfiles", "contract"]
 
-oneWordPrags = Map.fromList([("rules", rulePrag),
-                           ("inline", token (ITinline_prag Inline FunLike)),
-                           ("inlinable", token (ITinline_prag Inlinable FunLike)),
-                           ("inlineable", token (ITinline_prag Inlinable FunLike)),
+oneWordPrags = Map.fromList([
+           ("rules", rulePrag),
+           ("inline", strtoken (\s -> (ITinline_prag s Inline FunLike))),
+           ("inlinable", strtoken (\s -> (ITinline_prag s Inlinable FunLike))),
+           ("inlineable", strtoken (\s -> (ITinline_prag s Inlinable FunLike))),
                                           -- Spelling variant
-                           ("notinline", token (ITinline_prag NoInline FunLike)),
-                           ("specialize", token ITspec_prag),
-                           ("source", token ITsource_prag),
-                           ("warning", token ITwarning_prag),
-                           ("deprecated", token ITdeprecated_prag),
-                           ("scc", token ITscc_prag),
-                           ("generated", token ITgenerated_prag),
-                           ("core", token ITcore_prag),
-                           ("unpack", token ITunpack_prag),
-                           ("nounpack", token ITnounpack_prag),
-                           ("ann", token ITann_prag),
-                           ("vectorize", token ITvect_prag),
-                           ("novectorize", token ITnovect_prag),
-                           ("minimal", token ITminimal_prag),
-                           ("overlaps", token IToverlaps_prag),
-                           ("overlappable", token IToverlappable_prag),
-                           ("overlapping", token IToverlapping_prag),
-                           ("incoherent", token ITincoherent_prag),
-                           ("ctype", token ITctype)])
+           ("notinline", strtoken (\s -> (ITinline_prag s NoInline FunLike))),
+           ("specialize", strtoken (\s -> ITspec_prag s)),
+           ("source", strtoken (\s -> ITsource_prag s)),
+           ("warning", strtoken (\s -> ITwarning_prag s)),
+           ("deprecated", strtoken (\s -> ITdeprecated_prag s)),
+           ("scc", strtoken (\s -> ITscc_prag s)),
+           ("generated", strtoken (\s -> ITgenerated_prag s)),
+           ("core", strtoken (\s -> ITcore_prag s)),
+           ("unpack", strtoken (\s -> ITunpack_prag s)),
+           ("nounpack", strtoken (\s -> ITnounpack_prag s)),
+           ("ann", strtoken (\s -> ITann_prag s)),
+           ("vectorize", strtoken (\s -> ITvect_prag s)),
+           ("novectorize", strtoken (\s -> ITnovect_prag s)),
+           ("minimal", strtoken (\s -> ITminimal_prag s)),
+           ("overlaps", strtoken (\s -> IToverlaps_prag s)),
+           ("overlappable", strtoken (\s -> IToverlappable_prag s)),
+           ("overlapping", strtoken (\s -> IToverlapping_prag s)),
+           ("incoherent", strtoken (\s -> ITincoherent_prag s)),
+           ("ctype", strtoken (\s -> ITctype s))])
 
-twoWordPrags = Map.fromList([("inline conlike", token (ITinline_prag Inline ConLike)),
-                             ("notinline conlike", token (ITinline_prag NoInline ConLike)),
-                             ("specialize inline", token (ITspec_inline_prag True)),
-                             ("specialize notinline", token (ITspec_inline_prag False)),
-                             ("vectorize scalar", token ITvect_scalar_prag)])
+twoWordPrags = Map.fromList([
+     ("inline conlike", strtoken (\s -> (ITinline_prag s Inline ConLike))),
+     ("notinline conlike", strtoken (\s -> (ITinline_prag s NoInline ConLike))),
+     ("specialize inline", strtoken (\s -> (ITspec_inline_prag s True))),
+     ("specialize notinline", strtoken (\s -> (ITspec_inline_prag s False))),
+     ("vectorize scalar", strtoken (\s -> ITvect_scalar_prag s))])
 
 dispatch_pragmas :: Map String Action -> Action
 dispatch_pragmas prags span buf len = case Map.lookup (clean_pragma (lexemeToString buf len)) prags of

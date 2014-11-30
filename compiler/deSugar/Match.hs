@@ -1063,7 +1063,7 @@ patGroup _      (ConPatOut { pat_con = con }) = case unLoc con of
     PatSynCon psyn -> PgSyn psyn
 patGroup dflags (LitPat lit)                  = PgLit (hsLitKey dflags lit)
 patGroup _      (NPat olit mb_neg _)          = PgN   (hsOverLitKey olit (isJust mb_neg))
-patGroup _      (NPlusKPat _ olit _ _)        = PgNpK (hsOverLitKey olit False)
+patGroup _      (NPlusKPat _ (L _ olit) _ _)  = PgNpK (hsOverLitKey olit False)
 patGroup _      (CoPat _ p _)                 = PgCo  (hsPatType p) -- Type of innelexp pattern
 patGroup _      (ViewPat expr p _)            = PgView expr (hsPatType (unLoc p))
 patGroup _      (ListPat _ _ (Just _))        = PgOverloadedList
