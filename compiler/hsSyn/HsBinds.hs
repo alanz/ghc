@@ -128,7 +128,7 @@ data HsBindLR idL idR
     --    'ApiAnnotation.AnnOpen','ApiAnnotation.AnnClose',
     FunBind {
 
-        fun_id :: Located idL,
+        fun_id :: Located idL, -- Note [fun_id in Match] in HsExpr
 
         fun_infix :: Bool,      -- ^ True => infix declaration
 

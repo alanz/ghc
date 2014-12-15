@@ -363,7 +363,7 @@ mk_extra_tvs tc tvs defn
       = do { uniq <- newUnique
            ; let { occ = mkTyVarOccFS (fsLit "t")
                  ; nm = mkInternalName uniq occ loc
-                 ; hs_tv = L loc (KindedTyVar nm kind) }
+                 ; hs_tv = L loc (KindedTyVar (noLoc nm) kind) }
            ; hs_tvs <- go rest
            ; return (hs_tv : hs_tvs) }
 
@@ -622,7 +622,7 @@ mkGadtCtxt :: [Name]            -- Tyvars of the data type
 -- This function is fiddly, but not really hard
 mkGadtCtxt _ ResTyH98
   = return ([], [])
-mkGadtCtxt data_tvs (ResTyGADT res_ty)
+mkGadtCtxt data_tvs (ResTyGADT _ res_ty)
   | Just (_, tys) <- hsTyGetAppHead_maybe res_ty
   , data_tvs `equalLength` tys
   = return (go [] [] (data_tvs `zip` tys))
@@ -1107,7 +1107,7 @@ repE e                     = notHandled "Expression form" (ppr e)
 -- Building representations of auxillary structures like Match, Clause, Stmt,
 
 repMatchTup ::  LMatch Name (LHsExpr Name) -> DsM (Core TH.MatchQ)
-repMatchTup (L _ (Match [p] _ (GRHSs guards wheres))) =
+repMatchTup (L _ (Match _ [p] _ (GRHSs guards wheres))) =
   do { ss1 <- mkGenSyms (collectPatBinders p)
      ; addBinds ss1 $ do {
      ; p1 <- repLP p
@@ -1119,7 +1119,7 @@ repMatchTup (L _ (Match [p] _ (GRHSs guards wheres))) =
 repMatchTup _ = panic "repMatchTup: case alt with more than one arg"
 
 repClauseTup ::  LMatch Name (LHsExpr Name) -> DsM (Core TH.ClauseQ)
-repClauseTup (L _ (Match ps _ (GRHSs guards wheres))) =
+repClauseTup (L _ (Match _ ps _ (GRHSs guards wheres))) =
   do { ss1 <- mkGenSyms (collectPatsBinders ps)
      ; addBinds ss1 $ do {
        ps1 <- repLPs ps
@@ -1271,8 +1271,10 @@ rep_bind :: LHsBind Name -> DsM (SrcSpan, Core TH.DecQ)
 -- Note GHC treats declarations of a variable (not a pattern)
 -- e.g.  x = g 5 as a Fun MonoBinds. This is indicated by a single match
 -- with an empty list of patterns
-rep_bind (L loc (FunBind { fun_id = fn,
-                           fun_matches = MG { mg_alts = [L _ (Match [] _ (GRHSs guards wheres))] } }))
+rep_bind (L loc (FunBind
+                 { fun_id = fn,
+                   fun_matches = MG { mg_alts = [L _ (Match _ [] _
+                                                   (GRHSs guards wheres))] } }))
  = do { (ss,wherecore) <- repBinds wheres
         ; guardcore <- addBinds ss (repGuards guards)
         ; fn'  <- lookupLBinder fn
@@ -1331,7 +1333,7 @@ rep_bind (L _ dec@(PatSynBind {})) = notHandled "pattern synonyms" (ppr dec)
 -- (\ p1 .. pn -> exp) by causing an error.
 
 repLambda :: LMatch Name (LHsExpr Name) -> DsM (Core TH.ExpQ)
-repLambda (L _ (Match ps _ (GRHSs [L _ (GRHS [] e)] EmptyLocalBinds)))
+repLambda (L _ (Match _ ps _ (GRHSs [L _ (GRHS [] e)] EmptyLocalBinds)))
  = do { let bndrs = collectPatsBinders ps ;
       ; ss  <- mkGenSyms bndrs
       ; lam <- addBinds ss (
@@ -1383,7 +1385,7 @@ repP (ConPatIn dc details)
                           ; MkC p <- repLP (hsRecFieldArg fld)
                           ; rep2 fieldPatName [v,p] }
 
-repP (NPat l Nothing _)  = do { a <- repOverloadedLiteral l; repPlit a }
+repP (NPat (L _ l) Nothing _)  = do { a <- repOverloadedLiteral l; repPlit a }
 repP (ViewPat e p _) = do { e' <- repLE e; p' <- repLP p; repPview e' p' }
 repP p@(NPat _ (Just _) _) = notHandled "Negative overloaded patterns" (ppr p)
 repP p@(SigPatIn {})  = notHandled "Type signatures in patterns" (ppr p)

@@ -1310,8 +1310,8 @@ rnConDecl decl@(ConDecl { con_names = names, con_qvars = tvs
         ; rdr_env <- getLocalRdrEnv
         ; let arg_tys    = hsConDeclArgTys details
               (free_kvs, free_tvs) = case res_ty of
-                                     ResTyH98 -> filterInScope rdr_env (get_rdr_tvs arg_tys)
-                                     ResTyGADT ty -> get_rdr_tvs (ty : arg_tys)
+                ResTyH98 -> filterInScope rdr_env (get_rdr_tvs arg_tys)
+                ResTyGADT _ ty -> get_rdr_tvs (ty : arg_tys)
 
          -- With an Explicit forall, check for unused binders
          -- With Implicit, find the mentioned ones, and use them as binders
@@ -1346,7 +1346,7 @@ rnConResult :: HsDocContext -> [Name]
             -> RnM (HsConDetails (LHsType Name) (Located [LConDeclField Name]),
                     ResType (LHsType Name), FreeVars)
 rnConResult _   _   details ResTyH98 = return (details, ResTyH98, emptyFVs)
-rnConResult doc _con details (ResTyGADT ty)
+rnConResult doc _con details (ResTyGADT ls ty)
   = do { (ty', fvs) <- rnLHsType doc ty
        ; let (arg_tys, res_ty) = splitHsFunType ty'
                 -- We can finally split it up,
@@ -1359,9 +1359,9 @@ rnConResult doc _con details (ResTyGADT ty)
 
            RecCon {}    -> do { unless (null arg_tys)
                                        (addErr (badRecResTy (docOfHsDocContext doc)))
-                              ; return (details, ResTyGADT res_ty, fvs) }
+                              ; return (details, ResTyGADT ls res_ty, fvs) }
 
-           PrefixCon {} -> return (PrefixCon arg_tys, ResTyGADT res_ty, fvs) }
+           PrefixCon {} -> return (PrefixCon arg_tys, ResTyGADT ls res_ty, fvs)}
 
 rnConDeclDetails
    :: HsDocContext

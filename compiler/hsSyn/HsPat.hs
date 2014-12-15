@@ -160,7 +160,7 @@ data Pat id
 
   | NPat                -- Used for all overloaded literals,
                         -- including overloaded strings with -XOverloadedStrings
-                    (HsOverLit id)              -- ALWAYS positive
+                    (Located (HsOverLit id))    -- ALWAYS positive
                     (Maybe (SyntaxExpr id))     -- Just (Name of 'negate') for negative
                                                 -- patterns, Nothing otherwise
                     (SyntaxExpr id)             -- Equality checker, of type t->t->Bool

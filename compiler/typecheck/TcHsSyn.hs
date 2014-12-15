@@ -93,7 +93,7 @@ hsPatType (TuplePat _ bx tys)         = mkTupleTy (boxityNormalTupleSort bx) tys
 hsPatType (ConPatOut { pat_con = L _ con, pat_arg_tys = tys })
                                       = conLikeResTy con tys
 hsPatType (SigPatOut _ ty)            = ty
-hsPatType (NPat lit _ _)              = overLitType lit
+hsPatType (NPat (L _ lit) _ _)        = overLitType lit
 hsPatType (NPlusKPat id _ _ _)        = idType (unLoc id)
 hsPatType (CoPat _ _ ty)              = ty
 hsPatType p                           = pprPanic "hsPatType" (ppr p)
@@ -541,10 +541,10 @@ zonkMatchGroup env zBody (MG { mg_alts = ms, mg_arg_tys = arg_tys, mg_res_ty = r
 zonkMatch :: ZonkEnv
           -> (ZonkEnv -> Located (body TcId) -> TcM (Located (body Id)))
           -> LMatch TcId (Located (body TcId)) -> TcM (LMatch Id (Located (body Id)))
-zonkMatch env zBody (L loc (Match pats _ grhss))
+zonkMatch env zBody (L loc (Match mf pats _ grhss))
   = do  { (env1, new_pats) <- zonkPats env pats
         ; new_grhss <- zonkGRHSs env1 zBody grhss
-        ; return (L loc (Match new_pats Nothing new_grhss)) }
+        ; return (L loc (Match mf new_pats Nothing new_grhss)) }
 
 -------------------------------------------------------------------------
 zonkGRHSs :: ZonkEnv
@@ -1097,11 +1097,11 @@ zonk_pat env (SigPatOut pat ty)
         ; (env', pat') <- zonkPat env pat
         ; return (env', SigPatOut pat' ty') }
 
-zonk_pat env (NPat lit mb_neg eq_expr)
+zonk_pat env (NPat (L l lit) mb_neg eq_expr)
   = do  { lit' <- zonkOverLit env lit
         ; mb_neg' <- fmapMaybeM (zonkExpr env) mb_neg
         ; eq_expr' <- zonkExpr env eq_expr
-        ; return (env, NPat lit' mb_neg' eq_expr') }
+        ; return (env, NPat (L l lit') mb_neg' eq_expr') }
 
 zonk_pat env (NPlusKPat (L loc n) (L l lit) e1 e2)
   = do  { n' <- zonkIdBndr env n

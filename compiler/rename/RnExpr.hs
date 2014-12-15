@@ -550,7 +550,7 @@ methodNamesMatch :: MatchGroup Name (LHsCmd Name) -> FreeVars
 methodNamesMatch (MG { mg_alts = ms })
   = plusFVs (map do_one ms)
  where
-    do_one (L _ (Match _ _ grhss)) = methodNamesGRHSs grhss
+    do_one (L _ (Match _ _ _ grhss)) = methodNamesGRHSs grhss
 
 -------------------------------------------------
 -- gaw 2004

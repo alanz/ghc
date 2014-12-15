@@ -121,7 +121,7 @@ mkHsPar e = L (getLoc e) (HsPar e)
 mkSimpleMatch :: [LPat id] -> Located (body id) -> LMatch id (Located (body id))
 mkSimpleMatch pats rhs
   = L loc $
-    Match pats Nothing (unguardedGRHSs rhs)
+    Match Nothing pats Nothing (unguardedGRHSs rhs)
   where
     loc = case pats of
                 []      -> getLoc rhs
@@ -201,7 +201,7 @@ mkHsDo         :: HsStmtContext Name -> [ExprLStmt RdrName] -> HsExpr RdrName
 mkHsComp       :: HsStmtContext Name -> [ExprLStmt RdrName] -> LHsExpr RdrName
                -> HsExpr RdrName
 
-mkNPat      :: HsOverLit id -> Maybe (SyntaxExpr id) -> Pat id
+mkNPat      :: Located (HsOverLit id) -> Maybe (SyntaxExpr id) -> Pat id
 mkNPlusKPat :: Located id -> Located (HsOverLit id) -> Pat id
 
 mkLastStmt :: Located (bodyR idR) -> StmtLR idL idR (Located (bodyR idR))
@@ -462,7 +462,8 @@ toHsType ty
     to_hs_type (LitTy (NumTyLit n)) = noLoc $ HsTyLit (HsNumTy "" n)
     to_hs_type (LitTy (StrTyLit s)) = noLoc $ HsTyLit (HsStrTy "" s)
 
-    mk_hs_tvb tv = noLoc $ KindedTyVar (getRdrName tv) (toHsKind (tyVarKind tv))
+    mk_hs_tvb tv = noLoc $ KindedTyVar (noLoc (getRdrName tv))
+                                       (toHsKind (tyVarKind tv))
 
 toHsKind :: Kind -> LHsKind RdrName
 toHsKind = toHsType
@@ -563,7 +564,7 @@ mk_easy_FunBind loc fun pats expr
 ------------
 mkMatch :: [LPat id] -> LHsExpr id -> HsLocalBinds id -> LMatch id (LHsExpr id)
 mkMatch pats expr binds
-  = noLoc (Match (map paren pats) Nothing
+  = noLoc (Match Nothing (map paren pats) Nothing
                  (GRHSs (unguardedRHS noSrcSpan expr) binds))
   where
     paren lp@(L l p) | hsPatNeedsParens p = L l (ParPat lp)

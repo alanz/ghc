@@ -229,6 +229,10 @@ instance Outputable Header where
     ppr (Header h) = quotes $ ppr h
 
 -- | A C type, used in CAPI FFI calls
+--
+--  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen' @'{-\# CTYPE'@,
+--        'ApiAnnotation.AnnHeader','ApiAnnotation.AnnVal',
+--        'ApiAnnotation.AnnClose' @'\#-}'@,
 data CType = CType SourceText -- Note [Pragma source text] in Lexer.x
                    (Maybe Header) -- header to include for this type
                    FastString     -- the type itself

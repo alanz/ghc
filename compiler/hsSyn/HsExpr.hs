@@ -356,6 +356,7 @@ data HsExpr id
 
   ---------------------------------------
   -- static pointers extension
+  -- | - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnStatic',
   | HsStatic    (LHsExpr id)
 
   ---------------------------------------
@@ -999,13 +1000,43 @@ type LMatch id body = Located (Match id body)
 -- ^ May have 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnSemi' when in a
 --   list
 data Match id body
-  = Match
-        [LPat id]               -- The patterns
-        (Maybe (LHsType id))    -- A type signature for the result of the match
-                                -- Nothing after typechecking
-        (GRHSs id body)
-  deriving (Typeable)
+  = Match {
+        m_fun_id_infix :: (Maybe (Located id,Bool)),
+          -- fun_id and fun_infix for functions with multiple equations
+          -- only present for a RdrName. See note [fun_id in Match]
+        m_pats :: [LPat id], -- The patterns
+        m_type :: (Maybe (LHsType id)),
+                                 -- A type signature for the result of the match
+                                 -- Nothing after typechecking
+        m_grhss :: (GRHSs id body)
+  } deriving (Typeable)
 deriving instance (Data body,DataId id) => Data (Match id body)
+
+{-
+Note [fun_id in Match]
+~~~~~~~~~~~~~~~~~~~~~~
+
+The parser initially creates a FunBind with a single Match in it for
+every function definition it sees.
+
+These are then grouped together by getMonoBind into a single FunBind,
+where all the Matches are combined.
+
+In the process, all the original FunBind fun_id's bar one are
+discarded, including the locations.
+
+This causes a problem for source to source conversions via API
+Annotations, so the original fun_ids and infix flags are preserved in
+the Match, when it originates from a FunBind.
+
+Example infix function definition requiring individual API Annotations
+
+    (&&&  ) [] [] =  []
+    xs    &&&   [] =  xs
+    (  &&&  ) [] ys =  ys
+
+
+-}
 
 isEmptyMatchGroup :: MatchGroup id body -> Bool
 isEmptyMatchGroup (MG { mg_alts = ms }) = null ms
@@ -1018,7 +1049,7 @@ matchGroupArity (MG { mg_alts = alts })
   | otherwise        = panic "matchGroupArity"
 
 hsLMatchPats :: LMatch id body -> [LPat id]
-hsLMatchPats (L _ (Match pats _ _)) = pats
+hsLMatchPats (L _ (Match _ pats _ _)) = pats
 
 -- | GRHSs are used both for pattern bindings and for Matches
 --
@@ -1062,7 +1093,7 @@ pprPatBind pat (grhss)
 
 pprMatch :: (OutputableBndr idL, OutputableBndr idR, Outputable body)
          => HsMatchContext idL -> Match idR body -> SDoc
-pprMatch ctxt (Match pats maybe_ty grhss)
+pprMatch ctxt (Match _ pats maybe_ty grhss)
   = sep [ sep (herald : map (nest 2 . pprParendLPat) other_pats)
         , nest 2 ppr_maybe_ty
         , nest 2 (pprGRHSs ctxt grhss) ]

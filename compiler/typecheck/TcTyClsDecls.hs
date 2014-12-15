@@ -1135,8 +1135,8 @@ dataDeclChecks tc_name new_or_data stupid_theta cons
 
 -----------------------------------
 consUseGadtSyntax :: [LConDecl a] -> Bool
-consUseGadtSyntax (L _ (ConDecl { con_res = ResTyGADT _ }) : _) = True
-consUseGadtSyntax _                                             = False
+consUseGadtSyntax (L _ (ConDecl { con_res = ResTyGADT _ _ }) : _) = True
+consUseGadtSyntax _                                               = False
                  -- All constructors have same shape
 
 -----------------------------------
@@ -1176,16 +1176,18 @@ tcConDecl new_or_data rep_tycon tmpl_tvs res_tmpl        -- Data types
              --    ResTyGADT: *all* the quantified type variables
              -- c.f. the comment on con_qvars in HsDecls
        ; tkvs <- case res_ty of
-                   ResTyH98         -> quantifyTyVars (mkVarSet tmpl_tvs) (tyVarsOfTypes (ctxt++arg_tys))
-                   ResTyGADT res_ty -> quantifyTyVars emptyVarSet (tyVarsOfTypes (res_ty:ctxt++arg_tys))
+                   ResTyH98           -> quantifyTyVars (mkVarSet tmpl_tvs)
+                                                 (tyVarsOfTypes (ctxt++arg_tys))
+                   ResTyGADT _ res_ty -> quantifyTyVars emptyVarSet
+                                          (tyVarsOfTypes (res_ty:ctxt++arg_tys))
 
              -- Zonk to Types
        ; (ze, qtkvs) <- zonkTyBndrsX emptyZonkEnv tkvs
        ; arg_tys <- zonkTcTypeToTypes ze arg_tys
        ; ctxt    <- zonkTcTypeToTypes ze ctxt
        ; res_ty  <- case res_ty of
-                      ResTyH98     -> return ResTyH98
-                      ResTyGADT ty -> ResTyGADT <$> zonkTcTypeToType ze ty
+                      ResTyH98        -> return ResTyH98
+                      ResTyGADT ls ty -> ResTyGADT ls <$> zonkTcTypeToType ze ty
 
        ; let (univ_tvs, ex_tvs, eq_preds, res_ty') = rejigConRes tmpl_tvs res_tmpl qtkvs res_ty
 
@@ -1213,7 +1215,7 @@ tcConIsInfix _   details ResTyH98
   = case details of
            InfixCon {}  -> return True
            _            -> return False
-tcConIsInfix con details (ResTyGADT _)
+tcConIsInfix con details (ResTyGADT _ _)
   = case details of
            InfixCon {}  -> return True
            RecCon {}    -> return False
@@ -1254,8 +1256,8 @@ tcConArg new_or_data bty
 
 tcConRes :: ResType (LHsType Name) -> TcM (ResType Type)
 tcConRes ResTyH98           = return ResTyH98
-tcConRes (ResTyGADT res_ty) = do { res_ty' <- tcHsLiftedType res_ty
-                                 ; return (ResTyGADT res_ty') }
+tcConRes (ResTyGADT ls res_ty) = do { res_ty' <- tcHsLiftedType res_ty
+                                    ; return (ResTyGADT ls res_ty') }
 
 {-
 Note [Infix GADT constructors]
@@ -1323,7 +1325,7 @@ rejigConRes tmpl_tvs res_ty dc_tvs ResTyH98
         --      data T a b c = forall d e. MkT ...
         -- The {a,b,c} are tc_tvs, and {d,e} are dc_tvs
 
-rejigConRes tmpl_tvs res_tmpl dc_tvs (ResTyGADT res_ty)
+rejigConRes tmpl_tvs res_tmpl dc_tvs (ResTyGADT _ res_ty)
         -- E.g.  data T [a] b c where
         --         MkT :: forall x y z. T [(x,y)] z z
         -- Then we generate

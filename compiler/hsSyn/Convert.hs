@@ -612,7 +612,7 @@ cvtClause (Clause ps body wheres)
   = do  { ps' <- cvtPats ps
         ; g'  <- cvtGuard body
         ; ds' <- cvtLocalDecs (ptext (sLit "a where clause")) wheres
-        ; returnL $ Hs.Match ps' Nothing (GRHSs g' ds') }
+        ; returnL $ Hs.Match Nothing ps' Nothing (GRHSs g' ds') }
 
 
 -------------------------------------------------------------------
@@ -825,7 +825,7 @@ cvtMatch (TH.Match p body decs)
   = do  { p' <- cvtPat p
         ; g' <- cvtGuard body
         ; decs' <- cvtLocalDecs (ptext (sLit "a where clause")) decs
-        ; returnL $ Hs.Match [p'] Nothing (GRHSs g' decs') }
+        ; returnL $ Hs.Match Nothing [p'] Nothing (GRHSs g' decs') }
 
 cvtGuard :: TH.Body -> CvtM [LGRHS RdrName (LHsExpr RdrName)]
 cvtGuard (GuardedB pairs) = mapM cvtpair pairs
@@ -899,7 +899,7 @@ cvtPat pat = wrapL (cvtp pat)
 cvtp :: TH.Pat -> CvtM (Hs.Pat RdrName)
 cvtp (TH.LitP l)
   | overloadedLit l    = do { l' <- cvtOverLit l
-                            ; return (mkNPat l' Nothing) }
+                            ; return (mkNPat (noLoc l') Nothing) }
                                   -- Not right for negative patterns;
                                   -- need to think about that!
   | otherwise          = do { l' <- cvtLit l; return $ Hs.LitPat l' }
@@ -962,7 +962,7 @@ cvt_tv (TH.PlainTV nm)
 cvt_tv (TH.KindedTV nm ki)
   = do { nm' <- tName nm
        ; ki' <- cvtKind ki
-       ; returnL $ KindedTyVar nm' ki' }
+       ; returnL $ KindedTyVar (noLoc nm') ki' }
 
 cvtRole :: TH.Role -> Maybe Coercion.Role
 cvtRole TH.NominalR          = Just Coercion.Nominal

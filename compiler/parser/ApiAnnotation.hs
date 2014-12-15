@@ -2,7 +2,7 @@
 
 module ApiAnnotation (
   getAnnotation,
-  getAnnotationComments,
+  getAnnotationComments,getAndRemoveAnnotationComments,
   ApiAnns,
   ApiAnnKey,
   AnnKeywordId(..),
@@ -133,11 +133,23 @@ getAnnotation (anns,_) span ann
        Just ss -> ss
 
 -- |Retrieve the comments allocated to the current 'SrcSpan'
+--
+--  Note: A given 'SrcSpan' may appear in multiple AST elements,
+--  beware of duplicates
 getAnnotationComments :: ApiAnns -> SrcSpan -> [Located AnnotationComment]
 getAnnotationComments (_,anns) span =
   case Map.lookup span anns of
     Just cs -> cs
     Nothing -> []
+
+-- |Retrieve the comments allocated to the current 'SrcSpan', and
+-- remove them from the annotations
+getAndRemoveAnnotationComments :: ApiAnns -> SrcSpan
+                               -> ([Located AnnotationComment],ApiAnns)
+getAndRemoveAnnotationComments (anns,canns) span =
+  case Map.lookup span canns of
+    Just cs -> (cs,(anns,Map.delete span canns))
+    Nothing -> ([],(anns,canns))
 
 -- --------------------------------------------------------------------
 
@@ -152,9 +164,13 @@ data AnnKeywordId
     | AnnBy
     | AnnCase -- ^ case or lambda case
     | AnnClass
-    | AnnClose -- ^  '}' or ']' or ')' or '#)' etc
+    | AnnClose -- ^  '\#)' or '\#-}'  etc
+    | AnnCloseC -- ^ '}'
+    | AnnCloseP -- ^ ')'
+    | AnnCloseS -- ^ ']'
     | AnnColon
-    | AnnComma
+    | AnnComma -- ^ as a list separator
+    | AnnCommaTuple -- ^ in a RdrName for a tuple
     | AnnDarrow -- ^ '=>'
     | AnnData
     | AnnDcolon -- ^ '::'
@@ -187,7 +203,10 @@ data AnnKeywordId
     | AnnModule
     | AnnNewtype
     | AnnOf
-    | AnnOpen   -- ^ '{' or '[' or '(' or '(#' etc
+    | AnnOpen   -- ^ '(\#' or '{-\# LANGUAGE' etc
+    | AnnOpenC   -- ^ '{'
+    | AnnOpenP   -- ^ '('
+    | AnnOpenS   -- ^ '['
     | AnnPackageName
     | AnnPattern
     | AnnProc
@@ -197,6 +216,7 @@ data AnnKeywordId
     | AnnRole
     | AnnSafe
     | AnnSemi -- ^ ';'
+    | AnnStatic -- ^ 'static'
     | AnnThen
     | AnnTilde -- ^ '~'
     | AnnTildehsh -- ^ '~#'

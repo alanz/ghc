@@ -504,7 +504,7 @@ data TyClDecl name
                                                         -- ^ Functional deps
                 tcdSigs    :: [LSig name],              -- ^ Methods' signatures
                 tcdMeths   :: LHsBinds name,            -- ^ Default methods
-                tcdATs     :: [LFamilyDecl name],       -- ^ Associated types; ie
+                tcdATs     :: [LFamilyDecl name],       -- ^ Associated types;
                 tcdATDefs  :: [LTyFamDefltEqn name],    -- ^ Associated type defaults
                 tcdDocs    :: [LDocDecl],               -- ^ Haddock docs
                 tcdFVs     :: PostRn name NameSet
@@ -904,15 +904,16 @@ hsConDeclArgTys (InfixCon ty1 ty2) = [ty1,ty2]
 hsConDeclArgTys (RecCon flds)      = map (cd_fld_type . unLoc) (unLoc flds)
 
 data ResType ty
-   = ResTyH98           -- Constructor was declared using Haskell 98 syntax
-   | ResTyGADT ty       -- Constructor was declared using GADT-style syntax,
-                        --      and here is its result type
+   = ResTyH98             -- Constructor was declared using Haskell 98 syntax
+   | ResTyGADT SrcSpan ty -- Constructor was declared using GADT-style syntax,
+                          --      and here is its result type, and the SrcSpan
+                          --      of the original sigtype, for API Annotations
    deriving (Data, Typeable)
 
 instance Outputable ty => Outputable (ResType ty) where
          -- Debugging only
-   ppr ResTyH98       = ptext (sLit "ResTyH98")
-   ppr (ResTyGADT ty) = ptext (sLit "ResTyGADT") <+> ppr ty
+   ppr ResTyH98         = ptext (sLit "ResTyH98")
+   ppr (ResTyGADT _ ty) = ptext (sLit "ResTyGADT") <+> ppr ty
 
 pp_data_defn :: OutputableBndr name
                   => (HsContext name -> SDoc)   -- Printing the header
@@ -944,7 +945,7 @@ instance Outputable NewOrData where
   ppr DataType = ptext (sLit "data")
 
 pp_condecls :: OutputableBndr name => [LConDecl name] -> SDoc
-pp_condecls cs@(L _ ConDecl{ con_res = ResTyGADT _ } : _) -- In GADT syntax
+pp_condecls cs@(L _ ConDecl{ con_res = ResTyGADT _ _ } : _) -- In GADT syntax
   = hang (ptext (sLit "where")) 2 (vcat (map ppr cs))
 pp_condecls cs                    -- In H98 syntax
   = equals <+> sep (punctuate (ptext (sLit " |")) (map ppr cs))
@@ -966,14 +967,15 @@ pprConDecl (ConDecl { con_names = cons, con_explicit = expl, con_qvars = tvs
 
 pprConDecl (ConDecl { con_names = cons, con_explicit = expl, con_qvars = tvs
                     , con_cxt = cxt, con_details = PrefixCon arg_tys
-                    , con_res = ResTyGADT res_ty })
+                    , con_res = ResTyGADT _ res_ty })
   = ppr_con_names cons <+> dcolon <+>
     sep [pprHsForAll expl tvs cxt, ppr (foldr mk_fun_ty res_ty arg_tys)]
   where
     mk_fun_ty a b = noLoc (HsFunTy a b)
 
 pprConDecl (ConDecl { con_names = cons, con_explicit = expl, con_qvars = tvs
-                    , con_cxt = cxt, con_details = RecCon fields, con_res = ResTyGADT res_ty })
+                    , con_cxt = cxt, con_details = RecCon fields
+                    , con_res = ResTyGADT _ res_ty })
   = sep [ppr_con_names cons <+> dcolon <+> pprHsForAll expl tvs cxt,
          pprConDeclFields (unLoc fields) <+> arrow <+> ppr res_ty]
 

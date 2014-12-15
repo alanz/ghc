@@ -73,7 +73,7 @@ module Lexer (
    sccProfilingOn, hpcEnabled,
    addWarning,
    lexTokenStream,
-   addAnnotation
+   addAnnotation,AddAnn,mkParensApiAnn
   ) where
 
 -- base
@@ -2608,6 +2608,10 @@ clean_pragma prag = canon_ws (map toLower (unprefix prag))
 %************************************************************************
 -}
 
+-- |Encapsulated call to addAnnotation, requiring only the SrcSpan of
+-- the AST element the annotation belongs to
+type AddAnn = (SrcSpan -> P ())
+
 addAnnotation :: SrcSpan -> AnnKeywordId -> SrcSpan -> P ()
 addAnnotation l a v = do
   addAnnotationOnly l a v
@@ -2617,6 +2621,22 @@ addAnnotationOnly :: SrcSpan -> AnnKeywordId -> SrcSpan -> P ()
 addAnnotationOnly l a v = P $ \s -> POk s {
   annotations = ((l,a), [v]) : annotations s
   } ()
+
+-- |Given a 'SrcSpan' that surrounds a 'HsPar' or 'HsParTy', generate
+-- 'AddAnn' values for the opening and closing bordering on the start
+-- and end of the span
+mkParensApiAnn :: SrcSpan -> [AddAnn]
+mkParensApiAnn (UnhelpfulSpan _)  = []
+mkParensApiAnn s@(RealSrcSpan ss) = [mj AnnOpenP lo,mj AnnCloseP lc]
+  where
+    mj a l = (\s -> addAnnotation s a l)
+    f = srcSpanFile ss
+    sl = srcSpanStartLine ss
+    sc = srcSpanStartCol ss
+    el = srcSpanEndLine ss
+    ec = srcSpanEndCol ss
+    lo = mkSrcSpan (srcSpanStart s)         (mkSrcLoc f sl (sc+1))
+    lc = mkSrcSpan (mkSrcLoc f el (ec - 1)) (srcSpanEnd s)
 
 queueComment :: Located Token -> P()
 queueComment c = P $ \s -> POk s {

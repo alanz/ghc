@@ -970,7 +970,7 @@ rnMatch' :: Outputable (body RdrName) => HsMatchContext Name
          -> (Located (body RdrName) -> RnM (Located (body Name), FreeVars))
          -> Match RdrName (Located (body RdrName))
          -> RnM (Match Name (Located (body Name)), FreeVars)
-rnMatch' ctxt rnBody match@(Match pats maybe_rhs_sig grhss)
+rnMatch' ctxt rnBody match@(Match _mf pats maybe_rhs_sig grhss)
   = do  {       -- Result type signatures are no longer supported
           case maybe_rhs_sig of
                 Nothing -> return ()
@@ -981,7 +981,7 @@ rnMatch' ctxt rnBody match@(Match pats maybe_rhs_sig grhss)
         ; rnPats ctxt pats      $ \ pats' -> do
         { (grhss', grhss_fvs) <- rnGRHSs ctxt rnBody grhss
 
-        ; return (Match pats' Nothing grhss', grhss_fvs) }}
+        ; return (Match Nothing pats' Nothing grhss', grhss_fvs) }}
 
 emptyCaseErr :: HsMatchContext Name -> SDoc
 emptyCaseErr ctxt = hang (ptext (sLit "Empty list of alternatives in") <+> pp_ctxt)

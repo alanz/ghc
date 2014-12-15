@@ -202,7 +202,7 @@ data HsTyVarBndr name
          name
 
   | KindedTyVar
-         name
+         (Located name)
          (LHsKind name)  -- The user-supplied kind signature
         -- ^
         --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
@@ -530,8 +530,8 @@ hsExplicitTvs _                                     = []
 
 ---------------------
 hsTyVarName :: HsTyVarBndr name -> name
-hsTyVarName (UserTyVar n)     = n
-hsTyVarName (KindedTyVar n _) = n
+hsTyVarName (UserTyVar n)           = n
+hsTyVarName (KindedTyVar (L _ n) _) = n
 
 hsLTyVarName :: LHsTyVarBndr name -> name
 hsLTyVarName = hsTyVarName . unLoc
