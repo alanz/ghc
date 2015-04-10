@@ -462,6 +462,7 @@ rnClsInstDecl (ClsInstDecl { cid_poly_ty = inst_ty, cid_binds = mbinds
                            , cid_datafam_insts = adts })
         -- Used for both source and interface file decls
   = do { (inst_ty', inst_fvs) <- rnLHsInstType (text "In an instance declaration") inst_ty
+       ; pprTrace "rnClsInstDecl:(inst_ty')=" (ppr (inst_ty')) (return ()) -- ++AZ++
        ; case splitLHsInstDeclTy_maybe inst_ty' of {
            Nothing -> return (ClsInstDecl { cid_poly_ty = inst_ty', cid_binds = emptyLHsBinds
                                           , cid_sigs = [], cid_tyfam_insts = []
@@ -470,11 +471,13 @@ rnClsInstDecl (ClsInstDecl { cid_poly_ty = inst_ty, cid_binds = mbinds
                              , inst_fvs) ;
            Just (inst_tyvars, _, L _ cls,_) ->
 
+    pprTrace "rnClsInstDecl:(inst_tyvars,cls)=" (ppr (inst_tyvars,cls)) $ -- ++AZ++
     do { let (spec_inst_prags, other_sigs) = partition isSpecInstLSig uprags
              ktv_names = hsLKiTyVarNames inst_tyvars
 
        -- Rename the associated types, and type signatures
        -- Both need to have the instance type variables in scope
+       ; pprTrace "rnSrcInstDecl:=" ( ppr inst_ty' $$ ppr inst_tyvars $$ ppr ktv_names) (return ()) -- ++AZ++
        ; traceRn (text "rnSrcInstDecl"  <+> ppr inst_ty' $$ ppr inst_tyvars $$ ppr ktv_names)
        ; ((ats', adts', other_sigs'), more_fvs)
              <- extendTyVarEnvFVRn ktv_names $
