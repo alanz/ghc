@@ -14,7 +14,9 @@ Datatype for: @BindGroup@, @Bind@, @Sig@, @Bind@.
                                       -- in module PlaceHolder
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveTraversable #-}
 
 module HsBinds where
 
@@ -37,7 +39,7 @@ import SrcLoc
 import Var
 import Bag
 import FastString
-import BooleanFormula (BooleanFormula)
+import BooleanFormula (BooleanFormula, mkVar, mkAnd, mkOr)
 
 import Data.Data hiding ( Fixity )
 import Data.List
@@ -414,6 +416,14 @@ pprDeclList :: [SDoc] -> SDoc   -- Braces with a space
 -- Also we do the 'pprDeeperList' thing.
 pprDeclList ds = pprDeeperList vcat ds
 
+instance (Outputable a) => Outputable (HsBooleanFormula a) where
+  ppr (BooleanVar x)     = quotes (ppr x)
+  ppr (BooleanAnd [])    = empty
+  ppr (BooleanAnd [x,y]) = ppr x <+> text "and" <+> ppr y
+  ppr (BooleanAnd xs)    = fsep (punctuate comma (map ppr $ init xs)) <> text ", and" <+> ppr (last xs)
+  ppr (BooleanOr xs)     = text "either" <+> sep (intersperse (text "or") (map ppr xs))
+  ppr (BooleanPar x)     = parens (ppr x)
+
 ------------
 emptyLocalBinds :: HsLocalBindsLR a b
 emptyLocalBinds = EmptyLocalBinds
@@ -728,12 +738,28 @@ data Sig name
         --      'ApiAnnotation.AnnClose'
 
         -- For details on above see note [Api annotations] in ApiAnnotation
-  | MinimalSig SourceText (BooleanFormula (Located name))
+  | MinimalSig SourceText (LHsBooleanFormula (Located name))
                -- Note [Pragma source text] in BasicTypes
 
   deriving (Typeable)
 deriving instance (DataId name) => Data (Sig name)
 
+-- Fully located, non-minimised form of BooleanFormula.
+-- This exists to ensure that API annotations can be used to fully round trip
+-- the source code.
+type LHsBooleanFormula a = Located (HsBooleanFormula a)
+data HsBooleanFormula a = BooleanVar a
+                        | BooleanAnd [LHsBooleanFormula a]
+                        | BooleanOr  [LHsBooleanFormula a]
+                        | BooleanPar (LHsBooleanFormula a) -- Parentheses
+  deriving (Eq, Data, Typeable, Functor, Foldable, Traversable)
+
+-- |Convert a HsBooleanFormula to a BooleanFormula
+toBooleanFormula :: (Eq a) => LHsBooleanFormula a -> BooleanFormula a
+toBooleanFormula (L _ (BooleanVar x))  = mkVar x
+toBooleanFormula (L _ (BooleanAnd xs)) = mkAnd (map toBooleanFormula xs)
+toBooleanFormula (L _ (BooleanOr xs))  = mkOr (map toBooleanFormula xs)
+toBooleanFormula (L _ (BooleanPar x))  = toBooleanFormula x
 
 type LFixitySig name = Located (FixitySig name)
 data FixitySig name = FixitySig [Located name] Fixity
@@ -838,7 +864,7 @@ ppr_sig (SpecSig var ty inl)
 ppr_sig (InlineSig var inl)       = pragBrackets (ppr inl <+> pprPrefixOcc (unLoc var))
 ppr_sig (SpecInstSig _ ty)
   = pragBrackets (ptext (sLit "SPECIALIZE instance") <+> ppr ty)
-ppr_sig (MinimalSig _ bf)         = pragBrackets (pprMinimalSig bf)
+ppr_sig (MinimalSig _ bf)         = pragBrackets (pprMinimalSig (unLoc bf))
 ppr_sig (PatSynSig name (flag, qtvs) (L _ prov) (L _ req) ty)
   = pprPatSynSig (unLoc name) False -- TODO: is_bindir
                  (pprHsForAll flag qtvs (noLoc []))
@@ -883,7 +909,7 @@ pprTcSpecPrags (SpecPrags ps)  = vcat (map (ppr . unLoc) ps)
 instance Outputable TcSpecPrag where
   ppr (SpecPrag var _ inl) = pprSpec var (ptext (sLit "<type>")) inl
 
-pprMinimalSig :: OutputableBndr name => BooleanFormula (Located name) -> SDoc
+pprMinimalSig :: OutputableBndr name => HsBooleanFormula (Located name) -> SDoc
 pprMinimalSig bf = ptext (sLit "MINIMAL") <+> ppr (fmap unLoc bf)
 
 {-

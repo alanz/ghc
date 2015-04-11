@@ -50,7 +50,6 @@ import DynFlags
 
 -- compiler/utils
 import OrdList
-import BooleanFormula   ( BooleanFormula, mkAnd, mkOr, mkTrue, mkVar )
 import FastString
 import Maybes           ( orElse )
 import Outputable
@@ -2083,8 +2082,8 @@ sigdecl :: { Located (OrdList (LHsDecl RdrName)) }
         -- AZ TODO: Do we need locations in the name_formula_opt?
         -- A minimal complete definition
         | '{-# MINIMAL' name_boolformula_opt '#-}'
-            {% ams (sLL $1 $> $ unitOL (sLL $1 $> $ SigD (MinimalSig (getMINIMAL_PRAGs $1) (snd $2))))
-                   (mo $1:mc $3:fst $2) }
+            {% ams (sLL $1 $> $ unitOL (sLL $1 $> $ SigD (MinimalSig (getMINIMAL_PRAGs $1) $2)))
+                   [mo $1,mc $3] }
 
 activation :: { ([AddAnn],Maybe Activation) }
         : {- empty -}                           { ([],Nothing) }
@@ -2737,24 +2736,24 @@ ipvar   :: { Located HsIPName }
 -----------------------------------------------------------------------------
 -- Warnings and deprecations
 
-name_boolformula_opt :: { ([AddAnn],BooleanFormula (Located RdrName)) }
+name_boolformula_opt :: { LHsBooleanFormula (Located RdrName) }
         : name_boolformula          { $1 }
-        | {- empty -}               { ([],mkTrue) }
+        | {- empty -}               { noLoc (BooleanAnd []) }
 
-name_boolformula :: { ([AddAnn],BooleanFormula (Located RdrName)) }
+name_boolformula :: { LHsBooleanFormula (Located RdrName) }
         : name_boolformula_and                      { $1 }
         | name_boolformula_and '|' name_boolformula
-                                             { ((mj AnnVbar $2:fst $1)++(fst $3)
-                                                ,mkOr [snd $1,snd $3]) }
+                                    {% ams (sLL $1 $> $ BooleanOr [$1,$3])
+                                           [mj AnnVbar $2] }
 
-name_boolformula_and :: { ([AddAnn],BooleanFormula (Located RdrName)) }
-        : name_boolformula_atom                             { $1 }
+name_boolformula_and :: { LHsBooleanFormula (Located RdrName) }
+        : name_boolformula_atom          { $1 }
         | name_boolformula_atom ',' name_boolformula_and
-                  { ((mj AnnComma $2:fst $1)++(fst $3), mkAnd [snd $1,snd $3]) }
+                  {%ams (sLL $1 $> $ BooleanAnd [$1,$3]) [mj AnnComma $2] }
 
-name_boolformula_atom :: { ([AddAnn],BooleanFormula (Located RdrName)) }
-        : '(' name_boolformula ')'  { ([mop $1,mcp $3],snd $2) }
-        | name_var                  { ([],mkVar $1) }
+name_boolformula_atom :: { LHsBooleanFormula (Located RdrName) }
+        : '(' name_boolformula ')'  {% ams (sLL $1 $> (BooleanPar $2)) [mop $1,mcp $3] }
+        | name_var                  { sL1 $1 (BooleanVar $1) }
 
 namelist :: { Located [Located RdrName] }
 namelist : name_var              { sL1 $1 [$1] }
