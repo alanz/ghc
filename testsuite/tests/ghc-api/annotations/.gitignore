@@ -6,6 +6,7 @@ listcomps
 t10255
 t10269
 t10268
+t10278
 *.hi
 *.o
 *.run.*
