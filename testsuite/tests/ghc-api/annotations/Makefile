@@ -37,7 +37,6 @@ t10255:
 	'$(TEST_HC)' $(TEST_HC_OPTS) --make -v0 -package ghc t10255
 	./t10255 "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`"
 
-<<<<<<< HEAD
 T10269:
 	rm -f T10269.o T10269.hi
 	'$(TEST_HC)' $(TEST_HC_OPTS) --make -v0 -package ghc t10269
@@ -68,3 +67,10 @@ t10309:
 	./t10309 "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`"
 
 .PHONY: clean annotations parseTree comments exampleTest listcomps t10255 t10307 t10309
+
+T10280:
+	rm -f t10280.o t10280.hi
+	'$(TEST_HC)' $(TEST_HC_OPTS) --make -v0 -package ghc t10280
+	./t10280 "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`"
+
+.PHONY: clean annotations parseTree comments exampleTest listcomps
