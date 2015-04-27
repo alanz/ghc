@@ -10,3 +10,4 @@ test('T10278',      normal, run_command, ['$MAKE -s --no-print-directory T10278'
 test('T10307',      normal, run_command, ['$MAKE -s --no-print-directory t10307'])
 test('T10309',      normal, run_command, ['$MAKE -s --no-print-directory t10309'])
 test('T10280',      normal, run_command, ['$MAKE -s --no-print-directory T10280'])
+test('boolFormula', normal, run_command, ['$MAKE -s --no-print-directory boolFormula'])
