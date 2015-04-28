@@ -10,6 +10,7 @@ clean:
 	rm -f t10309
 	rm -f t10354
 	rm -f boolFormula
+	rm -f t10255 t10312
 
 annotations: 
 	rm -f annotations.o annotations.hi
@@ -98,3 +99,10 @@ boolFormula:
 	./boolFormula "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`"
 
 .PHONY: clean annotations parseTree comments exampleTest listcomps boolFormula
+
+t10312:
+	rm -f t10312.o t10312.hi
+	'$(TEST_HC)' $(TEST_HC_OPTS) --make -v0 -package ghc t10312
+	./t10312 "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`"
+
+.PHONY: clean annotations parseTree comments exampleTest listcomps t10255 t10312
