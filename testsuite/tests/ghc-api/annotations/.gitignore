@@ -3,7 +3,6 @@ parseTree
 comments
 exampleTest
 listcomps
-t10255
 t10269
 t10268
 t10278
@@ -11,6 +10,7 @@ t10307
 t10309
 t10354
 t10280
+boolFormula
 *.hi
 *.o
 *.run.*
