@@ -547,7 +547,7 @@ mkQualifiedHsForAllTy     ctxt ty = mkHsForAllTy Qualified []  ctxt ty
 
 mkHsForAllTy :: HsExplicitFlag -> [LHsTyVarBndr RdrName] -> LHsContext RdrName -> LHsType RdrName -> HsType RdrName
 -- Smart constructor for HsForAllTy
-mkHsForAllTy exp tvs (L _ []) ty = mk_forall_ty exp tvs ty
+mkHsForAllTy exp tvs (L l []) ty = mk_forall_ty l exp tvs ty
 mkHsForAllTy exp tvs ctxt     ty = HsForAllTy exp extra (mkHsQTvs tvs) cleanCtxt ty
   where -- Separate the extra-constraints wildcard when present
         (cleanCtxt, extra)
@@ -558,13 +558,16 @@ mkHsForAllTy exp tvs ctxt     ty = HsForAllTy exp extra (mkHsQTvs tvs) cleanCtxt
 
 
 -- mk_forall_ty makes a pure for-all type (no context)
-mk_forall_ty :: HsExplicitFlag -> [LHsTyVarBndr RdrName] -> LHsType RdrName -> HsType RdrName
-mk_forall_ty exp1 tvs1 (L _ (HsForAllTy exp2 extra qtvs2 ctxt ty))
+mk_forall_ty :: SrcSpan -- location of empty context
+             -> HsExplicitFlag -> [LHsTyVarBndr RdrName]
+             -> LHsType RdrName
+             -> HsType RdrName
+mk_forall_ty _ exp1 tvs1 (L _ (HsForAllTy exp2 extra qtvs2 ctxt ty))
   = addExtra $ mkHsForAllTy (exp1 `plus` exp2) (tvs1 ++ hsq_tvs qtvs2) ctxt ty
   where addExtra (HsForAllTy exp _ qtvs ctxt ty) = HsForAllTy exp extra qtvs ctxt ty
         addExtra ty = ty -- Impossible, as mkHsForAllTy always returns a HsForAllTy
-mk_forall_ty exp  tvs  (L _ (HsParTy ty)) = mk_forall_ty exp tvs ty
-mk_forall_ty exp  tvs  ty                 = HsForAllTy exp Nothing (mkHsQTvs tvs) (noLoc []) ty
+mk_forall_ty lc exp  tvs (L _ (HsParTy ty)) = mk_forall_ty lc exp tvs ty
+mk_forall_ty l  exp  tvs  ty = HsForAllTy exp Nothing (mkHsQTvs tvs) (L l []) ty
         -- Even if tvs is empty, we still make a HsForAll!
         -- In the Implicit case, this signals the place to do implicit quantification
         -- In the Explicit case, it prevents implicit quantification

@@ -1,0 +1,8 @@
+
+Test10354.hs:4:14: warning:
+    Found hole ‘_’ with inferred constraints: ()
+    In the type signature for ‘f’: (Eq a, _) => a -> a -> Bool
+
+Test10354.hs:10:8: warning:
+    Found hole ‘_’ with inferred constraints: ()
+    In the type signature for ‘baz’: _ => a -> String
