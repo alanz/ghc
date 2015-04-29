@@ -630,9 +630,10 @@ mkGadtDecl _ ty@(L _ (HsForAllTy _ (Just l) _ _ _))
   = parseErrorSDoc l $
     text "A constructor cannot have a partial type:" $$
     ppr ty
-mkGadtDecl names (L ls (HsForAllTy imp Nothing qvars cxt tau))
+mkGadtDecl names (L ls (HsForAllTy imp Nothing qvars cxt tau'))
   = return $ mk_gadt_con names
   where
+    tau = stripHsParTy tau'
     (details, res_ty)           -- See Note [Sorting out the result type]
       = case tau of
           L _ (HsFunTy (L l (HsRecTy flds)) res_ty)

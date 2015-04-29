@@ -133,8 +133,9 @@ rnHsKind = rnHsTyKi False
 
 rnHsTyKi :: Bool -> HsDocContext -> HsType RdrName -> RnM (HsType Name, FreeVars)
 
-rnHsTyKi isType doc (HsForAllTy Implicit extra _ lctxt@(L _ ctxt) ty)
+rnHsTyKi isType doc (HsForAllTy Implicit extra _ lctxt@(L _ ctxt) ty')
   = ASSERT( isType ) do
+    let ty = stripHsParTy ty'
         -- Implicit quantifiction in source code (no kinds on tyvars)
         -- Given the signature  C => T  we universally quantify
         -- over FV(T) \ {in-scope-tyvars}
@@ -156,8 +157,9 @@ rnHsTyKi isType doc (HsForAllTy Implicit extra _ lctxt@(L _ ctxt) ty)
 
     rnForAll doc Implicit extra forall_kvs (mkHsQTvs tyvar_bndrs) lctxt ty
 
-rnHsTyKi isType doc fulltype@(HsForAllTy Qualified extra _ lctxt@(L _ ctxt) ty)
+rnHsTyKi isType doc fulltype@(HsForAllTy Qualified extra _ lctxt@(L _ ctxt) ty')
   = ASSERT( isType ) do
+    let ty = stripHsParTy ty'
     rdr_env <- getLocalRdrEnv
     loc <- getSrcSpanM
     let
@@ -170,11 +172,12 @@ rnHsTyKi isType doc fulltype@(HsForAllTy Qualified extra _ lctxt@(L _ ctxt) ty)
     warnContextQuantification (in_type_doc $$ docOfHsDocContext doc) tyvar_bndrs
     rnForAll doc Implicit extra forall_kvs (mkHsQTvs tyvar_bndrs) lctxt ty
 
-rnHsTyKi isType doc ty@(HsForAllTy Explicit extra forall_tyvars lctxt@(L _ ctxt) tau)
+rnHsTyKi isType doc ty@(HsForAllTy Explicit extra forall_tyvars lctxt@(L _ ctxt) tau')
   = ASSERT( isType ) do {      -- Explicit quantification.
+         let tau = stripHsParTy tau'
          -- Check that the forall'd tyvars are actually
          -- mentioned in the type, and produce a warning if not
-         let (kvs, mentioned) = extractHsTysRdrTyVars (tau:ctxt)
+       ; let (kvs, mentioned) = extractHsTysRdrTyVars (tau:ctxt)
              in_type_doc = ptext (sLit "In the type") <+> quotes (ppr ty)
        ; warnUnusedForAlls (in_type_doc $$ docOfHsDocContext doc) forall_tyvars mentioned
 

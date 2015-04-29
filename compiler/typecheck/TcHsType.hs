@@ -191,7 +191,7 @@ tc_inst_head :: HsType Name -> TcM TcType
 tc_inst_head (HsForAllTy _ _ hs_tvs hs_ctxt hs_ty)
   = tcHsTyVarBndrs hs_tvs $ \ tvs ->
     do { ctxt <- tcHsContext hs_ctxt
-       ; ty   <- tc_lhs_type hs_ty ekConstraint    -- Body for forall has kind Constraint
+       ; ty   <- tc_lhs_type (stripHsParTy hs_ty) ekConstraint    -- Body for forall has kind Constraint
        ; return (mkSigmaTy tvs ctxt ty) }
 
 tc_inst_head hs_ty
@@ -399,13 +399,13 @@ tc_hs_type hs_ty@(HsForAllTy _ _ hs_tvs context ty) exp_kind@(EK exp_k _)
     -- Do not kind-generalise here!  See Note [Kind generalisation]
     do { ctxt' <- tcHsContext context
        ; ty' <- if null (unLoc context) then  -- Plain forall, no context
-                   tc_lhs_type ty exp_kind    -- Why exp_kind?  See Note [Body kind of forall]
+                   tc_lhs_type (stripHsParTy ty) exp_kind    -- Why exp_kind?  See Note [Body kind of forall]
                 else
                    -- If there is a context, then this forall is really a
                    -- _function_, so the kind of the result really is *
                    -- The body kind (result of the function can be * or #, hence ekOpen
                    do { checkExpectedKind hs_ty liftedTypeKind exp_kind
-                      ; tc_lhs_type ty ekOpen }
+                      ; tc_lhs_type (stripHsParTy ty) ekOpen }
        ; return (mkSigmaTy tvs' ctxt' ty') }
 
 --------- Lists, arrays, and tuples

@@ -34,6 +34,7 @@ module HsTypes (
 
         mkHsQTvs, hsQTvBndrs, isHsKindedTyVar, hsTvbAllKinded,
         mkExplicitHsForAllTy, mkImplicitHsForAllTy, mkQualifiedHsForAllTy,
+        stripHsParTy,
         hsExplicitTvs,
         hsTyVarName, mkHsWithBndrs, hsLKiTyVarNames,
         hsLTyVarName, hsLTyVarNames, hsLTyVarLocName, hsLTyVarLocNames,
@@ -563,7 +564,7 @@ mk_forall_ty exp1 tvs1 (L _ (HsForAllTy exp2 extra qtvs2 ctxt ty))
   = addExtra $ mkHsForAllTy (exp1 `plus` exp2) (tvs1 ++ hsq_tvs qtvs2) ctxt ty
   where addExtra (HsForAllTy exp _ qtvs ctxt ty) = HsForAllTy exp extra qtvs ctxt ty
         addExtra ty = ty -- Impossible, as mkHsForAllTy always returns a HsForAllTy
-mk_forall_ty exp  tvs  (L _ (HsParTy ty)) = mk_forall_ty exp tvs ty
+-- mk_forall_ty exp  tvs  (L _ (HsParTy ty)) = mk_forall_ty exp tvs ty
 mk_forall_ty exp  tvs  ty                 = HsForAllTy exp Nothing (mkHsQTvs tvs) (noLoc []) ty
         -- Even if tvs is empty, we still make a HsForAll!
         -- In the Implicit case, this signals the place to do implicit quantification
@@ -583,6 +584,11 @@ hsExplicitTvs :: LHsType Name -> [Name]
 -- The explicitly-given forall'd type variables of a HsType
 hsExplicitTvs (L _ (HsForAllTy Explicit _ tvs _ _)) = hsLKiTyVarNames tvs
 hsExplicitTvs _                                     = []
+
+--------------
+stripHsParTy :: LHsType name -> LHsType name
+stripHsParTy (L _ (HsParTy ty)) = stripHsParTy ty
+stripHsParTy ty                 = ty
 
 ---------------------
 hsTyVarName :: HsTyVarBndr name -> name
@@ -659,7 +665,7 @@ splitLHsForAllTy
 splitLHsForAllTy poly_ty
   = case unLoc poly_ty of
         HsParTy ty                -> splitLHsForAllTy ty
-        HsForAllTy _ _ tvs cxt ty -> (tvs, unLoc cxt, ty)
+        HsForAllTy _ _ tvs cxt ty -> (tvs, unLoc cxt, stripHsParTy ty)
         _                         -> (emptyHsQTvs, [], poly_ty)
         -- The type vars should have been computed by now, even if they were implicit
 
