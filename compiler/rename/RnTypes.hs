@@ -48,6 +48,10 @@ import Maybes
 import Data.List        ( nub, nubBy )
 import Control.Monad    ( unless, when )
 
+#if __GLASGOW_HASKELL__ < 709
+import Data.Monoid (mappend)
+#endif
+
 #include "HsVersions.h"
 
 {-
@@ -132,6 +136,21 @@ rnHsKind  :: HsDocContext -> HsKind RdrName -> RnM (HsKind Name, FreeVars)
 rnHsKind = rnHsTyKi False
 
 rnHsTyKi :: Bool -> HsDocContext -> HsType RdrName -> RnM (HsType Name, FreeVars)
+
+rnHsTyKi isType doc (HsForAllTy exp extra ktvs ctxt (L _ (HsParTy ty)))
+  = rnHsTyKi isType doc (HsForAllTy exp extra ktvs ctxt ty)
+
+rnHsTyKi isType doc (HsForAllTy Implicit Nothing _ (L _ [])
+                     (L _ (HsForAllTy exp extra ktvs ctxt ty)))
+  = rnHsTyKi isType doc (HsForAllTy exp' extra ktvs ctxt ty)
+    where exp' = case exp of
+            Qualified -> Implicit
+            _         -> exp
+
+rnHsTyKi isType doc (HsForAllTy Explicit Nothing ktvs1 (L _ [])
+                     (L _ (HsForAllTy _ extra ktvs2 ctxt ty)))
+  = rnHsTyKi isType doc
+             (HsForAllTy Explicit extra (ktvs1 `mappend` ktvs2) ctxt ty)
 
 rnHsTyKi isType doc (HsForAllTy Implicit extra _ lctxt@(L _ ctxt) ty)
   = ASSERT( isType ) do
@@ -344,6 +363,8 @@ rnForAll :: HsDocContext -> HsExplicitFlag
          -> LHsContext RdrName -> LHsType RdrName
          -> RnM (HsType Name, FreeVars)
 
+rnForAll doc exp extra kvs forall_tyvars ctxt (L _ (HsParTy ty))
+  = rnForAll doc exp extra kvs forall_tyvars ctxt ty
 rnForAll doc exp extra kvs forall_tyvars ctxt ty
   | null kvs, null (hsQTvBndrs forall_tyvars), null (unLoc ctxt), isNothing extra
   = rnHsType doc (unLoc ty)

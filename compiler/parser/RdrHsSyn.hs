@@ -93,6 +93,7 @@ import ApiAnnotation
 
 #if __GLASGOW_HASKELL__ < 709
 import Control.Applicative ((<$>))
+import Data.Monoid (mappend)
 #endif
 import Control.Monad
 
@@ -630,6 +631,10 @@ mkGadtDecl _ ty@(L _ (HsForAllTy _ (Just l) _ _ _))
   = parseErrorSDoc l $
     text "A constructor cannot have a partial type:" $$
     ppr ty
+mkGadtDecl names (L ls (HsForAllTy imp Nothing qvars cxt
+                        (L _ (HsForAllTy _ _ qvars1 cxt1 tau))))
+  = mkGadtDecl names (L ls (HsForAllTy imp Nothing (qvars `mappend` qvars1)
+                            (L (getLoc cxt) (unLoc cxt ++ unLoc cxt1)) tau))
 mkGadtDecl names (L ls (HsForAllTy imp Nothing qvars cxt tau))
   = return $ mk_gadt_con names
   where
