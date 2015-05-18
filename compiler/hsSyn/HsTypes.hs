@@ -14,6 +14,7 @@ HsTypes: Abstract syntax: user-defined types
 {-# LANGUAGE UndecidableInstances #-} -- Note [Pass sensitive types]
                                       -- in module PlaceHolder
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE CPP #-}
 
 module HsTypes (
         HsType(..), LHsType, HsKind, LHsKind,
@@ -34,6 +35,8 @@ module HsTypes (
 
         mkHsQTvs, hsQTvBndrs, isHsKindedTyVar, hsTvbAllKinded,
         mkExplicitHsForAllTy, mkImplicitHsForAllTy, mkQualifiedHsForAllTy,
+        mkHsForAllTy,
+        flattenTopLevelLHsForAllTy,flattenTopLevelHsForAllTy,
         hsExplicitTvs,
         hsTyVarName, mkHsWithBndrs, hsLKiTyVarNames,
         hsLTyVarName, hsLTyVarNames, hsLTyVarLocName, hsLTyVarLocNames,
@@ -67,6 +70,9 @@ import Maybes( isJust )
 
 import Data.Data hiding ( Fixity )
 import Data.Maybe ( fromMaybe )
+#if __GLASGOW_HASKELL__ < 709
+import Data.Monoid hiding ((<>))
+#endif
 
 {-
 ************************************************************************
@@ -152,6 +158,11 @@ emptyHsQTvs =  HsQTvs { hsq_kvs = [], hsq_tvs = [] }
 
 hsQTvBndrs :: LHsTyVarBndrs name -> [LHsTyVarBndr name]
 hsQTvBndrs = hsq_tvs
+
+instance Monoid (LHsTyVarBndrs name) where
+  mempty = emptyHsQTvs
+  mappend (HsQTvs kvs1 tvs1) (HsQTvs kvs2 tvs2)
+    = HsQTvs (kvs1 ++ kvs2) (tvs1 ++ tvs2)
 
 ------------------------------------------------
 --            HsWithBndrs
@@ -529,26 +540,35 @@ data ConDeclField name  -- Record fields have Haddoc docs on them
 deriving instance (DataId name) => Data (ConDeclField name)
 
 -----------------------
--- Combine adjacent for-alls.
--- The following awkward situation can happen otherwise:
---      f :: forall a. ((Num a) => Int)
--- might generate HsForAll (Just [a]) [] (HsForAll Nothing [Num a] t)
--- Then a isn't discovered as ambiguous, and we abstract the AbsBinds wrt []
--- but the export list abstracts f wrt [a].  Disaster.
---
--- A valid type must have one for-all at the top of the type, or of the fn arg types
+-- A valid type must have a for-all at the top of the type, or of the fn arg
+-- types
 
-mkImplicitHsForAllTy  ::                           LHsContext RdrName -> LHsType RdrName -> HsType RdrName
+mkImplicitHsForAllTy  ::                                                 LHsType RdrName -> HsType RdrName
 mkExplicitHsForAllTy  :: [LHsTyVarBndr RdrName] -> LHsContext RdrName -> LHsType RdrName -> HsType RdrName
 mkQualifiedHsForAllTy ::                           LHsContext RdrName -> LHsType RdrName -> HsType RdrName
-mkImplicitHsForAllTy      ctxt ty = mkHsForAllTy Implicit  []  ctxt ty
+
+-- | mkImplicitHsForAllTy is called when we encounter
+--    f :: type
+-- Wrap around a HsForallTy if one is not there already.
+mkImplicitHsForAllTy (L _ (HsForAllTy exp extra tvs cxt ty))
+  = HsForAllTy exp' extra tvs cxt ty
+  where
+    exp' = case exp of
+             Qualified -> Implicit
+                          -- Qualified is used only for a nested forall,
+                          -- this is now top level
+             _         -> exp
+mkImplicitHsForAllTy ty = mkHsForAllTy Implicit  [] (noLoc []) ty
+
 mkExplicitHsForAllTy  tvs ctxt ty = mkHsForAllTy Explicit  tvs ctxt ty
 mkQualifiedHsForAllTy     ctxt ty = mkHsForAllTy Qualified []  ctxt ty
 
 mkHsForAllTy :: HsExplicitFlag -> [LHsTyVarBndr RdrName] -> LHsContext RdrName -> LHsType RdrName -> HsType RdrName
 -- Smart constructor for HsForAllTy
-mkHsForAllTy exp tvs (L _ []) ty = mk_forall_ty exp tvs ty
-mkHsForAllTy exp tvs ctxt     ty = HsForAllTy exp extra (mkHsQTvs tvs) cleanCtxt ty
+mkHsForAllTy exp tvs (L l []) ty
+  = HsForAllTy exp Nothing (mkHsQTvs tvs) (L l []) ty
+mkHsForAllTy exp tvs ctxt     ty
+  = HsForAllTy exp extra   (mkHsQTvs tvs) cleanCtxt        ty
   where -- Separate the extra-constraints wildcard when present
         (cleanCtxt, extra)
           | (L l HsWildcardTy) <- ignoreParens (last (unLoc ctxt)) = (init `fmap` ctxt, Just l)
@@ -556,15 +576,31 @@ mkHsForAllTy exp tvs ctxt     ty = HsForAllTy exp extra (mkHsQTvs tvs) cleanCtxt
         ignoreParens (L _ (HsParTy ty)) = ty
         ignoreParens ty                 = ty
 
+flattenTopLevelLHsForAllTy :: LHsType RdrName -> LHsType RdrName
+flattenTopLevelLHsForAllTy (L l ty) = L l (flattenTopLevelHsForAllTy ty)
+
+flattenTopLevelHsForAllTy :: HsType RdrName -> HsType RdrName
+flattenTopLevelHsForAllTy (HsForAllTy exp extra tvs (L _ []) ty)
+  = mk_forall_ty exp extra tvs ty
+flattenTopLevelHsForAllTy ty = ty
 
 -- mk_forall_ty makes a pure for-all type (no context)
-mk_forall_ty :: HsExplicitFlag -> [LHsTyVarBndr RdrName] -> LHsType RdrName -> HsType RdrName
-mk_forall_ty exp1 tvs1 (L _ (HsForAllTy exp2 extra qtvs2 ctxt ty))
-  = addExtra $ mkHsForAllTy (exp1 `plus` exp2) (tvs1 ++ hsq_tvs qtvs2) ctxt ty
-  where addExtra (HsForAllTy exp _ qtvs ctxt ty) = HsForAllTy exp extra qtvs ctxt ty
+mk_forall_ty :: HsExplicitFlag -> Maybe SrcSpan -> LHsTyVarBndrs RdrName
+             -> LHsType RdrName -> HsType RdrName
+mk_forall_ty exp1 extra1 tvs1 (L _ (HsForAllTy exp2 extra qtvs2 ctxt ty)) =
+  addExtra $
+      mkHsForAllTy (exp1 `plus` exp2) (hsq_tvs tvs1 ++ hsq_tvs qtvs2) ctxt ty
+  where addExtra (HsForAllTy exp _ qtvs ctxt ty)
+          = HsForAllTy exp (mergeExtra extra1 extra) qtvs ctxt ty
         addExtra ty = ty -- Impossible, as mkHsForAllTy always returns a HsForAllTy
-mk_forall_ty exp  tvs  (L _ (HsParTy ty)) = mk_forall_ty exp tvs ty
-mk_forall_ty exp  tvs  ty                 = HsForAllTy exp Nothing (mkHsQTvs tvs) (noLoc []) ty
+        -- Bias the merging of extra's to the top level, so that a single
+        -- wildcard context will prevail
+        mergeExtra (Just s) _ = Just s
+        mergeExtra _        e = e
+mk_forall_ty exp  extra tvs  (L _ (HsParTy ty))
+  = mk_forall_ty exp extra tvs ty
+mk_forall_ty exp extra tvs  ty
+  = HsForAllTy exp extra tvs (noLoc []) ty
         -- Even if tvs is empty, we still make a HsForAll!
         -- In the Implicit case, this signals the place to do implicit quantification
         -- In the Explicit case, it prevents implicit quantification
@@ -579,6 +615,7 @@ _         `plus` _         = Implicit
   -- NB: Implicit `plus` Qualified = Implicit
   --     so that  f :: Eq a => a -> a  ends up Implicit
 
+---------------------
 hsExplicitTvs :: LHsType Name -> [Name]
 -- The explicitly-given forall'd type variables of a HsType
 hsExplicitTvs (L _ (HsForAllTy Explicit _ tvs _ _)) = hsLKiTyVarNames tvs
