@@ -10,6 +10,7 @@ mkPoli = mkBila . map ((,,(),,()) <$> P.base <*> P.pos <*> P.form)
 
 data MaybeDefault v where
     SetTo :: forall v . ( Eq v, Show v ) => !v -> MaybeDefault v
+    SetTo4 :: forall v a. (( Eq v, Show v ) => v -> MaybeDefault v -> a -> MaybeDefault [a])
 
 [t| Map.Map T.Text $tc |]
 

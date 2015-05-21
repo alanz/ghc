@@ -622,9 +622,12 @@ mkSimpleConDecl name qvars cxt details
 
 mkGadtDecl :: [Located RdrName]
            -> LHsType RdrName     -- Always a HsForAllTy
-           -> P (ConDecl RdrName)
-mkGadtDecl names (L l ty)
-  = mkGadtDecl' names (L l (flattenTopLevelHsForAllTy ty))
+           -> P ([AddAnn], ConDecl RdrName)
+mkGadtDecl names (L l ty) = do
+  let
+    (anns,ty') = flattenHsForAllTyKeepAnns ty
+  gadt <- mkGadtDecl' names (L l ty')
+  return (anns,gadt)
 
 mkGadtDecl' :: [Located RdrName]
            -> LHsType RdrName     -- Always a HsForAllTy
