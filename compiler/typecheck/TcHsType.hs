@@ -9,7 +9,7 @@
 
 module TcHsType (
         -- Type signatures
-        kcClassSigType, tcClassSigType,
+        kcHsSigType, tcClassSigType,
         tcHsSigType, tcHsSigWcType,
         zonkSigType, zonkAndCheckValidity,
         funsSigCtxt, addSigCtxt,
@@ -183,8 +183,8 @@ tcHsSigWcType :: UserTypeCtxt -> LHsSigWcType Name -> TcM Type
 -- alrady checked this, so we can simply ignore it.
 tcHsSigWcType ctxt sig_ty = tcHsSigType ctxt (dropWildCards sig_ty)
 
-kcClassSigType :: [Located Name] -> LHsSigType Name -> TcM ()
-kcClassSigType names (HsIB { hsib_body = hs_ty
+kcHsSigType :: [Located Name] -> LHsSigType Name -> TcM ()
+kcHsSigType names (HsIB { hsib_body = hs_ty
                            , hsib_kvs  = sig_kvs
                            , hsib_tvs  = sig_tvs })
   = addSigCtxt (funsSigCtxt names) hs_ty $

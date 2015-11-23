@@ -35,7 +35,7 @@ module RdrHsSyn (
         mkExport,
         mkExtName,           -- RdrName -> CLabelString
         mkGadtDecl,          -- [Located RdrName] -> LHsType RdrName -> ConDecl RdrName
-        mkSimpleConDecl,
+        mkConDeclH98,
         mkATDefault,
 
         -- Bunch of functions in the parser monad for
@@ -487,30 +487,29 @@ mkPatSynMatchGroup (L _ patsyn_name) (L _ decls) =
         text "pattern synonym 'where' clause must bind the pattern synonym's name" <+>
         quotes (ppr patsyn_name) $$ ppr decl
 
-mkSimpleConDecl :: Located RdrName -> Maybe [LHsTyVarBndr RdrName]
+mkConDeclH98 :: Located RdrName -> Maybe [LHsTyVarBndr RdrName]
                 -> LHsContext RdrName -> HsConDeclDetails RdrName
                 -> ConDecl RdrName
 
-mkSimpleConDecl name mb_forall cxt details
-  = ConDecl { con_names    = [name]
-            , con_explicit = explicit
-            , con_qvars    = qvars
-            , con_cxt      = cxt
-            , con_details  = details
-            , con_res      = ResTyH98
-            , con_doc      = Nothing }
-  where
-    (explicit, qvars) = case mb_forall of
-                          Nothing  -> (False, mkHsQTvs [])
-                          Just tvs -> (True,  mkHsQTvs tvs)
+mkConDeclH98 name mb_forall cxt details
+  = ConDeclH98 { con_name     = name
+               , con_qvars    = fmap mkHsQTvs mb_forall
+               , con_cxt      = Just cxt
+                                -- AZ:TODO: when can cxt be Nothing?
+                                --          remembering that () is a valid context.
+               , con_details  = details
+               , con_doc      = Nothing }
 
 mkGadtDecl :: [Located RdrName]
-           -> LHsType RdrName     -- Always a HsForAllTy
-           -> ([AddAnn], ConDecl RdrName)
-mkGadtDecl names ty = ([], mkGadtDecl' names ty)
+           -> LHsSigType RdrName     -- Always a HsForAllTy
+           -> ConDecl RdrName
+mkGadtDecl names ty = ConDeclGADT { con_names = names
+                                  , con_type  = ty
+                                  , con_doc   = Nothing }
 
+{-
 mkGadtDecl' :: [Located RdrName]
-            -> LHsType RdrName
+            -> LHsSigType RdrName
             -> ConDecl RdrName
 -- We allow C,D :: ty
 -- and expand it as if it had been
@@ -539,6 +538,7 @@ mkGadtDecl' names lbody_ty@(L loc body_ty)
                  , con_details  = details
                  , con_res      = ResTyGADT loc res_ty
                  , con_doc      = Nothing }
+-}
 
 tyConToDataCon :: SrcSpan -> RdrName -> P (Located RdrName)
 tyConToDataCon loc tc

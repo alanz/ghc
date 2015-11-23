@@ -1018,6 +1018,7 @@ type LConDecl name = Located (ConDecl name)
 --            'ApiAnnotation.AnnForall','ApiAnnotation.AnnDot'
 
 -- For details on above see note [Api annotations] in ApiAnnotation
+{- old one
 data ConDecl name
   = ConDecl
     { con_names     :: [Located name]
@@ -1062,6 +1063,35 @@ data ConDecl name
     , con_doc       :: Maybe LHsDocString
         -- ^ A possible Haddock comment.
     } deriving (Typeable)
+-}
+data ConDecl name
+  = ConDeclGADT
+      { con_names   :: [Located name]
+      , con_type    :: LHsSigType name
+        -- ^ The type after the ‘::’
+      , con_doc     :: Maybe LHsDocString
+          -- ^ A possible Haddock comment.
+      }
+
+  | ConDeclH98
+      { con_name    :: Located name
+
+      , con_qvars     :: Maybe (LHsQTyVars name)
+        -- User-written forall (if any), and its implicit
+        -- kind variables
+        -- Non-Nothing needs -XExistentialQuantification
+        --               e.g. data T a = forall b. MkT b (b->a)
+        --               con_qvars = {b}
+
+      , con_cxt       :: Maybe (LHsContext name)
+        -- ^ User-written context (if any)
+
+      , con_details   :: HsConDeclDetails name
+          -- ^ Arguments
+
+      , con_doc       :: Maybe LHsDocString
+          -- ^ A possible Haddock comment.
+      } deriving (Typeable)
 deriving instance (DataId name) => Data (ConDecl name)
 
 type HsConDeclDetails name
@@ -1072,6 +1102,7 @@ hsConDeclArgTys (PrefixCon tys)    = tys
 hsConDeclArgTys (InfixCon ty1 ty2) = [ty1,ty2]
 hsConDeclArgTys (RecCon flds)      = map (cd_fld_type . unLoc) (unLoc flds)
 
+-- AZ:TODO remove this
 data ResType ty
    = ResTyH98             -- Constructor was declared using Haskell 98 syntax
    | ResTyGADT SrcSpan ty -- Constructor was declared using GADT-style syntax,
@@ -1114,7 +1145,8 @@ instance Outputable NewOrData where
   ppr DataType = ptext (sLit "data")
 
 pp_condecls :: OutputableBndr name => [LConDecl name] -> SDoc
-pp_condecls cs@(L _ ConDecl{ con_res = ResTyGADT _ _ } : _) -- In GADT syntax
+-- pp_condecls cs@(L _ ConDecl{ con_res = ResTyGADT _ _ } : _) -- In GADT syntax
+pp_condecls cs@(L _ ConDeclGADT{} : _) -- In GADT syntax
   = hang (ptext (sLit "where")) 2 (vcat (map ppr cs))
 pp_condecls cs                    -- In H98 syntax
   = equals <+> sep (punctuate (ptext (sLit " |")) (map ppr cs))
@@ -1123,11 +1155,12 @@ instance (OutputableBndr name) => Outputable (ConDecl name) where
     ppr = pprConDecl
 
 pprConDecl :: OutputableBndr name => ConDecl name -> SDoc
-pprConDecl (ConDecl { con_names = [L _ con]  -- NB: non-GADT means 1 con
-                    , con_explicit = expl, con_qvars = tvs
+-- H98
+pprConDecl (ConDeclH98 { con_name = L _ con
+                    , con_qvars = tvs
                     , con_cxt = cxt, con_details = details
-                    , con_res = ResTyH98, con_doc = doc })
-  = sep [ppr_mbDoc doc, ppr_con_forall expl tvs cxt, ppr_details details]
+                    , con_doc = doc })
+  = sep [ppr_mbDoc doc, ppr_details details]
   where
     ppr_details (InfixCon t1 t2) = hsep [ppr t1, pprInfixOcc con, ppr t2]
     ppr_details (PrefixCon tys)  = hsep (pprPrefixOcc con
@@ -1135,6 +1168,11 @@ pprConDecl (ConDecl { con_names = [L _ con]  -- NB: non-GADT means 1 con
     ppr_details (RecCon fields)  = pprPrefixOcc con
                                  <+> pprConDeclFields (unLoc fields)
 
+pprConDecl (ConDeclGADT { con_names = cons, con_type = res_ty, con_doc = doc })
+  = sep [ppr_mbDoc doc <+> ppr_con_names cons <+> dcolon
+         <+> ppr res_ty]
+{- old
+-- GADT, PrefixCon
 pprConDecl (ConDecl { con_names = cons, con_explicit = expl, con_qvars = tvs
                     , con_cxt = cxt, con_details = PrefixCon arg_tys
                     , con_res = ResTyGADT _ res_ty, con_doc = doc })
@@ -1143,6 +1181,7 @@ pprConDecl (ConDecl { con_names = cons, con_explicit = expl, con_qvars = tvs
   where
     mk_fun_ty a b = noLoc (HsFunTy a b)
 
+-- GADT, RecCon
 pprConDecl (ConDecl { con_names = cons, con_explicit = expl, con_qvars = tvs
                     , con_cxt = cxt, con_details = RecCon fields
                     , con_res = ResTyGADT _ res_ty, con_doc = doc })
@@ -1150,6 +1189,7 @@ pprConDecl (ConDecl { con_names = cons, con_explicit = expl, con_qvars = tvs
          <+> ppr_con_forall expl tvs cxt,
          pprConDeclFields (unLoc fields) <+> arrow <+> ppr res_ty]
 
+-- GADT, InfixCon
 pprConDecl decl@(ConDecl { con_details = InfixCon ty1 ty2, con_res = ResTyGADT {} })
   = pprConDecl (decl { con_details = PrefixCon [ty1,ty2] })
         -- In GADT syntax we don't allow infix constructors
@@ -1159,6 +1199,7 @@ pprConDecl decl@(ConDecl { con_details = InfixCon ty1 ty2, con_res = ResTyGADT {
 -- this fallthrough would happen with a non-GADT-syntax ConDecl with more
 -- than one constructor, which should indeed be impossible
 pprConDecl (ConDecl { con_names = cons }) = pprPanic "pprConDecl" (ppr cons)
+-}
 
 ppr_con_forall :: OutputableBndr name => Bool -> LHsQTyVars name
                                       -> LHsContext name -> SDoc

@@ -486,7 +486,7 @@ kcTyClDecl (ClassDecl { tcdLName = L _ name, tcdTyVars = hs_tvs
     do  { _ <- tcHsContext ctxt
         ; mapM_ (wrapLocM kc_sig) sigs }
   where
-    kc_sig (ClassOpSig _ nms op_ty) = kcClassSigType nms op_ty
+    kc_sig (ClassOpSig _ nms op_ty) = kcHsSigType nms op_ty
     kc_sig _                        = return ()
 
 -- closed type families look at their equations, but other families don't
@@ -501,6 +501,24 @@ kcTyClDecl (FamDecl {})    = return ()
 
 -------------------
 kcConDecl :: ConDecl Name -> TcM ()
+kcConDecl (ConDeclH98 { con_names = names, con_qvars = ex_tvs
+                      , con_cxt = ex_ctxt, con_details = details })
+  = addErrCtxt (dataConCtxtName names) $
+         -- the 'False' says that the existentials don't have a CUSK, as the
+         -- concept doesn't really apply here. We just need to bring the variables
+         -- into scope!
+    do { _ <- kcHsTyVarBndrs False ex_tvs $
+              do { _ <- tcHsContext ex_ctxt
+                 ; mapM_ (tcHsOpenType . getBangType) (hsConDeclArgTys details)
+                 ; return (panic "kcConDecl", ()) }
+       ; return () }
+
+kcConDecl (ConDeclGADT { con_name = name
+                       , con_type = res_ty })
+  = addErrCtxt (dataConCtxtName [name]) $
+      kcHsSigType [name] res_ty
+
+{- old
 kcConDecl (ConDecl { con_names = names, con_qvars = ex_tvs
                    , con_cxt = ex_ctxt, con_details = details
                    , con_res = res })
@@ -514,6 +532,7 @@ kcConDecl (ConDecl { con_names = names, con_qvars = ex_tvs
                  ; _ <- tcConRes res
                  ; return (panic "kcConDecl", ()) }
        ; return () }
+-}
 
 {-
 Note [Recursion and promoting data constructors]
