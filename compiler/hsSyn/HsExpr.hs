@@ -477,6 +477,9 @@ data HsExpr id
      SourceText                       -- Note [Pragma source text] in BasicTypes
      (StringLiteral,(Int,Int),(Int,Int))
                                       -- external span for this tick
+     ((SourceText,SourceText),(SourceText,SourceText))
+        -- Source text for the four integers used in the span.
+        -- See note [Pragma source text] in BasicTypes
      (LHsExpr id)
 
   ---------------------------------------
