@@ -502,9 +502,9 @@ mkPatSynMatchGroup (L loc patsyn_name) (L _ decls) =
         do { unless (name == patsyn_name) $
                wrongNameBindingErr loc decl
            ; match <- case details of
-               PrefixCon pats -> return $ Match (FunBindMatch ln False) pats Nothing rhs
+               PrefixCon pats -> return $ Match (FunRhs ln False) pats Nothing rhs
                InfixCon pat1 pat2 ->
-                         return $ Match (FunBindMatch ln True) [pat1, pat2] Nothing rhs
+                         return $ Match (FunRhs ln True) [pat1, pat2] Nothing rhs
                RecCon{} -> recordPatSynErr loc pat
            ; return $ L loc match }
     fromDecl (L loc decl) = extraDeclErr loc decl
@@ -930,7 +930,7 @@ checkFunBind msg ann lhs_loc fun is_infix pats opt_sig (L rhs_span grhss)
         -- Add back the annotations stripped from any HsPar values in the lhs
         -- mapM_ (\a -> a match_span) ann
         return (ann, makeFunBind fun
-                  [L match_span (Match { m_fixity = FunBindMatch fun is_infix
+                  [L match_span (Match { m_fixity = FunRhs fun is_infix
                                        , m_pats = ps
                                        , m_type = opt_sig
                                        , m_grhss = grhss })])

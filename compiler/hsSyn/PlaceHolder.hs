@@ -99,6 +99,12 @@ In terms of actual usage, we have the following
 TcId and Var are synonyms for Id
 -}
 
+-- |Follow the id, but never beyond Name
+type family NameOrRdrName id
+type instance NameOrRdrName Id      = Name
+type instance NameOrRdrName Name    = Name
+type instance NameOrRdrName RdrName = RdrName
+
 type DataId id =
   ( Data id
   , Data (PostRn id NameSet)
@@ -117,4 +123,6 @@ type DataId id =
   , Data (PostTc id [ConLike])
   , Data (PostTc id HsWrapper)
   , Data (PostTc id [FieldLabel])
+
+  , Data (NameOrRdrName id)
   )

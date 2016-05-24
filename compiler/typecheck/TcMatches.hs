@@ -68,12 +68,12 @@ so it must be prepared to use tcSkolemise to skolemise it.
 See Note [sig_tau may be polymorphic] in TcPat.
 -}
 
-tcMatchesFun :: Name
+tcMatchesFun :: Located Name
              -> MatchGroup Name (LHsExpr Name)
              -> ExpRhoType     -- Expected type of function
              -> TcM (HsWrapper, MatchGroup TcId (LHsExpr TcId))
                                 -- Returns type of body
-tcMatchesFun fun_name matches exp_ty
+tcMatchesFun fn@(L _ fun_name) matches exp_ty
   = do  {  -- Check that they all have the same no of arguments
            -- Location is in the monad, set the caller so that
            -- any inter-equation error messages get some vaguely
@@ -97,7 +97,7 @@ tcMatchesFun fun_name matches exp_ty
     arity = matchGroupArity matches
     herald = text "The equation(s) for"
              <+> quotes (ppr fun_name) <+> text "have"
-    match_ctxt = MC { mc_what = FunRhs fun_name, mc_body = tcBody }
+    match_ctxt = MC { mc_what = FunRhs fn False, mc_body = tcBody }
 
 {-
 @tcMatchesCase@ doesn't do the argument-count check because the
@@ -228,7 +228,7 @@ tcMatch ctxt pat_tys rhs_ty match
       = add_match_ctxt match $
         do { (pats', grhss') <- tcPats (mc_what ctxt) pats pat_tys $
                                 tc_grhss ctxt maybe_rhs_sig grhss rhs_ty
-           ; return (Match NonFunBindMatch pats' Nothing grhss') }
+           ; return (Match (mc_what ctxt) pats' Nothing grhss') }
 
     tc_grhss ctxt Nothing grhss rhs_ty
       = tcGRHSs ctxt grhss rhs_ty       -- No result signature

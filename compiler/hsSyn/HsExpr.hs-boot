@@ -38,6 +38,9 @@ instance OutputableBndr id => Outputable (HsCmd id)
 
 type LHsExpr a = Located (HsExpr a)
 
+
+isInfixMatchGroup :: MatchGroup id body -> Bool
+
 pprLExpr :: (OutputableBndr i) =>
         LHsExpr i -> SDoc
 
@@ -50,4 +53,4 @@ pprPatBind :: (OutputableBndr bndr, OutputableBndr id, Outputable body)
            => LPat bndr -> GRHSs id body -> SDoc
 
 pprFunBind :: (OutputableBndr idL, OutputableBndr idR, Outputable body)
-           => idL -> MatchGroup idR body -> SDoc
+           => Located idL -> Bool -> MatchGroup idR body -> SDoc

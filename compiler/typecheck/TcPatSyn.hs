@@ -561,12 +561,15 @@ tcPatSynMatcher (L loc name) lpat
                       }
              body' = noLoc $
                      HsLam $
-                     MG{ mg_alts = noLoc [mkSimpleMatch args body]
+                     MG{ mg_alts = noLoc [mkSimpleMatch LambdaExpr
+                                                        args body]
                        , mg_arg_tys = [pat_ty, cont_ty, res_ty]
                        , mg_res_ty = res_ty
                        , mg_origin = Generated
                        }
-             match = mkMatch [] (mkHsLams (rr_tv:res_tv:univ_tvs) req_dicts body')
+             match = mkMatch (FunRhs (L loc matcher_id) False) []
+                             (mkHsLams (rr_tv:res_tv:univ_tvs)
+                             req_dicts body')
                              (noLoc EmptyLocalBinds)
              mg = MG{ mg_alts = L (getLoc match) [match]
                     , mg_arg_tys = []
@@ -683,7 +686,8 @@ tcPatSynBuilderBind sig_fun PSB{ psb_id = L loc name, psb_def = lpat
     mk_mg body = mkMatchGroupName Generated [builder_match]
              where
                builder_args  = [L loc (VarPat (L loc n)) | L loc n <- args]
-               builder_match = mkMatch builder_args body (noLoc EmptyLocalBinds)
+               builder_match = mkMatch PatBindRhs builder_args body
+                                       (noLoc EmptyLocalBinds)
 
     args = case details of
               PrefixPatSyn args     -> args

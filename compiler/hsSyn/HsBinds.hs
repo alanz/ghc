@@ -18,7 +18,8 @@ Datatype for: @BindGroup@, @Bind@, @Sig@, @Bind@.
 module HsBinds where
 
 import {-# SOURCE #-} HsExpr ( pprExpr, LHsExpr,
-                               MatchGroup, pprFunBind,
+                               MatchGroup, isInfixMatchGroup,
+                               pprFunBind,
                                GRHSs, pprPatBind )
 import {-# SOURCE #-} HsPat  ( LPat )
 
@@ -494,7 +495,6 @@ plusHsValBinds (ValBindsOut ds1 sigs1) (ValBindsOut ds2 sigs2)
 plusHsValBinds _ _
   = panic "HsBinds.plusHsValBinds"
 
-
 {-
 What AbsBinds means
 ~~~~~~~~~~~~~~~~~~~
@@ -537,7 +537,7 @@ ppr_monobind (FunBind { fun_id = fun,
   = pprTicks empty (if null ticks then empty
                     else text "-- ticks = " <> ppr ticks)
     $$  ifPprDebug (pprBndr LetBind (unLoc fun))
-    $$  pprFunBind (unLoc fun) matches
+    $$  pprFunBind fun (isInfixMatchGroup matches) matches
     $$  ifPprDebug (ppr wrap)
 ppr_monobind (PatSynBind psb) = ppr psb
 ppr_monobind (AbsBinds { abs_tvs = tyvars, abs_ev_vars = dictvars
@@ -578,7 +578,7 @@ instance (OutputableBndr id) => Outputable (ABExport id) where
            , nest 2 (text "wrap:" <+> ppr wrap)]
 
 instance (OutputableBndr idL, OutputableBndr idR) => Outputable (PatSynBind idL idR) where
-  ppr (PSB{ psb_id = L _ psyn, psb_args = details, psb_def = pat, psb_dir = dir })
+  ppr (PSB{ psb_id = lpsyn@(L _ psyn), psb_args = details, psb_def = pat, psb_dir = dir })
       = ppr_lhs <+> ppr_rhs
     where
       ppr_lhs = text "pattern" <+> ppr_details
@@ -595,7 +595,7 @@ instance (OutputableBndr idL, OutputableBndr idR) => Outputable (PatSynBind idL 
           Unidirectional           -> ppr_simple (text "<-")
           ImplicitBidirectional    -> ppr_simple equals
           ExplicitBidirectional mg -> ppr_simple (text "<-") <+> ptext (sLit "where") $$
-                                      (nest 2 $ pprFunBind psyn mg)
+                                      (nest 2 $ pprFunBind lpsyn False mg)
 
 pprTicks :: SDoc -> SDoc -> SDoc
 -- Print stuff about ticks only when -dppr-debug is on, to avoid

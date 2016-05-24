@@ -1552,13 +1552,15 @@ gen_Functor_binds loc tycon
   = (unitBag fmap_bind, emptyBag)
   where
     data_cons = tyConDataCons tycon
-    fmap_bind = mkRdrFunBind (L loc fmap_RDR) eqns
+    fun_name = L loc fmap_RDR
+    fmap_bind = mkRdrFunBind fun_name eqns
 
     fmap_eqn con = evalState (match_for_con [f_Pat] con =<< parts) bs_RDRs
       where
         parts = sequence $ foldDataConArgs ft_fmap con
 
-    eqns | null data_cons = [mkSimpleMatch [nlWildPat, nlWildPat]
+    eqns | null data_cons = [mkSimpleMatch (FunRhs fun_name False)
+                                           [nlWildPat, nlWildPat]
                                            (error_Expr "Void fmap")]
          | otherwise      = map fmap_eqn data_cons
 
@@ -1586,7 +1588,7 @@ gen_Functor_binds loc tycon
     -- Con a1 a2 ... -> Con (f1 a1) (f2 a2) ...
     match_for_con :: [LPat RdrName] -> DataCon -> [LHsExpr RdrName]
                   -> State [RdrName] (LMatch RdrName (LHsExpr RdrName))
-    match_for_con = mkSimpleConMatch $
+    match_for_con = mkSimpleConMatch CaseAlt $
         \con_name xs -> return $ nlHsApps con_name xs  -- Con x1 x2 ..
 
 {-
@@ -1719,17 +1721,19 @@ mkSimpleLam2 lam = do
 -- constructor @con@ and its arguments. The RHS folds (with @fold@) over @con@
 -- and its arguments, applying an expression (from @insides@) to each of the
 -- respective arguments of @con@.
-mkSimpleConMatch :: Monad m => (RdrName -> [LHsExpr RdrName] -> m (LHsExpr RdrName))
+mkSimpleConMatch :: Monad m => HsMatchContext RdrName
+                 -> (RdrName -> [LHsExpr RdrName] -> m (LHsExpr RdrName))
                  -> [LPat RdrName]
                  -> DataCon
                  -> [LHsExpr RdrName]
                  -> m (LMatch RdrName (LHsExpr RdrName))
-mkSimpleConMatch fold extra_pats con insides = do
+mkSimpleConMatch ctxt fold extra_pats con insides = do
     let con_name = getRdrName con
     let vars_needed = takeList insides as_RDRs
     let pat = nlConVarPat con_name vars_needed
     rhs <- fold con_name (zipWith nlHsApp insides (map nlHsVar vars_needed))
-    return $ mkMatch (extra_pats ++ [pat]) rhs (noLoc emptyLocalBinds)
+    return $ mkMatch ctxt (extra_pats ++ [pat]) rhs
+                     (noLoc emptyLocalBinds)
 
 -- "Con a1 a2 a3 -> fmap (\b2 -> Con a1 b2 a3) (traverse f a2)"
 --
@@ -1749,13 +1753,14 @@ mkSimpleConMatch fold extra_pats con insides = do
 --
 -- See Note [Generated code for DeriveFoldable and DeriveTraversable]
 mkSimpleConMatch2 :: Monad m
-                  => (LHsExpr RdrName -> [LHsExpr RdrName]
+                  => HsMatchContext RdrName
+                  -> (LHsExpr RdrName -> [LHsExpr RdrName]
                                       -> m (LHsExpr RdrName))
                   -> [LPat RdrName]
                   -> DataCon
                   -> [Maybe (LHsExpr RdrName)]
                   -> m (LMatch RdrName (LHsExpr RdrName))
-mkSimpleConMatch2 fold extra_pats con insides = do
+mkSimpleConMatch2 ctxt fold extra_pats con insides = do
     let con_name = getRdrName con
         vars_needed = takeList insides as_RDRs
         pat = nlConVarPat con_name vars_needed
@@ -1780,7 +1785,8 @@ mkSimpleConMatch2 fold extra_pats con insides = do
               in mkHsLam (map nlVarPat bs) (nlHsApps con_name vars)
 
     rhs <- fold con_expr exps
-    return $ mkMatch (extra_pats ++ [pat]) rhs (noLoc emptyLocalBinds)
+    return $ mkMatch ctxt (extra_pats ++ [pat]) rhs
+                     (noLoc emptyLocalBinds)
 
 -- "case x of (a1,a2,a3) -> fold [x1 a1, x2 a2, x3 a3]"
 mkSimpleTupleCase :: Monad m => ([LPat RdrName] -> DataCon -> [a]
@@ -1907,7 +1913,7 @@ gen_Foldable_binds loc tycon
                 -> DataCon
                 -> [Maybe (LHsExpr RdrName)]
                 -> State [RdrName] (LMatch RdrName (LHsExpr RdrName))
-    match_foldr z = mkSimpleConMatch2 $ \_ xs -> return (mkFoldr xs)
+    match_foldr z = mkSimpleConMatch2 LambdaExpr $ \_ xs -> return (mkFoldr xs)
       where
         -- g1 v1 (g2 v2 (.. z))
         mkFoldr :: [LHsExpr RdrName] -> LHsExpr RdrName
@@ -1936,7 +1942,7 @@ gen_Foldable_binds loc tycon
                   -> DataCon
                   -> [Maybe (LHsExpr RdrName)]
                   -> State [RdrName] (LMatch RdrName (LHsExpr RdrName))
-    match_foldMap = mkSimpleConMatch2 $ \_ xs -> return (mkFoldMap xs)
+    match_foldMap = mkSimpleConMatch2 CaseAlt $ \_ xs -> return (mkFoldMap xs)
       where
         -- mappend v1 (mappend v2 ..)
         mkFoldMap :: [LHsExpr RdrName] -> LHsExpr RdrName
@@ -2023,7 +2029,7 @@ gen_Traversable_binds loc tycon
                   -> DataCon
                   -> [Maybe (LHsExpr RdrName)]
                   -> State [RdrName] (LMatch RdrName (LHsExpr RdrName))
-    match_for_con = mkSimpleConMatch2 $ \con xs -> return (mkApCon con xs)
+    match_for_con = mkSimpleConMatch2 CaseAlt $ \con xs -> return (mkApCon con xs)
       where
         -- fmap (\b1 b2 ... -> Con b1 b2 ...) x1 <*> x2 <*> ..
         mkApCon :: LHsExpr RdrName -> [LHsExpr RdrName] -> LHsExpr RdrName
@@ -2066,8 +2072,9 @@ makeG_d.
 gen_Lift_binds :: SrcSpan -> TyCon -> (LHsBinds RdrName, BagDerivStuff)
 gen_Lift_binds loc tycon
   | null data_cons = (unitBag (L loc $ mkFunBind (L loc lift_RDR)
-                       [mkMatch [nlWildPat] errorMsg_Expr
-                                            (noLoc emptyLocalBinds)])
+                       [mkMatch (FunRhs (L loc lift_RDR) False)
+                                        [nlWildPat] errorMsg_Expr
+                                        (noLoc emptyLocalBinds)])
                      , emptyBag)
   | otherwise = (unitBag lift_bind, emptyBag)
   where
@@ -2176,7 +2183,9 @@ gen_Newtype_binds loc cls inst_tvs cls_tys rhs_ty
 
     mk_bind :: Id -> LHsBind RdrName
     mk_bind meth_id
-      = mkRdrFunBind (L loc meth_RDR) [mkSimpleMatch [] rhs_expr]
+      = mkRdrFunBind (L loc meth_RDR) [mkSimpleMatch
+                                         (FunRhs (L loc meth_RDR) False)
+                                         [] rhs_expr]
       where
         Pair from_ty to_ty = mkCoerceClassMethEqn cls inst_tvs cls_tys rhs_ty meth_id
 
@@ -2351,7 +2360,9 @@ mk_HRFunBind :: Arity -> SrcSpan -> RdrName
 mk_HRFunBind arity loc fun pats_and_exprs
   = mkHRRdrFunBind arity (L loc fun) matches
   where
-    matches = [mkMatch p e (noLoc emptyLocalBinds) | (p,e) <-pats_and_exprs]
+    matches = [mkMatch (FunRhs (L loc fun) False) p e
+                               (noLoc emptyLocalBinds)
+              | (p,e) <-pats_and_exprs]
 
 mkRdrFunBind :: Located RdrName -> [LMatch RdrName (LHsExpr RdrName)] -> LHsBind RdrName
 mkRdrFunBind = mkHRRdrFunBind 0
@@ -2365,7 +2376,8 @@ mkHRRdrFunBind arity fun@(L loc fun_rdr) matches = L loc (mkFunBind fun matches'
    -- which can happen with -XEmptyDataDecls
    -- See Trac #4302
    matches' = if null matches
-              then [mkMatch (replicate arity nlWildPat)
+              then [mkMatch (FunRhs fun False)
+                            (replicate arity nlWildPat)
                             (error_Expr str) (noLoc emptyLocalBinds)]
               else matches
    str = "Void " ++ occNameString (rdrNameOcc fun_rdr)

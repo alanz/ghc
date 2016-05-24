@@ -467,7 +467,7 @@ rnBind sig_fn bind@(FunBind { fun_id = name
 
         ; (matches', rhs_fvs) <- bindSigTyVarsFV (sig_fn plain_name) $
                                 -- bindSigTyVars tests for LangExt.ScopedTyVars
-                                 rnMatchGroup (FunRhs plain_name)
+                                 rnMatchGroup (FunRhs name False)
                                               rnLExpr matches
         ; let is_infix = isInfixFunBind bind
         ; when is_infix $ checkPrecMatch plain_name matches'
@@ -1044,9 +1044,9 @@ rnMatch' ctxt rnBody match@(Match { m_fixity = mf, m_pats = pats
         ; rnPats ctxt pats      $ \ pats' -> do
         { (grhss', grhss_fvs) <- rnGRHSs ctxt rnBody grhss
         ; let mf' = case (ctxt,mf) of
-                      (FunRhs funid,FunBindMatch (L lf _) _)
-                                            -> FunBindMatch (L lf funid) isinfix
-                      _                     -> NonFunBindMatch
+                      (FunRhs (L _ funid) _,FunRhs (L lf _) _)
+                                            -> FunRhs (L lf funid) isinfix
+                      _                     -> ctxt
         ; return (Match { m_fixity = mf', m_pats = pats'
                         , m_type = Nothing, m_grhss = grhss'}, grhss_fvs ) }}
 
