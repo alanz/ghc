@@ -81,3 +81,15 @@ ppr018:
 .PHONY: ppr019
 ppr019:
 	$(CHECK_PPR) "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`" Ppr019.hs
+
+.PHONY: ppr020
+ppr020:
+	$(CHECK_PPR) "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`" Ppr020.hs
+
+.PHONY: ppr021
+ppr021:
+	$(CHECK_PPR) "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`" Ppr021.hs
+
+.PHONY: ppr022
+ppr022:
+	$(CHECK_PPR) "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`" Ppr022.hs

@@ -12,7 +12,7 @@ module HsImpExp where
 
 import Module           ( ModuleName )
 import HsDoc            ( HsDocString )
-import OccName          ( HasOccName(..), isTcOcc, isSymOcc )
+import OccName          ( HasOccName(..), isTcOcc, isSymOcc, isDataOcc )
 import BasicTypes       ( SourceText, StringLiteral(..) )
 import FieldLabel       ( FieldLbl(..) )
 
@@ -89,7 +89,7 @@ simpleImportDecl mn = ImportDecl {
     }
 
 instance (OutputableBndr name, HasOccName name) => Outputable (ImportDecl name) where
-    ppr (ImportDecl { ideclName = mod', ideclPkgQual = pkg
+    ppr (ImportDecl { ideclSourceSrc = mSrcText, ideclName = mod', ideclPkgQual = pkg
                     , ideclSource = from, ideclSafe = safe
                     , ideclQualified = qual, ideclImplicit = implicit
                     , ideclAs = as, ideclHiding = spec })
@@ -100,7 +100,7 @@ instance (OutputableBndr name, HasOccName name) => Outputable (ImportDecl name) 
         pp_implicit False = empty
         pp_implicit True = ptext (sLit ("(implicit)"))
 
-        pp_pkg Nothing                     = empty
+        pp_pkg Nothing                    = empty
         pp_pkg (Just (StringLiteral _ p)) = doubleQuotes (ftext p)
 
         pp_qual False   = empty
@@ -112,7 +112,9 @@ instance (OutputableBndr name, HasOccName name) => Outputable (ImportDecl name) 
         pp_as Nothing   = empty
         pp_as (Just a)  = text "as" <+> ppr a
 
-        ppr_imp True  = text "{-# SOURCE #-}"
+        ppr_imp True  = maybe (text "{-# SOURCE #-}")
+                              (\src -> text src <+> text "#-}")
+                              mSrcText
         ppr_imp False = empty
 
         pp_spec Nothing             = empty
@@ -241,7 +243,10 @@ pprImpExp name = type_pref <+> pprPrefixOcc name
               | otherwise                   = empty
 
 instance (HasOccName name, OutputableBndr name) => Outputable (IE name) where
-    ppr (IEVar          var)    = pprPrefixOcc (unLoc var)
+    ppr (IEVar          var)
+      -- This is a messy test, should perhaps create IEPatternVar
+      = (if isDataOcc $ occName $ unLoc var then text "pattern" else empty)
+        <+> pprPrefixOcc (unLoc var)
     ppr (IEThingAbs     thing)  = pprImpExp (unLoc thing)
     ppr (IEThingAll      thing) = hcat [pprImpExp (unLoc thing), text "(..)"]
     ppr (IEThingWith thing wc withs flds)
