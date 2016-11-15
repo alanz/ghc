@@ -85,6 +85,7 @@ module BasicTypes(
         inlinePragmaSpec, inlinePragmaSat,
         inlinePragmaActivation, inlinePragmaRuleMatchInfo,
         setInlinePragmaActivation, setInlinePragmaRuleMatchInfo,
+        pprInline,
 
         SuccessFlag(..), succeeded, failed, successIf,
 
@@ -1147,10 +1148,15 @@ instance Outputable InlineSpec where
    ppr EmptyInlineSpec = empty
 
 instance Outputable InlinePragma where
-  ppr (InlinePragma { inl_inline = inline, inl_act = activation
-                    , inl_rule = info, inl_sat = mb_arity })
-    = ppr inline <> pp_act inline activation <+> pp_sat <+> pp_info
+  ppr = pprInline False
+
+pprInline :: Bool -> InlinePragma -> SDoc
+pprInline emptyInline (InlinePragma { inl_inline = inline, inl_act = activation
+                                    , inl_rule = info, inl_sat = mb_arity })
+    = pp_inl inline <> pp_act inline activation <+> pp_sat <+> pp_info
     where
+      pp_inl x = if emptyInline then empty else ppr x
+
       pp_act Inline   AlwaysActive = empty
       pp_act NoInline NeverActive  = empty
       pp_act _        act          = ppr act

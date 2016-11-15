@@ -1518,7 +1518,9 @@ pprGRHSs :: (OutputableBndrId idR, HasOccName idL, HasOccNameId idR,
          => HsMatchContext idL -> GRHSs idR body -> SDoc
 pprGRHSs ctxt (GRHSs grhss (L _ binds))
   = vcat (map (pprGRHS ctxt . unLoc) grhss)
- $$ ppUnless (isEmptyLocalBinds binds)
+  -- Print the "where" even if the contents of the binds is empty. Only
+  -- EmptyLocalBinds means no "where" keyword
+ $$ ppUnless (eqEmptyLocalBinds binds)
       (text "where" $$ nest 4 (pprBinds binds))
 
 pprGRHS :: (OutputableBndrId idR, HasOccNameId idR, Outputable body)

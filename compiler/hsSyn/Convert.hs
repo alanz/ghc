@@ -632,7 +632,10 @@ cvtPragmaD :: Pragma -> CvtM (Maybe (LHsDecl RdrName))
 cvtPragmaD (InlineP nm inline rm phases)
   = do { nm' <- vNameL nm
        ; let dflt = dfltActivation inline
-       ; let ip   = InlinePragma { inl_src    = "{-# INLINE"
+       ; let src TH.NoInline  = "{-# NOTINLINE"
+             src TH.Inline    = "{-# INLINE"
+             src TH.Inlinable = "{-# INLINABLE"
+       ; let ip   = InlinePragma { inl_src    = src inline
                                  , inl_inline = cvtInline inline
                                  , inl_rule   = cvtRuleMatch rm
                                  , inl_act    = cvtPhases phases dflt
@@ -642,10 +645,15 @@ cvtPragmaD (InlineP nm inline rm phases)
 cvtPragmaD (SpecialiseP nm ty inline phases)
   = do { nm' <- vNameL nm
        ; ty' <- cvtType ty
-       ; let (inline', dflt) = case inline of
-               Just inline1 -> (cvtInline inline1, dfltActivation inline1)
-               Nothing      -> (EmptyInlineSpec,   AlwaysActive)
-       ; let ip = InlinePragma { inl_src    = "{-# INLINE"
+       ; let src TH.NoInline  = "{-# SPECIALIZE NOTINLINE"
+             src TH.Inline    = "{-# SPECIALIZE INLINE"
+             src TH.Inlinable = "{-# SPECIALIZE INLINE"
+       ; let (inline', dflt,srcText) = case inline of
+               Just inline1 -> (cvtInline inline1, dfltActivation inline1,
+                                src inline1)
+               Nothing      -> (EmptyInlineSpec,   AlwaysActive,
+                                "{-# SPECIALIZE")
+       ; let ip = InlinePragma { inl_src    = srcText
                                , inl_inline = inline'
                                , inl_rule   = Hs.FunLike
                                , inl_act    = cvtPhases phases dflt

@@ -508,6 +508,10 @@ isEmptyLocalBinds (HsValBinds ds) = isEmptyValBinds ds
 isEmptyLocalBinds (HsIPBinds ds)  = isEmptyIPBinds ds
 isEmptyLocalBinds EmptyLocalBinds = True
 
+eqEmptyLocalBinds :: HsLocalBindsLR a b -> Bool
+eqEmptyLocalBinds EmptyLocalBinds = True
+eqEmptyLocalBinds _               = False
+
 isEmptyValBinds :: HsValBindsLR a b -> Bool
 isEmptyValBinds (ValBindsIn ds sigs)  = isEmptyLHsBinds ds && null sigs
 isEmptyValBinds (ValBindsOut ds sigs) = null ds && null sigs
@@ -965,10 +969,12 @@ ppr_sig (ClassOpSig is_deflt vars ty)
 ppr_sig (IdSig id)           = pprVarSig [id] (ppr (varType id))
 ppr_sig (FixSig fix_sig)     = ppr fix_sig
 ppr_sig (SpecSig var ty inl)
-  = pragBrackets (pprSpec (unLoc var) (interpp'SP ty) inl)
-ppr_sig (InlineSig var inl)       = pragBrackets (ppr inl <+> pprPrefixOcc (unLoc var))
-ppr_sig (SpecInstSig _ ty)
-  = pragBrackets (text "SPECIALIZE instance" <+> ppr ty)
+  = pragSrcBrackets (inl_src inl) (pprSpec (unLoc var) (interpp'SP ty) inl)
+ppr_sig (InlineSig var inl)
+  = pragSrcBrackets (inl_src inl) (pprInline True inl
+                                   <+> pprPrefixOcc (unLoc var))
+ppr_sig (SpecInstSig src ty)
+  = pragSrcBrackets src (text "instance" <+> ppr ty)
 ppr_sig (MinimalSig _ bf)         = pragBrackets (pprMinimalSig bf)
 ppr_sig (PatSynSig names sig_ty)
   = text "pattern" <+> pprVarSig (map unLoc names) (ppr sig_ty)
@@ -983,7 +989,12 @@ instance OutputableBndr name => Outputable (FixitySig name) where
       pprops = hsep $ punctuate comma (map (pprInfixOcc . unLoc) names)
 
 pragBrackets :: SDoc -> SDoc
-pragBrackets doc = text "{-#" <+> doc <+> ptext (sLit "#-}")
+pragBrackets doc = text "{-#" <+> doc <+> text "#-}"
+
+-- | Using SourceText in case the pragma was spelled differently or used mixed
+-- case
+pragSrcBrackets :: SourceText -> SDoc -> SDoc
+pragSrcBrackets src doc = text src <+> doc <+> text "#-}"
 
 pprVarSig :: (OutputableBndr id) => [id] -> SDoc -> SDoc
 pprVarSig vars pp_ty = sep [pprvars <+> dcolon, nest 2 pp_ty]
@@ -991,17 +1002,17 @@ pprVarSig vars pp_ty = sep [pprvars <+> dcolon, nest 2 pp_ty]
     pprvars = hsep $ punctuate comma (map pprPrefixOcc vars)
 
 pprSpec :: (OutputableBndr id) => id -> SDoc -> InlinePragma -> SDoc
-pprSpec var pp_ty inl = text "SPECIALIZE" <+> pp_inl <+> pprVarSig [var] pp_ty
+pprSpec var pp_ty inl = pp_inl <+> pprVarSig [var] pp_ty
   where
     pp_inl | isDefaultInlinePragma inl = empty
-           | otherwise = ppr inl
+           | otherwise = pprInline True inl
 
 pprTcSpecPrags :: TcSpecPrags -> SDoc
 pprTcSpecPrags IsDefaultMethod = text "<default method>"
 pprTcSpecPrags (SpecPrags ps)  = vcat (map (ppr . unLoc) ps)
 
 instance Outputable TcSpecPrag where
-  ppr (SpecPrag var _ inl) = pprSpec var (text "<type>") inl
+  ppr (SpecPrag var _ inl) = text "SPECIALIZE" <+> pprSpec var (text "<type>") inl
 
 pprMinimalSig :: OutputableBndr name => LBooleanFormula (Located name) -> SDoc
 pprMinimalSig (L _ bf) = text "MINIMAL" <+> ppr (fmap unLoc bf)
