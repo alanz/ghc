@@ -1125,9 +1125,11 @@ data HsCmd id
 
   -- For details on above see note [Api annotations] in ApiAnnotation
   | HsCmdArrForm         -- Command formation,  (| e cmd1 .. cmdn |)
-        (LHsExpr id)     -- the operator
-                         -- after type-checking, a type abstraction to be
+        (LHsExpr id)     -- The operator.
+                         -- After type-checking, a type abstraction to be
                          -- applied to the type of the local environment tuple
+        FunctionFixity   -- Whether the operator appeared prefix or infix when
+                         -- parsed.
         (Maybe Fixity)   -- fixity (filled in by the renamer), for forms that
                          -- were converted from OpApp's by the renamer
         [LHsCmdTop id]   -- argument commands
@@ -1283,15 +1285,15 @@ ppr_cmd (HsCmdArrApp arrow arg _ HsHigherOrderApp True)
 ppr_cmd (HsCmdArrApp arrow arg _ HsHigherOrderApp False)
   = hsep [ppr_lexpr arg, arrowtt, ppr_lexpr arrow]
 
-ppr_cmd (HsCmdArrForm (L _ (HsVar (L _ v))) (Just _) [arg1, arg2])
-  = sep [pprCmdArg (unLoc arg1), hsep [pprInfixOcc v, pprCmdArg (unLoc arg2)]]
-ppr_cmd (HsCmdArrForm op _ args)
+ppr_cmd (HsCmdArrForm (L _ (HsVar (L _ v))) _ (Just _) [arg1, arg2])
+  = hang (pprCmdArg (unLoc arg1)) 4 (sep [pprInfixOcc v, pprCmdArg (unLoc arg2)])
+ppr_cmd (HsCmdArrForm (L _ (HsVar (L _ v))) Infix _    [arg1, arg2])
+  = hang (pprCmdArg (unLoc arg1)) 4 (sep [pprInfixOcc v, pprCmdArg (unLoc arg2)])
+ppr_cmd (HsCmdArrForm op _ _ args)
   = hang (text "(|" <> ppr_lexpr op)
          4 (sep (map (pprCmdArg.unLoc) args) <> text "|)")
 
 pprCmdArg :: (OutputableBndrId id, HasOccNameId id) => HsCmdTop id -> SDoc
-pprCmdArg (HsCmdTop cmd@(L _ (HsCmdArrForm _ Nothing [])) _ _ _)
-  = ppr_lcmd cmd
 pprCmdArg (HsCmdTop cmd _ _ _)
   = ppr_lcmd cmd
 

@@ -1160,7 +1160,7 @@ checkCmd :: SrcSpan -> HsExpr RdrName -> P (HsCmd RdrName)
 checkCmd _ (HsArrApp e1 e2 ptt haat b) =
     return $ HsCmdArrApp e1 e2 ptt haat b
 checkCmd _ (HsArrForm e mf args) =
-    return $ HsCmdArrForm e mf args
+    return $ HsCmdArrForm e Prefix mf args
 checkCmd _ (HsApp e1 e2) =
     checkCommand e1 >>= (\c -> return $ HsCmdApp c e2)
 checkCmd _ (HsLam mg) =
@@ -1184,7 +1184,7 @@ checkCmd _ (OpApp eLeft op _fixity eRight) = do
     c2 <- checkCommand eRight
     let arg1 = L (getLoc c1) $ HsCmdTop c1 placeHolderType placeHolderType []
         arg2 = L (getLoc c2) $ HsCmdTop c2 placeHolderType placeHolderType []
-    return $ HsCmdArrForm op Nothing [arg1, arg2]
+    return $ HsCmdArrForm op Infix Nothing [arg1, arg2]
 
 checkCmd l e = cmdFail l e
 
