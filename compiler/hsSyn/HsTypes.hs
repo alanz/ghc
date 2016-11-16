@@ -1205,6 +1205,13 @@ pprHsContextMaybe []         = Nothing
 pprHsContextMaybe [L _ pred] = Just $ ppr_mono_ty FunPrec pred
 pprHsContextMaybe cxt        = Just $ parens (interpp'SP cxt)
 
+-- For use in a HsQualTy, which always gets printed if it exists.
+pprHsContextAlways :: (OutputableBndrId name, HasOccNameId name)
+                  => HsContext name -> SDoc
+pprHsContextAlways []  = parens empty <+> darrow
+pprHsContextAlways [L _ ty] = ppr_mono_ty FunPrec ty <+> darrow
+pprHsContextAlways cxt = parens (interpp'SP cxt) <+> darrow
+
 -- True <=> print an extra-constraints wildcard, e.g. @(Show a, _) =>@
 pprHsContextExtra :: (OutputableBndrId name, HasOccNameId name)
                   => Bool -> HsContext name -> SDoc
@@ -1259,9 +1266,8 @@ ppr_mono_ty ctxt_prec (HsForAllTy { hst_bndrs = tvs, hst_body = ty })
   = maybeParen ctxt_prec FunPrec $
     sep [pprHsForAllTvs tvs, ppr_mono_lty TopPrec ty]
 
-ppr_mono_ty ctxt_prec (HsQualTy { hst_ctxt = L _ ctxt, hst_body = ty })
-  = maybeParen ctxt_prec FunPrec $
-    sep [pprHsContext ctxt, ppr_mono_lty TopPrec ty]
+ppr_mono_ty _ctxt_prec (HsQualTy { hst_ctxt = L _ ctxt, hst_body = ty })
+  = sep [pprHsContextAlways ctxt, ppr_mono_lty TopPrec ty]
 
 ppr_mono_ty _    (HsBangTy b ty)     = ppr b <> ppr_mono_lty TyConPrec ty
 ppr_mono_ty _    (HsRecTy flds)      = pprConDeclFields flds
@@ -1287,9 +1293,8 @@ ppr_mono_ty ctxt_prec (HsEqTy ty1 ty2)
   = maybeParen ctxt_prec TyOpPrec $
     ppr_mono_lty TyOpPrec ty1 <+> char '~' <+> ppr_mono_lty TyOpPrec ty2
 
-ppr_mono_ty ctxt_prec (HsAppsTy tys)
-  = maybeParen ctxt_prec TyConPrec $
-    hsep (map (ppr_app_ty TopPrec . unLoc) tys)
+ppr_mono_ty _ctxt_prec (HsAppsTy tys)
+  = hsep (map (ppr_app_ty TopPrec . unLoc) tys)
 
 ppr_mono_ty ctxt_prec (HsAppTy fun_ty arg_ty)
   = maybeParen ctxt_prec TyConPrec $

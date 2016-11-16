@@ -129,3 +129,11 @@ ppr030:
 .PHONY: ppr031
 ppr031:
 	$(CHECK_PPR) "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`" Ppr031.hs
+
+.PHONY: ppr032
+ppr032:
+	$(CHECK_PPR) "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`" Ppr032.hs
+
+.PHONY: ppr033
+ppr033:
+	$(CHECK_PPR) "`'$(TEST_HC)' $(TEST_HC_OPTS) --print-libdir | tr -d '\r'`" Ppr033.hs

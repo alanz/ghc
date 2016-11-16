@@ -1075,6 +1075,7 @@ hsExprNeedsParens (HsDo sc _ _)
 hsExprNeedsParens (HsRecFld{})        = False
 hsExprNeedsParens (RecordCon{})       = False
 hsExprNeedsParens (HsSpliceE{})       = False
+hsExprNeedsParens (RecordUpd{})       = False
 hsExprNeedsParens _ = True
 
 

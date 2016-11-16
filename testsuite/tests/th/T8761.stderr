@@ -72,11 +72,11 @@ T8761.hs:(56,1)-(62,23): Splicing declarations
 T8761.hs:(71,1)-(105,39): Splicing declarations
     [d| pattern P :: Bool
         pattern P <- True
-        pattern Pe :: forall a. a -> Ex
+        pattern Pe :: () => forall a. a -> Ex
         pattern Pe x <- MkEx x
         pattern Pu :: forall a. a -> a
         pattern Pu x <- x
-        pattern Pue :: forall a. forall b. a -> b -> (a, Ex)
+        pattern Pue :: forall a. () => forall b. a -> b -> (a, Ex)
         pattern Pue x y <- (x, MkEx y)
         pattern Pur :: forall a. (Num a, Eq a) => a -> [a]
         pattern Pur x <- [x, 1]
@@ -90,21 +90,21 @@ T8761.hs:(71,1)-(105,39): Splicing declarations
                   forall a.
                          (Num a, Eq a) => forall b. Show b => a -> b -> ([a], ExProv)
         pattern Purep x y <- ([x, 1], MkExProv y)
-        pattern Pep :: forall a. Show a => a -> ExProv
+        pattern Pep :: () => forall a. Show a => a -> ExProv
         pattern Pep x <- MkExProv x
-        pattern Pup :: forall a. Show a => a -> UnivProv a
+        pattern Pup :: forall a. () => Show a => a -> UnivProv a
         pattern Pup x <- MkUnivProv x
         pattern Puep ::
-                  forall a. forall b. (Show b) => a -> b -> (ExProv, a)
+                  forall a. () => forall b. (Show b) => a -> b -> (ExProv, a)
         pattern Puep x y <- (MkExProv y, x) |]
   ======>
     pattern P :: Bool
     pattern P <- True
-    pattern Pe :: forall a. a -> Ex
+    pattern Pe :: () => forall a. a -> Ex
     pattern Pe x <- MkEx x
     pattern Pu :: forall a. a -> a
     pattern Pu x <- x
-    pattern Pue :: forall a. forall b. a -> b -> (a, Ex)
+    pattern Pue :: forall a. () => forall b. a -> b -> (a, Ex)
     pattern Pue x y <- (x, MkEx y)
     pattern Pur :: forall a. (Num a, Eq a) => a -> [a]
     pattern Pur x <- [x, 1]
@@ -118,11 +118,12 @@ T8761.hs:(71,1)-(105,39): Splicing declarations
               forall a.
                      (Num a, Eq a) => forall b. Show b => a -> b -> ([a], ExProv)
     pattern Purep x y <- ([x, 1], MkExProv y)
-    pattern Pep :: forall a. Show a => a -> ExProv
+    pattern Pep :: () => forall a. Show a => a -> ExProv
     pattern Pep x <- MkExProv x
-    pattern Pup :: forall a. Show a => a -> UnivProv a
+    pattern Pup :: forall a. () => Show a => a -> UnivProv a
     pattern Pup x <- MkUnivProv x
-    pattern Puep :: forall a. forall b. Show b => a -> b -> (ExProv, a)
+    pattern Puep ::
+               forall a. () => forall b. Show b => a -> b -> (ExProv, a)
     pattern Puep x y <- (MkExProv y, x)
 pattern T8761.P :: GHC.Types.Bool
 pattern T8761.Pe :: () => forall (a0_0 :: *) . a0_0 -> T8761.Ex
