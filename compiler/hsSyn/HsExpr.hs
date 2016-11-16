@@ -1254,8 +1254,8 @@ ppr_cmd (HsCmdLam matches)
   = pprMatches matches
 
 ppr_cmd (HsCmdCase expr matches)
-  = sep [ sep [text "case", nest 4 (ppr expr), ptext (sLit "of {")],
-          nest 2 (pprMatches matches <+> char '}') ]
+  = sep [ sep [text "case", nest 4 (ppr expr), ptext (sLit "of")],
+          nest 2 (pprMatches matches) ]
 
 ppr_cmd (HsCmdIf _ e ct ce)
   = sep [hsep [text "if", nest 2 (ppr e), ptext (sLit "then")],

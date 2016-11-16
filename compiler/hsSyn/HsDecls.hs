@@ -1808,14 +1808,15 @@ pprFullRuleName (L _ (_, n)) = doubleQuotes $ ftext n
 
 instance (OutputableBndrId name, HasOccNameId name)
        => Outputable (RuleDecls name) where
-  ppr (HsRules _ rules) = text "{-# RULES" <+> vcat (map ppr rules) <+> text "#-}"
+  ppr (HsRules _ rules)
+    = text "{-# RULES" <+> vcat (punctuate semi (map ppr rules)) <+> text "#-}"
 
 instance (OutputableBndrId name, HasOccNameId name)
        => Outputable (RuleDecl name) where
   ppr (HsRule name act ns lhs _fv_lhs rhs _fv_rhs)
         = sep [pprFullRuleName name <+> ppr act,
                nest 4 (pp_forall <+> pprExpr (unLoc lhs)),
-               nest 4 (equals <+> pprExpr (unLoc rhs)) ]
+               nest 6 (equals <+> pprExpr (unLoc rhs)) ]
         where
           pp_forall | null ns   = empty
                     | otherwise = forAllLit <+> fsep (map ppr ns) <> dot
@@ -1823,7 +1824,7 @@ instance (OutputableBndrId name, HasOccNameId name)
 instance (OutputableBndrId name, HasOccNameId name)
         => Outputable (RuleBndr name) where
    ppr (RuleBndr name) = ppr name
-   ppr (RuleBndrSig name ty) = ppr name <> dcolon <> ppr ty
+   ppr (RuleBndrSig name ty) = parens (ppr name <> dcolon <> ppr ty)
 
 {-
 ************************************************************************
