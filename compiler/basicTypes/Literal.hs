@@ -485,7 +485,7 @@ pprLiteral _       (MachDouble d)   = double (fromRat d) <> primDoubleSuffix
 pprLiteral add_par (LitInteger i _) = pprIntegerVal add_par i
 pprLiteral add_par (MachLabel l mb fod) = add_par (text "__label" <+> b <+> ppr fod)
     where b = case mb of
-              Nothing -> pprHsString l
+              Nothing -> pprHsString "" l
               Just x  -> doubleQuotes (text (unpackFS l ++ '@':show x))
 
 pprIntegerVal :: (SDoc -> SDoc) -> Integer -> SDoc

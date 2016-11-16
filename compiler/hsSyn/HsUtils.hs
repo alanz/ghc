@@ -334,7 +334,7 @@ unqualQuasiQuote = mkRdrUnqual (mkVarOccFS (fsLit "quasiquote"))
                 -- identify the quasi-quote
 
 mkHsString :: String -> HsLit
-mkHsString s = HsString s (mkFastString s)
+mkHsString s = HsString ("\"" ++ s ++ "\"") (mkFastString s)
 
 mkHsStringPrimLit :: FastString -> HsLit
 mkHsStringPrimLit fs

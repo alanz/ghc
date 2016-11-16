@@ -1030,7 +1030,7 @@ cvtLit (CharL c)       = do { force c; return $ HsChar (show c) c }
 cvtLit (CharPrimL c)   = do { force c; return $ HsCharPrim (show c) c }
 cvtLit (StringL s)     = do { let { s' = mkFastString s }
                             ; force s'
-                            ; return $ HsString s s' }
+                            ; return $ HsString ("\"" ++ s ++ "\"") s' }
 cvtLit (StringPrimL s) = do { let { s' = BS.pack s }
                             ; force s'
                             ; return $ HsStringPrim (w8ToString s) s' }

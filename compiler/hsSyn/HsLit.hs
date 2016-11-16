@@ -19,7 +19,7 @@ module HsLit where
 #include "HsVersions.h"
 
 import {-# SOURCE #-} HsExpr( HsExpr, pprExpr )
-import BasicTypes ( FractionalLit(..),SourceText )
+import BasicTypes ( FractionalLit(..),SourceText,pprHsString )
 import Type       ( Type )
 import Outputable
 import FastString
@@ -168,7 +168,7 @@ instance Ord OverLitVal where
 instance Outputable HsLit where
     ppr (HsChar _ c)       = pprHsChar c
     ppr (HsCharPrim _ c)   = pprPrimChar c
-    ppr (HsString _ s)     = pprHsString s
+    ppr (HsString st s)    = pprHsString st s
     ppr (HsStringPrim _ s) = pprHsBytes s
     ppr (HsInt _ i)        = integer i
     ppr (HsInteger _ i _)  = integer i
@@ -188,7 +188,7 @@ instance (OutputableBndrId id, HasOccNameId id) => Outputable (HsOverLit id) whe
 instance Outputable OverLitVal where
   ppr (HsIntegral _ i)   = integer i
   ppr (HsFractional f)   = ppr f
-  ppr (HsIsString _ s)   = pprHsString s
+  ppr (HsIsString st s)  = pprHsString st s
 
 -- | pmPprHsLit pretty prints literals and is used when pretty printing pattern
 -- match warnings. All are printed the same (i.e., without hashes if they are
@@ -199,7 +199,7 @@ instance Outputable OverLitVal where
 pmPprHsLit :: HsLit -> SDoc
 pmPprHsLit (HsChar _ c)       = pprHsChar c
 pmPprHsLit (HsCharPrim _ c)   = pprHsChar c
-pmPprHsLit (HsString _ s)     = pprHsString s
+pmPprHsLit (HsString st s)    = pprHsString st s
 pmPprHsLit (HsStringPrim _ s) = pprHsBytes s
 pmPprHsLit (HsInt _ i)        = integer i
 pmPprHsLit (HsIntPrim _ i)    = integer i
