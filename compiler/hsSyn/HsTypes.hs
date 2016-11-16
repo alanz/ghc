@@ -1246,14 +1246,8 @@ seems like the Right Thing anyway.)
 pprHsType, pprParendHsType :: (OutputableBndrId name, HasOccNameId name)
                            => HsType name -> SDoc
 
-pprHsType ty       = ppr_mono_ty TopPrec (prepare ty)
+pprHsType ty       = ppr_mono_ty TopPrec ty
 pprParendHsType ty = ppr_mono_ty TyConPrec ty
-
--- Before printing a type, remove outermost HsParTy parens
-prepare :: HsType name -> HsType name
-prepare (HsParTy ty)                            = prepare (unLoc ty)
-prepare (HsAppsTy [L _ (HsAppPrefix (L _ ty))]) = prepare ty
-prepare ty                                      = ty
 
 ppr_mono_lty :: (OutputableBndrId name, HasOccNameId name)
              => TyPrec -> LHsType name -> SDoc
