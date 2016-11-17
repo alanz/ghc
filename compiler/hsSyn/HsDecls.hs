@@ -86,7 +86,8 @@ module HsDecls (
     ) where
 
 -- friends:
-import {-# SOURCE #-}   HsExpr( LHsExpr, HsExpr, HsSplice, pprExpr, pprSplice )
+import {-# SOURCE #-}   HsExpr( LHsExpr, HsExpr, HsSplice, pprExpr,
+                                pprSpliceDecl )
         -- Because Expr imports Decls via HsBracket
 
 import HsBinds
@@ -319,7 +320,8 @@ deriving instance (DataId id) => Data (SpliceDecl id)
 
 instance (OutputableBndrId name, HasOccNameId name)
         => Outputable (SpliceDecl name) where
-   ppr (SpliceDecl (L _ e) _) = pprSplice e
+   ppr (SpliceDecl (L _ e) ExplicitSplice) = pprSpliceDecl e True
+   ppr (SpliceDecl (L _ e) ImplicitSplice) = pprSpliceDecl e False
 
 {-
 ************************************************************************

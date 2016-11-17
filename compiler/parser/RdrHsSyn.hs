@@ -281,7 +281,7 @@ mkSpliceDecl lexpr@(L loc expr)
   = SpliceD (SpliceDecl (L loc splice) ExplicitSplice)
 
   | otherwise
-  = SpliceD (SpliceDecl (L loc (mkUntypedSplice lexpr)) ImplicitSplice)
+  = SpliceD (SpliceDecl (L loc (mkUntypedSplice False lexpr)) ImplicitSplice)
 
 mkRoleAnnotDecl :: SrcSpan
                 -> Located RdrName                   -- type being annotated

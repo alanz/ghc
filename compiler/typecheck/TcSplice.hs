@@ -441,7 +441,7 @@ When a variable is used, we compare
 ************************************************************************
 -}
 
-tcSpliceExpr splice@(HsTypedSplice name expr) res_ty
+tcSpliceExpr splice@(HsTypedSplice _ name expr) res_ty
   = addErrCtxt (spliceCtxtDoc splice) $
     setSrcSpan (getLoc expr)    $ do
     { stage <- getStage
@@ -529,7 +529,7 @@ tcTopSplice expr res_ty
 spliceCtxtDoc :: HsSplice Name -> SDoc
 spliceCtxtDoc splice
   = hang (text "In the Template Haskell splice")
-         2 (pprSplice splice)
+         2 (pprSplice splice False)
 
 spliceResultDoc :: LHsExpr Name -> SDoc
 spliceResultDoc expr

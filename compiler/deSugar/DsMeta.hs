@@ -1073,10 +1073,10 @@ repRole (L _ Nothing)                 = rep2 inferRName []
 repSplice :: HsSplice Name -> DsM (Core a)
 -- See Note [How brackets and nested splices are handled] in TcSplice
 -- We return a CoreExpr of any old type; the context should know
-repSplice (HsTypedSplice   n _)  = rep_splice n
-repSplice (HsUntypedSplice n _)  = rep_splice n
-repSplice (HsQuasiQuote n _ _ _) = rep_splice n
-repSplice e@(HsSpliced _ _)      = pprPanic "repSplice" (ppr e)
+repSplice (HsTypedSplice   _ n _) = rep_splice n
+repSplice (HsUntypedSplice _ n _) = rep_splice n
+repSplice (HsQuasiQuote n _ _ _)  = rep_splice n
+repSplice e@(HsSpliced _ _)       = pprPanic "repSplice" (ppr e)
 
 rep_splice :: Name -> DsM (Core a)
 rep_splice splice_name

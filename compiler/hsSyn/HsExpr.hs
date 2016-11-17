@@ -949,7 +949,7 @@ ppr_expr (HsWrap co_fn e)
   = pprHsWrapper co_fn (\parens -> if parens then pprParendExpr e
                                              else pprExpr       e)
 
-ppr_expr (HsSpliceE s)         = pprSplice s
+ppr_expr (HsSpliceE s)         = pprSplice s False
 ppr_expr (HsBracket b)         = pprHsBracket b
 ppr_expr (HsRnBracketOut e []) = ppr e
 ppr_expr (HsRnBracketOut e ps) = ppr e $$ text "pending(rn)" <+> ppr ps
@@ -2011,10 +2011,12 @@ pprQuals quals = interpp'SP quals
 -- | Haskell Splice
 data HsSplice id
    = HsTypedSplice       --  $$z  or $$(f 4)
+        Bool             -- True if $$( ) variant found, for pretty printing
         id               -- A unique name to identify this splice point
         (LHsExpr id)     -- See Note [Pending Splices]
 
    | HsUntypedSplice     --  $z  or $(f 4)
+        Bool             -- True if $( ) variant found, for pretty printing
         id               -- A unique name to identify this splice point
         (LHsExpr id)     -- See Note [Pending Splices]
 
@@ -2168,17 +2170,28 @@ instance (OutputableBndrId id, HasOccNameId id)
 
 instance (OutputableBndrId id, HasOccNameId id)
         => Outputable (HsSplice id) where
-  ppr s = pprSplice s
+  ppr s = pprSplice s False
 
 pprPendingSplice :: (OutputableBndrId id, HasOccNameId id)
                  => SplicePointName -> LHsExpr id -> SDoc
 pprPendingSplice n e = angleBrackets (ppr n <> comma <+> ppr e)
 
-pprSplice :: (OutputableBndrId id, HasOccNameId id) => HsSplice id -> SDoc
-pprSplice (HsTypedSplice   n e)  = ppr_splice (text "$$") n e
-pprSplice (HsUntypedSplice n e)  = ppr_splice (text "$")  n e
-pprSplice (HsQuasiQuote n q _ s) = ppr_quasi n q s
-pprSplice (HsSpliced _ thing)    = ppr thing
+pprSpliceDecl ::  (OutputableBndrId id, HasOccNameId id)
+          => HsSplice id -> Bool -> SDoc
+pprSpliceDecl e@HsQuasiQuote{} _ = pprSplice e True
+pprSpliceDecl e True  = text "$(" <> pprSplice e True <> text ")"
+pprSpliceDecl e False = pprSplice e True
+
+pprSplice :: (OutputableBndrId id, HasOccNameId id)
+          => HsSplice id -> Bool -> SDoc
+pprSplice (HsTypedSplice True  n e)   _     = ppr_splice (text "$$(") n e (text ")")
+pprSplice (HsTypedSplice False n e)   _     = ppr_splice (text "$$")  n e empty
+pprSplice (HsUntypedSplice True  n e) False = ppr_splice (text "$(")  n e (text ")")
+pprSplice (HsUntypedSplice False n e) False = ppr_splice (text "$")   n e empty
+pprSplice (HsUntypedSplice _     n e) True  = ppr_splice empty        n e empty
+
+pprSplice (HsQuasiQuote n q _ s) _      = ppr_quasi n q s
+pprSplice (HsSpliced _ thing)    _      = ppr thing
 
 ppr_quasi :: OutputableBndr id => id -> id -> FastString -> SDoc
 ppr_quasi n quoter quote = ifPprDebug (brackets (ppr n)) <>
@@ -2186,18 +2199,9 @@ ppr_quasi n quoter quote = ifPprDebug (brackets (ppr n)) <>
                            ppr quote <> text "|]"
 
 ppr_splice :: (OutputableBndrId id, HasOccNameId id)
-           => SDoc -> id -> LHsExpr id -> SDoc
-ppr_splice herald n e
-    = herald <> ifPprDebug (brackets (ppr n)) <> eDoc
-    where
-          -- We use pprLExpr to match pprParendLExpr:
-          --     Using pprLExpr makes sure that we go 'deeper'
-          --     I think that is usually (always?) right
-          pp_as_was = pprLExpr e
-          eDoc = case unLoc e of
-                 HsPar _ -> pp_as_was
-                 HsVar _ -> pp_as_was
-                 _ -> parens pp_as_was
+           => SDoc -> id -> LHsExpr id -> SDoc -> SDoc
+ppr_splice herald n e trail
+    = herald <> ifPprDebug (brackets (ppr n)) <> ppr e <> trail
 
 -- | Haskell Bracket
 data HsBracket id = ExpBr (LHsExpr id)   -- [|  expr  |]

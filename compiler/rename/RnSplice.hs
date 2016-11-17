@@ -309,7 +309,7 @@ runRnSplice flavour run_meta ppr_res splice
   = do { splice' <- getHooked runRnSpliceHook return >>= ($ splice)
 
        ; let the_expr = case splice' of
-                  HsUntypedSplice _ e     ->  e
+                  HsUntypedSplice _ _ e   ->  e
                   HsQuasiQuote _ q qs str -> mkQuasiQuoteExpr flavour q qs str
                   HsTypedSplice {}        -> pprPanic "runRnSplice" (ppr splice)
                   HsSpliced {}            -> pprPanic "runRnSplice" (ppr splice)
@@ -350,7 +350,7 @@ runRnSplice flavour run_meta ppr_res splice
 makePending :: UntypedSpliceFlavour
             -> HsSplice Name
             -> PendingRnSplice
-makePending flavour (HsUntypedSplice n e)
+makePending flavour (HsUntypedSplice _ n e)
   = PendingRnSplice flavour n e
 makePending flavour (HsQuasiQuote n quoter q_span quote)
   = PendingRnSplice flavour n (mkQuasiQuoteExpr flavour quoter q_span quote)
@@ -380,19 +380,19 @@ mkQuasiQuoteExpr flavour quoter q_span quote
 ---------------------
 rnSplice :: HsSplice RdrName -> RnM (HsSplice Name, FreeVars)
 -- Not exported...used for all
-rnSplice (HsTypedSplice splice_name expr)
+rnSplice (HsTypedSplice hasParen splice_name expr)
   = do  { checkTH expr "Template Haskell typed splice"
         ; loc  <- getSrcSpanM
         ; n' <- newLocalBndrRn (L loc splice_name)
         ; (expr', fvs) <- rnLExpr expr
-        ; return (HsTypedSplice n' expr', fvs) }
+        ; return (HsTypedSplice hasParen n' expr', fvs) }
 
-rnSplice (HsUntypedSplice splice_name expr)
+rnSplice (HsUntypedSplice hasParen splice_name expr)
   = do  { checkTH expr "Template Haskell untyped splice"
         ; loc  <- getSrcSpanM
         ; n' <- newLocalBndrRn (L loc splice_name)
         ; (expr', fvs) <- rnLExpr expr
-        ; return (HsUntypedSplice n' expr', fvs) }
+        ; return (HsUntypedSplice hasParen n' expr', fvs) }
 
 rnSplice (HsQuasiQuote splice_name quoter q_loc quote)
   = do  { checkTH quoter "Template Haskell quasi-quote"

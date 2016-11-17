@@ -452,7 +452,7 @@ pprPat (LitPat s)             = ppr s
 pprPat (NPat l Nothing  _ _)  = ppr l
 pprPat (NPat l (Just _) _ _)  = char '-' <> ppr l
 pprPat (NPlusKPat n k _ _ _ _)= hcat [ppr n, char '+', ppr k]
-pprPat (SplicePat splice)     = pprSplice splice
+pprPat (SplicePat splice)     = pprSplice splice False
 pprPat (CoPat co pat _)       = pprHsWrapper co (\parens -> if parens
                                                             then pprParendPat pat
                                                             else pprPat pat)

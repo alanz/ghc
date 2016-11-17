@@ -42,7 +42,11 @@ pprLExpr :: (OutputableBndrId id, HasOccNameId id) => LHsExpr id -> SDoc
 
 pprExpr :: (OutputableBndrId id,HasOccNameId id) => HsExpr id -> SDoc
 
-pprSplice :: (OutputableBndrId id, HasOccNameId id) => HsSplice id -> SDoc
+pprSplice :: (OutputableBndrId id, HasOccNameId id)
+          => HsSplice id -> Bool -> SDoc
+
+pprSpliceDecl ::  (OutputableBndrId id, HasOccNameId id)
+          => HsSplice id -> Bool -> SDoc
 
 pprPatBind :: (OutputableBndrId bndr,
                OutputableBndrId id,

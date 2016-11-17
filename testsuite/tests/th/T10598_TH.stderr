@@ -18,17 +18,17 @@ T10598_TH.hs:(27,3)-(42,50): Splicing declarations
           standaloneDerivWithStrategyD
             (Just Stock)
             (cxt [])
-            [t| Ord $fooType |]
+            [t| Ord $(fooType) |]
             pending(rn) [<splice, fooType>],
           standaloneDerivWithStrategyD
             (Just Anyclass)
             (cxt [])
-            [t| D $fooType |]
+            [t| D $(fooType) |]
             pending(rn) [<splice, fooType>],
           standaloneDerivWithStrategyD
             (Just Newtype)
             (cxt [])
-            [t| Show $fooType |]
+            [t| Show $(fooType) |]
             pending(rn) [<splice, fooType>]]
   ======>
     newtype Foo
