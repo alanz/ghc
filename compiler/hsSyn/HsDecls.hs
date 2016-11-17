@@ -2001,11 +2001,13 @@ data WarnDecl name = Warning [Located name] WarningTxt
   deriving Data
 
 instance OutputableBndr name => Outputable (WarnDecls name) where
-    ppr (Warnings _ decls) = ppr decls
+    ppr (Warnings src decls)
+      = text src <+> vcat (punctuate comma (map ppr decls)) <+> text "#-}"
 
 instance OutputableBndr name => Outputable (WarnDecl name) where
     ppr (Warning thing txt)
-      = hsep [text "{-# DEPRECATED", ppr thing, doubleQuotes (ppr txt), text "#-}"]
+      = hsep ( punctuate comma (map ppr thing))
+              <+> ppr txt
 
 {-
 ************************************************************************

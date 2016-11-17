@@ -27,7 +27,7 @@ module BasicTypes(
 
         FunctionOrData(..),
 
-        WarningTxt(..), StringLiteral(..),
+        WarningTxt(..), pprWarningTxtForMsg, StringLiteral(..),
 
         Fixity(..), FixityDirection(..),
         defaultFixity, maxPrecedence, minPrecedence,
@@ -301,11 +301,30 @@ data WarningTxt = WarningTxt (Located SourceText)
     deriving (Eq, Data)
 
 instance Outputable WarningTxt where
-    ppr (WarningTxt    _ ws)
-                         = doubleQuotes (vcat (map (ftext . sl_fs . unLoc) ws))
-    ppr (DeprecatedTxt _ ds)
-                         = text "Deprecated:" <+>
-                           doubleQuotes (vcat (map (ftext . sl_fs . unLoc) ds))
+    ppr (WarningTxt    lsrc ws)
+      = case unLoc lsrc of
+          ""  -> pp_ws ws
+          src -> text src <+> pp_ws ws <+> text "#-}"
+
+    ppr (DeprecatedTxt lsrc  ds)
+      = case unLoc lsrc of
+          ""  -> pp_ws ds
+          src -> text src <+> pp_ws ds <+> text "#-}"
+
+pp_ws :: [Located StringLiteral] -> SDoc
+pp_ws [l] = text $ sl_st $ unLoc l
+pp_ws ws
+  = text "["
+    <+> vcat (punctuate comma (map (text . sl_st . unLoc) ws))
+    <+> text "]"
+
+
+pprWarningTxtForMsg :: WarningTxt -> SDoc
+pprWarningTxtForMsg (WarningTxt    _ ws)
+                     = doubleQuotes (vcat (map (ftext . sl_fs . unLoc) ws))
+pprWarningTxtForMsg (DeprecatedTxt _ ds)
+                     = text "Deprecated:" <+>
+                       doubleQuotes (vcat (map (ftext . sl_fs . unLoc) ds))
 
 {-
 ************************************************************************

@@ -75,7 +75,8 @@ import DataCon
 import TyCon
 import PrelNames        ( mkUnboundName, isUnboundName, rOOT_MAIN, forall_tv_RDR )
 import ErrUtils         ( MsgDoc )
-import BasicTypes       ( Fixity(..), FixityDirection(..), minPrecedence, defaultFixity )
+import BasicTypes       ( Fixity(..), FixityDirection(..), minPrecedence,
+                          defaultFixity, pprWarningTxtForMsg )
 import SrcLoc
 import Outputable
 import Util
@@ -1048,7 +1049,7 @@ warnIfDeprecated gre@(GRE { gre_name = name, gre_imp = iss })
                     <+> pprNonVarNameSpace (occNameSpace occ)
                     <+> quotes (ppr occ)
                   , parens imp_msg <> colon ]
-            , ppr txt ]
+            , pprWarningTxtForMsg txt ]
       where
         imp_mod  = importSpecModule imp_spec
         imp_msg  = text "imported from" <+> ppr imp_mod <> extra
