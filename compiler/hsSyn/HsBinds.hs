@@ -1014,7 +1014,8 @@ pprTcSpecPrags (SpecPrags ps)  = vcat (map (ppr . unLoc) ps)
 instance Outputable TcSpecPrag where
   ppr (SpecPrag var _ inl) = text "SPECIALIZE" <+> pprSpec var (text "<type>") inl
 
-pprMinimalSig :: OutputableBndr name => LBooleanFormula (Located name) -> SDoc
+pprMinimalSig :: (OutputableBndr name, HasOccName name)
+              => LBooleanFormula (Located name) -> SDoc
 pprMinimalSig (L _ bf) = text "MINIMAL" <+> ppr (fmap unLoc bf)
 
 {-

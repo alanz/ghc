@@ -186,3 +186,4 @@ GIT_COMMIT_ID
 *.run
 /testsuite/tests/printer/Ppr026
 /testsuite/tests/printer/Ppr029
+/testsuite/tests/printer/Ppr034
