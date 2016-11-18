@@ -2231,7 +2231,8 @@ pprHsBracket (DecBrL ds) = thBrackets (char 'd') (vcat (map ppr ds))
 pprHsBracket (TypBr t)   = thBrackets (char 't') (ppr t)
 pprHsBracket (VarBr True n)
   = char '\'' <> pprPrefixVar (isSymOcc $ occName n) (ppr n)
-pprHsBracket (VarBr False n) = text "''" <> ppr n
+pprHsBracket (VarBr False n)
+  = text "''" <> pprPrefixVar (isSymOcc $ occName n) (ppr n)
 pprHsBracket (TExpBr e)  = thTyBrackets (ppr e)
 
 thBrackets :: SDoc -> SDoc -> SDoc

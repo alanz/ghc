@@ -107,7 +107,6 @@ showAstData n =
           `extQ` string `extQ` fastString `extQ` srcSpan
           `extQ` bytestring
           `extQ` name `extQ` occName `extQ` moduleName `extQ` var `extQ` dataCon
-          `extQ` overLit
           `extQ` bagName `extQ` bagRdrName `extQ` bagVar `extQ` nameSet
           `extQ` fixity
           `ext2Q` located
@@ -132,9 +131,6 @@ showAstData n =
 
         var        = ("{Var: "++) . (++"}") . showSDocDebug_ . ppr :: Var -> String
         dataCon    = ("{DataCon: "++) . (++"}") . showSDoc_ . ppr :: DataCon -> String
-
-        overLit :: HsOverLit RdrName -> String
-        overLit    = ("{HsOverLit:"++) . (++"}") . showSDoc_ . ppr
 
         bagRdrName:: Bag (Located (HsBind RdrName)) -> String
         bagRdrName = ("{Bag(Located (HsBind RdrName)): "++) . (++"}") . list . bagToList

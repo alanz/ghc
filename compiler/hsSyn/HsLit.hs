@@ -19,7 +19,7 @@ module HsLit where
 #include "HsVersions.h"
 
 import {-# SOURCE #-} HsExpr( HsExpr, pprExpr )
-import BasicTypes ( FractionalLit(..),SourceText,pprHsString )
+import BasicTypes ( FractionalLit(..),SourceText,pprWithSourceText )
 import Type       ( Type )
 import Outputable
 import FastString
@@ -166,19 +166,21 @@ instance Ord OverLitVal where
   compare (HsIsString _ _)    (HsFractional _)    = GT
 
 instance Outputable HsLit where
-    ppr (HsChar _ c)       = pprHsChar c
-    ppr (HsCharPrim _ c)   = pprPrimChar c
-    ppr (HsString st s)    = pprHsString st s
-    ppr (HsStringPrim _ s) = pprHsBytes s
-    ppr (HsInt _ i)        = integer i
-    ppr (HsInteger _ i _)  = integer i
-    ppr (HsRat f _)        = ppr f
-    ppr (HsFloatPrim f)    = ppr f <> primFloatSuffix
-    ppr (HsDoublePrim d)   = ppr d <> primDoubleSuffix
-    ppr (HsIntPrim _ i)    = pprPrimInt i
-    ppr (HsWordPrim _ w)   = pprPrimWord w
-    ppr (HsInt64Prim _ i)  = pprPrimInt64 i
-    ppr (HsWord64Prim _ w) = pprPrimWord64 w
+    ppr (HsChar st c)       = pprWithSourceText st (pprHsChar c)
+    ppr (HsCharPrim st c)   = case st of
+                                "" -> pprPrimChar c
+                                st -> text st <> primCharSuffix
+    ppr (HsString st s)     = pprWithSourceText st (pprHsString s)
+    ppr (HsStringPrim st s) = pprWithSourceText st (pprHsBytes s)
+    ppr (HsInt st i)        = pprWithSourceText st (integer i)
+    ppr (HsInteger st i _)  = pprWithSourceText st (integer i)
+    ppr (HsRat f _)         = ppr f
+    ppr (HsFloatPrim f)     = ppr f <> primFloatSuffix
+    ppr (HsDoublePrim d)    = ppr d <> primDoubleSuffix
+    ppr (HsIntPrim st i)    = pprWithSourceText st (pprPrimInt i)
+    ppr (HsWordPrim st w)   = pprWithSourceText st (pprPrimWord w)
+    ppr (HsInt64Prim st i)  = pprWithSourceText st (pprPrimInt64 i)
+    ppr (HsWord64Prim st w) = pprWithSourceText st (pprPrimWord64 w)
 
 -- in debug mode, print the expression that it's resolved to, too
 instance (OutputableBndrId id, HasOccNameId id) => Outputable (HsOverLit id) where
@@ -186,9 +188,9 @@ instance (OutputableBndrId id, HasOccNameId id) => Outputable (HsOverLit id) whe
         = ppr val <+> (ifPprDebug (parens (pprExpr witness)))
 
 instance Outputable OverLitVal where
-  ppr (HsIntegral _ i)   = integer i
+  ppr (HsIntegral st i)  = pprWithSourceText st (integer i)
   ppr (HsFractional f)   = ppr f
-  ppr (HsIsString st s)  = pprHsString st s
+  ppr (HsIsString st s)  = pprWithSourceText st (pprHsString s)
 
 -- | pmPprHsLit pretty prints literals and is used when pretty printing pattern
 -- match warnings. All are printed the same (i.e., without hashes if they are
@@ -199,7 +201,7 @@ instance Outputable OverLitVal where
 pmPprHsLit :: HsLit -> SDoc
 pmPprHsLit (HsChar _ c)       = pprHsChar c
 pmPprHsLit (HsCharPrim _ c)   = pprHsChar c
-pmPprHsLit (HsString st s)    = pprHsString st s
+pmPprHsLit (HsString st s)    = pprWithSourceText st (pprHsString s)
 pmPprHsLit (HsStringPrim _ s) = pprHsBytes s
 pmPprHsLit (HsInt _ i)        = integer i
 pmPprHsLit (HsIntPrim _ i)    = integer i

@@ -50,9 +50,9 @@ module Outputable (
         renderWithStyle,
 
         pprInfixVar, pprPrefixVar,
-        pprHsChar, pprHsBytes,
+        pprHsChar, pprHsString, pprHsBytes,
 
-        primFloatSuffix, primDoubleSuffix,
+        primFloatSuffix, primCharSuffix, primDoubleSuffix,
         pprPrimChar, pprPrimInt, pprPrimWord, pprPrimInt64, pprPrimWord64,
 
         pprFastFilePath,
@@ -869,6 +869,9 @@ pprHsChar :: Char -> SDoc
 pprHsChar c | c > '\x10ffff' = char '\\' <> text (show (fromIntegral (ord c) :: Word32))
             | otherwise      = text (show c)
 
+-- | Special combinator for showing string literals.
+pprHsString :: FastString -> SDoc
+pprHsString fs = vcat (map text (showMultiLineString (unpackFS fs)))
 
 -- | Special combinator for showing bytestring literals.
 pprHsBytes :: ByteString -> SDoc

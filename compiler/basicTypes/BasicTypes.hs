@@ -91,7 +91,7 @@ module BasicTypes(
 
         FractionalLit(..), negateFractionalLit, integralFractionalLit,
 
-        SourceText, pprHsString,
+        SourceText, pprWithSourceText,
 
         IntWithInf, infinity, treatZeroAsInf, mkIntWithInf, intGtLimit
    ) where
@@ -102,8 +102,6 @@ import SrcLoc ( Located,unLoc )
 import StaticFlags( opt_PprStyle_Debug )
 import Data.Data hiding (Fixity)
 import Data.Function (on)
-
-import GHC.Show         ( showMultiLineString )
 
 {-
 ************************************************************************
@@ -960,9 +958,9 @@ For OverLitVal
 type SourceText = String -- Note [Literal source text],[Pragma source text]
 
 -- | Special combinator for showing string literals.
-pprHsString :: SourceText -> FastString -> SDoc
-pprHsString "" fs = vcat (map text (showMultiLineString (unpackFS fs)))
-pprHsString src _ = text src
+pprWithSourceText :: SourceText -> SDoc -> SDoc
+pprWithSourceText "" d = d
+pprWithSourceText src _ = text src
 
 {-
 ************************************************************************
