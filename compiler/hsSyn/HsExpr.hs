@@ -898,10 +898,14 @@ ppr_expr (HsIf _ e1 e2 e3)
          nest 4 (ppr e3)]
 
 ppr_expr (HsMultiIf _ alts)
-  = sep $ text "if" : map ppr_alt alts
+  = hang (text "if") 3  (vcat (map ppr_alt alts))
   where ppr_alt (L _ (GRHS guards expr)) =
-          sep [ vbar <+> interpp'SP guards
-              , text "->" <+> pprDeeper (ppr expr) ]
+          hang vbar 2 (ppr_one one_alt)
+          where
+            ppr_one [] = panic "ppr_exp HsMultiIf"
+            ppr_one (h:t) = hang h 2 (sep t)
+            one_alt = [ interpp'SP guards
+                  , text "->" <+> pprDeeper (ppr expr) ]
 
 -- special case: let ... in let ...
 ppr_expr (HsLet (L _ binds) expr@(L _ (HsLet _ _)))
