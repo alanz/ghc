@@ -1484,9 +1484,17 @@ pp_fam_inst_lhs :: (OutputableBndrId name, HasOccNameId name)
    -> HsTyPats name
    -> HsContext name
    -> SDoc
-pp_fam_inst_lhs thing (HsIB { hsib_body = typats }) context -- explicit type patterns
-   = hsep [ pprHsContext context, pprPrefixOcc (unLoc thing)
-          , hsep (map (pprParendHsType.unLoc) typats)]
+pp_fam_inst_lhs thing (HsIB { hsib_body = typats }) context
+                                              -- explicit type patterns
+   = hsep [ pprHsContext context, pp_pats typats]
+   where
+     pp_pats (patl:patsr)
+       | isSymOcc $ occName (unLoc thing)
+          = hsep [pprParendHsType (unLoc patl), pprInfixOcc (unLoc thing)
+          , hsep (map (pprParendHsType.unLoc) patsr)]
+       | otherwise = hsep [ pprPrefixOcc (unLoc thing)
+                   , hsep (map (pprParendHsType.unLoc) (patl:patsr))]
+     pp_pats [] = empty
 
 instance (OutputableBndrId name, HasOccNameId name)
        => Outputable (ClsInstDecl name) where

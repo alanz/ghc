@@ -286,5 +286,5 @@ mkTyConRepRHS (Stuff {..}) tycon = rep_rhs
     Fingerprint high low = fingerprintString hashThis
 
     word64 :: Word64 -> HsLit
-    word64 | wORD_SIZE dflags == 4 = \n -> HsWord64Prim (show n) (toInteger n)
-           | otherwise             = \n -> HsWordPrim   (show n) (toInteger n)
+    word64 | wORD_SIZE dflags == 4 = \n -> HsWord64Prim "" (toInteger n)
+           | otherwise             = \n -> HsWordPrim   "" (toInteger n)

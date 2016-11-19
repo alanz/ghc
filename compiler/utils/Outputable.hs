@@ -52,7 +52,9 @@ module Outputable (
         pprInfixVar, pprPrefixVar,
         pprHsChar, pprHsString, pprHsBytes,
 
-        primFloatSuffix, primCharSuffix, primDoubleSuffix,
+        primFloatSuffix, primCharSuffix, primWordSuffix, primDoubleSuffix,
+        primInt64Suffix, primWord64Suffix, primIntSuffix,
+        
         pprPrimChar, pprPrimInt, pprPrimWord, pprPrimInt64, pprPrimWord64,
 
         pprFastFilePath,

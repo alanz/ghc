@@ -39,8 +39,6 @@ import MonadUtils ( foldrM )
 import qualified Data.ByteString as BS
 import Control.Monad( unless, liftM, ap )
 
-import Data.Char ( chr )
-import Data.Word ( Word8 )
 import Data.Maybe( catMaybes, fromMaybe, isNothing )
 import Language.Haskell.TH as TH hiding (sigP)
 import Language.Haskell.TH.Syntax as TH
@@ -1022,25 +1020,22 @@ allCharLs xs
     go _  _                     = Nothing
 
 cvtLit :: Lit -> CvtM HsLit
-cvtLit (IntPrimL i)    = do { force i; return $ HsIntPrim (show i) i }
-cvtLit (WordPrimL w)   = do { force w; return $ HsWordPrim (show w) w }
+cvtLit (IntPrimL i)    = do { force i; return $ HsIntPrim "" i }
+cvtLit (WordPrimL w)   = do { force w; return $ HsWordPrim "" w }
 cvtLit (FloatPrimL f)  = do { force f; return $ HsFloatPrim (cvtFractionalLit f) }
 cvtLit (DoublePrimL f) = do { force f; return $ HsDoublePrim (cvtFractionalLit f) }
-cvtLit (CharL c)       = do { force c; return $ HsChar (show c) c }
-cvtLit (CharPrimL c)   = do { force c; return $ HsCharPrim (show c) c }
+cvtLit (CharL c)       = do { force c; return $ HsChar "" c }
+cvtLit (CharPrimL c)   = do { force c; return $ HsCharPrim "" c }
 cvtLit (StringL s)     = do { let { s' = mkFastString s }
                             ; force s'
                             ; return $ HsString ("\"" ++ s ++ "\"") s' }
 cvtLit (StringPrimL s) = do { let { s' = BS.pack s }
                             ; force s'
-                            ; return $ HsStringPrim (w8ToString s) s' }
+                            ; return $ HsStringPrim "" s' }
 cvtLit _ = panic "Convert.cvtLit: Unexpected literal"
         -- cvtLit should not be called on IntegerL, RationalL
         -- That precondition is established right here in
         -- Convert.hs, hence panic
-
-w8ToString :: [Word8] -> String
-w8ToString ws = map (\w -> chr (fromIntegral w)) ws
 
 cvtPats :: [TH.Pat] -> CvtM [Hs.LPat RdrName]
 cvtPats pats = mapM cvtPat pats

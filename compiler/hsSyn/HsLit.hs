@@ -167,11 +167,11 @@ instance Ord OverLitVal where
 
 instance Outputable HsLit where
     ppr (HsChar st c)       = pprWithSourceText st (pprHsChar c)
-    ppr (HsCharPrim st c)   = case st of
-                                "" -> pprPrimChar c
-                                st -> text st <> primCharSuffix
+    ppr (HsCharPrim st c)   = pp_st_suffix st primCharSuffix (pprPrimChar c)
     ppr (HsString st s)     = pprWithSourceText st (pprHsString s)
-    ppr (HsStringPrim st s) = pprWithSourceText st (pprHsBytes s)
+    ppr (HsStringPrim st s) = case st of
+                                "" -> pprHsBytes s
+                                _  -> text $ "\"" ++ st ++ "\"#"
     ppr (HsInt st i)        = pprWithSourceText st (integer i)
     ppr (HsInteger st i _)  = pprWithSourceText st (integer i)
     ppr (HsRat f _)         = ppr f
@@ -179,8 +179,12 @@ instance Outputable HsLit where
     ppr (HsDoublePrim d)    = ppr d <> primDoubleSuffix
     ppr (HsIntPrim st i)    = pprWithSourceText st (pprPrimInt i)
     ppr (HsWordPrim st w)   = pprWithSourceText st (pprPrimWord w)
-    ppr (HsInt64Prim st i)  = pprWithSourceText st (pprPrimInt64 i)
-    ppr (HsWord64Prim st w) = pprWithSourceText st (pprPrimWord64 w)
+    ppr (HsInt64Prim st i)  = pp_st_suffix st primInt64Suffix  (pprPrimInt64 i)
+    ppr (HsWord64Prim st w) = pp_st_suffix st primWord64Suffix (pprPrimWord64 w)
+
+pp_st_suffix :: SourceText -> SDoc -> SDoc -> SDoc
+pp_st_suffix ""      _ doc = doc
+pp_st_suffix st suffix   _ = text st <> suffix
 
 -- in debug mode, print the expression that it's resolved to, too
 instance (OutputableBndrId id, HasOccNameId id) => Outputable (HsOverLit id) where
