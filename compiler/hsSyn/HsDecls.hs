@@ -682,8 +682,16 @@ pp_vanilla_decl_head :: (OutputableBndrId name, HasOccNameId name)
    -> LHsQTyVars name
    -> HsContext name
    -> SDoc
-pp_vanilla_decl_head thing tyvars context
- = hsep [pprHsContext context, pprPrefixOcc (unLoc thing), ppr tyvars]
+pp_vanilla_decl_head thing (HsQTvs { hsq_explicit = tyvars }) context
+ = hsep [pprHsContext context, pp_tyvars tyvars]
+  where
+    pp_tyvars (varl:varsr)
+      | isSymOcc $ occName (unLoc thing)
+         = hsep [ppr (unLoc varl), pprInfixOcc (unLoc thing)
+         , hsep (map (ppr.unLoc) varsr)]
+      | otherwise = hsep [ pprPrefixOcc (unLoc thing)
+                  , hsep (map (ppr.unLoc) (varl:varsr))]
+    pp_tyvars [] = empty
 
 pprTyClDeclFlavour :: TyClDecl a -> SDoc
 pprTyClDeclFlavour (ClassDecl {})   = text "class"
@@ -1730,7 +1738,7 @@ instance Outputable ForeignImport where
     ppr cconv <+> ppr safety <+> pp_ce spec srcText
     where
       pp_ce spec "" = pprCEntity spec ""
-      pp_ce _    st = text st
+      pp_ce _    st = doubleQuotes (text st)
 
       pp_hdr = case mHeader of
                Nothing -> empty

@@ -1296,9 +1296,8 @@ ppr_mono_ty ctxt_prec (HsEqTy ty1 ty2)
 ppr_mono_ty _ctxt_prec (HsAppsTy tys)
   = hsep (map (ppr_app_ty TopPrec . unLoc) tys)
 
-ppr_mono_ty ctxt_prec (HsAppTy fun_ty arg_ty)
-  = maybeParen ctxt_prec TyConPrec $
-    hsep [ppr_mono_lty FunPrec fun_ty, ppr_mono_lty TyConPrec arg_ty]
+ppr_mono_ty _ctxt_prec (HsAppTy fun_ty arg_ty)
+  = hsep [ppr_mono_lty FunPrec fun_ty, ppr_mono_lty TyConPrec arg_ty]
 
 ppr_mono_ty ctxt_prec (HsOpTy ty1 (L _ op) ty2)
   = maybeParen ctxt_prec TyOpPrec $
