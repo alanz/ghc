@@ -1727,24 +1727,33 @@ instance (OutputableBndrId name, HasOccNameId name)
 
 instance Outputable ForeignImport where
   ppr (CImport  cconv safety mHeader spec (L _ srcText)) =
-    ppr cconv <+> ppr safety <+>
-    char '"' <> pprCEntity spec srcText <> char '"'
+    ppr cconv <+> ppr safety <+> pp_ce spec srcText
     where
+      pp_ce spec "" = pprCEntity spec ""
+      pp_ce _    st = text st
+
       pp_hdr = case mHeader of
                Nothing -> empty
                Just (Header _ header) -> ftext header
 
       pprCEntity (CLabel lbl) _ =
-        text "static" <+> pp_hdr <+> char '&' <> ppr lbl
-      pprCEntity (CFunction (StaticTarget _ lbl _ isFun)) src =
-            -- We may need to drop leading spaces first
-            (if (take 6 src == "static") then text "static" else empty)
-        <+> pp_hdr
-        <+> (if isFun then empty else text "value")
-        <+> ppr lbl
-      pprCEntity (CFunction (DynamicTarget)) _ =
-        text "dynamic"
-      pprCEntity (CWrapper) _ = text "wrapper"
+        doubleQuotes $ text "static" <+> pp_hdr <+> char '&' <> ppr lbl
+      pprCEntity (CFunction (StaticTarget st _lbl _ isFun)) src =
+        if dqNeeded then doubleQuotes ce else empty
+          where
+            dqNeeded = (take 6 src == "static")
+                    || isJust mHeader
+                    || not isFun
+                    || st /= ""
+            ce =
+                  -- We may need to drop leading spaces first
+                  (if take 6 src == "static" then text "static" else empty)
+              <+> pp_hdr
+              <+> (if isFun then empty else text "value")
+              <+> (if st == "" then empty else text st)
+      pprCEntity (CFunction DynamicTarget) _ =
+        doubleQuotes $ text "dynamic"
+      pprCEntity CWrapper _ = doubleQuotes $ text "wrapper"
 
 instance Outputable ForeignExport where
   ppr (CExport  (L _ (CExportStatic _ lbl cconv)) _) =

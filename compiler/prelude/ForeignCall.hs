@@ -203,14 +203,14 @@ instance Outputable CCallSpec where
       gc_suf | playSafe safety = text "_GC"
              | otherwise       = empty
 
-      ppr_fun (StaticTarget _ fn mPkgId isFun)
+      ppr_fun (StaticTarget st _fn mPkgId isFun)
         = text (if isFun then "__pkg_ccall"
                          else "__pkg_ccall_value")
        <> gc_suf
        <+> (case mPkgId of
             Nothing -> empty
             Just pkgId -> ppr pkgId)
-       <+> pprCLabelString fn
+       <+> (if st == "" then empty else text st)
 
       ppr_fun DynamicTarget
         = text "__dyn_ccall" <> gc_suf <+> text "\"\""
