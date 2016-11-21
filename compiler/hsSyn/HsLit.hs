@@ -171,7 +171,7 @@ instance Outputable HsLit where
     ppr (HsString st s)     = pprWithSourceText st (pprHsString s)
     ppr (HsStringPrim st s) = case st of
                                 "" -> pprHsBytes s
-                                _  -> text st
+                                _  -> text $ "\"" ++ st ++ "\"#"
     ppr (HsInt st i)        = pprWithSourceText st (integer i)
     ppr (HsInteger st i _)  = pprWithSourceText st (integer i)
     ppr (HsRat f _)         = ppr f

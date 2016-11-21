@@ -464,9 +464,9 @@ rnHsTyKi env ty@(HsQualTy { hst_ctxt = lctxt, hst_body = tau })
        ; return (HsQualTy { hst_ctxt = ctxt', hst_body =  tau' }
                 , fvs1 `plusFV` fvs2) }
 
-rnHsTyKi env (HsTyVar (L loc rdr_name))
+rnHsTyKi env (HsTyVar ip (L loc rdr_name))
   = do { name <- rnTyVar env rdr_name
-       ; return (HsTyVar (L loc name), unitFV name) }
+       ; return (HsTyVar ip (L loc name), unitFV name) }
 
 rnHsTyKi env ty@(HsOpTy ty1 l_op ty2)
   = setSrcSpan (getLoc l_op) $
@@ -586,7 +586,8 @@ rnHsTyKi env overall_ty@(HsAppsTy tys)
                    (non_syms1 : non_syms2 : non_syms) (L loc star : ops)
       | star `hasKey` starKindTyConKey || star `hasKey` unicodeStarKindTyConKey
       = deal_with_star acc1 acc2
-                       ((non_syms1 ++ L loc (HsTyVar (L loc star)) : non_syms2) : non_syms)
+                       ((non_syms1 ++ L loc (HsTyVar False (L loc star))
+                            : non_syms2) : non_syms)
                        ops
     deal_with_star acc1 acc2 (non_syms1 : non_syms) (op1 : ops)
       = deal_with_star (non_syms1 : acc1) (op1 : acc2) non_syms ops
@@ -1597,7 +1598,7 @@ extract_lkind = extract_lty KindLevel
 extract_lty :: TypeOrKind -> LHsType RdrName -> FreeKiTyVars -> RnM FreeKiTyVars
 extract_lty t_or_k (L _ ty) acc
   = case ty of
-      HsTyVar ltv               -> extract_tv t_or_k ltv acc
+      HsTyVar _  ltv            -> extract_tv t_or_k ltv acc
       HsBangTy _ ty             -> extract_lty t_or_k ty acc
       HsRecTy flds              -> foldrM (extract_lty t_or_k
                                            . cd_fld_type . unLoc) acc

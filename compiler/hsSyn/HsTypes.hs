@@ -432,7 +432,8 @@ data HsType name
       { hst_ctxt :: LHsContext name       -- Context C => blah
       , hst_body :: LHsType name }
 
-  | HsTyVar    (Located name)
+  | HsTyVar             Bool -- True for explictly promoted tyvar
+                        (Located name)
                   -- Type variable, type constructor, or data constructor
                   -- see Note [Promotions (HsTyVar)]
                   -- See Note [Located RdrNames] in HsExpr
@@ -440,7 +441,7 @@ data HsType name
 
       -- For details on above see note [Api annotations] in ApiAnnotation
 
-  | HsAppsTy            [LHsAppType name]  -- Used only before renaming,
+  | HsAppsTy            [LHsAppType name] -- Used only before renaming,
                                           -- Note [HsAppsTy]
       -- ^ - 'ApiAnnotation.AnnKeywordId' : None
 
@@ -875,9 +876,9 @@ hsLTyVarLocNames qtvs = map hsLTyVarLocName (hsQTvExplicit qtvs)
 -- | Convert a LHsTyVarBndr to an equivalent LHsType.
 hsLTyVarBndrToType :: LHsTyVarBndr name -> LHsType name
 hsLTyVarBndrToType = fmap cvt
-  where cvt (UserTyVar n)                     = HsTyVar n
+  where cvt (UserTyVar n)                     = HsTyVar False n
         cvt (KindedTyVar (L name_loc n) kind)
-                   = HsKindSig (L name_loc (HsTyVar (L name_loc n))) kind
+                   = HsKindSig (L name_loc (HsTyVar False (L name_loc n))) kind
 
 -- | Convert a LHsTyVarBndrs to a list of types.
 -- Works on *type* variable only, no kind vars.
@@ -944,7 +945,7 @@ splitHsFunType (L _ (HsFunTy x y))
 splitHsFunType orig_ty@(L _ (HsAppTy t1 t2))
   = go t1 [t2]
   where  -- Look for (->) t1 t2, possibly with parenthesisation
-    go (L _ (HsTyVar (L _ fn))) tys | fn == funTyConName
+    go (L _ (HsTyVar _ (L _ fn))) tys | fn == funTyConName
                                  , [t1,t2] <- tys
                                  , (args, res) <- splitHsFunType t2
                                  = (t1:args, res)
@@ -962,7 +963,8 @@ getAppsTyHead_maybe tys = case splitHsAppsTy tys of
   ([app1:apps], []) ->  -- no symbols, some normal types
     Just (mkHsAppTys app1 apps, [])
   ([app1l:appsl, app1r:appsr], [L loc op]) ->  -- one operator
-    Just (L loc (HsTyVar (L loc op)), [mkHsAppTys app1l appsl, mkHsAppTys app1r appsr])
+    Just ( L loc (HsTyVar False (L loc op))
+         , [mkHsAppTys app1l appsl, mkHsAppTys app1r appsr])
   _ -> -- can't figure it out
     Nothing
 
@@ -988,7 +990,7 @@ splitHsAppsTy = go [] [] []
 hsTyGetAppHead_maybe :: LHsType name -> Maybe (Located name, [LHsType name])
 hsTyGetAppHead_maybe = go []
   where
-    go tys (L _ (HsTyVar ln))           = Just (ln, tys)
+    go tys (L _ (HsTyVar _ ln))          = Just (ln, tys)
     go tys (L _ (HsAppsTy apps))
       | Just (head, args) <- getAppsTyHead_maybe apps
                                          = go (args ++ tys) head
@@ -1271,7 +1273,8 @@ ppr_mono_ty _ctxt_prec (HsQualTy { hst_ctxt = L _ ctxt, hst_body = ty })
 
 ppr_mono_ty _    (HsBangTy b ty)     = ppr b <> ppr_mono_lty TyConPrec ty
 ppr_mono_ty _    (HsRecTy flds)      = pprConDeclFields flds
-ppr_mono_ty _    (HsTyVar (L _ name))= pprPrefixOcc name
+ppr_mono_ty _    (HsTyVar False (L _ name))= pprPrefixOcc name
+ppr_mono_ty _    (HsTyVar True (L _ name))= char '\'' <> pprPrefixOcc name
 ppr_mono_ty prec (HsFunTy ty1 ty2)   = ppr_fun_ty prec ty1 ty2
 ppr_mono_ty _    (HsTupleTy con tys) = tupleParens std_con (pprWithCommas ppr tys)
   where std_con = case con of
@@ -1330,7 +1333,9 @@ ppr_fun_ty ctxt_prec ty1 ty2
 ppr_app_ty :: (OutputableBndrId name, HasOccNameId name)
            => TyPrec -> HsAppType name -> SDoc
 ppr_app_ty _    (HsAppInfix (L _ n))                  = pprInfixOcc n
-ppr_app_ty _    (HsAppPrefix (L _ (HsTyVar (L _ n)))) = pprPrefixOcc n
+ppr_app_ty _    (HsAppPrefix (L _ (HsTyVar False (L _ n)))) = pprPrefixOcc n
+ppr_app_ty _    (HsAppPrefix (L _ (HsTyVar True  (L _ n))))
+  = char '\'' <> pprPrefixOcc n
 ppr_app_ty ctxt (HsAppPrefix ty)                      = ppr_mono_lty ctxt ty
 
 --------------------------

@@ -55,7 +55,7 @@ module HsUtils(
   -- Types
   mkHsAppTy, mkHsAppTys, userHsTyVarBndrs, userHsLTyVarBndrs,
   mkLHsSigType, mkLHsSigWcType, mkClassOpSigs, mkHsSigEnv,
-  nlHsAppTy, nlHsTyVar, nlHsFunTy, nlHsTyConApp,
+  nlHsAppTy, nlHsTyVar, nlHsFunTy, nlHsParTy, nlHsTyConApp,
 
   -- Stmts
   mkTransformStmt, mkTransformByStmt, mkBodyStmt, mkBindStmt, mkTcBindStmt,
@@ -457,10 +457,12 @@ nlList exprs           = noLoc (ExplicitList placeHolderType Nothing exprs)
 nlHsAppTy :: LHsType name -> LHsType name -> LHsType name
 nlHsTyVar :: name                         -> LHsType name
 nlHsFunTy :: LHsType name -> LHsType name -> LHsType name
+nlHsParTy :: LHsType name                 -> LHsType name
 
 nlHsAppTy f t           = noLoc (HsAppTy f t)
-nlHsTyVar x             = noLoc (HsTyVar (noLoc x))
+nlHsTyVar x             = noLoc (HsTyVar False (noLoc x))
 nlHsFunTy a b           = noLoc (HsFunTy a b)
+nlHsParTy t             = noLoc (HsParTy t)
 
 nlHsTyConApp :: name -> [LHsType name] -> LHsType name
 nlHsTyConApp tycon tys  = foldl nlHsAppTy (nlHsTyVar tycon) tys

@@ -1684,7 +1684,7 @@ gen_Newtype_binds loc cls inst_tvs inst_tys rhs_ty
 nlHsAppType :: LHsExpr RdrName -> Type -> LHsExpr RdrName
 nlHsAppType e s = noLoc (e `HsAppType` hs_ty)
   where
-    hs_ty = mkHsWildCardBndrs (typeToLHsType s)
+    hs_ty = mkHsWildCardBndrs $ nlHsParTy (typeToLHsType s)
 
 nlExprWithTySig :: LHsExpr RdrName -> Type -> LHsExpr RdrName
 nlExprWithTySig e s = noLoc (e `ExprWithTySig` hs_ty)

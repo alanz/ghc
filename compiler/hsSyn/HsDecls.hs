@@ -691,7 +691,7 @@ pp_vanilla_decl_head thing (HsQTvs { hsq_explicit = tyvars }) context
          , hsep (map (ppr.unLoc) varsr)]
       | otherwise = hsep [ pprPrefixOcc (unLoc thing)
                   , hsep (map (ppr.unLoc) (varl:varsr))]
-    pp_tyvars [] = empty
+    pp_tyvars [] = ppr thing
 
 pprTyClDeclFlavour :: TyClDecl a -> SDoc
 pprTyClDeclFlavour (ClassDecl {})   = text "class"
@@ -1738,7 +1738,7 @@ instance Outputable ForeignImport where
     ppr cconv <+> ppr safety <+> pp_ce spec srcText
     where
       pp_ce spec "" = pprCEntity spec ""
-      pp_ce _    st = doubleQuotes (text st)
+      pp_ce _    st = text st
 
       pp_hdr = case mHeader of
                Nothing -> empty

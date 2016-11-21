@@ -944,7 +944,7 @@ repTy :: HsType Name -> DsM (Core TH.TypeQ)
 repTy ty@(HsForAllTy {}) = repForall ty
 repTy ty@(HsQualTy {})   = repForall ty
 
-repTy (HsTyVar (L _ n))
+repTy (HsTyVar _ (L _ n))
   | isTvOcc occ   = do tv1 <- lookupOcc n
                        repTvar tv1
   | isDataOcc occ = do tc1 <- lookupOcc n
@@ -970,7 +970,8 @@ repTy (HsListTy t)          = do
                                 repTapp tcon t1
 repTy (HsPArrTy t)     = do
                            t1   <- repLTy t
-                           tcon <- repTy (HsTyVar (noLoc (tyConName parrTyCon)))
+                           tcon <- repTy (HsTyVar False
+                                                  (noLoc (tyConName parrTyCon)))
                            repTapp tcon t1
 repTy (HsTupleTy HsUnboxedTuple tys) = do
                                 tys1 <- repLTys tys
@@ -1041,7 +1042,7 @@ repNonArrowLKind :: LHsKind Name -> DsM (Core TH.Kind)
 repNonArrowLKind (L _ ki) = repNonArrowKind ki
 
 repNonArrowKind :: HsKind Name -> DsM (Core TH.Kind)
-repNonArrowKind (HsTyVar (L _ name))
+repNonArrowKind (HsTyVar _ (L _ name))
   | isLiftedTypeKindTyConName name       = repKStar
   | name `hasKey` constraintKindTyConKey = repKConstraint
   | isTvOcc (nameOccName name)      = lookupOcc name >>= repKVar

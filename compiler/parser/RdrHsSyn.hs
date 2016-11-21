@@ -465,8 +465,8 @@ splitCon ty
  where
    -- This is used somewhere where HsAppsTy is not used
    split (L _ (HsAppTy t u)) ts       = split t (u : ts)
-   split (L l (HsTyVar (L _ tc)))  ts = do data_con <- tyConToDataCon l tc
-                                           return (data_con, mk_rest ts)
+   split (L l (HsTyVar _ (L _ tc)))  ts = do data_con <- tyConToDataCon l tc
+                                             return (data_con, mk_rest ts)
    split (L l (HsTupleTy HsBoxedOrConstraintTuple ts)) []
       = return (L l (getRdrName (tupleDataCon Boxed (length ts))), PrefixCon ts)
    split (L l _) _ = parseErrorSDoc l (text "Cannot parse data constructor in a data/newtype declaration:" <+> ppr ty)
@@ -681,9 +681,9 @@ checkTyVars pp_what equals_or_where tc tparms
 
         -- Check that the name space is correct!
     chk (L l (HsKindSig
-              (L _ (HsAppsTy [L _ (HsAppPrefix (L lv (HsTyVar (L _ tv))))])) k))
+            (L _ (HsAppsTy [L _ (HsAppPrefix (L lv (HsTyVar _ (L _ tv))))])) k))
         | isRdrTyVar tv    = return (L l (KindedTyVar (L lv tv) k))
-    chk (L l (HsTyVar (L ltv tv)))
+    chk (L l (HsTyVar _ (L ltv tv)))
         | isRdrTyVar tv    = return (L l (UserTyVar (L ltv tv)))
     chk t@(L loc _)
         = Left (loc,
@@ -732,7 +732,7 @@ checkTyClHdr is_cls ty
   where
     goL (L l ty) acc ann = go l ty acc ann
 
-    go l (HsTyVar (L _ tc)) acc ann
+    go l (HsTyVar _ (L _ tc)) acc ann
       | isRdrTc tc               = return (L l tc, acc, ann)
     go _ (HsOpTy t1 ltc@(L _ tc) t2) acc ann
       | isRdrTc tc               = return (ltc, t1:t2:acc, ann)
@@ -1315,7 +1315,7 @@ mkImport cconv safety (L loc (StringLiteral esrc entity), v, ty) =
     -- name (cf section 8.5.1 in Haskell 2010 report).
     mkCImport = do
       let e = unpackFS entity
-      case parseCImport cconv safety (mkExtName (unLoc v)) e (L loc e) of
+      case parseCImport cconv safety (mkExtName (unLoc v)) e (L loc esrc) of
         Nothing         -> parseErrorSDoc loc (text "Malformed entity string")
         Just importSpec -> returnSpec importSpec
 
