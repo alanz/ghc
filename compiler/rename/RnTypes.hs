@@ -644,12 +644,12 @@ rnHsTyKi _ (HsCoreTy ty)
     -- The emptyFVs probably isn't quite right
     -- but I don't think it matters
 
-rnHsTyKi env ty@(HsExplicitListTy k tys)
+rnHsTyKi env ty@(HsExplicitListTy ip k tys)
   = do { checkTypeInType env ty
        ; data_kinds <- xoptM LangExt.DataKinds
        ; unless data_kinds (addErr (dataKindsErr env ty))
        ; (tys', fvs) <- mapFvRn (rnLHsTyKi env) tys
-       ; return (HsExplicitListTy k tys', fvs) }
+       ; return (HsExplicitListTy ip k tys', fvs) }
 
 rnHsTyKi env ty@(HsExplicitTupleTy kis tys)
   = do { checkTypeInType env ty
@@ -1034,7 +1034,7 @@ collectAnonWildCards lty = go lty
       HsDocTy ty _                 -> go ty
       HsBangTy _ ty                -> go ty
       HsRecTy flds                 -> gos $ map (cd_fld_type . unLoc) flds
-      HsExplicitListTy _ tys       -> gos tys
+      HsExplicitListTy _ _ tys     -> gos tys
       HsExplicitTupleTy _ tys      -> gos tys
       HsForAllTy { hst_bndrs = bndrs
                  , hst_body = ty } -> collectAnonWildCardsBndrs bndrs
@@ -1622,7 +1622,7 @@ extract_lty t_or_k (L _ ty) acc
       HsCoreTy {}               -> return acc  -- The type is closed
       HsSpliceTy {}             -> return acc  -- Type splices mention no tvs
       HsDocTy ty _              -> extract_lty t_or_k ty acc
-      HsExplicitListTy _ tys    -> extract_ltys t_or_k tys acc
+      HsExplicitListTy _ _ tys  -> extract_ltys t_or_k tys acc
       HsExplicitTupleTy _ tys   -> extract_ltys t_or_k tys acc
       HsTyLit _                 -> return acc
       HsKindSig ty ki           -> extract_lty t_or_k ty =<<

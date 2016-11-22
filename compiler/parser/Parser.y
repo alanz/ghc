@@ -1824,7 +1824,7 @@ atype :: { LHsType RdrName }
                              {% addAnnotation (gl $3) AnnComma (gl $4) >>
                                 ams (sLL $1 $> $ HsExplicitTupleTy [] ($3 : $5))
                                     [mj AnnSimpleQuote $1,mop $2,mcp $6] }
-        | SIMPLEQUOTE  '[' comma_types0 ']'     {% ams (sLL $1 $> $ HsExplicitListTy
+        | SIMPLEQUOTE  '[' comma_types0 ']'     {% ams (sLL $1 $> $ HsExplicitListTy True
                                                             placeHolderKind $3)
                                                        [mj AnnSimpleQuote $1,mos $2,mcs $4] }
         | SIMPLEQUOTE var                       {% ams (sLL $1 $> $ HsTyVar True $2)
@@ -1836,7 +1836,7 @@ atype :: { LHsType RdrName }
         -- so you have to quote those.)
         | '[' ctype ',' comma_types1 ']'  {% addAnnotation (gl $2) AnnComma
                                                            (gl $3) >>
-                                             ams (sLL $1 $> $ HsExplicitListTy
+                                             ams (sLL $1 $> $ HsExplicitListTy False
                                                      placeHolderKind ($2 : $4))
                                                  [mos $1,mcs $5] }
         | INTEGER              { sLL $1 $> $ HsTyLit $ HsNumTy (getINTEGERs $1)

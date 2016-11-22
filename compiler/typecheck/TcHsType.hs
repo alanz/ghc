@@ -602,7 +602,7 @@ tc_hs_type mode (HsSumTy hs_tys) exp_kind
        }
 
 --------- Promoted lists and tuples
-tc_hs_type mode (HsExplicitListTy _k tys) exp_kind
+tc_hs_type mode (HsExplicitListTy _ _k tys) exp_kind
   = do { tks <- mapM (tc_infer_lhs_type mode) tys
        ; (taus', kind) <- unifyKinds tks
        ; let ty = (foldr (mk_cons kind) (mk_nil kind) taus')

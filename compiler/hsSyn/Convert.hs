@@ -1248,12 +1248,12 @@ cvtTypeKind ty_str ty
                m = length tys'
 
            PromotedNilT
-             -> returnL (HsExplicitListTy placeHolderKind [])
+             -> returnL (HsExplicitListTy True placeHolderKind [])
 
            PromotedConsT  -- See Note [Representing concrete syntax in types]
                           -- in Language.Haskell.TH.Syntax
-             | [ty1, L _ (HsExplicitListTy _ tys2)] <- tys'
-             -> returnL (HsExplicitListTy placeHolderKind (ty1:tys2))
+             | [ty1, L _ (HsExplicitListTy ip _ tys2)] <- tys'
+             -> returnL (HsExplicitListTy ip placeHolderKind (ty1:tys2))
              | otherwise
              -> mk_apps (HsTyVar False (noLoc (getRdrName consDataCon))) tys'
 

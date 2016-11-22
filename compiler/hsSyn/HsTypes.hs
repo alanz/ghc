@@ -556,6 +556,7 @@ data HsType name
       -- For details on above see note [Api annotations] in ApiAnnotation
 
   | HsExplicitListTy       -- A promoted explicit list
+        Bool               -- True if explcitly promoted, for pretty printer
         (PostTc name Kind) -- See Note [Promoted lists and tuples]
         [LHsType name]
       -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen' @"'["@,
@@ -1274,7 +1275,9 @@ ppr_mono_ty _ctxt_prec (HsQualTy { hst_ctxt = L _ ctxt, hst_body = ty })
 ppr_mono_ty _    (HsBangTy b ty)     = ppr b <> ppr_mono_lty TyConPrec ty
 ppr_mono_ty _    (HsRecTy flds)      = pprConDeclFields flds
 ppr_mono_ty _    (HsTyVar False (L _ name))= pprPrefixOcc name
-ppr_mono_ty _    (HsTyVar True (L _ name))= char '\'' <> pprPrefixOcc name
+ppr_mono_ty _    (HsTyVar True (L _ name))= space <> quote (pprPrefixOcc name)
+                         -- We need a space before the ' above, so the parser
+                         -- does not attach it to the previous symbol
 ppr_mono_ty prec (HsFunTy ty1 ty2)   = ppr_fun_ty prec ty1 ty2
 ppr_mono_ty _    (HsTupleTy con tys) = tupleParens std_con (pprWithCommas ppr tys)
   where std_con = case con of
@@ -1287,7 +1290,8 @@ ppr_mono_ty _    (HsPArrTy ty)       = paBrackets (ppr_mono_lty TopPrec ty)
 ppr_mono_ty prec (HsIParamTy n ty)   = maybeParen prec FunPrec (ppr n <+> dcolon <+> ppr_mono_lty TopPrec ty)
 ppr_mono_ty _    (HsSpliceTy s _)    = pprSplice s False
 ppr_mono_ty _    (HsCoreTy ty)       = ppr ty
-ppr_mono_ty _    (HsExplicitListTy _ tys)  = quote $ brackets (interpp'SP tys)
+ppr_mono_ty _    (HsExplicitListTy True _ tys)  = quote $ brackets (interpp'SP tys)
+ppr_mono_ty _    (HsExplicitListTy False _ tys) = brackets (interpp'SP tys)
 ppr_mono_ty _    (HsExplicitTupleTy _ tys) = quote $ parens (interpp'SP tys)
 ppr_mono_ty _    (HsTyLit t)         = ppr_tylit t
 ppr_mono_ty _    (HsWildCardTy {})   = char '_'
@@ -1335,7 +1339,9 @@ ppr_app_ty :: (OutputableBndrId name, HasOccNameId name)
 ppr_app_ty _    (HsAppInfix (L _ n))                  = pprInfixOcc n
 ppr_app_ty _    (HsAppPrefix (L _ (HsTyVar False (L _ n)))) = pprPrefixOcc n
 ppr_app_ty _    (HsAppPrefix (L _ (HsTyVar True  (L _ n))))
-  = char '\'' <> pprPrefixOcc n
+  = space <> quote (pprPrefixOcc n) -- We need a space before the ' above, so
+                                    -- the parser does not attach it to the
+                                    -- previous symbol
 ppr_app_ty ctxt (HsAppPrefix ty)                      = ppr_mono_lty ctxt ty
 
 --------------------------

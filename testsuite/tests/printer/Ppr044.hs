@@ -1,11 +1,6 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
-module T12530 where
+{-# LANGUAGE DeriveLift #-}
+module T1830_2 where
 
-import Language.Haskell.TH
+import Language.Haskell.TH.Syntax (Lift)
 
-$([d|   -- Test the Template Haskell pretty-printing for TypeApplications
-        f = id @(Maybe Int)
-
-    |])
+data Nothing deriving Lift

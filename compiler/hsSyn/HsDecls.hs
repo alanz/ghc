@@ -1207,6 +1207,7 @@ pp_data_defn pp_hdr (HsDataDefn { dd_ND = new_or_data, dd_ctxt = L _ context
                                 , dd_cons = condecls, dd_derivs = derivings })
   | null condecls
   = ppr new_or_data <+> pp_ct <+> pp_hdr context <+> pp_sig
+    <+> pp_derivings derivings
 
   | otherwise
   = hang (ppr new_or_data <+> pp_ct  <+> pp_hdr context <+> pp_sig)

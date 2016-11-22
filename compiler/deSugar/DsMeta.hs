@@ -996,7 +996,7 @@ repTy (HsKindSig t k)       = do
                                 k1 <- repLKind k
                                 repTSig t1 k1
 repTy (HsSpliceTy splice _)     = repSplice splice
-repTy (HsExplicitListTy _ tys)  = do
+repTy (HsExplicitListTy _ _ tys) = do
                                     tys1 <- repLTys tys
                                     repTPromotedList tys1
 repTy (HsExplicitTupleTy _ tys) = do
