@@ -107,7 +107,7 @@ data HsValBindsLR x idL idR
     -- Not dependency analysed
     -- Recursive by default
     ValBindsIn
-        (LHsBindsLR x idL idR) [LSig idR]
+        (LHsBindsLR x idL idR) [LSig x idR]
 
     -- | Value Bindings Out
     --
@@ -115,7 +115,7 @@ data HsValBindsLR x idL idR
     -- later bindings in the list may depend on earlier ones.
   | ValBindsOut
         [(RecFlag, LHsBinds x idL)]
-        [LSig Name]
+        [LSig x Name]
 
 deriving instance (DataHsLitX x, DataId idL, DataId idR)
   => Data (HsValBindsLR x idL idR)
@@ -479,7 +479,7 @@ pprLHsBinds binds
 
 pprLHsBindsForUser :: (OutputableBndrId id2,
                        Outputable (HsBindLR x idL idR))
-                   => LHsBindsLR x idL idR -> [LSig id2] -> [SDoc]
+                   => LHsBindsLR x idL idR -> [LSig x id2] -> [SDoc]
 --  pprLHsBindsForUser is different to pprLHsBinds because
 --  a) No braces: 'let' and 'where' include a list of HsBindGroups
 --     and we don't want several groups of bindings each
@@ -726,10 +726,10 @@ serves for both.
 -}
 
 -- | Located Signature
-type LSig name = Located (Sig name)
+type LSig x name = Located (Sig x name)
 
 -- | Signatures and pragmas
-data Sig name
+data Sig x name
   =   -- | An ordinary type signature
       --
       -- > f :: Num a => a -> a
@@ -748,7 +748,7 @@ data Sig name
       -- For details on above see note [Api annotations] in ApiAnnotation
     TypeSig
        [Located name]        -- LHS of the signature; e.g.  f,g,h :: blah
-       (LHsSigWcType name)   -- RHS of the signature; can have wildcards
+       (LHsSigWcType x name) -- RHS of the signature; can have wildcards
 
       -- | A pattern synonym type signature
       --
@@ -759,7 +759,7 @@ data Sig name
       --           'ApiAnnotation.AnnDot','ApiAnnotation.AnnDarrow'
 
       -- For details on above see note [Api annotations] in ApiAnnotation
-  | PatSynSig [Located name] (LHsSigType name)
+  | PatSynSig [Located name] (LHsSigType x name)
       -- P :: forall a b. Req => Prov => ty
 
       -- | A signature for a class method
@@ -772,7 +772,7 @@ data Sig name
       --
       --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnDefault',
       --           'ApiAnnotation.AnnDcolon'
-  | ClassOpSig Bool [Located name] (LHsSigType name)
+  | ClassOpSig Bool [Located name] (LHsSigType x name)
 
         -- | A type signature in generated code, notably the code
         -- generated for record selectors.  We simply record
@@ -818,8 +818,8 @@ data Sig name
         --      'ApiAnnotation.AnnDcolon'
 
         -- For details on above see note [Api annotations] in ApiAnnotation
-  | SpecSig     (Located name)     -- Specialise a function or datatype  ...
-                [LHsSigType name]  -- ... to these types
+  | SpecSig     (Located name)      -- Specialise a function or datatype  ...
+                [LHsSigType x name] -- ... to these types
                 InlinePragma       -- The pragma on SPECIALISE_INLINE form.
                                    -- If it's just defaultInlinePragma, then we said
                                    --    SPECIALISE, not SPECIALISE_INLINE
@@ -835,7 +835,7 @@ data Sig name
         --      'ApiAnnotation.AnnInstance','ApiAnnotation.AnnClose'
 
         -- For details on above see note [Api annotations] in ApiAnnotation
-  | SpecInstSig SourceText (LHsSigType name)
+  | SpecInstSig SourceText (LHsSigType x name)
                   -- Note [Pragma source text] in BasicTypes
 
         -- | A minimal complete definition pragma
@@ -870,7 +870,7 @@ data Sig name
        -- synonym definitions.
   | CompleteMatchSig SourceText (Located [Located name]) (Maybe (Located name))
 
-deriving instance (DataId name) => Data (Sig name)
+deriving instance (DataHsLitX x, DataId name) => Data (Sig x name)
 
 -- | Located Fixity Signature
 type LFixitySig name = Located (FixitySig name)
@@ -913,25 +913,25 @@ isDefaultMethod IsDefaultMethod = True
 isDefaultMethod (SpecPrags {})  = False
 
 
-isFixityLSig :: LSig name -> Bool
+isFixityLSig :: LSig x name -> Bool
 isFixityLSig (L _ (FixSig {})) = True
 isFixityLSig _                 = False
 
-isTypeLSig :: LSig name -> Bool  -- Type signatures
+isTypeLSig :: LSig x name -> Bool  -- Type signatures
 isTypeLSig (L _(TypeSig {}))    = True
 isTypeLSig (L _(ClassOpSig {})) = True
 isTypeLSig (L _(IdSig {}))      = True
 isTypeLSig _                    = False
 
-isSpecLSig :: LSig name -> Bool
+isSpecLSig :: LSig x name -> Bool
 isSpecLSig (L _(SpecSig {})) = True
 isSpecLSig _                 = False
 
-isSpecInstLSig :: LSig name -> Bool
+isSpecInstLSig :: LSig x name -> Bool
 isSpecInstLSig (L _ (SpecInstSig {})) = True
 isSpecInstLSig _                      = False
 
-isPragLSig :: LSig name -> Bool
+isPragLSig :: LSig x name -> Bool
 -- Identifies pragmas
 isPragLSig (L _ (SpecSig {}))   = True
 isPragLSig (L _ (InlineSig {})) = True
@@ -939,24 +939,24 @@ isPragLSig (L _ (SCCFunSig {})) = True
 isPragLSig (L _ (CompleteMatchSig {})) = True
 isPragLSig _                    = False
 
-isInlineLSig :: LSig name -> Bool
+isInlineLSig :: LSig x name -> Bool
 -- Identifies inline pragmas
 isInlineLSig (L _ (InlineSig {})) = True
 isInlineLSig _                    = False
 
-isMinimalLSig :: LSig name -> Bool
+isMinimalLSig :: LSig x name -> Bool
 isMinimalLSig (L _ (MinimalSig {})) = True
 isMinimalLSig _                     = False
 
-isSCCFunSig :: LSig name -> Bool
+isSCCFunSig :: LSig x name -> Bool
 isSCCFunSig (L _ (SCCFunSig {})) = True
 isSCCFunSig _                    = False
 
-isCompleteMatchSig :: LSig name -> Bool
+isCompleteMatchSig :: LSig x name -> Bool
 isCompleteMatchSig (L _ (CompleteMatchSig {} )) = True
 isCompleteMatchSig _                            = False
 
-hsSigDoc :: Sig name -> SDoc
+hsSigDoc :: Sig x name -> SDoc
 hsSigDoc (TypeSig {})           = text "type signature"
 hsSigDoc (PatSynSig {})         = text "pattern synonym signature"
 hsSigDoc (ClassOpSig is_deflt _ _)
@@ -977,10 +977,10 @@ signatures. Since some of the signatures contain a list of names, testing for
 equality is not enough -- we have to check if they overlap.
 -}
 
-instance (OutputableBndrId name ) => Outputable (Sig name) where
+instance (OutputableBndrId name ) => Outputable (Sig x name) where
     ppr sig = ppr_sig sig
 
-ppr_sig :: (OutputableBndrId name ) => Sig name -> SDoc
+ppr_sig :: (OutputableBndrId name ) => Sig x name -> SDoc
 ppr_sig (TypeSig vars ty)    = pprVarSig (map unLoc vars) (ppr ty)
 ppr_sig (ClassOpSig is_deflt vars ty)
   | is_deflt                 = text "default" <+> pprVarSig (map unLoc vars) (ppr ty)

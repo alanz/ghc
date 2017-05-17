@@ -109,7 +109,8 @@ data Pat x id
         ------------ Lists, tuples, arrays ---------------
   | ListPat     [LPat x id]
                 (PostTc id Type)                        -- The type of the elements
-                (Maybe (PostTc id Type, SyntaxExpr id)) -- For rebindable syntax
+                (Maybe (PostTc id Type, SyntaxExpr x id))
+                   -- For rebindable syntax
                    -- For OverloadedLists a Just (ty,fn) gives
                    -- overall type of the pattern, and the toList
                    -- function to convert the scrutinee to a list value
@@ -206,7 +207,7 @@ data Pat x id
   --        'ApiAnnotation.AnnClose' @')'@
 
   -- For details on above see note [Api annotations] in ApiAnnotation
-  | SplicePat       (HsSplice id)   -- ^ Splice Pattern (Includes quasi-quotes)
+  | SplicePat       (HsSplice x id) -- ^ Splice Pattern (Includes quasi-quotes)
 
         ------------ Literal and n+k patterns ---------------
   | LitPat          (HsLit x)           -- ^ Literal Pattern
@@ -217,9 +218,9 @@ data Pat x id
                         -- Used for all overloaded literals,
                         -- including overloaded strings with -XOverloadedStrings
                     (Located (HsOverLit x id))  -- ALWAYS positive
-                    (Maybe (SyntaxExpr id))     -- Just (Name of 'negate') for negative
+                    (Maybe (SyntaxExpr x id))   -- Just (Name of 'negate') for negative
                                                 -- patterns, Nothing otherwise
-                    (SyntaxExpr id)             -- Equality checker, of type t->t->Bool
+                    (SyntaxExpr x id)           -- Equality checker, of type t->t->Bool
                     (PostTc id Type)            -- Overall type of pattern. Might be
                                                 -- different than the literal's type
                                                 -- if (==) or negate changes the type
@@ -235,8 +236,8 @@ data Pat x id
                      -- NB: This could be (PostTc ...), but that induced a
                      -- a new hs-boot file. Not worth it.
 
-                    (SyntaxExpr id)     -- (>=) function, of type t1->t2->Bool
-                    (SyntaxExpr id)     -- Name of '-' (see RnEnv.lookupSyntaxName)
+                    (SyntaxExpr x id)   -- (>=) function, of type t1->t2->Bool
+                    (SyntaxExpr x id)   -- Name of '-' (see RnEnv.lookupSyntaxName)
                     (PostTc id Type)    -- Type of overall pattern
   -- ^ n+k pattern
 
@@ -245,7 +246,7 @@ data Pat x id
 
   -- For details on above see note [Api annotations] in ApiAnnotation
   | SigPatIn        (LPat x id)               -- Pattern with a type signature
-                    (LHsSigWcType id)         -- Signature can bind both
+                    (LHsSigWcType x id)       -- Signature can bind both
                                               -- kind and type vars
     -- ^ Pattern with a type signature
 
