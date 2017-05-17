@@ -13,45 +13,46 @@ import {-# SOURCE #-} HsPat  ( LPat )
 import BasicTypes ( SpliceExplicitFlag(..))
 import PlaceHolder ( DataId, OutputableBndrId )
 import Data.Data hiding ( Fixity )
+import HsExtension
 
-type role HsExpr nominal
+type role HsExpr nominal nominal
 type role HsCmd nominal
 type role MatchGroup nominal representational
 type role GRHSs nominal representational
-type role HsSplice nominal
-type role SyntaxExpr nominal
-data HsExpr (i :: *)
+type role HsSplice nominal nominal
+type role SyntaxExpr nominal nominal
+data HsExpr (x :: *) (i :: *)
 data HsCmd  (i :: *)
-data HsSplice (i :: *)
+data HsSplice (x :: *) (i :: *)
 data MatchGroup (a :: *) (body :: *)
 data GRHSs (a :: *) (body :: *)
-data SyntaxExpr (i :: *)
+data SyntaxExpr (x :: *) (i :: *)
 
-instance (DataId id) => Data (HsSplice id)
-instance (DataId id) => Data (HsExpr id)
+instance (DataHsLitX x, DataId id) => Data (HsSplice x id)
+instance (DataId id) => Data (HsExpr x id)
 instance (DataId id) => Data (HsCmd id)
 instance (Data body,DataId id) => Data (MatchGroup id body)
 instance (Data body,DataId id) => Data (GRHSs id body)
-instance (DataId id) => Data (SyntaxExpr id)
+instance (DataHsLitX x, DataId id) => Data (SyntaxExpr x id)
 
-instance (OutputableBndrId id) => Outputable (HsExpr id)
+instance (OutputableBndrId id) => Outputable (HsExpr x id)
 instance (OutputableBndrId id) => Outputable (HsCmd id)
 
-type LHsExpr a = Located (HsExpr a)
+type LHsExpr x a = Located (HsExpr x a)
 
-pprLExpr :: (OutputableBndrId id) => LHsExpr id -> SDoc
+pprLExpr :: (OutputableBndrId id) => LHsExpr x id -> SDoc
 
-pprExpr :: (OutputableBndrId id) => HsExpr id -> SDoc
+pprExpr :: (OutputableBndrId id) => HsExpr x id -> SDoc
 
-pprSplice :: (OutputableBndrId id) => HsSplice id -> SDoc
+pprSplice :: (OutputableBndrId id) => HsSplice x id -> SDoc
 
 pprSpliceDecl ::  (OutputableBndrId id)
-          => HsSplice id -> SpliceExplicitFlag -> SDoc
+          => HsSplice x id -> SpliceExplicitFlag -> SDoc
 
 pprPatBind :: (OutputableBndrId bndr,
                OutputableBndrId id,
                Outputable body)
-           => LPat bndr -> GRHSs id body -> SDoc
+           => LPat x bndr -> GRHSs id body -> SDoc
 
 pprFunBind :: (OutputableBndrId idR, Outputable body)
            => MatchGroup idR body -> SDoc

@@ -100,6 +100,8 @@ import Coercion
 import ForeignCall
 import PlaceHolder ( PostTc,PostRn,PlaceHolder(..),DataId, OutputableBndrId )
 import NameSet
+import HsExtension
+import HsLit
 
 -- others:
 import InstEnv
@@ -120,7 +122,7 @@ import Data.Data        hiding (TyCon,Fixity, Infix)
 ************************************************************************
 -}
 
-type LHsDecl id = Located (HsDecl id)
+type LHsDecl x id = Located (HsDecl x id)
         -- ^ When in a list this may have
         --
         --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnSemi'
@@ -129,23 +131,23 @@ type LHsDecl id = Located (HsDecl id)
 -- For details on above see note [Api annotations] in ApiAnnotation
 
 -- | A Haskell Declaration
-data HsDecl id
-  = TyClD       (TyClDecl id)      -- ^ Type or Class Declaration
-  | InstD       (InstDecl  id)     -- ^ Instance declaration
+data HsDecl x id
+  = TyClD       (TyClDecl x id)    -- ^ Type or Class Declaration
+  | InstD       (InstDecl  x id)   -- ^ Instance declaration
   | DerivD      (DerivDecl id)     -- ^ Deriving declaration
-  | ValD        (HsBind id)        -- ^ Value declaration
+  | ValD        (HsBind x id)      -- ^ Value declaration
   | SigD        (Sig id)           -- ^ Signature declaration
   | DefD        (DefaultDecl id)   -- ^ 'default' declaration
   | ForD        (ForeignDecl id)   -- ^ Foreign declaration
   | WarningD    (WarnDecls id)     -- ^ Warning declaration
-  | AnnD        (AnnDecl id)       -- ^ Annotation declaration
-  | RuleD       (RuleDecls id)     -- ^ Rule declaration
-  | VectD       (VectDecl id)      -- ^ Vectorise declaration
+  | AnnD        (AnnDecl x id)     -- ^ Annotation declaration
+  | RuleD       (RuleDecls x id)   -- ^ Rule declaration
+  | VectD       (VectDecl x id)    -- ^ Vectorise declaration
   | SpliceD     (SpliceDecl id)    -- ^ Splice declaration
                                    -- (Includes quasi-quotes)
   | DocD        (DocDecl)          -- ^ Documentation comment declaration
   | RoleAnnotD  (RoleAnnotDecl id) -- ^ Role annotation declaration
-deriving instance (DataId id) => Data (HsDecl id)
+deriving instance (DataHsLitX x, DataId id) => Data (HsDecl x id)
 
 
 -- NB: all top-level fixity decls are contained EITHER
@@ -165,12 +167,12 @@ deriving instance (DataId id) => Data (HsDecl id)
 --
 -- A 'HsDecl' is categorised into a 'HsGroup' before being
 -- fed to the renamer.
-data HsGroup id
+data HsGroup x id
   = HsGroup {
-        hs_valds  :: HsValBinds id,
+        hs_valds  :: HsValBinds x id,
         hs_splcds :: [LSpliceDecl id],
 
-        hs_tyclds :: [TyClGroup id],
+        hs_tyclds :: [TyClGroup x id],
                 -- A list of mutually-recursive groups;
                 -- This includes `InstDecl`s as well;
                 -- Parser generates a singleton list;
@@ -185,19 +187,19 @@ data HsGroup id
         hs_defds  :: [LDefaultDecl id],
         hs_fords  :: [LForeignDecl id],
         hs_warnds :: [LWarnDecls id],
-        hs_annds  :: [LAnnDecl id],
-        hs_ruleds :: [LRuleDecls id],
-        hs_vects  :: [LVectDecl id],
+        hs_annds  :: [LAnnDecl x id],
+        hs_ruleds :: [LRuleDecls x id],
+        hs_vects  :: [LVectDecl x id],
 
         hs_docs   :: [LDocDecl]
   }
-deriving instance (DataId id) => Data (HsGroup id)
+-- deriving instance (DataHsLitX x, DataId id) => Data (HsGroup x id)
 
-emptyGroup, emptyRdrGroup, emptyRnGroup :: HsGroup a
+emptyGroup, emptyRdrGroup, emptyRnGroup :: HsGroup x a
 emptyRdrGroup = emptyGroup { hs_valds = emptyValBindsIn }
 emptyRnGroup  = emptyGroup { hs_valds = emptyValBindsOut }
 
-hsGroupInstDecls :: HsGroup id -> [LInstDecl id]
+hsGroupInstDecls :: HsGroup x id -> [LInstDecl x id]
 hsGroupInstDecls = (=<<) group_instds . hs_tyclds
 
 emptyGroup = HsGroup { hs_tyclds = [],
@@ -208,7 +210,7 @@ emptyGroup = HsGroup { hs_tyclds = [],
                        hs_splcds = [],
                        hs_docs = [] }
 
-appendGroups :: HsGroup a -> HsGroup a -> HsGroup a
+appendGroups :: HsGroup x a -> HsGroup x a -> HsGroup x a
 appendGroups
     HsGroup {
         hs_valds  = val_groups1,
@@ -251,7 +253,8 @@ appendGroups
         hs_vects  = vects1 ++ vects2,
         hs_docs   = docs1  ++ docs2 }
 
-instance (OutputableBndrId name) => Outputable (HsDecl name) where
+instance (OutputableBndrId name, Outputable (HsLit x))
+      => Outputable (HsDecl x name) where
     ppr (TyClD dcl)             = ppr dcl
     ppr (ValD binds)            = ppr binds
     ppr (DefD def)              = ppr def
@@ -267,7 +270,9 @@ instance (OutputableBndrId name) => Outputable (HsDecl name) where
     ppr (DocD doc)              = ppr doc
     ppr (RoleAnnotD ra)         = ppr ra
 
-instance (OutputableBndrId name) => Outputable (HsGroup name) where
+instance (OutputableBndrId name, OutputableBndrId x, Outputable (HsLit x),
+          Outputable (HsBindLR x name name))
+        => Outputable (HsGroup x name) where
     ppr (HsGroup { hs_valds  = val_decls,
                    hs_tyclds = tycl_decls,
                    hs_derivds = deriv_decls,
@@ -454,10 +459,10 @@ Interface file code:
 -}
 
 -- | Located Declaration of a Type or Class
-type LTyClDecl name = Located (TyClDecl name)
+type LTyClDecl x name = Located (TyClDecl x name)
 
 -- | A type or class declaration.
-data TyClDecl name
+data TyClDecl x name
   = -- | @type/data family T :: *->*@
     --
     --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnType',
@@ -513,7 +518,7 @@ data TyClDecl name
                 tcdFDs     :: [Located (FunDep (Located name))],
                                                         -- ^ Functional deps
                 tcdSigs    :: [LSig name],              -- ^ Methods' signatures
-                tcdMeths   :: LHsBinds name,            -- ^ Default methods
+                tcdMeths   :: LHsBinds x name,          -- ^ Default methods
                 tcdATs     :: [LFamilyDecl name],       -- ^ Associated types;
                 tcdATDefs  :: [LTyFamDefltEqn name],    -- ^ Associated type defaults
                 tcdDocs    :: [LDocDecl],               -- ^ Haddock docs
@@ -528,7 +533,7 @@ data TyClDecl name
 
         -- For details on above see note [Api annotations] in ApiAnnotation
 
-deriving instance (DataId id) => Data (TyClDecl id)
+deriving instance (DataHsLitX x, DataId id) => Data (TyClDecl x id)
 
 
 -- Simple classifiers for TyClDecl
@@ -536,27 +541,27 @@ deriving instance (DataId id) => Data (TyClDecl id)
 
 -- | @True@ <=> argument is a @data@\/@newtype@
 -- declaration.
-isDataDecl :: TyClDecl name -> Bool
+isDataDecl :: TyClDecl x name -> Bool
 isDataDecl (DataDecl {}) = True
 isDataDecl _other        = False
 
 -- | type or type instance declaration
-isSynDecl :: TyClDecl name -> Bool
+isSynDecl :: TyClDecl x name -> Bool
 isSynDecl (SynDecl {})   = True
 isSynDecl _other        = False
 
 -- | type class
-isClassDecl :: TyClDecl name -> Bool
+isClassDecl :: TyClDecl x name -> Bool
 isClassDecl (ClassDecl {}) = True
 isClassDecl _              = False
 
 -- | type/data family declaration
-isFamilyDecl :: TyClDecl name -> Bool
+isFamilyDecl :: TyClDecl x name -> Bool
 isFamilyDecl (FamDecl {})  = True
 isFamilyDecl _other        = False
 
 -- | type family declaration
-isTypeFamilyDecl :: TyClDecl name -> Bool
+isTypeFamilyDecl :: TyClDecl x name -> Bool
 isTypeFamilyDecl (FamDecl (FamilyDecl { fdInfo = info })) = case info of
   OpenTypeFamily      -> True
   ClosedTypeFamily {} -> True
@@ -574,7 +579,7 @@ isClosedTypeFamilyInfo (ClosedTypeFamily {}) = True
 isClosedTypeFamilyInfo _                     = False
 
 -- | data family declaration
-isDataFamilyDecl :: TyClDecl name -> Bool
+isDataFamilyDecl :: TyClDecl x name -> Bool
 isDataFamilyDecl (FamDecl (FamilyDecl { fdInfo = DataFamily })) = True
 isDataFamilyDecl _other      = False
 
@@ -588,18 +593,18 @@ tyFamInstDeclLName (TyFamInstDecl { tfid_eqn =
                      (L _ (TyFamEqn { tfe_tycon = ln })) })
   = ln
 
-tyClDeclLName :: TyClDecl name -> Located name
+tyClDeclLName :: TyClDecl x name -> Located name
 tyClDeclLName (FamDecl { tcdFam = FamilyDecl { fdLName = ln } }) = ln
 tyClDeclLName decl = tcdLName decl
 
-tcdName :: TyClDecl name -> name
+tcdName :: TyClDecl x name -> name
 tcdName = unLoc . tyClDeclLName
 
-tyClDeclTyVars :: TyClDecl name -> LHsQTyVars name
+tyClDeclTyVars :: TyClDecl x name -> LHsQTyVars name
 tyClDeclTyVars (FamDecl { tcdFam = FamilyDecl { fdTyVars = tvs } }) = tvs
 tyClDeclTyVars d = tcdTyVars d
 
-countTyClDecls :: [TyClDecl name] -> (Int, Int, Int, Int, Int)
+countTyClDecls :: [TyClDecl x name] -> (Int, Int, Int, Int, Int)
         -- class, synonym decls, data, newtype, family decls
 countTyClDecls decls
  = (count isClassDecl    decls,
@@ -616,7 +621,7 @@ countTyClDecls decls
 
 -- | Does this declaration have a complete, user-supplied kind signature?
 -- See Note [Complete user-supplied kind signatures]
-hsDeclHasCusk :: TyClDecl Name -> Bool
+hsDeclHasCusk :: TyClDecl x Name -> Bool
 hsDeclHasCusk (FamDecl { tcdFam = fam_decl }) = famDeclHasCusk Nothing fam_decl
 hsDeclHasCusk (SynDecl { tcdTyVars = tyvars, tcdRhs = rhs })
   -- NB: Keep this synchronized with 'getInitialKind'
@@ -632,7 +637,8 @@ hsDeclHasCusk (ClassDecl { tcdTyVars = tyvars }) = hsTvbAllKinded tyvars
 -- Pretty-printing TyClDecl
 -- ~~~~~~~~~~~~~~~~~~~~~~~~
 
-instance (OutputableBndrId name) => Outputable (TyClDecl name) where
+instance (OutputableBndrId name, Outputable (HsBindLR x name name))
+    => Outputable (TyClDecl x name) where
 
     ppr (FamDecl { tcdFam = decl }) = ppr decl
     ppr (SynDecl { tcdLName = ltycon, tcdTyVars = tyvars, tcdFixity = fixity
@@ -663,7 +669,8 @@ instance (OutputableBndrId name) => Outputable (TyClDecl name) where
                     <+> pp_vanilla_decl_head lclas tyvars fixity (unLoc context)
                     <+> pprFundeps (map unLoc fds)
 
-instance (OutputableBndrId name) => Outputable (TyClGroup name) where
+instance (OutputableBndrId name, Outputable (HsBindLR x name name))
+       => Outputable (TyClGroup x name) where
   ppr (TyClGroup { group_tyclds = tyclds
                  , group_roles = roles
                  , group_instds = instds
@@ -689,7 +696,7 @@ pp_vanilla_decl_head thing (HsQTvs { hsq_explicit = tyvars }) fixity context
                   , hsep (map (ppr.unLoc) (varl:varsr))]
     pp_tyvars [] = ppr thing
 
-pprTyClDeclFlavour :: TyClDecl a -> SDoc
+pprTyClDeclFlavour :: TyClDecl x a -> SDoc
 pprTyClDeclFlavour (ClassDecl {})   = text "class"
 pprTyClDeclFlavour (SynDecl {})     = text "type"
 pprTyClDeclFlavour (FamDecl { tcdFam = FamilyDecl { fdInfo = info }})
@@ -762,25 +769,25 @@ in RnSource for more info.
 -}
 
 -- | Type or Class Group
-data TyClGroup name  -- See Note [TyClGroups and dependency analysis]
-  = TyClGroup { group_tyclds :: [LTyClDecl name]
+data TyClGroup x name  -- See Note [TyClGroups and dependency analysis]
+  = TyClGroup { group_tyclds :: [LTyClDecl x name]
               , group_roles  :: [LRoleAnnotDecl name]
-              , group_instds :: [LInstDecl name] }
-deriving instance (DataId id) => Data (TyClGroup id)
+              , group_instds :: [LInstDecl x name] }
+-- deriving instance (DataHsLitX x, DataId id) => Data (TyClGroup x id)
 
-emptyTyClGroup :: TyClGroup name
+emptyTyClGroup :: TyClGroup x name
 emptyTyClGroup = TyClGroup [] [] []
 
-tyClGroupTyClDecls :: [TyClGroup name] -> [LTyClDecl name]
+tyClGroupTyClDecls :: [TyClGroup x name] -> [LTyClDecl x name]
 tyClGroupTyClDecls = concatMap group_tyclds
 
-tyClGroupInstDecls :: [TyClGroup name] -> [LInstDecl name]
+tyClGroupInstDecls :: [TyClGroup x name] -> [LInstDecl x name]
 tyClGroupInstDecls = concatMap group_instds
 
-tyClGroupRoleDecls :: [TyClGroup name] -> [LRoleAnnotDecl name]
+tyClGroupRoleDecls :: [TyClGroup x name] -> [LRoleAnnotDecl name]
 tyClGroupRoleDecls = concatMap group_roles
 
-mkTyClGroup :: [LTyClDecl name] -> [LInstDecl name] -> TyClGroup name
+mkTyClGroup :: [LTyClDecl x name] -> [LInstDecl x name] -> TyClGroup x name
 mkTyClGroup decls instds = TyClGroup
   { group_tyclds = decls
   , group_roles = []
@@ -1397,15 +1404,15 @@ deriving instance (DataId name) => Data (DataFamInstDecl name)
 ----------------- Class instances -------------
 
 -- | Located Class Instance Declaration
-type LClsInstDecl name = Located (ClsInstDecl name)
+type LClsInstDecl x name = Located (ClsInstDecl x name)
 
 -- | Class Instance Declaration
-data ClsInstDecl name
+data ClsInstDecl x name
   = ClsInstDecl
       { cid_poly_ty :: LHsSigType name    -- Context => Class Instance-type
                                           -- Using a polytype means that the renamer conveniently
                                           -- figures out the quantified type variables for us.
-      , cid_binds         :: LHsBinds name           -- Class methods
+      , cid_binds         :: LHsBinds x name         -- Class methods
       , cid_sigs          :: [LSig name]             -- User-supplied pragmatic info
       , cid_tyfam_insts   :: [LTyFamInstDecl name]   -- Type family instances
       , cid_datafam_insts :: [LDataFamInstDecl name] -- Data family instances
@@ -1421,23 +1428,23 @@ data ClsInstDecl name
     --           'ApiAnnotation.AnnOpen','ApiAnnotation.AnnClose',
 
     -- For details on above see note [Api annotations] in ApiAnnotation
-deriving instance (DataId id) => Data (ClsInstDecl id)
+deriving instance (DataHsLitX x,DataId id) => Data (ClsInstDecl x id)
 
 
 ----------------- Instances of all kinds -------------
 
 -- | Located Instance Declaration
-type LInstDecl name = Located (InstDecl name)
+type LInstDecl x name = Located (InstDecl x name)
 
 -- | Instance Declaration
-data InstDecl name  -- Both class and family instances
+data InstDecl x name  -- Both class and family instances
   = ClsInstD
-      { cid_inst  :: ClsInstDecl name }
+      { cid_inst  :: ClsInstDecl x name }
   | DataFamInstD              -- data family instance
       { dfid_inst :: DataFamInstDecl name }
   | TyFamInstD              -- type family instance
       { tfid_inst :: TyFamInstDecl name }
-deriving instance (DataId id) => Data (InstDecl id)
+deriving instance (DataHsLitX x, DataId id) => Data (InstDecl x id)
 
 instance (OutputableBndrId name) => Outputable (TyFamInstDecl name) where
   ppr = pprTyFamInstDecl TopLevel
@@ -1501,7 +1508,8 @@ pp_fam_inst_lhs thing (HsIB { hsib_body = typats }) fixity context
                    , hsep (map (pprParendHsType.unLoc) (patl:patsr))]
      pp_pats [] = empty
 
-instance (OutputableBndrId name) => Outputable (ClsInstDecl name) where
+instance (OutputableBndrId name,Outputable (HsBindLR x name name))
+                 => Outputable (ClsInstDecl x name) where
     ppr (ClsInstDecl { cid_poly_ty = inst_ty, cid_binds = binds
                      , cid_sigs = sigs, cid_tyfam_insts = ats
                      , cid_overlap_mode = mbOverlap
@@ -1539,14 +1547,15 @@ ppOverlapPragma mb =
     maybe_stext (SourceText src) _   = text src <+> text "#-}"
 
 
-instance (OutputableBndrId name) => Outputable (InstDecl name) where
+instance (OutputableBndrId name, Outputable (HsBindLR x name name))
+                 => Outputable (InstDecl x name) where
     ppr (ClsInstD     { cid_inst  = decl }) = ppr decl
     ppr (TyFamInstD   { tfid_inst = decl }) = ppr decl
     ppr (DataFamInstD { dfid_inst = decl }) = ppr decl
 
 -- Extract the declarations of associated data types from an instance
 
-instDeclDataFamInsts :: [LInstDecl name] -> [DataFamInstDecl name]
+instDeclDataFamInsts :: [LInstDecl x name] -> [DataFamInstDecl name]
 instDeclDataFamInsts inst_decls
   = concatMap do_one inst_decls
   where
@@ -1766,29 +1775,29 @@ instance Outputable ForeignExport where
 -}
 
 -- | Located Rule Declarations
-type LRuleDecls name = Located (RuleDecls name)
+type LRuleDecls x name = Located (RuleDecls x name)
 
   -- Note [Pragma source text] in BasicTypes
 -- | Rule Declarations
-data RuleDecls name = HsRules { rds_src   :: SourceText
-                              , rds_rules :: [LRuleDecl name] }
-deriving instance (DataId name) => Data (RuleDecls name)
+data RuleDecls x name = HsRules { rds_src   :: SourceText
+                                , rds_rules :: [LRuleDecl x name] }
+deriving instance (DataHsLitX x, DataId name) => Data (RuleDecls x name)
 
 -- | Located Rule Declaration
-type LRuleDecl name = Located (RuleDecl name)
+type LRuleDecl x name = Located (RuleDecl x name)
 
 -- | Rule Declaration
-data RuleDecl name
+data RuleDecl x name
   = HsRule                             -- Source rule
         (Located (SourceText,RuleName)) -- Rule name
                -- Note [Pragma source text] in BasicTypes
         Activation
         [LRuleBndr name]        -- Forall'd vars; after typechecking this
                                 --   includes tyvars
-        (Located (HsExpr name)) -- LHS
-        (PostRn name NameSet)   -- Free-vars from the LHS
-        (Located (HsExpr name)) -- RHS
-        (PostRn name NameSet)   -- Free-vars from the RHS
+        (Located (HsExpr x name)) -- LHS
+        (PostRn name NameSet)     -- Free-vars from the LHS
+        (Located (HsExpr x name)) -- RHS
+        (PostRn name NameSet)     -- Free-vars from the RHS
         -- ^
         --  - 'ApiAnnotation.AnnKeywordId' :
         --           'ApiAnnotation.AnnOpen','ApiAnnotation.AnnTilde',
@@ -1798,9 +1807,9 @@ data RuleDecl name
         --           'ApiAnnotation.AnnEqual',
 
         -- For details on above see note [Api annotations] in ApiAnnotation
-deriving instance (DataId name) => Data (RuleDecl name)
+deriving instance (DataHsLitX x, DataId name) => Data (RuleDecl x name)
 
-flattenRuleDecls :: [LRuleDecls name] -> [LRuleDecl name]
+flattenRuleDecls :: [LRuleDecls x name] -> [LRuleDecl x name]
 flattenRuleDecls decls = concatMap (rds_rules . unLoc) decls
 
 -- | Located Rule Binder
@@ -1823,12 +1832,12 @@ collectRuleBndrSigTys bndrs = [ty | RuleBndrSig _ ty <- bndrs]
 pprFullRuleName :: Located (SourceText, RuleName) -> SDoc
 pprFullRuleName (L _ (st, n)) = pprWithSourceText st (doubleQuotes $ ftext n)
 
-instance (OutputableBndrId name) => Outputable (RuleDecls name) where
+instance (OutputableBndrId name) => Outputable (RuleDecls x name) where
   ppr (HsRules st rules)
     = pprWithSourceText st (text "{-# RULES")
           <+> vcat (punctuate semi (map ppr rules)) <+> text "#-}"
 
-instance (OutputableBndrId name) => Outputable (RuleDecl name) where
+instance (OutputableBndrId name) => Outputable (RuleDecl x name) where
   ppr (HsRule name act ns lhs _fv_lhs rhs _fv_rhs)
         = sep [pprFullRuleName name <+> ppr act,
                nest 4 (pp_forall <+> pprExpr (unLoc lhs)),
@@ -1859,14 +1868,14 @@ A vectorisation pragma, one of
 -}
 
 -- | Located Vectorise Declaration
-type LVectDecl name = Located (VectDecl name)
+type LVectDecl x name = Located (VectDecl x name)
 
 -- | Vectorise Declaration
-data VectDecl name
+data VectDecl x name
   = HsVect
       SourceText   -- Note [Pragma source text] in BasicTypes
       (Located name)
-      (LHsExpr name)
+      (LHsExpr x name)
         -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
         --           'ApiAnnotation.AnnEqual','ApiAnnotation.AnnClose'
 
@@ -1905,9 +1914,9 @@ data VectDecl name
       (LHsSigType name)
   | HsVectInstOut               -- post type-checking (always SCALAR) !!!FIXME: should be superfluous now
       ClsInst
-deriving instance (DataId name) => Data (VectDecl name)
+deriving instance (DataHsLitX x, DataId name) => Data (VectDecl x name)
 
-lvectDeclName :: NamedThing name => LVectDecl name -> Name
+lvectDeclName :: NamedThing name => LVectDecl x name -> Name
 lvectDeclName (L _ (HsVect _       (L _ name) _))    = getName name
 lvectDeclName (L _ (HsNoVect _     (L _ name)))      = getName name
 lvectDeclName (L _ (HsVectTypeIn _  _ (L _ name) _)) = getName name
@@ -1919,12 +1928,12 @@ lvectDeclName (L _ (HsVectInstIn _))
 lvectDeclName (L _ (HsVectInstOut  _))
   = panic "HsDecls.lvectDeclName: HsVectInstOut"
 
-lvectInstDecl :: LVectDecl name -> Bool
+lvectInstDecl :: LVectDecl x name -> Bool
 lvectInstDecl (L _ (HsVectInstIn _))  = True
 lvectInstDecl (L _ (HsVectInstOut _)) = True
 lvectInstDecl _                       = False
 
-instance (OutputableBndrId name) => Outputable (VectDecl name) where
+instance (OutputableBndrId name) => Outputable (VectDecl x name) where
   ppr (HsVect _ v rhs)
     = sep [text "{-# VECTORISE" <+> ppr v,
            nest 4 $
@@ -2031,21 +2040,21 @@ instance OutputableBndr name => Outputable (WarnDecl name) where
 -}
 
 -- | Located Annotation Declaration
-type LAnnDecl name = Located (AnnDecl name)
+type LAnnDecl x name = Located (AnnDecl x name)
 
 -- | Annotation Declaration
-data AnnDecl name = HsAnnotation
+data AnnDecl x name = HsAnnotation
                       SourceText -- Note [Pragma source text] in BasicTypes
-                      (AnnProvenance name) (Located (HsExpr name))
+                      (AnnProvenance name) (Located (HsExpr x name))
       -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
       --           'ApiAnnotation.AnnType'
       --           'ApiAnnotation.AnnModule'
       --           'ApiAnnotation.AnnClose'
 
       -- For details on above see note [Api annotations] in ApiAnnotation
-deriving instance (DataId name) => Data (AnnDecl name)
+deriving instance (DataHsLitX x, DataId name) => Data (AnnDecl x name)
 
-instance (OutputableBndrId name) => Outputable (AnnDecl name) where
+instance (OutputableBndrId name) => Outputable (AnnDecl x name) where
     ppr (HsAnnotation _ provenance expr)
       = hsep [text "{-#", pprAnnProvenance provenance, pprExpr (unLoc expr), text "#-}"]
 

@@ -1004,10 +1004,10 @@ join :: tn -> res_ty
 
 tcApplicativeStmts
   :: HsStmtContext Name
-  -> [(SyntaxExpr Name, ApplicativeArg Name Name)]
+  -> [(SyntaxExpr Name, ApplicativeArg Name)]
   -> ExpRhoType                         -- rhs_ty
   -> (TcRhoType -> TcM t)               -- thing_inside
-  -> TcM ([(SyntaxExpr TcId, ApplicativeArg TcId TcId)], Type, t)
+  -> TcM ([(SyntaxExpr TcId, ApplicativeArg TcId)], Type, t)
 
 tcApplicativeStmts ctxt pairs rhs_ty thing_inside
  = do { body_ty <- newFlexiTyVarTy liftedTypeKind
@@ -1045,8 +1045,8 @@ tcApplicativeStmts ctxt pairs rhs_ty thing_inside
            ; ops' <- goOps t_i ops
            ; return (op' : ops') }
 
-    goArg :: (ApplicativeArg Name Name, Type, Type)
-          -> TcM (ApplicativeArg TcId TcId)
+    goArg :: (ApplicativeArg Name, Type, Type)
+          -> TcM (ApplicativeArg TcId)
 
     goArg (ApplicativeArgOne pat rhs, pat_ty, exp_ty)
       = setSrcSpan (combineSrcSpans (getLoc pat) (getLoc rhs)) $
@@ -1067,7 +1067,7 @@ tcApplicativeStmts ctxt pairs rhs_ty thing_inside
                   }
            ; return (ApplicativeArgMany stmts' ret' pat') }
 
-    get_arg_bndrs :: ApplicativeArg TcId TcId -> [Id]
+    get_arg_bndrs :: ApplicativeArg TcId -> [Id]
     get_arg_bndrs (ApplicativeArgOne pat _)    = collectPatBinders pat
     get_arg_bndrs (ApplicativeArgMany _ _ pat) = collectPatBinders pat
 

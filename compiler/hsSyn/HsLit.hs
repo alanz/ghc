@@ -26,6 +26,7 @@ import Type       ( Type )
 import Outputable
 import FastString
 import PlaceHolder ( PostTc,PostRn,DataId,OutputableBndrId )
+import HsExtension
 
 import Data.ByteString (ByteString)
 import Data.Data hiding ( Fixity )
@@ -40,6 +41,7 @@ import Data.Data hiding ( Fixity )
 
 -- Note [Literal source text] in BasicTypes for SourceText fields in
 -- the following
+-- Note [Trees that grow] in HsExtension for the Xxxxx fields in the following
 -- | Haskell Literal
 data HsLit x
   = HsChar (XHsChar x) {- SourceText -} Char
@@ -76,57 +78,6 @@ data HsLit x
 
 deriving instance (DataHsLitX x) => Data (HsLit x)
 
--- Start of trees that grow extensionality -----------------------------
--- Question: What happens to SourceText? should end up in annotation, I imagine
-
-type family XHsChar x
-type family XHsCharPrim x
-type family XHsString x
-type family XHsStringPrim x
-type family XHsInt x
-type family XHsIntPrim x
-type family XHsWordPrim x
-type family XHsInt64Prim x
-type family XHsWord64Prim x
-type family XHsInteger x
-type family XHsRat x
-type family XHsFloatPrim x
-type family XHsDoublePrim x
-
-type DataHsLitX x =
-  ( Data x
-  , Data (XHsChar x)
-  , Data (XHsCharPrim x)
-  , Data (XHsString x)
-  , Data (XHsStringPrim x)
-  , Data (XHsInt x)
-  , Data (XHsIntPrim x)
-  , Data (XHsWordPrim x)
-  , Data (XHsInt64Prim x)
-  , Data (XHsWord64Prim x)
-  , Data (XHsInteger x)
-  , Data (XHsRat x)
-  , Data (XHsFloatPrim x)
-  , Data (XHsDoublePrim x)
-  )
-
-data GHCX
-
-type instance XHsChar       GHCX = SourceText
-type instance XHsCharPrim   GHCX = SourceText
-type instance XHsString     GHCX = SourceText
-type instance XHsStringPrim GHCX = SourceText
-type instance XHsInt        GHCX = ()
-type instance XHsIntPrim    GHCX = SourceText
-type instance XHsWordPrim   GHCX = SourceText
-type instance XHsInt64Prim  GHCX = SourceText
-type instance XHsWord64Prim GHCX = SourceText
-type instance XHsInteger    GHCX = SourceText
-type instance XHsRat        GHCX = ()
-type instance XHsFloatPrim  GHCX = ()
-type instance XHsDoublePrim GHCX = ()
-
--- End of trees that grow extensionality -------------------------------
 
 instance Eq (HsLit x) where
   (HsChar _ x1)       == (HsChar _ x2)       = x1==x2
@@ -145,13 +96,13 @@ instance Eq (HsLit x) where
   _                   == _                   = False
 
 -- | Haskell Overloaded Literal
-data HsOverLit id
+data HsOverLit x id
   = OverLit {
         ol_val :: OverLitVal,
         ol_rebindable :: PostRn id Bool, -- Note [ol_rebindable]
-        ol_witness :: HsExpr id,     -- Note [Overloaded literal witnesses]
+        ol_witness :: HsExpr x id,       -- Note [Overloaded literal witnesses]
         ol_type :: PostTc id Type }
-deriving instance (DataId id) => Data (HsOverLit id)
+deriving instance (DataHsLitX x, DataId id) => Data (HsOverLit x id)
 
 -- Note [Literal source text] in BasicTypes for SourceText fields in
 -- the following
@@ -167,7 +118,7 @@ negateOverLitVal (HsIntegral i) = HsIntegral (negateIntegralLit i)
 negateOverLitVal (HsFractional f) = HsFractional (negateFractionalLit f)
 negateOverLitVal _ = panic "negateOverLitVal: argument is not a number"
 
-overLitType :: HsOverLit a -> PostTc a Type
+overLitType :: HsOverLit x a -> PostTc a Type
 overLitType = ol_type
 
 {-
@@ -202,7 +153,7 @@ found to have.
 
 -- Comparison operations are needed when grouping literals
 -- for compiling pattern-matching (module MatchLit)
-instance Eq (HsOverLit id) where
+instance Eq (HsOverLit x id) where
   (OverLit {ol_val = val1}) == (OverLit {ol_val=val2}) = val1 == val2
 
 instance Eq OverLitVal where
@@ -211,7 +162,7 @@ instance Eq OverLitVal where
   (HsIsString _ s1)   == (HsIsString _ s2)   = s1 == s2
   _                   == _                   = False
 
-instance Ord (HsOverLit id) where
+instance Ord (HsOverLit x id) where
   compare (OverLit {ol_val=val1}) (OverLit {ol_val=val2}) = val1 `compare` val2
 
 instance Ord OverLitVal where
@@ -246,7 +197,7 @@ pp_st_suffix NoSourceText         _ doc = doc
 pp_st_suffix (SourceText st) suffix _   = text st <> suffix
 
 -- in debug mode, print the expression that it's resolved to, too
-instance (OutputableBndrId id) => Outputable (HsOverLit id) where
+instance (OutputableBndrId id) => Outputable (HsOverLit x id) where
   ppr (OverLit {ol_val=val, ol_witness=witness})
         = ppr val <+> (ifPprDebug (parens (pprExpr witness)))
 

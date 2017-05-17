@@ -27,6 +27,7 @@ module HsSyn (
         module HsUtils,
         module HsDoc,
         module PlaceHolder,
+        module HsExtension,
         Fixity,
 
         HsModule(..)

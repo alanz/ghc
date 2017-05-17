@@ -87,6 +87,7 @@ import SrcLoc
 import Outputable
 import FastString
 import Maybes( isJust )
+import HsExtension
 
 import Data.Data hiding ( Fixity, Prefix, Infix )
 import Data.Maybe ( fromMaybe )
@@ -101,16 +102,16 @@ import Control.Monad ( unless )
 -}
 
 -- | Located Bang Type
-type LBangType name = Located (BangType name)
+type LBangType x name = Located (BangType x name)
 
 -- | Bang Type
-type BangType name  = HsType name       -- Bangs are in the HsType data type
+type BangType x name  = HsType x name       -- Bangs are in the HsType data type
 
-getBangType :: LHsType a -> LHsType a
+getBangType :: LHsType x a -> LHsType x a
 getBangType (L _ (HsBangTy _ ty)) = ty
 getBangType ty                    = ty
 
-getBangStrictness :: LHsType a -> HsSrcBang
+getBangStrictness :: LHsType x a -> HsSrcBang
 getBangStrictness (L _ (HsBangTy s _)) = s
 getBangStrictness _ = (HsSrcBang NoSourceText NoSrcUnpack NoSrcStrict)
 
@@ -228,17 +229,17 @@ type LHsContext name = Located (HsContext name)
 type HsContext name = [LHsType name]
 
 -- | Located Haskell Type
-type LHsType name = Located (HsType name)
+type LHsType x name = Located (HsType x name)
       -- ^ May have 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnComma' when
       --   in a list
 
       -- For details on above see note [Api annotations] in ApiAnnotation
 
 -- | Haskell Kind
-type HsKind name = HsType name
+type HsKind x name = HsType x name
 
 -- | Located Haskell Kind
-type LHsKind name = Located (HsKind name)
+type LHsKind x name = Located (HsKind x name)
       -- ^ 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnDcolon'
 
       -- For details on above see note [Api annotations] in ApiAnnotation
@@ -424,7 +425,7 @@ hsTvbAllKinded :: LHsQTyVars name -> Bool
 hsTvbAllKinded = all (isHsKindedTyVar . unLoc) . hsQTvExplicit
 
 -- | Haskell Type
-data HsType name
+data HsType x name
   = HsForAllTy   -- See Note [HsType binders]
       { hst_bndrs :: [LHsTyVarBndr name]   -- Explicit, user-supplied 'forall a b c'
       , hst_body  :: LHsType name          -- body type
@@ -529,7 +530,7 @@ data HsType name
 
       -- For details on above see note [Api annotations] in ApiAnnotation
 
-  | HsSpliceTy          (HsSplice name)   -- Includes quasi-quotes
+  | HsSpliceTy          (HsSplice x name)   -- Includes quasi-quotes
                         (PostTc name Kind)
       -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen' @'$('@,
       --         'ApiAnnotation.AnnClose' @')'@
@@ -588,7 +589,7 @@ data HsType name
       -- ^ - 'ApiAnnotation.AnnKeywordId' : None
 
       -- For details on above see note [Api annotations] in ApiAnnotation
-deriving instance (DataId name) => Data (HsType name)
+deriving instance (DataHsLitX x, DataId name) => Data (HsType x name)
 
 -- Note [Literal source text] in BasicTypes for SourceText fields in
 -- the following
@@ -609,10 +610,10 @@ type LHsAppType name = Located (HsAppType name)
       -- ^ 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnSimpleQuote'
 
 -- | Haskell Application Type
-data HsAppType name
+data HsAppType x name
   = HsAppInfix (Located name)       -- either a symbol or an id in backticks
-  | HsAppPrefix (LHsType name)      -- anything else, including things like (+)
-deriving instance (DataId name) => Data (HsAppType name)
+  | HsAppPrefix (LHsType x name)      -- anything else, including things like (+)
+deriving instance (DataHsLitX x, DataId name) => Data (HsAppType x name)
 
 instance (OutputableBndrId name) => Outputable (HsAppType name) where
   ppr = ppr_app_ty TopPrec
@@ -741,24 +742,24 @@ data Promoted = Promoted
               deriving (Data, Eq, Show)
 
 -- | Located Constructor Declaration Field
-type LConDeclField name = Located (ConDeclField name)
+type LConDeclField x name = Located (ConDeclField x name)
       -- ^ May have 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnComma' when
       --   in a list
 
       -- For details on above see note [Api annotations] in ApiAnnotation
 
 -- | Constructor Declaration Field
-data ConDeclField name  -- Record fields have Haddoc docs on them
+data ConDeclField x name  -- Record fields have Haddoc docs on them
   = ConDeclField { cd_fld_names :: [LFieldOcc name],
                                    -- ^ See Note [ConDeclField names]
-                   cd_fld_type :: LBangType name,
+                   cd_fld_type :: LBangType x name,
                    cd_fld_doc  :: Maybe LHsDocString }
       -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnDcolon'
 
       -- For details on above see note [Api annotations] in ApiAnnotation
-deriving instance (DataId name) => Data (ConDeclField name)
+deriving instance (DataHsLitX x, DataId name) => Data (ConDeclField x name)
 
-instance (OutputableBndrId name) => Outputable (ConDeclField name) where
+instance (OutputableBndrId name) => Outputable (ConDeclField x name) where
   ppr (ConDeclField fld_n fld_ty _) = ppr fld_n <+> dcolon <+> ppr fld_ty
 
 -- HsConDetails is used for patterns/expressions *and* for data type

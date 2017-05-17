@@ -10,6 +10,7 @@ Datatype for: @BindGroup@, @Bind@, @Sig@, @Bind@.
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-} -- Note [Pass sensitive types]
                                       -- in module PlaceHolder
 {-# LANGUAGE ConstraintKinds #-}
@@ -38,6 +39,8 @@ import Bag
 import FastString
 import BooleanFormula (LBooleanFormula)
 import DynFlags
+import HsExtension
+import HsLit
 
 import Data.Data hiding ( Fixity )
 import Data.List hiding ( foldr )
@@ -64,14 +67,14 @@ Global bindings (where clauses)
 type HsLocalBinds id = HsLocalBindsLR id id
 
 -- | Located Haskell local bindings
-type LHsLocalBinds id = Located (HsLocalBinds id)
+type LHsLocalBinds x id = Located (HsLocalBinds x id)
 
 -- | Haskell Local Bindings with separate Left and Right identifier types
 --
 -- Bindings in a 'let' expression
 -- or a 'where' clause
-data HsLocalBindsLR idL idR
-  = HsValBinds (HsValBindsLR idL idR)
+data HsLocalBindsLR x idL idR
+  = HsValBinds (HsValBindsLR x idL idR)
       -- ^ Haskell Value Bindings
 
          -- There should be no pattern synonyms in the HsValBindsLR
@@ -79,16 +82,16 @@ data HsLocalBindsLR idL idR
          -- The parser accepts them, however, leaving the the
          -- renamer to report them
 
-  | HsIPBinds  (HsIPBinds idR)
+  | HsIPBinds  (HsIPBinds x idR)
       -- ^ Haskell Implicit Parameter Bindings
 
   | EmptyLocalBinds
       -- ^ Empty Local Bindings
 
-type LHsLocalBindsLR idL idR = Located (HsLocalBindsLR idL idR)
+type LHsLocalBindsLR x idL idR = Located (HsLocalBindsLR x idL idR)
 
-deriving instance (DataId idL, DataId idR)
-  => Data (HsLocalBindsLR idL idR)
+deriving instance (DataHsLitX x, DataId idL, DataId idR)
+  => Data (HsLocalBindsLR x idL idR)
 
 -- | Haskell Value Bindings
 type HsValBinds id = HsValBindsLR id id
@@ -97,43 +100,43 @@ type HsValBinds id = HsValBindsLR id id
 -- (not implicit parameters)
 -- Used for both top level and nested bindings
 -- May contain pattern synonym bindings
-data HsValBindsLR idL idR
+data HsValBindsLR x idL idR
   = -- | Value Bindings In
     --
     -- Before renaming RHS; idR is always RdrName
     -- Not dependency analysed
     -- Recursive by default
     ValBindsIn
-        (LHsBindsLR idL idR) [LSig idR]
+        (LHsBindsLR x idL idR) [LSig idR]
 
     -- | Value Bindings Out
     --
     -- After renaming RHS; idR can be Name or Id Dependency analysed,
     -- later bindings in the list may depend on earlier ones.
   | ValBindsOut
-        [(RecFlag, LHsBinds idL)]
+        [(RecFlag, LHsBinds x idL)]
         [LSig Name]
 
-deriving instance (DataId idL, DataId idR)
-  => Data (HsValBindsLR idL idR)
+deriving instance (DataHsLitX x, DataId idL, DataId idR)
+  => Data (HsValBindsLR x idL idR)
 
 -- | Located Haskell Binding
-type LHsBind  id = LHsBindLR  id id
+type LHsBind x id = LHsBindLR  x id id
 
 -- | Located Haskell Bindings
-type LHsBinds id = LHsBindsLR id id
+type LHsBinds x id = LHsBindsLR x id id
 
 -- | Haskell Binding
-type HsBind   id = HsBindLR   id id
+type HsBind   x id = HsBindLR   x id id
 
 -- | Located Haskell Bindings with separate Left and Right identifier types
-type LHsBindsLR idL idR = Bag (LHsBindLR idL idR)
+type LHsBindsLR x idL idR = Bag (LHsBindLR x idL idR)
 
 -- | Located Haskell Binding with separate Left and Right identifier types
-type LHsBindLR  idL idR = Located (HsBindLR idL idR)
+type LHsBindLR x idL idR = Located (HsBindLR x idL idR)
 
 -- | Haskell Binding with separate Left and Right id's
-data HsBindLR idL idR
+data HsBindLR x idL idR
   = -- | Function Binding
     --
     -- FunBind is used for both functions     @f x = e@
@@ -160,7 +163,7 @@ data HsBindLR idL idR
 
         fun_id :: Located idL, -- Note [fun_id in Match] in HsExpr
 
-        fun_matches :: MatchGroup idR (LHsExpr idR),  -- ^ The payload
+        fun_matches :: MatchGroup idR (LHsExpr x idR),  -- ^ The payload
 
         fun_co_fn :: HsWrapper, -- ^ Coercion from the type of the MatchGroup to the type of
                                 -- the Id.  Example:
@@ -196,8 +199,8 @@ data HsBindLR idL idR
 
   -- For details on above see note [Api annotations] in ApiAnnotation
   | PatBind {
-        pat_lhs    :: LPat idL,
-        pat_rhs    :: GRHSs idR (LHsExpr idR),
+        pat_lhs    :: LPat x idL,
+        pat_rhs    :: GRHSs idR (LHsExpr x idR),
         pat_rhs_ty :: PostTc idR Type,      -- ^ Type of the GRHSs
         bind_fvs   :: PostRn idL NameSet, -- ^ See Note [Bind free vars]
         pat_ticks  :: ([Tickish Id], [[Tickish Id]])
@@ -211,7 +214,7 @@ data HsBindLR idL idR
   -- All VarBinds are introduced by the type checker
   | VarBind {
         var_id     :: idL,
-        var_rhs    :: LHsExpr idR,   -- ^ Located only for consistency
+        var_rhs    :: LHsExpr x idR, -- ^ Located only for consistency
         var_inline :: Bool           -- ^ True <=> inline this binding regardless
                                      -- (used for implication constraints only)
     }
@@ -232,7 +235,7 @@ data HsBindLR idL idR
         abs_ev_binds :: [TcEvBinds],
 
         -- | Typechecked user bindings
-        abs_binds    :: LHsBinds idL
+        abs_binds    :: LHsBinds x idL
     }
 
   -- | Abstraction Bindings Signature
@@ -245,13 +248,13 @@ data HsBindLR idL idR
         abs_sig_export :: idL,  -- like abe_poly
         abs_sig_prags  :: TcSpecPrags,
 
-        abs_sig_ev_bind :: TcEvBinds,  -- no list needed here
-        abs_sig_bind    :: LHsBind idL -- always only one, and it's always a
-                                       -- FunBind
+        abs_sig_ev_bind :: TcEvBinds,    -- no list needed here
+        abs_sig_bind    :: LHsBind x idL -- always only one, and it's always a
+                                         -- FunBind
     }
 
   -- | Patterns Synonym Binding
-  | PatSynBind (PatSynBind idL idR)
+  | PatSynBind (PatSynBind x idL idR)
         -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnPattern',
         --          'ApiAnnotation.AnnLarrow','ApiAnnotation.AnnEqual',
         --          'ApiAnnotation.AnnWhere'
@@ -259,8 +262,8 @@ data HsBindLR idL idR
 
         -- For details on above see note [Api annotations] in ApiAnnotation
 
-deriving instance (DataId idL, DataId idR)
-  => Data (HsBindLR idL idR)
+deriving instance (DataHsLitX x, DataId idL, DataId idR)
+  => Data (HsBindLR x idL idR)
 
         -- Consider (AbsBinds tvs ds [(ftvs, poly_f, mono_f) binds]
         --
@@ -291,15 +294,15 @@ data ABExport id
 -- For details on above see note [Api annotations] in ApiAnnotation
 
 -- | Pattern Synonym binding
-data PatSynBind idL idR
+data PatSynBind x idL idR
   = PSB { psb_id   :: Located idL,             -- ^ Name of the pattern synonym
           psb_fvs  :: PostRn idR NameSet,      -- ^ See Note [Bind free vars]
           psb_args :: HsPatSynDetails (Located idR), -- ^ Formal parameter names
-          psb_def  :: LPat idR,                      -- ^ Right-hand side
-          psb_dir  :: HsPatSynDir idR                -- ^ Directionality
+          psb_def  :: LPat x idR,                    -- ^ Right-hand side
+          psb_dir  :: HsPatSynDir x idR              -- ^ Directionality
   }
-deriving instance (DataId idL, DataId idR)
-  => Data (PatSynBind idL idR)
+deriving instance (DataHsLitX x, DataId idL, DataId idR)
+  => Data (PatSynBind x idL idR)
 
 {-
 Note [AbsBinds]
@@ -442,14 +445,19 @@ Specifically,
     it's just an error thunk
 -}
 
-instance (OutputableBndrId idL, OutputableBndrId idR)
-        => Outputable (HsLocalBindsLR idL idR) where
+instance (OutputableBndrId idL, OutputableBndrId idR, Outputable (HsLit x),
+          Outputable (HsBindLR x idL idL),
+          Outputable (HsBindLR x idL idR) )
+        => Outputable (HsLocalBindsLR x idL idR) where
   ppr (HsValBinds bs) = ppr bs
   ppr (HsIPBinds bs)  = ppr bs
   ppr EmptyLocalBinds = empty
 
-instance (OutputableBndrId idL, OutputableBndrId idR)
-        => Outputable (HsValBindsLR idL idR) where
+instance (OutputableBndrId idR,
+          OutputableBndrId idL, Outputable (HsLit x),
+          Outputable (HsBindLR x idL idL),
+          Outputable (HsBindLR x idL idR))
+        => Outputable (HsValBindsLR x idL idR) where
   ppr (ValBindsIn binds sigs)
    = pprDeclList (pprLHsBindsForUser binds sigs)
 
@@ -464,15 +472,14 @@ instance (OutputableBndrId idL, OutputableBndrId idR)
      pp_rec Recursive    = text "rec"
      pp_rec NonRecursive = text "nonrec"
 
-pprLHsBinds :: (OutputableBndrId idL, OutputableBndrId idR)
-            => LHsBindsLR idL idR -> SDoc
+pprLHsBinds :: (Outputable (HsBindLR x idL idR)) => LHsBindsLR x idL idR -> SDoc
 pprLHsBinds binds
   | isEmptyLHsBinds binds = empty
   | otherwise = pprDeclList (map ppr (bagToList binds))
 
-pprLHsBindsForUser :: (OutputableBndrId idL, OutputableBndrId idR,
-                       OutputableBndrId id2)
-                   => LHsBindsLR idL idR -> [LSig id2] -> [SDoc]
+pprLHsBindsForUser :: (OutputableBndrId id2,
+                       Outputable (HsBindLR x idL idR))
+                   => LHsBindsLR x idL idR -> [LSig id2] -> [SDoc]
 --  pprLHsBindsForUser is different to pprLHsBinds because
 --  a) No braces: 'let' and 'where' include a list of HsBindGroups
 --     and we don't want several groups of bindings each
@@ -501,34 +508,34 @@ pprDeclList :: [SDoc] -> SDoc   -- Braces with a space
 pprDeclList ds = pprDeeperList vcat ds
 
 ------------
-emptyLocalBinds :: HsLocalBindsLR a b
+emptyLocalBinds :: HsLocalBindsLR x a b
 emptyLocalBinds = EmptyLocalBinds
 
-isEmptyLocalBinds :: HsLocalBindsLR a b -> Bool
+isEmptyLocalBinds :: HsLocalBindsLR x a b -> Bool
 isEmptyLocalBinds (HsValBinds ds) = isEmptyValBinds ds
 isEmptyLocalBinds (HsIPBinds ds)  = isEmptyIPBinds ds
 isEmptyLocalBinds EmptyLocalBinds = True
 
-eqEmptyLocalBinds :: HsLocalBindsLR a b -> Bool
+eqEmptyLocalBinds :: HsLocalBindsLR x a b -> Bool
 eqEmptyLocalBinds EmptyLocalBinds = True
 eqEmptyLocalBinds _               = False
 
-isEmptyValBinds :: HsValBindsLR a b -> Bool
+isEmptyValBinds :: HsValBindsLR x a b -> Bool
 isEmptyValBinds (ValBindsIn ds sigs)  = isEmptyLHsBinds ds && null sigs
 isEmptyValBinds (ValBindsOut ds sigs) = null ds && null sigs
 
-emptyValBindsIn, emptyValBindsOut :: HsValBindsLR a b
+emptyValBindsIn, emptyValBindsOut :: HsValBindsLR x a b
 emptyValBindsIn  = ValBindsIn emptyBag []
 emptyValBindsOut = ValBindsOut []      []
 
-emptyLHsBinds :: LHsBindsLR idL idR
+emptyLHsBinds :: LHsBindsLR x idL idR
 emptyLHsBinds = emptyBag
 
-isEmptyLHsBinds :: LHsBindsLR idL idR -> Bool
+isEmptyLHsBinds :: LHsBindsLR x idL idR -> Bool
 isEmptyLHsBinds = isEmptyBag
 
 ------------
-plusHsValBinds :: HsValBinds a -> HsValBinds a -> HsValBinds a
+plusHsValBinds :: HsValBinds x a -> HsValBinds x a -> HsValBinds x a
 plusHsValBinds (ValBindsIn ds1 sigs1) (ValBindsIn ds2 sigs2)
   = ValBindsIn (ds1 `unionBags` ds2) (sigs1 ++ sigs2)
 plusHsValBinds (ValBindsOut ds1 sigs1) (ValBindsOut ds2 sigs2)
@@ -562,12 +569,13 @@ So the desugarer tries to do a better job:
                                       in (fm,gm)
 -}
 
-instance (OutputableBndrId idL, OutputableBndrId idR)
-         => Outputable (HsBindLR idL idR) where
+instance (OutputableBndrId idL, OutputableBndrId idR, Outputable (HsLit x))
+         => Outputable (HsBindLR x idL idR) where
     ppr mbind = ppr_monobind mbind
 
-ppr_monobind :: (OutputableBndrId idL, OutputableBndrId idR)
-             => HsBindLR idL idR -> SDoc
+ppr_monobind :: (OutputableBndrId idL, OutputableBndrId idR,
+                 Outputable (HsLit x))
+             => HsBindLR x idL idR -> SDoc
 
 ppr_monobind (PatBind { pat_lhs = pat, pat_rhs = grhss })
   = pprPatBind pat grhss
@@ -622,8 +630,8 @@ instance (OutputableBndr id) => Outputable (ABExport id) where
            , nest 2 (pprTcSpecPrags prags)
            , nest 2 (text "wrap:" <+> ppr wrap)]
 
-instance (OutputableBndr idL, OutputableBndrId idR)
-          => Outputable (PatSynBind idL idR) where
+instance (OutputableBndr idL, OutputableBndrId idR, Outputable (HsLit x))
+          => Outputable (PatSynBind x idL idR) where
   ppr (PSB{ psb_id = (L _ psyn), psb_args = details, psb_def = pat,
             psb_dir = dir })
       = ppr_lhs <+> ppr_rhs
@@ -663,18 +671,18 @@ pprTicks pp_no_debug pp_when_debug
 -}
 
 -- | Haskell Implicit Parameter Bindings
-data HsIPBinds id
+data HsIPBinds x id
   = IPBinds
-        [LIPBind id]
+        [LIPBind x id]
         TcEvBinds       -- Only in typechecker output; binds
                         -- uses of the implicit parameters
-deriving instance (DataId id) => Data (HsIPBinds id)
+deriving instance (DataHsLitX x, DataId id) => Data (HsIPBinds x id)
 
-isEmptyIPBinds :: HsIPBinds id -> Bool
+isEmptyIPBinds :: HsIPBinds x id -> Bool
 isEmptyIPBinds (IPBinds is ds) = null is && isEmptyTcEvBinds ds
 
 -- | Located Implicit Parameter Binding
-type LIPBind id = Located (IPBind id)
+type LIPBind x id = Located (IPBind x id)
 -- ^ May have 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnSemi' when in a
 --   list
 
@@ -690,15 +698,15 @@ type LIPBind id = Located (IPBind id)
 -- - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnEqual'
 
 -- For details on above see note [Api annotations] in ApiAnnotation
-data IPBind id
-  = IPBind (Either (Located HsIPName) id) (LHsExpr id)
-deriving instance (DataId name) => Data (IPBind name)
+data IPBind x id
+  = IPBind (Either (Located HsIPName) id) (LHsExpr x id)
+deriving instance (DataHsLitX x, DataId name) => Data (IPBind x name)
 
-instance (OutputableBndrId id ) => Outputable (HsIPBinds id) where
+instance (OutputableBndrId id ) => Outputable (HsIPBinds x id) where
   ppr (IPBinds bs ds) = pprDeeperList vcat (map ppr bs)
                         $$ ifPprDebug (ppr ds)
 
-instance (OutputableBndrId id ) => Outputable (IPBind id) where
+instance (OutputableBndrId id ) => Outputable (IPBind x id) where
   ppr (IPBind lr rhs) = name <+> equals <+> pprExpr (unLoc rhs)
     where name = case lr of
                    Left (L _ ip) -> pprBndr LetBind ip
@@ -1150,8 +1158,8 @@ instance Traversable HsPatSynDetails where
     traverse f (RecordPatSyn args) = RecordPatSyn <$> traverse (traverse f) args
 
 -- | Haskell Pattern Synonym Direction
-data HsPatSynDir id
+data HsPatSynDir x id
   = Unidirectional
   | ImplicitBidirectional
-  | ExplicitBidirectional (MatchGroup id (LHsExpr id))
-deriving instance (DataId id) => Data (HsPatSynDir id)
+  | ExplicitBidirectional (MatchGroup id (LHsExpr x id))
+deriving instance (DataHsLitX x, DataId id) => Data (HsPatSynDir x id)
