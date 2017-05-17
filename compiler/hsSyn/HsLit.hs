@@ -13,6 +13,7 @@
 {-# LANGUAGE UndecidableInstances #-} -- Note [Pass sensitive types]
                                       -- in module PlaceHolder
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module HsLit where
 
@@ -40,54 +41,107 @@ import Data.Data hiding ( Fixity )
 -- Note [Literal source text] in BasicTypes for SourceText fields in
 -- the following
 -- | Haskell Literal
-data HsLit
-  = HsChar          SourceText Char
+data HsLit x
+  = HsChar (XHsChar x) {- SourceText -} Char
       -- ^ Character
-  | HsCharPrim      SourceText Char
+  | HsCharPrim (XHsCharPrim x) {- SourceText -} Char
       -- ^ Unboxed character
-  | HsString        SourceText FastString
+  | HsString (XHsString x) {- SourceText -} FastString
       -- ^ String
-  | HsStringPrim    SourceText ByteString
+  | HsStringPrim (XHsStringPrim x) {- SourceText -} ByteString
       -- ^ Packed bytes
-  | HsInt           IntegralLit
+  | HsInt (XHsInt x)  IntegralLit
       -- ^ Genuinely an Int; arises from
       -- @TcGenDeriv@, and from TRANSLATION
-  | HsIntPrim       SourceText Integer
+  | HsIntPrim (XHsIntPrim x) {- SourceText -} Integer
       -- ^ literal @Int#@
-  | HsWordPrim      SourceText Integer
+  | HsWordPrim (XHsWordPrim x) {- SourceText -} Integer
       -- ^ literal @Word#@
-  | HsInt64Prim     SourceText Integer
+  | HsInt64Prim (XHsInt64Prim x) {- SourceText -} Integer
       -- ^ literal @Int64#@
-  | HsWord64Prim    SourceText Integer
+  | HsWord64Prim (XHsWord64Prim x) {- SourceText -} Integer
       -- ^ literal @Word64#@
-  | HsInteger       SourceText Integer Type
+  | HsInteger (XHsInteger x) {- SourceText -} Integer Type
       -- ^ Genuinely an integer; arises only
       -- from TRANSLATION (overloaded
       -- literals are done with HsOverLit)
-  | HsRat           FractionalLit Type
+  | HsRat (XHsRat x)  FractionalLit Type
       -- ^ Genuinely a rational; arises only from
       -- TRANSLATION (overloaded literals are
       -- done with HsOverLit)
-  | HsFloatPrim     FractionalLit
+  | HsFloatPrim (XHsFloatPrim x) FractionalLit
       -- ^ Unboxed Float
-  | HsDoublePrim    FractionalLit
+  | HsDoublePrim (XHsDoublePrim x)  FractionalLit
       -- ^ Unboxed Double
-  deriving Data
 
-instance Eq HsLit where
+deriving instance (DataHsLitX x) => Data (HsLit x)
+
+-- Start of trees that grow extensionality -----------------------------
+-- Question: What happens to SourceText? should end up in annotation, I imagine
+
+type family XHsChar x
+type family XHsCharPrim x
+type family XHsString x
+type family XHsStringPrim x
+type family XHsInt x
+type family XHsIntPrim x
+type family XHsWordPrim x
+type family XHsInt64Prim x
+type family XHsWord64Prim x
+type family XHsInteger x
+type family XHsRat x
+type family XHsFloatPrim x
+type family XHsDoublePrim x
+
+type DataHsLitX x =
+  ( Data x
+  , Data (XHsChar x)
+  , Data (XHsCharPrim x)
+  , Data (XHsString x)
+  , Data (XHsStringPrim x)
+  , Data (XHsInt x)
+  , Data (XHsIntPrim x)
+  , Data (XHsWordPrim x)
+  , Data (XHsInt64Prim x)
+  , Data (XHsWord64Prim x)
+  , Data (XHsInteger x)
+  , Data (XHsRat x)
+  , Data (XHsFloatPrim x)
+  , Data (XHsDoublePrim x)
+  )
+
+data GHCX
+
+type instance XHsChar       GHCX = SourceText
+type instance XHsCharPrim   GHCX = SourceText
+type instance XHsString     GHCX = SourceText
+type instance XHsStringPrim GHCX = SourceText
+type instance XHsInt        GHCX = ()
+type instance XHsIntPrim    GHCX = SourceText
+type instance XHsWordPrim   GHCX = SourceText
+type instance XHsInt64Prim  GHCX = SourceText
+type instance XHsWord64Prim GHCX = SourceText
+type instance XHsInteger    GHCX = SourceText
+type instance XHsRat        GHCX = ()
+type instance XHsFloatPrim  GHCX = ()
+type instance XHsDoublePrim GHCX = ()
+
+-- End of trees that grow extensionality -------------------------------
+
+instance Eq (HsLit x) where
   (HsChar _ x1)       == (HsChar _ x2)       = x1==x2
   (HsCharPrim _ x1)   == (HsCharPrim _ x2)   = x1==x2
   (HsString _ x1)     == (HsString _ x2)     = x1==x2
   (HsStringPrim _ x1) == (HsStringPrim _ x2) = x1==x2
-  (HsInt x1)          == (HsInt x2)          = x1==x2
+  (HsInt _ x1)        == (HsInt _ x2)        = x1==x2
   (HsIntPrim _ x1)    == (HsIntPrim _ x2)    = x1==x2
   (HsWordPrim _ x1)   == (HsWordPrim _ x2)   = x1==x2
   (HsInt64Prim _ x1)  == (HsInt64Prim _ x2)  = x1==x2
   (HsWord64Prim _ x1) == (HsWord64Prim _ x2) = x1==x2
   (HsInteger _ x1 _)  == (HsInteger _ x2 _)  = x1==x2
-  (HsRat x1 _)        == (HsRat x2 _)        = x1==x2
-  (HsFloatPrim x1)    == (HsFloatPrim x2)    = x1==x2
-  (HsDoublePrim x1)   == (HsDoublePrim x2)   = x1==x2
+  (HsRat _ x1 _)      == (HsRat _ x2 _)      = x1==x2
+  (HsFloatPrim _ x1)  == (HsFloatPrim _ x2)  = x1==x2
+  (HsDoublePrim _ x1) == (HsDoublePrim _ x2) = x1==x2
   _                   == _                   = False
 
 -- | Haskell Overloaded Literal
@@ -171,16 +225,17 @@ instance Ord OverLitVal where
   compare (HsIsString _ _)    (HsIntegral   _)    = GT
   compare (HsIsString _ _)    (HsFractional _)    = GT
 
-instance Outputable HsLit where
+-- Instance specific to GHCX, need the SourceText
+instance Outputable (HsLit GHCX) where
     ppr (HsChar st c)       = pprWithSourceText st (pprHsChar c)
     ppr (HsCharPrim st c)   = pp_st_suffix st primCharSuffix (pprPrimChar c)
     ppr (HsString st s)     = pprWithSourceText st (pprHsString s)
     ppr (HsStringPrim st s) = pprWithSourceText st (pprHsBytes s)
-    ppr (HsInt i)           = pprWithSourceText (il_text i) (integer (il_value i))
+    ppr (HsInt _ i)         = pprWithSourceText (il_text i) (integer (il_value i))
     ppr (HsInteger st i _)  = pprWithSourceText st (integer i)
-    ppr (HsRat f _)         = ppr f
-    ppr (HsFloatPrim f)     = ppr f <> primFloatSuffix
-    ppr (HsDoublePrim d)    = ppr d <> primDoubleSuffix
+    ppr (HsRat _ f _)       = ppr f
+    ppr (HsFloatPrim _ f)   = ppr f <> primFloatSuffix
+    ppr (HsDoublePrim _ d)  = ppr d <> primDoubleSuffix
     ppr (HsIntPrim st i)    = pprWithSourceText st (pprPrimInt i)
     ppr (HsWordPrim st w)   = pprWithSourceText st (pprPrimWord w)
     ppr (HsInt64Prim st i)  = pp_st_suffix st primInt64Suffix  (pprPrimInt64 i)
@@ -206,17 +261,17 @@ instance Outputable OverLitVal where
 -- mainly for too reasons:
 --  * We do not want to expose their internal representation
 --  * The warnings become too messy
-pmPprHsLit :: HsLit -> SDoc
+pmPprHsLit :: HsLit GHCX -> SDoc
 pmPprHsLit (HsChar _ c)       = pprHsChar c
 pmPprHsLit (HsCharPrim _ c)   = pprHsChar c
 pmPprHsLit (HsString st s)    = pprWithSourceText st (pprHsString s)
 pmPprHsLit (HsStringPrim _ s) = pprHsBytes s
-pmPprHsLit (HsInt i)          = integer (il_value i)
+pmPprHsLit (HsInt _ i)        = integer (il_value i)
 pmPprHsLit (HsIntPrim _ i)    = integer i
 pmPprHsLit (HsWordPrim _ w)   = integer w
 pmPprHsLit (HsInt64Prim _ i)  = integer i
 pmPprHsLit (HsWord64Prim _ w) = integer w
 pmPprHsLit (HsInteger _ i _)  = integer i
-pmPprHsLit (HsRat f _)        = ppr f
-pmPprHsLit (HsFloatPrim f)    = ppr f
-pmPprHsLit (HsDoublePrim d)   = ppr d
+pmPprHsLit (HsRat _ f _)      = ppr f
+pmPprHsLit (HsFloatPrim _ f)  = ppr f
+pmPprHsLit (HsDoublePrim _ d) = ppr d
