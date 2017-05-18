@@ -52,19 +52,19 @@ refer to variables that are otherwise substituted away.
 -- ** Types
 
 -- | Lifted expressions for pattern match checking.
-data PmExpr = PmExprVar   Name
-            | PmExprCon   ConLike [PmExpr]
-            | PmExprLit   PmLit
-            | PmExprEq    PmExpr PmExpr  -- Syntactic equality
-            | PmExprOther (HsExpr Id)    -- Note [PmExprOther in PmExpr]
+data PmExpr x = PmExprVar   Name
+              | PmExprCon   ConLike [PmExpr x]
+              | PmExprLit   (PmLit x)
+              | PmExprEq    (PmExpr x) (PmExpr x)  -- Syntactic equality
+              | PmExprOther (HsExpr x Id)  -- Note [PmExprOther in PmExpr]
 
 
 mkPmExprData :: DataCon -> [PmExpr] -> PmExpr
 mkPmExprData dc args = PmExprCon (RealDataCon dc) args
 
 -- | Literals (simple and overloaded ones) for pattern match checking.
-data PmLit = PmSLit HsLit                                    -- simple
-           | PmOLit Bool {- is it negated? -} (HsOverLit Id) -- overloaded
+data PmLit x = PmSLit (HsLit x)                                  -- simple
+             | PmOLit Bool {- is it negated? -} (HsOverLit x Id) -- overloaded
 
 -- | Equality between literals for pattern match checking.
 eqPmLit :: PmLit -> PmLit -> Bool
@@ -143,8 +143,8 @@ nubPmLit :: [PmLit] -> [PmLit]
 nubPmLit = nubBy eqPmLit
 
 -- | Term equalities
-type SimpleEq  = (Id, PmExpr) -- We always use this orientation
-type ComplexEq = (PmExpr, PmExpr)
+type SimpleEq  x = (Id, PmExpr x) -- We always use this orientation
+type ComplexEq x = (PmExpr x, PmExpr x)
 
 -- | Lift a `SimpleEq` to a `ComplexEq`
 toComplex :: SimpleEq -> ComplexEq
@@ -324,7 +324,7 @@ Check.hs) to be more precice.
 -- -----------------------------------------------------------------------------
 -- ** Transform residual constraints in appropriate form for pretty printing
 
-type PmNegLitCt = (Name, (SDoc, [PmLit]))
+type PmNegLitCt x = (Name, (SDoc, [PmLit x]))
 
 filterComplex :: [ComplexEq] -> [PmNegLitCt]
 filterComplex = zipWith rename nameList . map mkGroup
@@ -360,7 +360,7 @@ runPmPprM m lit_env = (result, mapMaybe is_used lit_env)
       | elemNameSet x used = Just (name, lits)
       | otherwise         = Nothing
 
-type PmPprM a = State ([PmNegLitCt], NameSet) a
+type PmPprM x a = State ([PmNegLitCt x], NameSet) a
 -- (the first part of the state is read only. make it a reader?)
 
 addUsed :: Name -> PmPprM ()

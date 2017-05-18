@@ -1,6 +1,8 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 module HsExtension where
 
@@ -19,6 +21,7 @@ To be completed
 -}
 -- | Used as a data type index for the ParseSource.
 data GHCX -- see Note [Trees that grow] in xxxxx
+deriving instance Data GHCX
 
 
 -- Start of trees that grow extensionality -----------------------------
@@ -72,9 +75,8 @@ type DataHsLitX x =
   , Data (XHsRat x)
   , Data (XHsFloatPrim x)
   , Data (XHsDoublePrim x)
-  -- , DataId x -- AZ why?
-  -- , ClassX HasDefault x -- Passenger for now
   )
+
 
 type instance XHsChar       GHCX = SourceText
 type instance XHsCharPrim   GHCX = SourceText
@@ -136,4 +138,5 @@ type HasDefaultX x =
   , HasDefault (XHsFloatPrim x)
   , HasDefault (XHsDoublePrim x)
   )
+
 -- End of trees that grow extensionality -------------------------------

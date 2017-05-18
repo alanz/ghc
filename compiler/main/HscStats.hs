@@ -19,7 +19,7 @@ import Data.Char
 import Data.Foldable (foldl')
 
 -- | Source Statistics
-ppSourceStats :: Bool -> Located (HsModule RdrName) -> SDoc
+ppSourceStats :: Bool -> Located (HsModule GHCX RdrName) -> SDoc
 ppSourceStats short (L _ (HsModule _ exports imports ldecls _ _))
   = (if short then hcat else vcat)
         (map pp_val

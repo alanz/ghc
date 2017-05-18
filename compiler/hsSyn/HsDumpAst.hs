@@ -4,6 +4,7 @@
 -}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 -- | Contains a debug function to dump parts of the hsSyn AST. It uses a syb
 -- traversal which falls back to displaying based on the constructor name, so
@@ -78,17 +79,19 @@ showAstData b = showAstData' 0
                                 ++ "]"
 
             -- Eliminate word-size dependence
-            lit :: HsLit -> String
+            lit :: HsLit GHCX -> String
             lit (HsWordPrim   s x) = numericLit "HsWord{64}Prim" x s
             lit (HsWord64Prim s x) = numericLit "HsWord{64}Prim" x s
             lit (HsIntPrim    s x) = numericLit "HsInt{64}Prim"  x s
             lit (HsInt64Prim  s x) = numericLit "HsInt{64}Prim"  x s
             lit l                  = generic l
 
-            numericLit :: String -> Integer -> SourceText -> String
+            numericLit :: (HasSourceText st)
+                       => String -> Integer -> st -> String
             numericLit tag x s = indent n ++ unwords [ "{" ++ tag
                                                      , generic x
-                                                     , generic s ++ "}" ]
+                                                     , generic (getSourceText s)
+                                                       ++ "}" ]
 
             name :: Name -> String
             name       = ("{Name: "++) . (++"}") . showSDocDebug_ . ppr
@@ -114,15 +117,15 @@ showAstData b = showAstData' 0
             dataCon :: DataCon -> String
             dataCon    = ("{DataCon: "++) . (++"}") . showSDoc_ . ppr
 
-            bagRdrName:: Bag (Located (HsBind RdrName)) -> String
+            bagRdrName:: Bag (Located (HsBind GHCX RdrName)) -> String
             bagRdrName = ("{Bag(Located (HsBind RdrName)): "++) . (++"}")
                           . list . bagToList
 
-            bagName   :: Bag (Located (HsBind Name)) -> String
+            bagName   :: Bag (Located (HsBind GHCX Name)) -> String
             bagName    = ("{Bag(Located (HsBind Name)): "++) . (++"}")
                            . list . bagToList
 
-            bagVar    :: Bag (Located (HsBind Var)) -> String
+            bagVar    :: Bag (Located (HsBind GHCX Var)) -> String
             bagVar     = ("{Bag(Located (HsBind Var)): "++) . (++"}")
                            . list . bagToList
 
