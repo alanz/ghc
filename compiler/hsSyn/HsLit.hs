@@ -71,9 +71,9 @@ data HsLit x
       -- ^ Genuinely a rational; arises only from
       -- TRANSLATION (overloaded literals are
       -- done with HsOverLit)
-  | HsFloatPrim (XHsFloatPrim x) FractionalLit
+  | HsFloatPrim (XHsFloatPrim x)   FractionalLit
       -- ^ Unboxed Float
-  | HsDoublePrim (XHsDoublePrim x)  FractionalLit
+  | HsDoublePrim (XHsDoublePrim x) FractionalLit
       -- ^ Unboxed Double
 
 deriving instance (DataHsLitX x) => Data (HsLit x)
@@ -177,27 +177,36 @@ instance Ord OverLitVal where
   compare (HsIsString _ _)    (HsFractional _)    = GT
 
 -- Instance specific to GHCX, need the SourceText
-instance Outputable (HsLit GHCX) where
-    ppr (HsChar st c)       = pprWithSourceText st (pprHsChar c)
-    ppr (HsCharPrim st c)   = pp_st_suffix st primCharSuffix (pprPrimChar c)
-    ppr (HsString st s)     = pprWithSourceText st (pprHsString s)
-    ppr (HsStringPrim st s) = pprWithSourceText st (pprHsBytes s)
-    ppr (HsInt _ i)         = pprWithSourceText (il_text i) (integer (il_value i))
-    ppr (HsInteger st i _)  = pprWithSourceText st (integer i)
+instance (SourceTextX x) => Outputable (HsLit x) where
+    ppr (HsChar st c)       = pprWithSourceText (getSourceText st) (pprHsChar c)
+    ppr (HsCharPrim st c)
+     = pp_st_suffix (getSourceText st) primCharSuffix (pprPrimChar c)
+    ppr (HsString st s)
+      = pprWithSourceText (getSourceText st) (pprHsString s)
+    ppr (HsStringPrim st s)
+      = pprWithSourceText (getSourceText st) (pprHsBytes s)
+    ppr (HsInt _ i)
+      = pprWithSourceText (il_text i) (integer (il_value i))
+    ppr (HsInteger st i _)  = pprWithSourceText (getSourceText st) (integer i)
     ppr (HsRat _ f _)       = ppr f
     ppr (HsFloatPrim _ f)   = ppr f <> primFloatSuffix
     ppr (HsDoublePrim _ d)  = ppr d <> primDoubleSuffix
-    ppr (HsIntPrim st i)    = pprWithSourceText st (pprPrimInt i)
-    ppr (HsWordPrim st w)   = pprWithSourceText st (pprPrimWord w)
-    ppr (HsInt64Prim st i)  = pp_st_suffix st primInt64Suffix  (pprPrimInt64 i)
-    ppr (HsWord64Prim st w) = pp_st_suffix st primWord64Suffix (pprPrimWord64 w)
+    ppr (HsIntPrim st i)
+      = pprWithSourceText (getSourceText st) (pprPrimInt i)
+    ppr (HsWordPrim st w)
+      = pprWithSourceText (getSourceText st) (pprPrimWord w)
+    ppr (HsInt64Prim st i)
+      = pp_st_suffix (getSourceText st) primInt64Suffix  (pprPrimInt64 i)
+    ppr (HsWord64Prim st w)
+      = pp_st_suffix (getSourceText st) primWord64Suffix (pprPrimWord64 w)
 
 pp_st_suffix :: SourceText -> SDoc -> SDoc -> SDoc
 pp_st_suffix NoSourceText         _ doc = doc
 pp_st_suffix (SourceText st) suffix _   = text st <> suffix
 
 -- in debug mode, print the expression that it's resolved to, too
-instance (OutputableBndrId id) => Outputable (HsOverLit x id) where
+instance (SourceTextX x, OutputableBndrId id)
+       => Outputable (HsOverLit x id) where
   ppr (OverLit {ol_val=val, ol_witness=witness})
         = ppr val <+> (ifPprDebug (parens (pprExpr witness)))
 

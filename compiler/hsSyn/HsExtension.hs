@@ -7,7 +7,7 @@ module HsExtension where
 -- This module captures the type families to precisely identify the extension points for HsSyn
 
 import Data.Data hiding ( Fixity )
--- import PlaceHolder
+import PlaceHolder
 import BasicTypes ( SourceText(..) )
 
 {-
@@ -54,6 +54,7 @@ type DataHsLitX x =
   , Data (XHsRat x)
   , Data (XHsFloatPrim x)
   , Data (XHsDoublePrim x)
+  , DataId x -- AZ why?
   )
 
 type instance XHsChar       GHCX = SourceText
@@ -77,7 +78,19 @@ class HasSourceText a where
 
   getSourceText :: a -> SourceText
 
-instance HasSourceText (XHsString GHCX) where
+type SourceTextX x =
+  ( HasSourceText (XHsChar x)
+  , HasSourceText (XHsCharPrim x)
+  , HasSourceText (XHsString x)
+  , HasSourceText (XHsStringPrim x)
+  , HasSourceText (XHsIntPrim x)
+  , HasSourceText (XHsWordPrim x)
+  , HasSourceText (XHsInt64Prim x)
+  , HasSourceText (XHsWord64Prim x)
+  , HasSourceText (XHsInteger x)
+  )
+
+instance HasSourceText SourceText where
   noSourceText    = NoSourceText
   sourceText s    = SourceText s
   getSourceText a = a

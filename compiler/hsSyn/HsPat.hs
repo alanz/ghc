@@ -412,7 +412,7 @@ hsRecUpdFieldOcc = fmap unambiguousFieldOcc . hsRecFieldLbl
 ************************************************************************
 -}
 
-instance (OutputableBndrId name, Outputable (HsLit x))
+instance (OutputableBndrId name, SourceTextX x)
     => Outputable (Pat x name) where
     ppr = pprPat
 
@@ -425,11 +425,11 @@ pprPatBndr var                  -- Print with type info if -dppr-debug is on
     else
         pprPrefixOcc var
 
-pprParendLPat :: (OutputableBndrId name, Outputable (HsLit x))
+pprParendLPat :: (OutputableBndrId name, SourceTextX x)
               => LPat x name -> SDoc
 pprParendLPat (L _ p) = pprParendPat p
 
-pprParendPat :: (OutputableBndrId name, Outputable (HsLit x))
+pprParendPat :: (OutputableBndrId name, SourceTextX x)
              => Pat x name -> SDoc
 pprParendPat p = sdocWithDynFlags $ \ dflags ->
                  if need_parens dflags p
@@ -444,7 +444,7 @@ pprParendPat p = sdocWithDynFlags $ \ dflags ->
       -- But otherwise the CoPat is discarded, so it
       -- is the pattern inside that matters.  Sigh.
 
-pprPat :: (OutputableBndrId name, Outputable (HsLit x)) => Pat x name -> SDoc
+pprPat :: (OutputableBndrId name, SourceTextX x) => Pat x name -> SDoc
 pprPat (VarPat (L _ var))     = pprPatBndr var
 pprPat (WildPat _)            = char '_'
 pprPat (LazyPat pat)          = char '~' <> pprParendLPat pat
@@ -481,12 +481,12 @@ pprPat (ConPatOut { pat_con = con, pat_tvs = tvs, pat_dicts = dicts,
     else pprUserCon (unLoc con) details
 
 
-pprUserCon :: (OutputableBndr con, OutputableBndrId id, Outputable (HsLit x))
+pprUserCon :: (OutputableBndr con, OutputableBndrId id, SourceTextX x)
            => con -> HsConPatDetails x id -> SDoc
 pprUserCon c (InfixCon p1 p2) = ppr p1 <+> pprInfixOcc c <+> ppr p2
 pprUserCon c details          = pprPrefixOcc c <+> pprConArgs details
 
-pprConArgs :: (OutputableBndrId id, Outputable (HsLit x))
+pprConArgs :: (OutputableBndrId id, SourceTextX x)
            => HsConPatDetails x id -> SDoc
 pprConArgs (PrefixCon pats) = sep (map pprParendLPat pats)
 pprConArgs (InfixCon p1 p2) = sep [pprParendLPat p1, pprParendLPat p2]

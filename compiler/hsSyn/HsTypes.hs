@@ -620,7 +620,8 @@ data HsAppType x name
   | HsAppPrefix (LHsType x name)      -- anything else, including things like (+)
 deriving instance (DataHsLitX x, DataId name) => Data (HsAppType x name)
 
-instance (OutputableBndrId name) => Outputable (HsAppType x name) where
+instance (SourceTextX x, OutputableBndrId name)
+      => Outputable (HsAppType x name) where
   ppr = ppr_app_ty TopPrec
 
 {-
@@ -764,7 +765,8 @@ data ConDeclField x name  -- Record fields have Haddoc docs on them
       -- For details on above see note [Api annotations] in ApiAnnotation
 deriving instance (DataHsLitX x, DataId name) => Data (ConDeclField x name)
 
-instance (OutputableBndrId name) => Outputable (ConDeclField x name) where
+instance (SourceTextX x, OutputableBndrId name)
+      => Outputable (ConDeclField x name) where
   ppr (ConDeclField fld_n fld_ty _) = ppr fld_n <+> dcolon <+> ppr fld_ty
 
 -- HsConDetails is used for patterns/expressions *and* for data type
@@ -786,7 +788,7 @@ instance (Outputable arg, Outputable rec)
 -- parser and rejigs them using information about fixities from the renamer.
 -- See Note [Sorting out the result type] in RdrHsSyn
 updateGadtResult
-  :: (Monad m)
+  :: (SourceTextX x, Monad m)
      => (SDoc -> m ())
      -> SDoc
      -> HsConDetails (LHsType x Name) (Located [LConDeclField x Name])
@@ -1162,16 +1164,19 @@ ambiguousFieldOcc (FieldOcc rdr sel) = Unambiguous rdr sel
 ************************************************************************
 -}
 
-instance (OutputableBndrId name) => Outputable (HsType x name) where
+instance (SourceTextX x, OutputableBndrId name)
+          => Outputable (HsType x name) where
     ppr ty = pprHsType ty
 
 instance Outputable HsTyLit where
     ppr = ppr_tylit
 
-instance (OutputableBndrId name) => Outputable (LHsQTyVars x name) where
+instance (SourceTextX x, OutputableBndrId name)
+        => Outputable (LHsQTyVars x name) where
     ppr (HsQTvs { hsq_explicit = tvs }) = interppSP tvs
 
-instance (OutputableBndrId name) => Outputable (HsTyVarBndr x name) where
+instance (SourceTextX x, OutputableBndrId name)
+      => Outputable (HsTyVarBndr x name) where
     ppr (UserTyVar n)     = ppr n
     ppr (KindedTyVar n k) = parens $ hsep [ppr n, dcolon, ppr k]
 
@@ -1184,7 +1189,7 @@ instance (Outputable thing) => Outputable (HsWildCardBndrs name thing) where
 instance Outputable (HsWildCardInfo name) where
     ppr (AnonWildCard _)  = char '_'
 
-pprHsForAll :: (OutputableBndrId name)
+pprHsForAll :: (SourceTextX x, OutputableBndrId name)
             => [LHsTyVarBndr x name] -> LHsContext x name -> SDoc
 pprHsForAll = pprHsForAllExtra Nothing
 
@@ -1195,7 +1200,7 @@ pprHsForAll = pprHsForAllExtra Nothing
 -- function for this is needed, as the extra-constraints wildcard is removed
 -- from the actual context and type, and stored in a separate field, thus just
 -- printing the type will not print the extra-constraints wildcard.
-pprHsForAllExtra :: (OutputableBndrId name)
+pprHsForAllExtra :: (SourceTextX x, OutputableBndrId name)
                  => Maybe SrcSpan -> [LHsTyVarBndr x name] -> LHsContext x name
                  -> SDoc
 pprHsForAllExtra extra qtvs cxt
@@ -1203,29 +1208,35 @@ pprHsForAllExtra extra qtvs cxt
   where
     show_extra = isJust extra
 
-pprHsForAllTvs :: (OutputableBndrId name) => [LHsTyVarBndr x name] -> SDoc
+pprHsForAllTvs :: (SourceTextX x, OutputableBndrId name)
+               => [LHsTyVarBndr x name] -> SDoc
 pprHsForAllTvs qtvs = sdocWithPprDebug $ \debug ->
   ppWhen (debug || not (null qtvs)) $ forAllLit <+> interppSP qtvs <> dot
 
-pprHsContext :: (OutputableBndrId name) => HsContext x name -> SDoc
+pprHsContext :: (SourceTextX x, OutputableBndrId name)
+             => HsContext x name -> SDoc
 pprHsContext = maybe empty (<+> darrow) . pprHsContextMaybe
 
-pprHsContextNoArrow :: (OutputableBndrId name) => HsContext x name -> SDoc
+pprHsContextNoArrow :: (SourceTextX x, OutputableBndrId name)
+                    => HsContext x name -> SDoc
 pprHsContextNoArrow = fromMaybe empty . pprHsContextMaybe
 
-pprHsContextMaybe :: (OutputableBndrId name) => HsContext x name -> Maybe SDoc
+pprHsContextMaybe :: (SourceTextX x, OutputableBndrId name)
+                  => HsContext x name -> Maybe SDoc
 pprHsContextMaybe []         = Nothing
 pprHsContextMaybe [L _ pred] = Just $ ppr_mono_ty FunPrec pred
 pprHsContextMaybe cxt        = Just $ parens (interpp'SP cxt)
 
 -- For use in a HsQualTy, which always gets printed if it exists.
-pprHsContextAlways :: (OutputableBndrId name) => HsContext x name -> SDoc
+pprHsContextAlways :: (SourceTextX x, OutputableBndrId name)
+                   => HsContext x name -> SDoc
 pprHsContextAlways []  = parens empty <+> darrow
 pprHsContextAlways [L _ ty] = ppr_mono_ty FunPrec ty <+> darrow
 pprHsContextAlways cxt = parens (interpp'SP cxt) <+> darrow
 
 -- True <=> print an extra-constraints wildcard, e.g. @(Show a, _) =>@
-pprHsContextExtra :: (OutputableBndrId name) => Bool -> HsContext x name -> SDoc
+pprHsContextExtra :: (SourceTextX x, OutputableBndrId name)
+                  => Bool -> HsContext x name -> SDoc
 pprHsContextExtra show_extra ctxt
   | not show_extra
   = pprHsContext ctxt
@@ -1236,7 +1247,8 @@ pprHsContextExtra show_extra ctxt
   where
     ctxt' = map ppr ctxt ++ [char '_']
 
-pprConDeclFields :: (OutputableBndrId name) => [LConDeclField x name] -> SDoc
+pprConDeclFields :: (SourceTextX x, OutputableBndrId name)
+                 => [LConDeclField x name] -> SDoc
 pprConDeclFields fields = braces (sep (punctuate comma (map ppr_fld fields)))
   where
     ppr_fld (L _ (ConDeclField { cd_fld_names = ns, cd_fld_type = ty,
@@ -1260,15 +1272,18 @@ seems like the Right Thing anyway.)
 
 -- Printing works more-or-less as for Types
 
-pprHsType, pprParendHsType :: (OutputableBndrId name) => HsType x name -> SDoc
+pprHsType, pprParendHsType :: (SourceTextX x, OutputableBndrId name)
+                           => HsType x name -> SDoc
 
 pprHsType ty       = ppr_mono_ty TopPrec ty
 pprParendHsType ty = ppr_mono_ty TyConPrec ty
 
-ppr_mono_lty :: (OutputableBndrId name) => TyPrec -> LHsType x name -> SDoc
+ppr_mono_lty :: (SourceTextX x, OutputableBndrId name)
+             => TyPrec -> LHsType x name -> SDoc
 ppr_mono_lty ctxt_prec ty = ppr_mono_ty ctxt_prec (unLoc ty)
 
-ppr_mono_ty :: (OutputableBndrId name) => TyPrec -> HsType x name -> SDoc
+ppr_mono_ty :: (SourceTextX x, OutputableBndrId name)
+            => TyPrec -> HsType x name -> SDoc
 ppr_mono_ty ctxt_prec (HsForAllTy { hst_bndrs = tvs, hst_body = ty })
   = maybeParen ctxt_prec FunPrec $
     sep [pprHsForAllTvs tvs, ppr_mono_lty TopPrec ty]
@@ -1331,7 +1346,7 @@ ppr_mono_ty ctxt_prec (HsDocTy ty doc)
   -- postfix operators
 
 --------------------------
-ppr_fun_ty :: (OutputableBndrId name)
+ppr_fun_ty :: (SourceTextX x, OutputableBndrId name)
            => TyPrec -> LHsType x name -> LHsType x name -> SDoc
 ppr_fun_ty ctxt_prec ty1 ty2
   = let p1 = ppr_mono_lty FunPrec ty1
@@ -1341,7 +1356,8 @@ ppr_fun_ty ctxt_prec ty1 ty2
     sep [p1, text "->" <+> p2]
 
 --------------------------
-ppr_app_ty :: (OutputableBndrId name) => TyPrec -> HsAppType x name -> SDoc
+ppr_app_ty :: (SourceTextX x, OutputableBndrId name)
+           => TyPrec -> HsAppType x name -> SDoc
 ppr_app_ty _    (HsAppInfix (L _ n))                  = pprInfixOcc n
 ppr_app_ty _    (HsAppPrefix (L _ (HsTyVar NotPromoted (L _ n))))
   = pprPrefixOcc n

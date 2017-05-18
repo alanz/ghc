@@ -40,7 +40,6 @@ import FastString
 import BooleanFormula (LBooleanFormula)
 import DynFlags
 import HsExtension
-import HsLit
 
 import Data.Data hiding ( Fixity )
 import Data.List hiding ( foldr )
@@ -445,7 +444,7 @@ Specifically,
     it's just an error thunk
 -}
 
-instance (OutputableBndrId idL, OutputableBndrId idR, Outputable (HsLit x),
+instance (OutputableBndrId idL, OutputableBndrId idR, SourceTextX x,
           Outputable (HsBindLR x idL idL),
           Outputable (HsBindLR x idL idR) )
         => Outputable (HsLocalBindsLR x idL idR) where
@@ -454,7 +453,7 @@ instance (OutputableBndrId idL, OutputableBndrId idR, Outputable (HsLit x),
   ppr EmptyLocalBinds = empty
 
 instance (OutputableBndrId idR,
-          OutputableBndrId idL, Outputable (HsLit x),
+          OutputableBndrId idL, SourceTextX x,
           Outputable (HsBindLR x idL idL),
           Outputable (HsBindLR x idL idR))
         => Outputable (HsValBindsLR x idL idR) where
@@ -477,7 +476,7 @@ pprLHsBinds binds
   | isEmptyLHsBinds binds = empty
   | otherwise = pprDeclList (map ppr (bagToList binds))
 
-pprLHsBindsForUser :: (OutputableBndrId id2,
+pprLHsBindsForUser :: (SourceTextX x, OutputableBndrId id2,
                        Outputable (HsBindLR x idL idR))
                    => LHsBindsLR x idL idR -> [LSig x id2] -> [SDoc]
 --  pprLHsBindsForUser is different to pprLHsBinds because
@@ -569,12 +568,12 @@ So the desugarer tries to do a better job:
                                       in (fm,gm)
 -}
 
-instance (OutputableBndrId idL, OutputableBndrId idR, Outputable (HsLit x))
+instance (OutputableBndrId idL, OutputableBndrId idR, SourceTextX x)
          => Outputable (HsBindLR x idL idR) where
     ppr mbind = ppr_monobind mbind
 
 ppr_monobind :: (OutputableBndrId idL, OutputableBndrId idR,
-                 Outputable (HsLit x))
+                 SourceTextX x)
              => HsBindLR x idL idR -> SDoc
 
 ppr_monobind (PatBind { pat_lhs = pat, pat_rhs = grhss })
@@ -630,7 +629,7 @@ instance (OutputableBndr id) => Outputable (ABExport id) where
            , nest 2 (pprTcSpecPrags prags)
            , nest 2 (text "wrap:" <+> ppr wrap)]
 
-instance (OutputableBndr idL, OutputableBndrId idR, Outputable (HsLit x))
+instance (OutputableBndr idL, OutputableBndrId idR, SourceTextX x)
           => Outputable (PatSynBind x idL idR) where
   ppr (PSB{ psb_id = (L _ psyn), psb_args = details, psb_def = pat,
             psb_dir = dir })
@@ -702,11 +701,12 @@ data IPBind x id
   = IPBind (Either (Located HsIPName) id) (LHsExpr x id)
 deriving instance (DataHsLitX x, DataId name) => Data (IPBind x name)
 
-instance (OutputableBndrId id ) => Outputable (HsIPBinds x id) where
+instance (SourceTextX x, OutputableBndrId id )
+       => Outputable (HsIPBinds x id) where
   ppr (IPBinds bs ds) = pprDeeperList vcat (map ppr bs)
                         $$ ifPprDebug (ppr ds)
 
-instance (OutputableBndrId id ) => Outputable (IPBind x id) where
+instance (SourceTextX x, OutputableBndrId id ) => Outputable (IPBind x id) where
   ppr (IPBind lr rhs) = name <+> equals <+> pprExpr (unLoc rhs)
     where name = case lr of
                    Left (L _ ip) -> pprBndr LetBind ip
@@ -977,10 +977,11 @@ signatures. Since some of the signatures contain a list of names, testing for
 equality is not enough -- we have to check if they overlap.
 -}
 
-instance (OutputableBndrId name ) => Outputable (Sig x name) where
+instance (SourceTextX x, OutputableBndrId name )
+       => Outputable (Sig x name) where
     ppr sig = ppr_sig sig
 
-ppr_sig :: (OutputableBndrId name ) => Sig x name -> SDoc
+ppr_sig :: (SourceTextX x, OutputableBndrId name ) => Sig x name -> SDoc
 ppr_sig (TypeSig vars ty)    = pprVarSig (map unLoc vars) (ppr ty)
 ppr_sig (ClassOpSig is_deflt vars ty)
   | is_deflt                 = text "default" <+> pprVarSig (map unLoc vars) (ppr ty)
