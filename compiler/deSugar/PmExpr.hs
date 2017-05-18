@@ -440,10 +440,10 @@ pprPmExprCon cl args
   | otherwise = do args' <- mapM pprPmExprWithParens args
                    return (fsep (ppr cl : args'))
 
-instance Outputable PmLit where
+instance Outputable (PmLit x) where
   ppr (PmSLit     l) = pmPprHsLit l
   ppr (PmOLit neg l) = (if neg then char '-' else empty) <> ppr l
 
 -- not really useful for pmexprs per se
-instance Outputable PmExpr where
+instance Outputable (PmExpr x) where
   ppr e = fst $ runPmPprM (pprPmExpr e) []

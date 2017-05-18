@@ -97,6 +97,7 @@ class HasSourceText a where
   noSourceText  :: a
   sourceText    :: String -> a
 
+  setSourceText :: SourceText -> a
   getSourceText :: a -> SourceText
 
 type SourceTextX x =
@@ -114,6 +115,8 @@ type SourceTextX x =
 instance HasSourceText SourceText where
   noSourceText    = NoSourceText
   sourceText s    = SourceText s
+
+  setSourceText s = s
   getSourceText a = a
 
 class HasDefault a where
