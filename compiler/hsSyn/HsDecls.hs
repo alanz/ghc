@@ -269,7 +269,7 @@ instance (OutputableBndrId name, SourceTextX x)
     ppr (DocD doc)              = ppr doc
     ppr (RoleAnnotD ra)         = ppr ra
 
-instance (OutputableBndrId name, OutputableBndrId x, SourceTextX x,
+instance (OutputableBndrId name, SourceTextX x,
           Outputable (HsBindLR x name name))
         => Outputable (HsGroup x name) where
     ppr (HsGroup { hs_valds  = val_decls,

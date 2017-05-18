@@ -93,7 +93,7 @@ deriving instance (DataHsLitX x, DataId idL, DataId idR)
   => Data (HsLocalBindsLR x idL idR)
 
 -- | Haskell Value Bindings
-type HsValBinds id = HsValBindsLR id id
+type HsValBinds x id = HsValBindsLR x id id
 
 -- | Haskell Value bindings with separate Left and Right identifier types
 -- (not implicit parameters)
@@ -120,7 +120,7 @@ deriving instance (DataHsLitX x, DataId idL, DataId idR)
   => Data (HsValBindsLR x idL idR)
 
 -- | Located Haskell Binding
-type LHsBind x id = LHsBindLR  x id id
+type LHsBind  x id = LHsBindLR  x id id
 
 -- | Located Haskell Bindings
 type LHsBinds x id = LHsBindsLR x id id

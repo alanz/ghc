@@ -113,8 +113,8 @@ deriving instance (DataHsLitX x,DataId id) => Data (SyntaxExpr x id)
 
 -- | This is used for rebindable-syntax pieces that are too polymorphic
 -- for tcSyntaxOp (trS_fmap and the mzip in ParStmt)
-noExpr :: HsExpr GHCX id
-noExpr = HsLit (HsString (SourceText  "noExpr") (fsLit "noExpr"))
+noExpr :: SourceTextX x => HsExpr x id
+noExpr = HsLit (HsString (sourceText  "noExpr") (fsLit "noExpr"))
 
 noSyntaxExpr :: (SourceTextX x)
              => SyntaxExpr x id -- Before renaming, and sometimes after,
@@ -1941,7 +1941,7 @@ instance (SourceTextX x, OutputableBndrId idL)
        => Outputable (ParStmtBlock x idL idR) where
   ppr (ParStmtBlock stmts _ _) = interpp'SP stmts
 
-instance (SourceTextX x, SourceTextX x,
+instance (SourceTextX x,
           OutputableBndrId idL, OutputableBndrId idR, Outputable body)
          => Outputable (StmtLR x idL idR body) where
     ppr stmt = pprStmt stmt
@@ -2304,7 +2304,7 @@ pprHsBracket :: (SourceTextX x, OutputableBndrId id)
              => HsBracket x id -> SDoc
 pprHsBracket (ExpBr e)   = thBrackets empty (ppr e)
 pprHsBracket (PatBr p)   = thBrackets (char 'p') (ppr p)
--- pprHsBracket (DecBrG gp) = thBrackets (char 'd') (ppr gp) -- AZ temporary
+pprHsBracket (DecBrG gp) = thBrackets (char 'd') (ppr gp)
 pprHsBracket (DecBrL ds) = thBrackets (char 'd') (vcat (map ppr ds))
 pprHsBracket (TypBr t)   = thBrackets (char 't') (ppr t)
 pprHsBracket (VarBr True n)

@@ -40,6 +40,7 @@ import HsExpr
 import HsImpExp
 import HsLit
 import PlaceHolder
+import HsExtension
 import HsPat
 import HsTypes
 import BasicTypes       ( Fixity, WarningTxt )
@@ -58,7 +59,7 @@ import Data.Data hiding ( Fixity )
 -- | Haskell Module
 --
 -- All we actually declare here is the top-level structure for a module.
-data HsModule name
+data HsModule x name
   = HsModule {
       hsmodName :: Maybe (Located ModuleName),
         -- ^ @Nothing@: \"module X where\" is omitted (in which case the next
@@ -81,7 +82,7 @@ data HsModule name
         -- ^ We snaffle interesting stuff out of the imported interfaces early
         -- on, adding that info to TyDecls/etc; so this list is often empty,
         -- downstream.
-      hsmodDecls :: [LHsDecl name],
+      hsmodDecls :: [LHsDecl x name],
         -- ^ Type, class, value, and interface signature decls
       hsmodDeprecMessage :: Maybe (Located WarningTxt),
         -- ^ reason\/explanation for warning/deprecation of this module
@@ -108,10 +109,10 @@ data HsModule name
      --    hsmodImports,hsmodDecls if this style is used.
 
      -- For details on above see note [Api annotations] in ApiAnnotation
-deriving instance (DataId name) => Data (HsModule name)
+deriving instance (DataHsLitX x, DataId name) => Data (HsModule x name)
 
-instance (OutputableBndrId name, HasOccName name)
-  => Outputable (HsModule name) where
+instance (SourceTextX x, OutputableBndrId name, HasOccName name)
+  => Outputable (HsModule x name) where
 
     ppr (HsModule Nothing _ imports decls _ mbDoc)
       = pp_mb mbDoc $$ pp_nonnull imports

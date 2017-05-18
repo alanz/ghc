@@ -38,9 +38,27 @@ type family XHsRat x
 type family XHsFloatPrim x
 type family XHsDoublePrim x
 
+-- AZ:TODO: kind error trying to use this?
+type ClassX c x =
+  ( c (XHsChar x)
+  , c (XHsCharPrim x)
+  , c (XHsString x)
+  , c (XHsStringPrim x)
+  , c (XHsInt x)
+  , c (XHsIntPrim x)
+  , c (XHsWordPrim x)
+  , c (XHsInt64Prim x)
+  , c (XHsWord64Prim x)
+  , c (XHsInteger x)
+  , c (XHsRat x)
+  , c (XHsFloatPrim x)
+  , c (XHsDoublePrim x)
+  )
+
 -- TODO: Should this be part of DataId?
 type DataHsLitX x =
   ( Data x
+  -- , ClassX Data x
   , Data (XHsChar x)
   , Data (XHsCharPrim x)
   , Data (XHsString x)
@@ -54,7 +72,8 @@ type DataHsLitX x =
   , Data (XHsRat x)
   , Data (XHsFloatPrim x)
   , Data (XHsDoublePrim x)
-  , DataId x -- AZ why?
+  -- , DataId x -- AZ why?
+  -- , ClassX HasDefault x -- Passenger for now
   )
 
 type instance XHsChar       GHCX = SourceText
@@ -95,4 +114,26 @@ instance HasSourceText SourceText where
   sourceText s    = SourceText s
   getSourceText a = a
 
+class HasDefault a where
+  def :: a
+
+-- type HasDefaultX x = ClassX HasDefault x
+
+-- AZ: Question: do we need this, as only being used for NoSourceText case atm,
+-- which can be handled via noSourceText
+type HasDefaultX x =
+  ( HasDefault (XHsChar x)
+  , HasDefault (XHsCharPrim x)
+  , HasDefault (XHsString x)
+  , HasDefault (XHsStringPrim x)
+  , HasDefault (XHsInt x)
+  , HasDefault (XHsIntPrim x)
+  , HasDefault (XHsWordPrim x)
+  , HasDefault (XHsInt64Prim x)
+  , HasDefault (XHsWord64Prim x)
+  , HasDefault (XHsInteger x)
+  , HasDefault (XHsRat x)
+  , HasDefault (XHsFloatPrim x)
+  , HasDefault (XHsDoublePrim x)
+  )
 -- End of trees that grow extensionality -------------------------------
