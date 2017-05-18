@@ -64,7 +64,7 @@ Global bindings (where clauses)
 -- Other than during renaming, these will be the same.
 
 -- | Haskell Local Bindings
-type HsLocalBinds id = HsLocalBindsLR id id
+type HsLocalBinds x id = HsLocalBindsLR x id id
 
 -- | Located Haskell local bindings
 type LHsLocalBinds x id = Located (HsLocalBinds x id)
@@ -163,7 +163,7 @@ data HsBindLR x idL idR
 
         fun_id :: Located idL, -- Note [fun_id in Match] in HsExpr
 
-        fun_matches :: MatchGroup idR (LHsExpr x idR),  -- ^ The payload
+        fun_matches :: MatchGroup x idR (LHsExpr x idR),  -- ^ The payload
 
         fun_co_fn :: HsWrapper, -- ^ Coercion from the type of the MatchGroup to the type of
                                 -- the Id.  Example:
@@ -200,7 +200,7 @@ data HsBindLR x idL idR
   -- For details on above see note [Api annotations] in ApiAnnotation
   | PatBind {
         pat_lhs    :: LPat x idL,
-        pat_rhs    :: GRHSs idR (LHsExpr x idR),
+        pat_rhs    :: GRHSs x idR (LHsExpr x idR),
         pat_rhs_ty :: PostTc idR Type,      -- ^ Type of the GRHSs
         bind_fvs   :: PostRn idL NameSet, -- ^ See Note [Bind free vars]
         pat_ticks  :: ([Tickish Id], [[Tickish Id]])
@@ -1161,5 +1161,5 @@ instance Traversable HsPatSynDetails where
 data HsPatSynDir x id
   = Unidirectional
   | ImplicitBidirectional
-  | ExplicitBidirectional (MatchGroup id (LHsExpr x id))
+  | ExplicitBidirectional (MatchGroup x id (LHsExpr x id))
 deriving instance (DataHsLitX x, DataId id) => Data (HsPatSynDir x id)

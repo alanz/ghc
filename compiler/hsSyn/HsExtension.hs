@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 module HsExtension where
 
@@ -7,7 +8,7 @@ module HsExtension where
 
 import Data.Data hiding ( Fixity )
 -- import PlaceHolder
-import BasicTypes ( SourceText )
+import BasicTypes ( SourceText(..) )
 
 {-
 Note [Trees that grow]
@@ -55,7 +56,6 @@ type DataHsLitX x =
   , Data (XHsDoublePrim x)
   )
 
-
 type instance XHsChar       GHCX = SourceText
 type instance XHsCharPrim   GHCX = SourceText
 type instance XHsString     GHCX = SourceText
@@ -69,5 +69,17 @@ type instance XHsInteger    GHCX = SourceText
 type instance XHsRat        GHCX = ()
 type instance XHsFloatPrim  GHCX = ()
 type instance XHsDoublePrim GHCX = ()
+
+class HasSourceText a where
+  -- Provide setters to mimic existing constructors
+  noSourceText  :: a
+  sourceText    :: String -> a
+
+  getSourceText :: a -> SourceText
+
+instance HasSourceText (XHsString GHCX) where
+  noSourceText    = NoSourceText
+  sourceText s    = SourceText s
+  getSourceText a = a
 
 -- End of trees that grow extensionality -------------------------------
