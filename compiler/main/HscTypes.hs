@@ -700,36 +700,39 @@ hptObjs hpt = concat (map (maybe [] linkableObjs . hm_linkable) (eltsHpt hpt))
 -}
 
 -- | The supported metaprogramming result types
-data MetaRequest
-  = MetaE  (LHsExpr RdrName   -> MetaResult)
-  | MetaP  (LPat RdrName      -> MetaResult)
-  | MetaT  (LHsType RdrName   -> MetaResult)
-  | MetaD  ([LHsDecl RdrName] -> MetaResult)
-  | MetaAW (Serialized        -> MetaResult)
+data MetaRequest x
+  = MetaE  (LHsExpr x RdrName   -> MetaResult x)
+  | MetaP  (LPat x RdrName      -> MetaResult x)
+  | MetaT  (LHsType x RdrName   -> MetaResult x)
+  | MetaD  ([LHsDecl x RdrName] -> MetaResult x)
+  | MetaAW (Serialized          -> MetaResult x)
 
 -- | data constructors not exported to ensure correct result type
-data MetaResult
-  = MetaResE  { unMetaResE  :: LHsExpr RdrName   }
-  | MetaResP  { unMetaResP  :: LPat RdrName      }
-  | MetaResT  { unMetaResT  :: LHsType RdrName   }
-  | MetaResD  { unMetaResD  :: [LHsDecl RdrName] }
+data MetaResult x
+  = MetaResE  { unMetaResE  :: LHsExpr x RdrName   }
+  | MetaResP  { unMetaResP  :: LPat x RdrName      }
+  | MetaResT  { unMetaResT  :: LHsType x RdrName   }
+  | MetaResD  { unMetaResD  :: [LHsDecl x RdrName] }
   | MetaResAW { unMetaResAW :: Serialized        }
 
-type MetaHook f = MetaRequest -> LHsExpr Id -> f MetaResult
+type MetaHook x f = MetaRequest x -> LHsExpr x Id -> f (MetaResult x)
 
-metaRequestE :: Functor f => MetaHook f -> LHsExpr Id -> f (LHsExpr RdrName)
+metaRequestE :: Functor f
+             => MetaHook x f -> LHsExpr x Id -> f (LHsExpr x RdrName)
 metaRequestE h = fmap unMetaResE . h (MetaE MetaResE)
 
-metaRequestP :: Functor f => MetaHook f -> LHsExpr Id -> f (LPat RdrName)
+metaRequestP :: Functor f => MetaHook x f -> LHsExpr x Id -> f (LPat x RdrName)
 metaRequestP h = fmap unMetaResP . h (MetaP MetaResP)
 
-metaRequestT :: Functor f => MetaHook f -> LHsExpr Id -> f (LHsType RdrName)
+metaRequestT :: Functor f
+             => MetaHook x f -> LHsExpr x Id -> f (LHsType x RdrName)
 metaRequestT h = fmap unMetaResT . h (MetaT MetaResT)
 
-metaRequestD :: Functor f => MetaHook f -> LHsExpr Id -> f [LHsDecl RdrName]
+metaRequestD :: Functor f
+             => MetaHook x f -> LHsExpr x Id -> f [LHsDecl x RdrName]
 metaRequestD h = fmap unMetaResD . h (MetaD MetaResD)
 
-metaRequestAW :: Functor f => MetaHook f -> LHsExpr Id -> f Serialized
+metaRequestAW :: Functor f => MetaHook x f -> LHsExpr x Id -> f Serialized
 metaRequestAW h = fmap unMetaResAW . h (MetaAW MetaResAW)
 
 {-
@@ -2629,7 +2632,7 @@ data ModSummary
           -- ^ Source imports of the module
         ms_textual_imps :: [(Maybe FastString, Located ModuleName)],
           -- ^ Non-source imports of the module from the module *text*
-        ms_parsed_mod   :: Maybe HsParsedModule,
+        ms_parsed_mod   :: Maybe (HsParsedModule GHCX),
           -- ^ The parsed, nonrenamed source, if we have it.  This is also
           -- used to support "inline module syntax" in Backpack files.
         ms_hspp_file    :: FilePath,
@@ -2935,8 +2938,8 @@ instance Binary IfaceTrustInfo where
 ************************************************************************
 -}
 
-data HsParsedModule = HsParsedModule {
-    hpm_module    :: Located (HsModule RdrName),
+data HsParsedModule x = HsParsedModule {
+    hpm_module    :: Located (HsModule x RdrName),
     hpm_src_files :: [FilePath],
        -- ^ extra source files (e.g. from #includes).  The lexer collects
        -- these from '# <file> <line>' pragmas, which the C preprocessor
