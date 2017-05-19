@@ -22,7 +22,7 @@ import {-# SOURCE #-} HsExpr ( pprExpr, LHsExpr,
                                GRHSs, pprPatBind )
 import {-# SOURCE #-} HsPat  ( LPat )
 
-import PlaceHolder ( PostTc,PostRn,DataId,OutputableBndrId )
+import HsExtension
 import HsTypes
 import PprCore ()
 import CoreSyn
@@ -87,8 +87,7 @@ data HsLocalBindsLR idL idR
 
 type LHsLocalBindsLR idL idR = Located (HsLocalBindsLR idL idR)
 
-deriving instance (DataId idL, DataId idR)
-  => Data (HsLocalBindsLR idL idR)
+deriving instance (DataP idL, DataP idR) => Data (HsLocalBindsLR idL idR)
 
 -- | Haskell Value Bindings
 type HsValBinds id = HsValBindsLR id id
@@ -112,10 +111,9 @@ data HsValBindsLR idL idR
     -- later bindings in the list may depend on earlier ones.
   | ValBindsOut
         [(RecFlag, LHsBinds idL)]
-        [LSig Name]
+        [LSig GHCR]
 
-deriving instance (DataId idL, DataId idR)
-  => Data (HsValBindsLR idL idR)
+deriving instance (DataP idL, DataP idR) => Data (HsValBindsLR idL idR)
 
 -- | Located Haskell Binding
 type LHsBind  id = LHsBindLR  id id
@@ -176,7 +174,7 @@ data HsBindLR idL idR
                                 -- type         Int -> forall a'. a' -> a'
                                 -- Notice that the coercion captures the free a'.
 
-        bind_fvs :: PostRn idL NameSet, -- ^ After the renamer, this contains
+        bind_fvs :: PostRN idL NameSet, -- ^ After the renamer, this contains
                                 --  the locally-bound
                                 -- free variables of this defn.
                                 -- See Note [Bind free vars]
@@ -198,8 +196,8 @@ data HsBindLR idL idR
   | PatBind {
         pat_lhs    :: LPat idL,
         pat_rhs    :: GRHSs idR (LHsExpr idR),
-        pat_rhs_ty :: PostTc idR Type,      -- ^ Type of the GRHSs
-        bind_fvs   :: PostRn idL NameSet, -- ^ See Note [Bind free vars]
+        pat_rhs_ty :: PostTC idR Type,      -- ^ Type of the GRHSs
+        bind_fvs   :: PostRN idL NameSet, -- ^ See Note [Bind free vars]
         pat_ticks  :: ([Tickish Id], [[Tickish Id]])
                -- ^ Ticks to put on the rhs, if any, and ticks to put on
                -- the bound variables.
@@ -259,8 +257,7 @@ data HsBindLR idL idR
 
         -- For details on above see note [Api annotations] in ApiAnnotation
 
-deriving instance (DataId idL, DataId idR)
-  => Data (HsBindLR idL idR)
+deriving instance (DataP idL, DataP idR) => Data (HsBindLR idL idR)
 
         -- Consider (AbsBinds tvs ds [(ftvs, poly_f, mono_f) binds]
         --
@@ -292,14 +289,14 @@ data ABExport id
 
 -- | Pattern Synonym binding
 data PatSynBind idL idR
-  = PSB { psb_id   :: Located idL,             -- ^ Name of the pattern synonym
-          psb_fvs  :: PostRn idR NameSet,      -- ^ See Note [Bind free vars]
-          psb_args :: HsPatSynDetails (Located idR), -- ^ Formal parameter names
-          psb_def  :: LPat idR,                      -- ^ Right-hand side
-          psb_dir  :: HsPatSynDir idR                -- ^ Directionality
+  = PSB { psb_id   :: Located (IdP idL),       -- ^ Name of the pattern synonym
+          psb_fvs  :: PostRN idR NameSet,      -- ^ See Note [Bind free vars]
+          psb_args :: HsPatSynDetails (Located (IdP idR)),
+                                               -- ^ Formal parameter names
+          psb_def  :: LPat idR,                -- ^ Right-hand side
+          psb_dir  :: HsPatSynDir idR          -- ^ Directionality
   }
-deriving instance (DataId idL, DataId idR)
-  => Data (PatSynBind idL idR)
+deriving instance (DataP idL, DataP idR) => Data (PatSynBind idL idR)
 
 {-
 Note [AbsBinds]
@@ -442,13 +439,15 @@ Specifically,
     it's just an error thunk
 -}
 
-instance (OutputableBndrId idL, OutputableBndrId idR)
+instance (SourceTextX idL, SourceTextX idR,
+          OutputableBndrId idL, OutputableBndrId idR)
         => Outputable (HsLocalBindsLR idL idR) where
   ppr (HsValBinds bs) = ppr bs
   ppr (HsIPBinds bs)  = ppr bs
   ppr EmptyLocalBinds = empty
 
-instance (OutputableBndrId idL, OutputableBndrId idR)
+instance (SourceTextX idL, SourceTextX idR,
+          OutputableBndrId idL, OutputableBndrId idR)
         => Outputable (HsValBindsLR idL idR) where
   ppr (ValBindsIn binds sigs)
    = pprDeclList (pprLHsBindsForUser binds sigs)
@@ -464,13 +463,15 @@ instance (OutputableBndrId idL, OutputableBndrId idR)
      pp_rec Recursive    = text "rec"
      pp_rec NonRecursive = text "nonrec"
 
-pprLHsBinds :: (OutputableBndrId idL, OutputableBndrId idR)
+pprLHsBinds :: (SourceTextX idL, SourceTextX idR,
+                OutputableBndrId idL, OutputableBndrId idR)
             => LHsBindsLR idL idR -> SDoc
 pprLHsBinds binds
   | isEmptyLHsBinds binds = empty
   | otherwise = pprDeclList (map ppr (bagToList binds))
 
-pprLHsBindsForUser :: (OutputableBndrId idL, OutputableBndrId idR,
+pprLHsBindsForUser :: (SourceTextX idL, SourceTextX idR,
+                       OutputableBndrId idL, OutputableBndrId idR,
                        OutputableBndrId id2)
                    => LHsBindsLR idL idR -> [LSig id2] -> [SDoc]
 --  pprLHsBindsForUser is different to pprLHsBinds because
@@ -562,11 +563,13 @@ So the desugarer tries to do a better job:
                                       in (fm,gm)
 -}
 
-instance (OutputableBndrId idL, OutputableBndrId idR)
+instance (SourceTextX idL, SourceTextX idR,
+          OutputableBndrId idL, OutputableBndrId idR)
          => Outputable (HsBindLR idL idR) where
     ppr mbind = ppr_monobind mbind
 
-ppr_monobind :: (OutputableBndrId idL, OutputableBndrId idR)
+ppr_monobind :: (SourceTextX idL, SourceTextX idR,
+                 OutputableBndrId idL, OutputableBndrId idR)
              => HsBindLR idL idR -> SDoc
 
 ppr_monobind (PatBind { pat_lhs = pat, pat_rhs = grhss })
@@ -622,7 +625,8 @@ instance (OutputableBndr id) => Outputable (ABExport id) where
            , nest 2 (pprTcSpecPrags prags)
            , nest 2 (text "wrap:" <+> ppr wrap)]
 
-instance (OutputableBndr idL, OutputableBndrId idR)
+instance (SourceTextX idR,
+          OutputableBndrId idL, OutputableBndrId idR)
           => Outputable (PatSynBind idL idR) where
   ppr (PSB{ psb_id = (L _ psyn), psb_args = details, psb_def = pat,
             psb_dir = dir })
@@ -668,7 +672,7 @@ data HsIPBinds id
         [LIPBind id]
         TcEvBinds       -- Only in typechecker output; binds
                         -- uses of the implicit parameters
-deriving instance (DataId id) => Data (HsIPBinds id)
+deriving instance (DataP id) => Data (HsIPBinds id)
 
 isEmptyIPBinds :: HsIPBinds id -> Bool
 isEmptyIPBinds (IPBinds is ds) = null is && isEmptyTcEvBinds ds
@@ -692,7 +696,7 @@ type LIPBind id = Located (IPBind id)
 -- For details on above see note [Api annotations] in ApiAnnotation
 data IPBind id
   = IPBind (Either (Located HsIPName) id) (LHsExpr id)
-deriving instance (DataId name) => Data (IPBind name)
+deriving instance (DataP name) => Data (IPBind name)
 
 instance (OutputableBndrId id ) => Outputable (HsIPBinds id) where
   ppr (IPBinds bs ds) = pprDeeperList vcat (map ppr bs)
@@ -718,10 +722,10 @@ serves for both.
 -}
 
 -- | Located Signature
-type LSig name = Located (Sig name)
+type LSig pass = Located (Sig pass)
 
 -- | Signatures and pragmas
-data Sig name
+data Sig pass
   =   -- | An ordinary type signature
       --
       -- > f :: Num a => a -> a
@@ -739,8 +743,8 @@ data Sig name
 
       -- For details on above see note [Api annotations] in ApiAnnotation
     TypeSig
-       [Located name]        -- LHS of the signature; e.g.  f,g,h :: blah
-       (LHsSigWcType name)   -- RHS of the signature; can have wildcards
+       [Located (IdP pass)]  -- LHS of the signature; e.g.  f,g,h :: blah
+       (LHsSigWcType pass)   -- RHS of the signature; can have wildcards
 
       -- | A pattern synonym type signature
       --
@@ -751,7 +755,7 @@ data Sig name
       --           'ApiAnnotation.AnnDot','ApiAnnotation.AnnDarrow'
 
       -- For details on above see note [Api annotations] in ApiAnnotation
-  | PatSynSig [Located name] (LHsSigType name)
+  | PatSynSig [Located (IdP pass)] (LHsSigType pass)
       -- P :: forall a b. Req => Prov => ty
 
       -- | A signature for a class method
@@ -764,7 +768,7 @@ data Sig name
       --
       --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnDefault',
       --           'ApiAnnotation.AnnDcolon'
-  | ClassOpSig Bool [Located name] (LHsSigType name)
+  | ClassOpSig Bool [Located (IdP pass)] (LHsSigType pass)
 
         -- | A type signature in generated code, notably the code
         -- generated for record selectors.  We simply record
@@ -782,7 +786,7 @@ data Sig name
         --           'ApiAnnotation.AnnVal'
 
         -- For details on above see note [Api annotations] in ApiAnnotation
-  | FixSig (FixitySig name)
+  | FixSig (FixitySig pass)
 
         -- | An inline pragma
         --
@@ -795,8 +799,8 @@ data Sig name
         --       'ApiAnnotation.AnnClose'
 
         -- For details on above see note [Api annotations] in ApiAnnotation
-  | InlineSig   (Located name)  -- Function name
-                InlinePragma    -- Never defaultInlinePragma
+  | InlineSig   (Located (IdP pass)) -- Function name
+                InlinePragma         -- Never defaultInlinePragma
 
         -- | A specialisation pragma
         --
@@ -810,8 +814,8 @@ data Sig name
         --      'ApiAnnotation.AnnDcolon'
 
         -- For details on above see note [Api annotations] in ApiAnnotation
-  | SpecSig     (Located name)     -- Specialise a function or datatype  ...
-                [LHsSigType name]  -- ... to these types
+  | SpecSig     (Located (IdP pass)) -- Specialise a function or datatype  ...
+                [LHsSigType pass]  -- ... to these types
                 InlinePragma       -- The pragma on SPECIALISE_INLINE form.
                                    -- If it's just defaultInlinePragma, then we said
                                    --    SPECIALISE, not SPECIALISE_INLINE
@@ -827,7 +831,7 @@ data Sig name
         --      'ApiAnnotation.AnnInstance','ApiAnnotation.AnnClose'
 
         -- For details on above see note [Api annotations] in ApiAnnotation
-  | SpecInstSig SourceText (LHsSigType name)
+  | SpecInstSig SourceText (LHsSigType pass)
                   -- Note [Pragma source text] in BasicTypes
 
         -- | A minimal complete definition pragma
@@ -839,7 +843,7 @@ data Sig name
         --      'ApiAnnotation.AnnClose'
 
         -- For details on above see note [Api annotations] in ApiAnnotation
-  | MinimalSig SourceText (LBooleanFormula (Located name))
+  | MinimalSig SourceText (LBooleanFormula (Located (IdP pass)))
                -- Note [Pragma source text] in BasicTypes
 
         -- | A "set cost centre" pragma for declarations
@@ -851,7 +855,7 @@ data Sig name
         -- > {-# SCC funName "cost_centre_name" #-}
 
   | SCCFunSig  SourceText      -- Note [Pragma source text] in BasicTypes
-               (Located name)  -- Function name
+               (Located (IdP pass))  -- Function name
                (Maybe (Located StringLiteral))
        -- | A complete match pragma
        --
@@ -860,16 +864,18 @@ data Sig name
        -- Used to inform the pattern match checker about additional
        -- complete matchings which, for example, arise from pattern
        -- synonym definitions.
-  | CompleteMatchSig SourceText (Located [Located name]) (Maybe (Located name))
+  | CompleteMatchSig SourceText
+                     (Located [Located (IdP pass)])
+                     (Maybe (Located (IdP pass)))
 
-deriving instance (DataId name) => Data (Sig name)
+deriving instance (DataP pass) => Data (Sig pass)
 
 -- | Located Fixity Signature
-type LFixitySig name = Located (FixitySig name)
+type LFixitySig pass = Located (FixitySig pass)
 
 -- | Fixity Signature
-data FixitySig name = FixitySig [Located name] Fixity
-  deriving Data
+data FixitySig pass = FixitySig [Located (IdP pass)] Fixity
+deriving instance (DataP pass) => Data (FixitySig pass)
 
 -- | Type checker Specialisation Pragmas
 --
@@ -1004,7 +1010,7 @@ ppr_sig (CompleteMatchSig src cs mty)
   where
     opt_sig = maybe empty ((\t -> dcolon <+> ppr t) . unLoc) mty
 
-instance OutputableBndr name => Outputable (FixitySig name) where
+instance OutputableBndrId pass => Outputable (FixitySig pass) where
   ppr (FixitySig names fixity) = sep [ppr fixity, pprops]
     where
       pprops = hsep $ punctuate comma (map (pprInfixOcc . unLoc) names)
@@ -1154,4 +1160,4 @@ data HsPatSynDir id
   = Unidirectional
   | ImplicitBidirectional
   | ExplicitBidirectional (MatchGroup id (LHsExpr id))
-deriving instance (DataId id) => Data (HsPatSynDir id)
+deriving instance (DataP id) => Data (HsPatSynDir id)

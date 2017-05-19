@@ -21,7 +21,7 @@ module HsExpr where
 import HsDecls
 import HsPat
 import HsLit
-import PlaceHolder ( PostTc,PostRn,DataId,DataIdPost,
+import PlaceHolder ( DataId,DataIdPost,
                      NameOrRdrName,OutputableBndrId )
 import HsTypes
 import HsBinds
@@ -102,7 +102,7 @@ noPostTcTable = []
 -- >                         (syn_arg_wraps[1] arg1) ...
 --
 -- where the actual arguments come from elsewhere in the AST.
--- This could be defined using @PostRn@ and @PostTc@ and such, but it's
+-- This could be defined using @PostRN@ and @PostTC@ and such, but it's
 -- harder to get it all to work out that way. ('noSyntaxExpr' is hard to
 -- write, for example.)
 data SyntaxExpr id = SyntaxExpr { syn_expr      :: HsExpr id
@@ -338,7 +338,7 @@ data HsExpr id
 
   | OpApp       (LHsExpr id)    -- left operand
                 (LHsExpr id)    -- operator
-                (PostRn id Fixity) -- Renamer adds fixity; bottom until then
+                (PostRN id Fixity) -- Renamer adds fixity; bottom until then
                 (LHsExpr id)    -- right operand
 
   -- | Negation operator. Contains the negated expression and the name
@@ -598,7 +598,7 @@ data HsExpr id
   -- | - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnStatic',
 
   -- For details on above see note [Api annotations] in ApiAnnotation
-  | HsStatic (PostRn id NameSet) -- Free variables of the body
+  | HsStatic (PostRN id NameSet) -- Free variables of the body
              (LHsExpr id)        -- Body
 
   ---------------------------------------
