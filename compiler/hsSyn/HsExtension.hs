@@ -20,6 +20,7 @@ import Var
 import Type       ( Type )
 import Outputable
 import SrcLoc (Located)
+import Coercion
 
 {-
 Note [Trees that grow]
@@ -221,6 +222,7 @@ type DataP p =
   , Data (PostRN p NameSet)
   , Data (PostRN p (IdP p))
   , Data (PostTC p (IdP p))
+  , Data (PostTC p Coercion)
   )
 
 
