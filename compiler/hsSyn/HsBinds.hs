@@ -28,7 +28,6 @@ import PprCore ()
 import CoreSyn
 import TcEvidence
 import Type
-import Name
 import NameSet
 import BasicTypes
 import Outputable
@@ -156,7 +155,7 @@ data HsBindLR idL idR
     -- For details on above see note [Api annotations] in ApiAnnotation
     FunBind {
 
-        fun_id :: Located idL, -- Note [fun_id in Match] in HsExpr
+        fun_id :: Located (IdP idL), -- Note [fun_id in Match] in HsExpr
 
         fun_matches :: MatchGroup idR (LHsExpr idR),  -- ^ The payload
 
@@ -208,7 +207,7 @@ data HsBindLR idL idR
   -- Dictionary binding and suchlike.
   -- All VarBinds are introduced by the type checker
   | VarBind {
-        var_id     :: idL,
+        var_id     :: IdP idL,
         var_rhs    :: LHsExpr idR,   -- ^ Located only for consistency
         var_inline :: Bool           -- ^ True <=> inline this binding regardless
                                      -- (used for implication constraints only)
@@ -240,7 +239,7 @@ data HsBindLR idL idR
         abs_tvs     :: [TyVar],
         abs_ev_vars :: [EvVar],
 
-        abs_sig_export :: idL,  -- like abe_poly
+        abs_sig_export :: IdP idL,  -- like abe_poly
         abs_sig_prags  :: TcSpecPrags,
 
         abs_sig_ev_bind :: TcEvBinds,  -- no list needed here
@@ -272,13 +271,14 @@ deriving instance (DataP idL, DataP idR) => Data (HsBindLR idL idR)
         -- See Note [AbsBinds]
 
 -- | Abtraction Bindings Export
-data ABExport id
-  = ABE { abe_poly      :: id    -- ^ Any INLINE pragmas is attached to this Id
-        , abe_mono      :: id
+data ABExport p
+  = ABE { abe_poly      :: IdP p -- ^ Any INLINE pragmas is attached to this Id
+        , abe_mono      :: IdP p
         , abe_wrap      :: HsWrapper    -- ^ See Note [ABExport wrapper]
              -- Shape: (forall abs_tvs. abs_ev_vars => abe_mono) ~ abe_poly
         , abe_prags     :: TcSpecPrags  -- ^ SPECIALISE pragmas
-  } deriving Data
+  }
+deriving instance (DataP p) => Data (ABExport p)
 
 -- | - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnPattern',
 --             'ApiAnnotation.AnnEqual','ApiAnnotation.AnnLarrow'
@@ -619,7 +619,7 @@ ppr_monobind (AbsBindsSig { abs_tvs         = tyvars
     else
       ppr bind
 
-instance (OutputableBndr id) => Outputable (ABExport id) where
+instance (OutputableBndrId p) => Outputable (ABExport p) where
   ppr (ABE { abe_wrap = wrap, abe_poly = gbl, abe_mono = lcl, abe_prags = prags })
     = vcat [ ppr gbl <+> text "<=" <+> ppr lcl
            , nest 2 (pprTcSpecPrags prags)
@@ -695,14 +695,14 @@ type LIPBind id = Located (IPBind id)
 
 -- For details on above see note [Api annotations] in ApiAnnotation
 data IPBind id
-  = IPBind (Either (Located HsIPName) id) (LHsExpr id)
+  = IPBind (Either (Located HsIPName) (IdP id)) (LHsExpr id)
 deriving instance (DataP name) => Data (IPBind name)
 
 instance (OutputableBndrId id ) => Outputable (HsIPBinds id) where
   ppr (IPBinds bs ds) = pprDeeperList vcat (map ppr bs)
                         $$ ifPprDebug (ppr ds)
 
-instance (OutputableBndrId id ) => Outputable (IPBind id) where
+instance (OutputableBndrId p ) => Outputable (IPBind p) where
   ppr (IPBind lr rhs) = name <+> equals <+> pprExpr (unLoc rhs)
     where name = case lr of
                    Left (L _ ip) -> pprBndr LetBind ip

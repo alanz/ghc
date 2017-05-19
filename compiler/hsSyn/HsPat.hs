@@ -81,7 +81,7 @@ data Pat p
         -- support hsPatType :: Pat Id -> Type
 
        -- AZ:TODO above comment needs to be updated
-  | VarPat      (Located p)  -- ^ Variable Pattern
+  | VarPat      (Located (IdP p))  -- ^ Variable Pattern
 
                              -- See Note [Located RdrNames] in HsExpr
   | LazyPat     (LPat p)                -- ^ Lazy Pattern
@@ -89,7 +89,7 @@ data Pat p
 
     -- For details on above see note [Api annotations] in ApiAnnotation
 
-  | AsPat       (Located p) (LPat p)    -- ^ As pattern
+  | AsPat       (Located (IdP p)) (LPat p)    -- ^ As pattern
     -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnAt'
 
     -- For details on above see note [Api annotations] in ApiAnnotation
@@ -164,7 +164,7 @@ data Pat p
 
     -- For details on above see note [Api annotations] in ApiAnnotation
         ------------ Constructor patterns ---------------
-  | ConPatIn    (Located p)
+  | ConPatIn    (Located (IdP p))
                 (HsConPatDetails p)
     -- ^ Constructor Pattern In
 
@@ -228,7 +228,7 @@ data Pat p
   -- - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnVal' @'+'@
 
   -- For details on above see note [Api annotations] in ApiAnnotation
-  | NPlusKPat       (Located p)              -- n+k pattern
+  | NPlusKPat       (Located (IdP p))        -- n+k pattern
                     (Located (HsOverLit p))  -- It'll always be an HsIntegral
                     (HsOverLit p)       -- See Note [NPlusK patterns] in TcPat
                      -- NB: This could be (PostTc ...), but that induced a

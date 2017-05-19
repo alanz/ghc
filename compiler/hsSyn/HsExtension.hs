@@ -12,7 +12,8 @@ module HsExtension where
 
 import Data.Data hiding ( Fixity )
 import PlaceHolder
-import BasicTypes ( SourceText(..) )
+import BasicTypes
+import ConLike 
 import NameSet
 import Name
 import RdrName
@@ -21,6 +22,7 @@ import Type       ( Type )
 import Outputable
 import SrcLoc (Located)
 import Coercion
+import TcEvidence
 
 {-
 Note [Trees that grow]
@@ -151,7 +153,20 @@ type instance XHsRat        GHCR = ()
 type instance XHsFloatPrim  GHCR = ()
 type instance XHsDoublePrim GHCR = ()
 
-  
+type instance XHsChar       GHCT = SourceText
+type instance XHsCharPrim   GHCT = SourceText
+type instance XHsString     GHCT = SourceText
+type instance XHsStringPrim GHCT = SourceText
+type instance XHsInt        GHCT = ()
+type instance XHsIntPrim    GHCT = SourceText
+type instance XHsWordPrim   GHCT = SourceText
+type instance XHsInt64Prim  GHCT = SourceText
+type instance XHsWord64Prim GHCT = SourceText
+type instance XHsInteger    GHCT = SourceText
+type instance XHsRat        GHCT = ()
+type instance XHsFloatPrim  GHCT = ()
+type instance XHsDoublePrim GHCT = ()
+
 class HasSourceText a where
   -- Provide setters to mimic existing constructors
   noSourceText  :: a
@@ -220,17 +235,21 @@ type DataP p =
   , Data (PostRN p [Name])
   , Data (PostRN p (Located Name))
   , Data (PostRN p NameSet)
+  , Data (PostRN p Fixity)
   , Data (PostRN p (IdP p))
   , Data (PostTC p (IdP p))
   , Data (PostTC p Coercion)
+  , Data (PostTC p HsWrapper)
+  , Data (PostTC p ConLike)
+  , Data (PostTC p [ConLike])
   )
 
 
 -- |Constraint type to bundle up the requirement for 'OutputableBndr' on both
 -- the @id@ and the 'NameOrRdrName' type for it
 type OutputableBndrId id =
-  ( OutputableBndr id
-  -- , OutputableBndr (NameOrRdrName id) -- TODO:AZ this should fall away
+  -- ( OutputableBndr id
+  ( OutputableBndr (NameOrRdrName (IdP id))
   , OutputableBndr (IdP id)
   )
 
@@ -238,4 +257,4 @@ type OutputableBndrId id =
 -- Temporary
 instance Outputable GHCR where
 instance OutputableBndr GHCR where
-  
+
