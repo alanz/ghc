@@ -7,6 +7,8 @@ Desugaring foreign declarations (see also DsCCall).
 -}
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module DsForeign ( dsForeigns ) where
 
@@ -69,14 +71,14 @@ is the same as
 so we reuse the desugaring code in @DsCCall@ to deal with these.
 -}
 
-type Binding = (Id, CoreExpr)   -- No rec/nonrec structure;
+type Binding = (Id, CoreExpr) -- No rec/nonrec structure;
                                 -- the occurrence analyser will sort it all out
 
-dsForeigns :: [LForeignDecl Id]
+dsForeigns :: [LForeignDecl GhcTc]
            -> DsM (ForeignStubs, OrdList Binding)
 dsForeigns fos = getHooked dsForeignsHook dsForeigns' >>= ($ fos)
 
-dsForeigns' :: [LForeignDecl Id]
+dsForeigns' :: [LForeignDecl GhcTc]
             -> DsM (ForeignStubs, OrdList Binding)
 dsForeigns' []
   = return (NoStubs, nilOL)
@@ -329,7 +331,7 @@ For each `@foreign export foo@' in a module M we generate:
 the user-written Haskell function `@M.foo@'.
 -}
 
-dsFExport :: Id                 -- Either the exported Id,
+dsFExport :: Id           -- Either the exported Id,
                                 -- or the foreign-export-dynamic constructor
           -> Coercion           -- Coercion between the Haskell type callable
                                 -- from C, and its representation type
@@ -496,7 +498,7 @@ using the hugs/ghc rts invocation API.
 
 mkFExportCBits :: DynFlags
                -> FastString
-               -> Maybe Id      -- Just==static, Nothing==dynamic
+               -> Maybe Id -- Just==static, Nothing==dynamic
                -> [Type]
                -> Type
                -> Bool          -- True <=> returns an IO type
