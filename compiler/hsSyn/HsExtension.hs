@@ -122,6 +122,12 @@ instance HasSourceText SourceText where
 class HasDefault a where
   def :: a
 
+instance HasDefault () where
+  def = ()
+
+instance HasDefault SourceText where
+  def = NoSourceText
+
 -- type HasDefaultX x = ClassX HasDefault x
 
 -- AZ: Question: do we need this, as only being used for NoSourceText case atm,

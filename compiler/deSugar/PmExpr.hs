@@ -5,6 +5,8 @@ Haskell expressions (as used by the pattern matching checker) and utilities.
 -}
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module PmExpr (
         PmExpr(..), PmLit(..), SimpleEq, ComplexEq, toComplex, eqPmLit,
@@ -59,7 +61,7 @@ data PmExpr x = PmExprVar   Name
               | PmExprOther (HsExpr x Id)  -- Note [PmExprOther in PmExpr]
 
 
-mkPmExprData :: DataCon -> [PmExpr] -> PmExpr
+mkPmExprData :: DataCon -> [PmExpr x] -> PmExpr x
 mkPmExprData dc args = PmExprCon (RealDataCon dc) args
 
 -- | Literals (simple and overloaded ones) for pattern match checking.
@@ -67,7 +69,7 @@ data PmLit x = PmSLit (HsLit x)                                  -- simple
              | PmOLit Bool {- is it negated? -} (HsOverLit x Id) -- overloaded
 
 -- | Equality between literals for pattern match checking.
-eqPmLit :: PmLit -> PmLit -> Bool
+eqPmLit :: PmLit x -> PmLit x -> Bool
 eqPmLit (PmSLit    l1) (PmSLit    l2) = l1 == l2
 eqPmLit (PmOLit b1 l1) (PmOLit b2 l2) = b1 == b2 && l1 == l2
   -- See Note [Undecidable Equality for Overloaded Literals]
@@ -139,7 +141,7 @@ impact of this is the following:
        appearance of the warnings and is, in practice safe.
 -}
 
-nubPmLit :: [PmLit] -> [PmLit]
+nubPmLit :: [PmLit x] -> [PmLit x]
 nubPmLit = nubBy eqPmLit
 
 -- | Term equalities
@@ -147,42 +149,42 @@ type SimpleEq  x = (Id, PmExpr x) -- We always use this orientation
 type ComplexEq x = (PmExpr x, PmExpr x)
 
 -- | Lift a `SimpleEq` to a `ComplexEq`
-toComplex :: SimpleEq -> ComplexEq
+toComplex :: SimpleEq x -> ComplexEq x
 toComplex (x,e) = (PmExprVar (idName x), e)
 
 -- | Expression `True'
-truePmExpr :: PmExpr
+truePmExpr :: PmExpr x
 truePmExpr = mkPmExprData trueDataCon []
 
 -- | Expression `False'
-falsePmExpr :: PmExpr
+falsePmExpr :: PmExpr x
 falsePmExpr = mkPmExprData falseDataCon []
 
 -- ----------------------------------------------------------------------------
 -- ** Predicates on PmExpr
 
 -- | Check if an expression is lifted or not
-isNotPmExprOther :: PmExpr -> Bool
+isNotPmExprOther :: PmExpr x -> Bool
 isNotPmExprOther (PmExprOther _) = False
 isNotPmExprOther _expr           = True
 
 -- | Check whether a literal is negated
-isNegatedPmLit :: PmLit -> Bool
+isNegatedPmLit :: PmLit x -> Bool
 isNegatedPmLit (PmOLit b _) = b
 isNegatedPmLit _other_lit   = False
 
 -- | Check whether a PmExpr is syntactically equal to term `True'.
-isTruePmExpr :: PmExpr -> Bool
+isTruePmExpr :: PmExpr x -> Bool
 isTruePmExpr (PmExprCon c []) = c == RealDataCon trueDataCon
 isTruePmExpr _other_expr      = False
 
 -- | Check whether a PmExpr is syntactically equal to term `False'.
-isFalsePmExpr :: PmExpr -> Bool
+isFalsePmExpr :: PmExpr x -> Bool
 isFalsePmExpr (PmExprCon c []) = c == RealDataCon falseDataCon
 isFalsePmExpr _other_expr      = False
 
 -- | Check whether a PmExpr is syntactically e
-isNilPmExpr :: PmExpr -> Bool
+isNilPmExpr :: PmExpr x -> Bool
 isNilPmExpr (PmExprCon c _) = c == RealDataCon nilDataCon
 isNilPmExpr _other_expr     = False
 
@@ -190,7 +192,7 @@ isNilPmExpr _other_expr     = False
 -- Since (==) is overloaded and can have an arbitrary implementation, we use
 -- the PmExprEq constructor to represent only equalities with non-overloaded
 -- literals where it coincides with a syntactic equality check.
-isPmExprEq :: PmExpr -> Maybe (PmExpr, PmExpr)
+isPmExprEq :: PmExpr x -> Maybe (PmExpr x, PmExpr x)
 isPmExprEq (PmExprEq e1 e2) = Just (e1,e2)
 isPmExprEq _other_expr      = Nothing
 
@@ -203,7 +205,7 @@ isConsDataCon con = consDataCon == con
 
 -- | We return a boolean along with the expression. Hence, if substitution was
 -- a no-op, we know that the expression still cannot progress.
-substPmExpr :: Name -> PmExpr -> PmExpr -> (PmExpr, Bool)
+substPmExpr :: Name -> PmExpr x -> PmExpr x -> (PmExpr x, Bool)
 substPmExpr x e1 e =
   case e of
     PmExprVar z | x == z    -> (e1, True)
@@ -218,7 +220,8 @@ substPmExpr x e1 e =
 
 -- | Substitute in a complex equality. We return (Left eq) if the substitution
 -- affected the equality or (Right eq) if nothing happened.
-substComplexEq :: Name -> PmExpr -> ComplexEq -> Either ComplexEq ComplexEq
+substComplexEq :: Name -> PmExpr x -> ComplexEq x
+               -> Either (ComplexEq x) (ComplexEq x)
 substComplexEq x e (ex, ey)
   | bx || by  = Left  (ex', ey')
   | otherwise = Right (ex', ey')
@@ -229,10 +232,10 @@ substComplexEq x e (ex, ey)
 -- -----------------------------------------------------------------------
 -- ** Lift source expressions (HsExpr Id) to PmExpr
 
-lhsExprToPmExpr :: LHsExpr Id -> PmExpr
+lhsExprToPmExpr :: LHsExpr x Id -> PmExpr x
 lhsExprToPmExpr (L _ e) = hsExprToPmExpr e
 
-hsExprToPmExpr :: HsExpr Id -> PmExpr
+hsExprToPmExpr :: HsExpr x Id -> PmExpr x
 
 hsExprToPmExpr (HsVar         x) = PmExprVar (idName (unLoc x))
 hsExprToPmExpr (HsConLikeOut  c) = PmExprVar (conLikeName c)
@@ -282,7 +285,7 @@ hsExprToPmExpr (ExprWithTySigOut  e _) = lhsExprToPmExpr e
 hsExprToPmExpr (HsWrap            _ e) =  hsExprToPmExpr e
 hsExprToPmExpr e = PmExprOther e -- the rest are not handled by the oracle
 
-synExprToPmExpr :: SyntaxExpr Id -> PmExpr
+synExprToPmExpr :: SyntaxExpr x Id -> PmExpr x
 synExprToPmExpr = hsExprToPmExpr . syn_expr  -- ignore the wrappers
 
 {-
@@ -326,7 +329,7 @@ Check.hs) to be more precice.
 
 type PmNegLitCt x = (Name, (SDoc, [PmLit x]))
 
-filterComplex :: [ComplexEq] -> [PmNegLitCt]
+filterComplex :: [ComplexEq x] -> [PmNegLitCt x]
 filterComplex = zipWith rename nameList . map mkGroup
               . groupBy name . sortBy order . mapMaybe isNegLitCs
   where
@@ -351,7 +354,7 @@ filterComplex = zipWith rename nameList . map mkGroup
 
 -- ----------------------------------------------------------------------------
 
-runPmPprM :: PmPprM a -> [PmNegLitCt] -> (a, [(SDoc,[PmLit])])
+runPmPprM :: PmPprM x a -> [PmNegLitCt x] -> (a, [(SDoc,[PmLit x])])
 runPmPprM m lit_env = (result, mapMaybe is_used lit_env)
   where
     (result, (_lit_env, used)) = runState m (lit_env, emptyNameSet)
@@ -363,10 +366,10 @@ runPmPprM m lit_env = (result, mapMaybe is_used lit_env)
 type PmPprM x a = State ([PmNegLitCt x], NameSet) a
 -- (the first part of the state is read only. make it a reader?)
 
-addUsed :: Name -> PmPprM ()
+addUsed :: Name -> PmPprM x ()
 addUsed x = modify (\(negated, used) -> (negated, extendNameSet used x))
 
-checkNegation :: Name -> PmPprM (Maybe SDoc) -- the clean name if it is negated
+checkNegation :: Name -> PmPprM x (Maybe SDoc) -- the clean name if it is negated
 checkNegation x = do
   negated <- gets fst
   return $ case lookup x negated of
@@ -376,7 +379,7 @@ checkNegation x = do
 -- | Pretty print a pmexpr, but remember to prettify the names of the variables
 -- that refer to neg-literals. The ones that cannot be shown are printed as
 -- underscores.
-pprPmExpr :: PmExpr -> PmPprM SDoc
+pprPmExpr :: PmExpr x -> PmPprM x SDoc
 pprPmExpr (PmExprVar x) = do
   mb_name <- checkNegation x
   case mb_name of
@@ -388,7 +391,7 @@ pprPmExpr (PmExprLit l)        = return (ppr l)
 pprPmExpr (PmExprEq _ _)       = return underscore -- don't show
 pprPmExpr (PmExprOther _)      = return underscore -- don't show
 
-needsParens :: PmExpr -> Bool
+needsParens :: PmExpr x -> Bool
 needsParens (PmExprVar   {}) = False
 needsParens (PmExprLit    l) = isNegatedPmLit l
 needsParens (PmExprEq    {}) = False -- will become a wildcard
@@ -399,12 +402,12 @@ needsParens (PmExprCon (RealDataCon c) es)
   | otherwise                   = True
 needsParens (PmExprCon (PatSynCon _) es) = not (null es)
 
-pprPmExprWithParens :: PmExpr -> PmPprM SDoc
+pprPmExprWithParens :: PmExpr x -> PmPprM x SDoc
 pprPmExprWithParens expr
   | needsParens expr = parens <$> pprPmExpr expr
   | otherwise        =            pprPmExpr expr
 
-pprPmExprCon :: ConLike -> [PmExpr] -> PmPprM SDoc
+pprPmExprCon :: ConLike -> [PmExpr x] -> PmPprM x SDoc
 pprPmExprCon (RealDataCon con) args
   | isTupleDataCon con = mkTuple <$> mapM pprPmExpr args
   |  isPArrFakeCon con = mkPArr  <$> mapM pprPmExpr args
@@ -415,7 +418,7 @@ pprPmExprCon (RealDataCon con) args
     mkPArr  = paBrackets . fsep . punctuate comma
 
     -- lazily, to be used in the list case only
-    pretty_list :: PmPprM SDoc
+    pretty_list :: PmPprM x SDoc
     pretty_list = case isNilPmExpr (last list) of
       True  -> brackets . fsep . punctuate comma <$> mapM pprPmExpr (init list)
       False -> parens   . hcat . punctuate colon <$> mapM pprPmExpr list
@@ -440,7 +443,7 @@ pprPmExprCon cl args
   | otherwise = do args' <- mapM pprPmExprWithParens args
                    return (fsep (ppr cl : args'))
 
-instance Outputable (PmLit x) where
+instance (SourceTextX x) => Outputable (PmLit x) where
   ppr (PmSLit     l) = pmPprHsLit l
   ppr (PmOLit neg l) = (if neg then char '-' else empty) <> ppr l
 

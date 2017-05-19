@@ -221,10 +221,10 @@ instance Outputable OverLitVal where
 -- mainly for too reasons:
 --  * We do not want to expose their internal representation
 --  * The warnings become too messy
-pmPprHsLit :: HsLit GHCX -> SDoc
+pmPprHsLit :: (SourceTextX x) => HsLit x -> SDoc
 pmPprHsLit (HsChar _ c)       = pprHsChar c
 pmPprHsLit (HsCharPrim _ c)   = pprHsChar c
-pmPprHsLit (HsString st s)    = pprWithSourceText st (pprHsString s)
+pmPprHsLit (HsString st s)    = pprWithSourceText (getSourceText st) (pprHsString s)
 pmPprHsLit (HsStringPrim _ s) = pprHsBytes s
 pmPprHsLit (HsInt _ i)        = integer (il_value i)
 pmPprHsLit (HsIntPrim _ i)    = integer i
