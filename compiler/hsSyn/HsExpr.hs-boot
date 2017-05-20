@@ -4,6 +4,7 @@
                                       -- in module PlaceHolder
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RoleAnnotations #-}
+{-# LANGUAGE ExistentialQuantification #-}
 
 module HsExpr where
 
@@ -11,7 +12,7 @@ import SrcLoc     ( Located )
 import Outputable ( SDoc, Outputable )
 import {-# SOURCE #-} HsPat  ( LPat )
 import BasicTypes ( SpliceExplicitFlag(..))
-import HsExtension ( OutputableBndrId, DataP )
+import HsExtension ( OutputableBndrId, DataP, SourceTextX )
 import Data.Data hiding ( Fixity )
 
 type role HsExpr nominal
@@ -27,31 +28,32 @@ data MatchGroup (a :: *) (body :: *)
 data GRHSs (a :: *) (body :: *)
 data SyntaxExpr (i :: *)
 
-instance (DataP id) => Data (HsSplice id)
-instance (DataP id) => Data (HsExpr id)
-instance (DataP id) => Data (HsCmd id)
-instance (Data body,DataP id) => Data (MatchGroup id body)
-instance (Data body,DataP id) => Data (GRHSs id body)
-instance (DataP id) => Data (SyntaxExpr id)
+instance (DataP p) => Data (HsSplice p)
+instance (DataP p) => Data (HsExpr p)
+instance (DataP p) => Data (HsCmd p)
+instance (Data body,DataP p) => Data (MatchGroup p body)
+instance (Data body,DataP p) => Data (GRHSs p body)
+instance (DataP p) => Data (SyntaxExpr p)
 
-instance (OutputableBndrId id) => Outputable (HsExpr id)
-instance (OutputableBndrId id) => Outputable (HsCmd id)
+instance (SourceTextX p, OutputableBndrId p) => Outputable (HsExpr p)
+instance (SourceTextX p, OutputableBndrId p) => Outputable (HsCmd p)
 
 type LHsExpr a = Located (HsExpr a)
 
-pprLExpr :: (OutputableBndrId id) => LHsExpr id -> SDoc
+pprLExpr :: (SourceTextX p, OutputableBndrId p) => LHsExpr p -> SDoc
 
-pprExpr :: (OutputableBndrId id) => HsExpr id -> SDoc
+pprExpr :: (SourceTextX p, OutputableBndrId p) => HsExpr p -> SDoc
 
-pprSplice :: (OutputableBndrId id) => HsSplice id -> SDoc
+pprSplice :: (SourceTextX p, OutputableBndrId p) => HsSplice p -> SDoc
 
-pprSpliceDecl ::  (OutputableBndrId id)
-          => HsSplice id -> SpliceExplicitFlag -> SDoc
+pprSpliceDecl ::  (SourceTextX p, OutputableBndrId p)
+          => HsSplice p -> SpliceExplicitFlag -> SDoc
 
-pprPatBind :: (OutputableBndrId bndr,
-               OutputableBndrId id,
-               Outputable body)
-           => LPat bndr -> GRHSs id body -> SDoc
+pprPatBind :: forall bndr p body. (SourceTextX p, SourceTextX bndr,
+                                   OutputableBndrId bndr,
+                                   OutputableBndrId p,
+                                   Outputable body)
+           => LPat bndr -> GRHSs p body -> SDoc
 
-pprFunBind :: (OutputableBndrId idR, Outputable body)
+pprFunBind :: (SourceTextX idR, OutputableBndrId idR, Outputable body)
            => MatchGroup idR body -> SDoc

@@ -29,7 +29,6 @@ import HsBinds
 -- others:
 import TcEvidence
 import CoreSyn
-import Var
 import DynFlags ( gopt, GeneralFlag(Opt_PrintExplicitCoercions) )
 import Name
 import NameSet
@@ -81,7 +80,7 @@ type PostTcExpr  = HsExpr GHCT
 type PostTcTable = [(Name, PostTcExpr)]
 
 noPostTcExpr :: PostTcExpr
-noPostTcExpr = HsLit (HsString NoSourceText (fsLit "noPostTcExpr"))
+noPostTcExpr = HsLit (HsString noSourceText (fsLit "noPostTcExpr"))
 
 noPostTcTable :: PostTcTable
 noPostTcTable = []
@@ -105,10 +104,10 @@ noPostTcTable = []
 -- This could be defined using @PostRN@ and @PostTC@ and such, but it's
 -- harder to get it all to work out that way. ('noSyntaxExpr' is hard to
 -- write, for example.)
-data SyntaxExpr id = SyntaxExpr { syn_expr      :: HsExpr id
-                                , syn_arg_wraps :: [HsWrapper]
-                                , syn_res_wrap  :: HsWrapper }
-deriving instance (DataP id) => Data (SyntaxExpr id)
+data SyntaxExpr p = SyntaxExpr { syn_expr      :: HsExpr p
+                               , syn_arg_wraps :: [HsWrapper]
+                               , syn_res_wrap  :: HsWrapper }
+deriving instance (DataP p) => Data (SyntaxExpr p)
 
 -- | This is used for rebindable-syntax pieces that are too polymorphic
 -- for tcSyntaxOp (trS_fmap and the mzip in ParStmt)
@@ -144,7 +143,7 @@ instance (SourceTextX p, OutputableBndrId p) => Outputable (SyntaxExpr p) where
       else ppr expr
 
 -- | Command Syntax Table (for Arrow syntax)
-type CmdSyntaxTable id = [(Name, HsExpr id)]
+type CmdSyntaxTable p = [(Name, HsExpr p)]
 -- See Note [CmdSyntaxTable]
 
 {-
@@ -639,7 +638,7 @@ data HsExpr p
   -- Haskell program coverage (Hpc) Support
 
   | HsTick
-     (Tickish p)
+     (Tickish (IdP p))
      (LHsExpr p)                       -- sub-expression
 
   | HsBinTick
@@ -1046,10 +1045,11 @@ ppr_expr (HsRecFld f) = ppr f
 -- We must tiresomely make the "id" parameter to the LHsWcType existential
 -- because it's different in the HsAppType case and the HsAppTypeOut case
 -- | Located Haskell Wildcard Type Expression
-data LHsWcTypeX = forall id. (OutputableBndrId id) => LHsWcTypeX (LHsWcType id)
+data LHsWcTypeX = forall p. (SourceTextX p, OutputableBndrId p)
+                       => LHsWcTypeX (LHsWcType p)
 
-ppr_apps :: (OutputableBndrId id) => HsExpr id
-         -> [Either (LHsExpr id) LHsWcTypeX]
+ppr_apps :: (SourceTextX p, OutputableBndrId p) => HsExpr p
+         -> [Either (LHsExpr p) LHsWcTypeX]
          -> SDoc
 ppr_apps (HsApp (L _ fun) arg)        args
   = ppr_apps fun (Left arg : args)
@@ -1079,16 +1079,16 @@ fixities should do the job, except in debug mode (-dppr-debug) so we
 can see the structure of the parse tree.
 -}
 
-pprDebugParendExpr :: (OutputableBndrId id) => LHsExpr id -> SDoc
+pprDebugParendExpr :: (SourceTextX p, OutputableBndrId p) => LHsExpr p -> SDoc
 pprDebugParendExpr expr
   = getPprStyle (\sty ->
     if debugStyle sty then pprParendLExpr expr
                       else pprLExpr      expr)
 
-pprParendLExpr :: (OutputableBndrId id) => LHsExpr id -> SDoc
+pprParendLExpr :: (SourceTextX p, OutputableBndrId p) => LHsExpr p -> SDoc
 pprParendLExpr (L _ e) = pprParendExpr e
 
-pprParendExpr :: (OutputableBndrId id) => HsExpr id -> SDoc
+pprParendExpr :: (SourceTextX p, OutputableBndrId p) => HsExpr p -> SDoc
 pprParendExpr expr
   | hsExprNeedsParens expr = parens (pprExpr expr)
   | otherwise              = pprExpr expr
@@ -1249,26 +1249,26 @@ argument of a command-forming operator.
 -}
 
 -- | Located Haskell Top-level Command
-type LHsCmdTop id = Located (HsCmdTop id)
+type LHsCmdTop p = Located (HsCmdTop p)
 
 -- | Haskell Top-level Command
-data HsCmdTop id
-  = HsCmdTop (LHsCmd id)
-             (PostTC id Type)   -- Nested tuple of inputs on the command's stack
-             (PostTC id Type)   -- return type of the command
-             (CmdSyntaxTable id) -- See Note [CmdSyntaxTable]
-deriving instance (DataP id) => Data (HsCmdTop id)
+data HsCmdTop p
+  = HsCmdTop (LHsCmd p)
+             (PostTC p Type)    -- Nested tuple of inputs on the command's stack
+             (PostTC p Type)    -- return type of the command
+             (CmdSyntaxTable p) -- See Note [CmdSyntaxTable]
+deriving instance (DataP p) => Data (HsCmdTop p)
 
-instance (OutputableBndrId id) => Outputable (HsCmd id) where
+instance (SourceTextX p, OutputableBndrId p) => Outputable (HsCmd p) where
     ppr cmd = pprCmd cmd
 
 -----------------------
 -- pprCmd and pprLCmd call pprDeeper;
 -- the underscore versions do not
-pprLCmd :: (OutputableBndrId id) => LHsCmd id -> SDoc
+pprLCmd :: (SourceTextX p, OutputableBndrId p) => LHsCmd p -> SDoc
 pprLCmd (L _ c) = pprCmd c
 
-pprCmd :: (OutputableBndrId id) => HsCmd id -> SDoc
+pprCmd :: (SourceTextX p, OutputableBndrId p) => HsCmd p -> SDoc
 pprCmd c | isQuietHsCmd c =            ppr_cmd c
          | otherwise      = pprDeeper (ppr_cmd c)
 
@@ -1282,10 +1282,10 @@ isQuietHsCmd (HsCmdApp _ _) = True
 isQuietHsCmd _ = False
 
 -----------------------
-ppr_lcmd :: (OutputableBndrId id) => LHsCmd id -> SDoc
+ppr_lcmd :: (SourceTextX p, OutputableBndrId p) => LHsCmd p -> SDoc
 ppr_lcmd c = ppr_cmd (unLoc c)
 
-ppr_cmd :: forall id. (OutputableBndrId id) => HsCmd id -> SDoc
+ppr_cmd :: forall p. (SourceTextX p, OutputableBndrId p) => HsCmd p -> SDoc
 ppr_cmd (HsCmdPar c) = parens (ppr_lcmd c)
 
 ppr_cmd (HsCmdApp c e)
@@ -1346,11 +1346,11 @@ ppr_cmd (HsCmdArrForm op _ _ args)
   = hang (text "(|" <> ppr_lexpr op)
          4 (sep (map (pprCmdArg.unLoc) args) <> text "|)")
 
-pprCmdArg :: (OutputableBndrId id) => HsCmdTop id -> SDoc
+pprCmdArg :: (SourceTextX p, OutputableBndrId p) => HsCmdTop p -> SDoc
 pprCmdArg (HsCmdTop cmd _ _ _)
   = ppr_lcmd cmd
 
-instance (OutputableBndrId id) => Outputable (HsCmdTop id) where
+instance (SourceTextX p, OutputableBndrId p) => Outputable (HsCmdTop p) where
     ppr = pprCmdArg
 
 {-
@@ -1362,7 +1362,7 @@ instance (OutputableBndrId id) => Outputable (HsCmdTop id) where
 -}
 
 -- | Haskell Record Bindings
-type HsRecordBinds id = HsRecFields id (LHsExpr id)
+type HsRecordBinds p = HsRecFields p (LHsExpr p)
 
 {-
 ************************************************************************
@@ -1386,15 +1386,15 @@ a function defined by pattern matching must have the same number of
 patterns in each equation.
 -}
 
-data MatchGroup id body
-  = MG { mg_alts    :: Located [LMatch id body]  -- The alternatives
-       , mg_arg_tys :: [PostTC id Type]  -- Types of the arguments, t1..tn
-       , mg_res_ty  :: PostTC id Type    -- Type of the result, tr
+data MatchGroup p body
+  = MG { mg_alts    :: Located [LMatch p body]  -- The alternatives
+       , mg_arg_tys :: [PostTC p Type]  -- Types of the arguments, t1..tn
+       , mg_res_ty  :: PostTC p Type    -- Type of the result, tr
        , mg_origin  :: Origin }
      -- The type is the type of the entire group
      --      t1 -> ... -> tn -> tr
      -- where there are n patterns
-deriving instance (Data body,DataP id) => Data (MatchGroup id body)
+deriving instance (Data body,DataP p) => Data (MatchGroup p body)
 
 -- | Located Match
 type LMatch id body = Located (Match id body)
@@ -1402,18 +1402,18 @@ type LMatch id body = Located (Match id body)
 --   list
 
 -- For details on above see note [Api annotations] in ApiAnnotation
-data Match id body
+data Match p body
   = Match {
-        m_ctxt :: HsMatchContext (NameOrRdrName (IdP id)),
+        m_ctxt :: HsMatchContext (NameOrRdrName (IdP p)),
           -- See note [m_ctxt in Match]
-        m_pats :: [LPat id], -- The patterns
-        m_type :: (Maybe (LHsType id)),
+        m_pats :: [LPat p], -- The patterns
+        m_type :: (Maybe (LHsType p)),
                                  -- A type signature for the result of the match
                                  -- Nothing after typechecking
                                  -- NB: No longer supported
-        m_grhss :: (GRHSs id body)
+        m_grhss :: (GRHSs p body)
   }
-deriving instance (Data body,DataP id) => Data (Match id body)
+deriving instance (Data body,DataP p) => Data (Match p body)
 
 instance (SourceTextX idR, OutputableBndrId idR, Outputable body)
             => Outputable (Match idR body) where
@@ -1493,12 +1493,12 @@ hsLMatchPats (L _ (Match _ pats _ _)) = pats
 --        'ApiAnnotation.AnnRarrow','ApiAnnotation.AnnSemi'
 
 -- For details on above see note [Api annotations] in ApiAnnotation
-data GRHSs id body
+data GRHSs p body
   = GRHSs {
-      grhssGRHSs :: [LGRHS id body],      -- ^ Guarded RHSs
-      grhssLocalBinds :: LHsLocalBinds id -- ^ The where clause
+      grhssGRHSs :: [LGRHS p body],      -- ^ Guarded RHSs
+      grhssLocalBinds :: LHsLocalBinds p -- ^ The where clause
     }
-deriving instance (Data body,DataP id) => Data (GRHSs id body)
+deriving instance (Data body,DataP p) => Data (GRHSs p body)
 
 -- | Located Guarded Right-Hand Side
 type LGRHS id body = Located (GRHS id body)
@@ -1522,9 +1522,10 @@ pprFunBind :: (SourceTextX idR, OutputableBndrId idR, Outputable body)
 pprFunBind matches = pprMatches matches
 
 -- Exported to HsBinds, which can't see the defn of HsMatchContext
-pprPatBind :: forall bndr p body. (SourceTextX p, OutputableBndrId bndr,
-                                    OutputableBndrId p,
-                                    Outputable body)
+pprPatBind :: forall bndr p body. (SourceTextX p, SourceTextX bndr,
+                                   OutputableBndrId bndr,
+                                   OutputableBndrId p,
+                                   Outputable body)
            => LPat bndr -> GRHSs p body -> SDoc
 pprPatBind pat (grhss)
  = sep [ppr pat, nest 2 (pprGRHSs (PatBindRhs :: HsMatchContext (IdP p)) grhss)]
@@ -2148,7 +2149,7 @@ data UntypedSpliceFlavour
 data PendingTcSplice
   -- AZ:TODO: The hard-coded GHCT feels wrong. How to force the PostTC?
   = PendingTcSplice SplicePointName (LHsExpr GHCT)
-  -- deriving Data -- AZ:TODO: reinstate
+  deriving Data
 
 
 {-
@@ -2265,15 +2266,15 @@ ppr_splice herald n e trail
     = herald <> ifPprDebug (brackets (ppr n)) <> ppr e <> trail
 
 -- | Haskell Bracket
-data HsBracket id = ExpBr (LHsExpr id)   -- [|  expr  |]
-                  | PatBr (LPat id)      -- [p| pat   |]
-                  | DecBrL [LHsDecl id]  -- [d| decls |]; result of parser
-                  | DecBrG (HsGroup id)  -- [d| decls |]; result of renamer
-                  | TypBr (LHsType id)   -- [t| type  |]
-                  | VarBr Bool (IdP id)  -- True: 'x, False: ''T
-                                         -- (The Bool flag is used only in pprHsBracket)
-                  | TExpBr (LHsExpr id)  -- [||  expr  ||]
-deriving instance (DataP id) => Data (HsBracket id)
+data HsBracket p = ExpBr (LHsExpr p)    -- [|  expr  |]
+                  | PatBr (LPat p)      -- [p| pat   |]
+                  | DecBrL [LHsDecl p]  -- [d| decls |]; result of parser
+                  | DecBrG (HsGroup p)  -- [d| decls |]; result of renamer
+                  | TypBr (LHsType p)   -- [t| type  |]
+                  | VarBr Bool (IdP p)  -- True: 'x, False: ''T
+                                 -- (The Bool flag is used only in pprHsBracket)
+                  | TExpBr (LHsExpr p)  -- [||  expr  ||]
+deriving instance (DataP p) => Data (HsBracket p)
 
 isTypedBracket :: HsBracket id -> Bool
 isTypedBracket (TExpBr {}) = True
@@ -2370,7 +2371,7 @@ data HsMatchContext id -- Not an extensible tag
   | PatSyn                 -- ^A pattern synonym declaration
   deriving Functor
 -- deriving instance (DataIdPost id) => Data (HsMatchContext id) -- AZ:remove this
-deriving instance (DataP id) => Data (HsMatchContext id)
+deriving instance (Data id) => Data (HsMatchContext id)
 
 instance OutputableBndr id => Outputable (HsMatchContext id) where
   ppr (FunRhs (L _ id) fix) = text "FunRhs" <+> ppr id <+> ppr fix
@@ -2407,7 +2408,7 @@ data HsStmtContext id
   | TransStmtCtxt (HsStmtContext id) -- ^A branch of a transform stmt
   deriving Functor
 -- deriving instance (DataIdPost id) => Data (HsStmtContext id) -- AZ: remove this
-deriving instance (DataP id) => Data (HsStmtContext id)
+deriving instance (Data id) => Data (HsStmtContext id)
 
 isListCompExpr :: HsStmtContext id -> Bool
 -- Uses syntax [ e | quals ]
@@ -2543,8 +2544,6 @@ matchContextErrString (StmtCtxt PArrComp)          = text "array comprehension"
 pprMatchInCtxt :: (SourceTextX idR, OutputableBndrId idR,
                    -- TODO:AZ these constraints do not make sense
                    Outputable (NameOrRdrName (NameOrRdrName (IdP idR))),
-                   Outputable (IdP (NameOrRdrName (IdP idR))),
-                   Outputable (NameOrRdrName (IdP (NameOrRdrName (IdP idR)))),
                    Outputable body)
                => Match idR body -> SDoc
 pprMatchInCtxt match  = hang (text "In" <+> pprMatchContext (m_ctxt match)

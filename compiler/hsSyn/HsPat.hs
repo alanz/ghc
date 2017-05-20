@@ -318,8 +318,8 @@ type HsRecUpdField p     = HsRecField' (AmbiguousFieldOcc p) (LHsExpr p)
 -- - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnEqual',
 --
 -- For details on above see note [Api annotations] in ApiAnnotation
-data HsRecField' p arg = HsRecField {
-        hsRecFieldLbl :: Located p,
+data HsRecField' id arg = HsRecField {
+        hsRecFieldLbl :: Located id,
         hsRecFieldArg :: arg,           -- ^ Filled in by renamer when punning
         hsRecPun      :: Bool           -- ^ Note [Punning]
   } deriving (Data, Functor, Foldable, Traversable)

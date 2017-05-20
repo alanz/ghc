@@ -110,7 +110,7 @@ data HsValBindsLR idL idR
     -- later bindings in the list may depend on earlier ones.
   | ValBindsOut
         [(RecFlag, LHsBinds idL)]
-        [LSig GHCR]
+        [LSig GHCR] -- AZ: how to do this?
 
 deriving instance (DataP idL, DataP idR) => Data (HsValBindsLR idL idR)
 
@@ -472,7 +472,7 @@ pprLHsBinds binds
 
 pprLHsBindsForUser :: (SourceTextX idL, SourceTextX idR,
                        OutputableBndrId idL, OutputableBndrId idR,
-                       OutputableBndrId id2)
+                       SourceTextX id2, OutputableBndrId id2)
                    => LHsBindsLR idL idR -> [LSig id2] -> [SDoc]
 --  pprLHsBindsForUser is different to pprLHsBinds because
 --  a) No braces: 'let' and 'where' include a list of HsBindGroups
@@ -698,11 +698,11 @@ data IPBind id
   = IPBind (Either (Located HsIPName) (IdP id)) (LHsExpr id)
 deriving instance (DataP name) => Data (IPBind name)
 
-instance (OutputableBndrId id ) => Outputable (HsIPBinds id) where
+instance (SourceTextX p, OutputableBndrId p) => Outputable (HsIPBinds p) where
   ppr (IPBinds bs ds) = pprDeeperList vcat (map ppr bs)
                         $$ ifPprDebug (ppr ds)
 
-instance (OutputableBndrId p ) => Outputable (IPBind p) where
+instance (SourceTextX p, OutputableBndrId p ) => Outputable (IPBind p) where
   ppr (IPBind lr rhs) = name <+> equals <+> pprExpr (unLoc rhs)
     where name = case lr of
                    Left (L _ ip) -> pprBndr LetBind ip
@@ -975,10 +975,11 @@ signatures. Since some of the signatures contain a list of names, testing for
 equality is not enough -- we have to check if they overlap.
 -}
 
-instance (OutputableBndrId name ) => Outputable (Sig name) where
+instance (SourceTextX pass, OutputableBndrId pass)
+       => Outputable (Sig pass) where
     ppr sig = ppr_sig sig
 
-ppr_sig :: (OutputableBndrId name ) => Sig name -> SDoc
+ppr_sig :: (SourceTextX pass, OutputableBndrId pass ) => Sig pass -> SDoc
 ppr_sig (TypeSig vars ty)    = pprVarSig (map unLoc vars) (ppr ty)
 ppr_sig (ClassOpSig is_deflt vars ty)
   | is_deflt                 = text "default" <+> pprVarSig (map unLoc vars) (ppr ty)

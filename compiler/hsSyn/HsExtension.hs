@@ -33,10 +33,23 @@ To be completed
 -}
 -- | Used as a data type index for the hsSyn AST
 
+{-
+The problem with the
+
+    data GHC (c :: Pass)
+    data Pass = Parsed | Renamed | Typechecked | TemplateHaskell
+             deriving (Data)
+
+approach is that we need to hardcode the pass in certain cases, such as in
+ValBindsOut, and to have a Data instance for HsValBindsLR we need a Data
+instance for 'GHC c'.
+
+But we seem to only be able to have one of these at a time.
+
 data GHC (c :: Pass)
 -- deriving instance Data (GHC 'Parsed)
-deriving instance Data (GHC 'Renamed) -- AZ:Should not be necessary?
--- deriving instance Data (GHC 'Typechecked)
+-- deriving instance Data (GHC 'Renamed) -- AZ:Should not be necessary?
+deriving instance Data (GHC 'Typechecked)
 -- deriving instance Data (GHC 'TemplateHaskell)
 
 data Pass = Parsed | Renamed | Typechecked | TemplateHaskell
@@ -47,6 +60,18 @@ type GHCP  = GHC 'Parsed
 type GHCR  = GHC 'Renamed
 type GHCT  = GHC 'Typechecked
 type GHCTH = GHC 'TemplateHaskell
+-}
+
+-- Running with these until the above issue is clarified
+data GHCP
+data GHCR
+data GHCT
+data GHCTH
+
+deriving instance Data GHCP
+deriving instance Data GHCR
+deriving instance Data GHCT
+deriving instance Data GHCTH
 
 type family PostTC x ty -- Note [Pass sensitive types]
 type instance PostTC GHCP ty = PlaceHolder
@@ -228,20 +253,23 @@ type HasDefaultX x =
 type DataP p =
   ( Data p
   , DataHsLitX p
+  , Data (NameOrRdrName (IdP p))
+
   , Data (IdP p)
-  , Data (PostTC p Type)
-  , Data (PostTC p [Type])
-  , Data (PostRN p Bool)
-  , Data (PostRN p [Name])
-  , Data (PostRN p (Located Name))
-  , Data (PostRN p NameSet)
-  , Data (PostRN p Fixity)
   , Data (PostRN p (IdP p))
+  , Data (PostRN p (Located Name))
+  , Data (PostRN p Bool)
+  , Data (PostRN p Fixity)
+  , Data (PostRN p NameSet)
+  , Data (PostRN p [Name])
+
   , Data (PostTC p (IdP p))
   , Data (PostTC p Coercion)
-  , Data (PostTC p HsWrapper)
   , Data (PostTC p ConLike)
+  , Data (PostTC p HsWrapper)
+  , Data (PostTC p Type)
   , Data (PostTC p [ConLike])
+  , Data (PostTC p [Type])
   )
 
 
