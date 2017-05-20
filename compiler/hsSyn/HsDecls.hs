@@ -2061,7 +2061,7 @@ type LAnnDecl pass = Located (AnnDecl pass)
 -- | Annotation Declaration
 data AnnDecl pass = HsAnnotation
                       SourceText -- Note [Pragma source text] in BasicTypes
-                      (AnnProvenance pass) (Located (HsExpr pass))
+                      (AnnProvenance (IdP pass)) (Located (HsExpr pass))
       -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
       --           'ApiAnnotation.AnnType'
       --           'ApiAnnotation.AnnModule'
@@ -2076,20 +2076,20 @@ instance (SourceTextX pass, OutputableBndrId pass)
       = hsep [text "{-#", pprAnnProvenance provenance, pprExpr (unLoc expr), text "#-}"]
 
 -- | Annotation Provenance
-data AnnProvenance pass = ValueAnnProvenance (Located (IdP pass))
-                        | TypeAnnProvenance (Located (IdP pass))
+data AnnProvenance name = ValueAnnProvenance (Located name)
+                        | TypeAnnProvenance (Located name)
                         | ModuleAnnProvenance
--- deriving instance Functor     (AnnProvenance 
--- deriving instance Foldable    AnnProvenance
--- deriving instance Traversable AnnProvenance
-deriving instance (DataP pass) => Data (AnnProvenance pass)
+deriving instance Functor     AnnProvenance 
+deriving instance Foldable    AnnProvenance
+deriving instance Traversable AnnProvenance
+deriving instance (Data pass) => Data (AnnProvenance pass)
 
-annProvenanceName_maybe :: AnnProvenance pass -> Maybe (IdP pass)
+annProvenanceName_maybe :: AnnProvenance name -> Maybe name
 annProvenanceName_maybe (ValueAnnProvenance (L _ name)) = Just name
 annProvenanceName_maybe (TypeAnnProvenance (L _ name))  = Just name
 annProvenanceName_maybe ModuleAnnProvenance       = Nothing
 
-pprAnnProvenance :: OutputableBndr (IdP pass) => AnnProvenance pass -> SDoc
+pprAnnProvenance :: OutputableBndr name => AnnProvenance name -> SDoc
 pprAnnProvenance ModuleAnnProvenance       = text "ANN module"
 pprAnnProvenance (ValueAnnProvenance (L _ name))
   = text "ANN" <+> ppr name

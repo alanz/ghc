@@ -375,7 +375,7 @@ nlHsVar :: IdP id -> LHsExpr id
 nlHsVar n = noLoc (HsVar (noLoc n))
 
 -- NB: Only for LHsExpr **Id**
-nlHsDataCon :: DataCon -> LHsExpr Id
+nlHsDataCon :: DataCon -> LHsExpr GHCT
 nlHsDataCon con = noLoc (HsConLikeOut (RealDataCon con))
 
 nlHsLit :: HsLit p -> LHsExpr p

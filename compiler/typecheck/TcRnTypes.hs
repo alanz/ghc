@@ -616,22 +616,22 @@ data TcGblEnv
         -- The binds, rules and foreign-decl fields are collected
         -- initially in un-zonked form and are finally zonked in tcRnSrcDecls
 
-        tcg_rn_exports :: Maybe [Located (IE Name)],
+        tcg_rn_exports :: Maybe [Located (IE GHCR)],
                 -- Nothing <=> no explicit export list
                 -- Is always Nothing if we don't want to retain renamed
                 -- exports
 
-        tcg_rn_imports :: [LImportDecl Name],
+        tcg_rn_imports :: [LImportDecl GHCR],
                 -- Keep the renamed imports regardless.  They are not
                 -- voluminous and are needed if you want to report unused imports
 
-        tcg_rn_decls :: Maybe (HsGroup Name),
+        tcg_rn_decls :: Maybe (HsGroup GHCR),
           -- ^ Renamed decls, maybe.  @Nothing@ <=> Don't retain renamed
           -- decls.
 
         tcg_dependent_files :: TcRef [FilePath], -- ^ dependencies from addDependentFile
 
-        tcg_th_topdecls :: TcRef [LHsDecl RdrName],
+        tcg_th_topdecls :: TcRef [LHsDecl GHCP],
         -- ^ Top-level declarations from addTopDecls
 
         tcg_th_foreign_files :: TcRef [(ForeignSrcLang, String)],
@@ -678,7 +678,7 @@ data TcGblEnv
         tcg_self_boot :: SelfBootInfo,       -- ^ Whether this module has a
                                              -- corresponding hi-boot file
 
-        tcg_main      :: Maybe Name,         -- ^ The Name of the main
+        tcg_main      :: Maybe (IdP GHCR),   -- ^ The Name of the main
                                              -- function, if this module is
                                              -- the main module.
 
@@ -1385,8 +1385,8 @@ data TcIdSigInfo   -- See Note [Complete and partial type signatures]
                    -- wildcards). In this case it doesn't make sense to give
                    -- the polymorphic Id, because we are going to /infer/ its
                    -- type, so we can't make the polymorphic Id ab-initio
-      { psig_name  :: Name               -- Name of the function; used when report wildcards
-      , psig_hs_ty :: LHsSigWcType Name  -- The original partial signature in HsSyn form
+      { psig_name  :: (IdP GHCR)         -- Name of the function; used when report wildcards
+      , psig_hs_ty :: LHsSigWcType GHCR  -- The original partial signature in HsSyn form
       , sig_ctxt   :: UserTypeCtxt
       , sig_loc    :: SrcSpan            -- Location of the type signature
       }
@@ -3098,18 +3098,18 @@ data CtOrigin
   | IPOccOrigin  HsIPName       -- Occurrence of an implicit parameter
   | OverLabelOrigin FastString  -- Occurrence of an overloaded label
 
-  | LiteralOrigin (HsOverLit Name)      -- Occurrence of a literal
+  | LiteralOrigin (HsOverLit GHCR)      -- Occurrence of a literal
   | NegateOrigin                        -- Occurrence of syntactic negation
 
-  | ArithSeqOrigin (ArithSeqInfo Name) -- [x..], [x..y] etc
-  | PArrSeqOrigin  (ArithSeqInfo Name) -- [:x..y:] and [:x,y..z:]
+  | ArithSeqOrigin (ArithSeqInfo GHCR) -- [x..], [x..y] etc
+  | PArrSeqOrigin  (ArithSeqInfo GHCR) -- [:x..y:] and [:x,y..z:]
   | SectionOrigin
   | TupleOrigin                        -- (..,..)
   | ExprSigOrigin       -- e :: ty
   | PatSigOrigin        -- p :: ty
   | PatOrigin           -- Instantiating a polytyped pattern at a constructor
   | ProvCtxtOrigin      -- The "provided" context of a pattern synonym signature
-        (PatSynBind Name Name) -- Information about the pattern synonym, in particular
+        (PatSynBind GHCR GHCR) -- Information about the pattern synonym, in particular
                                -- the name and the right-hand side
   | RecordUpdOrigin
   | ViewPatOrigin
@@ -3128,10 +3128,10 @@ data CtOrigin
   | StandAloneDerivOrigin -- Typechecking stand-alone deriving
   | DefaultOrigin       -- Typechecking a default decl
   | DoOrigin            -- Arising from a do expression
-  | DoPatOrigin (LPat Name) -- Arising from a failable pattern in
+  | DoPatOrigin (LPat GHCR) -- Arising from a failable pattern in
                             -- a do expression
   | MCompOrigin         -- Arising from a monad comprehension
-  | MCompPatOrigin (LPat Name) -- Arising from a failable pattern in a
+  | MCompPatOrigin (LPat GHCR) -- Arising from a failable pattern in a
                                -- monad comprehension
   | IfOrigin            -- Arising from an if statement
   | ProcOrigin          -- Arising from a proc expression
@@ -3151,7 +3151,9 @@ data CtOrigin
   | UnboundOccurrenceOf OccName
   | ListOrigin          -- An overloaded list
   | StaticOrigin        -- A static form
-  | FailablePattern (LPat TcId) -- A failable pattern in do-notation for the
+  -- | FailablePattern (LPat TcId) -- A failable pattern in do-notation for the
+  -- AZ:TODO: do we need to distinguish TcId?
+  | FailablePattern (LPat GHCT) -- A failable pattern in do-notation for the
                                 -- MonadFail Proposal (MFP). Obsolete when
                                 -- actual desugaring to MonadFail.fail is live.
   | Shouldn'tHappenOrigin String
@@ -3203,10 +3205,10 @@ ctoHerald :: SDoc
 ctoHerald = text "arising from"
 
 -- | Extract a suitable CtOrigin from a HsExpr
-lexprCtOrigin :: LHsExpr Name -> CtOrigin
+lexprCtOrigin :: LHsExpr GHCR -> CtOrigin
 lexprCtOrigin (L _ e) = exprCtOrigin e
 
-exprCtOrigin :: HsExpr Name -> CtOrigin
+exprCtOrigin :: HsExpr GHCR -> CtOrigin
 exprCtOrigin (HsVar (L _ name)) = OccurrenceOf name
 exprCtOrigin (HsUnboundVar uv)  = UnboundOccurrenceOf (unboundVarOcc uv)
 exprCtOrigin (HsConLikeOut {})  = panic "exprCtOrigin HsConLikeOut"
@@ -3261,7 +3263,7 @@ exprCtOrigin (ELazyPat {})      = panic "exprCtOrigin ELazyPat"
 exprCtOrigin (HsWrap {})        = panic "exprCtOrigin HsWrap"
 
 -- | Extract a suitable CtOrigin from a MatchGroup
-matchesCtOrigin :: MatchGroup Name (LHsExpr Name) -> CtOrigin
+matchesCtOrigin :: MatchGroup GHCR (LHsExpr GHCR) -> CtOrigin
 matchesCtOrigin (MG { mg_alts = alts })
   | L _ [L _ match] <- alts
   , Match { m_grhss = grhss } <- match
@@ -3271,11 +3273,11 @@ matchesCtOrigin (MG { mg_alts = alts })
   = Shouldn'tHappenOrigin "multi-way match"
 
 -- | Extract a suitable CtOrigin from guarded RHSs
-grhssCtOrigin :: GRHSs Name (LHsExpr Name) -> CtOrigin
+grhssCtOrigin :: GRHSs GHCR (LHsExpr GHCR) -> CtOrigin
 grhssCtOrigin (GRHSs { grhssGRHSs = lgrhss }) = lGRHSCtOrigin lgrhss
 
 -- | Extract a suitable CtOrigin from a list of guarded RHSs
-lGRHSCtOrigin :: [LGRHS Name (LHsExpr Name)] -> CtOrigin
+lGRHSCtOrigin :: [LGRHS GHCR (LHsExpr GHCR)] -> CtOrigin
 lGRHSCtOrigin [L _ (GRHS _ (L _ e))] = exprCtOrigin e
 lGRHSCtOrigin _ = Shouldn'tHappenOrigin "multi-way GRHS"
 
@@ -3479,9 +3481,9 @@ data TcPluginResult
 *                                                                      *
 ********************************************************************* -}
 
-type RoleAnnotEnv = NameEnv (LRoleAnnotDecl Name)
+type RoleAnnotEnv = NameEnv (LRoleAnnotDecl GHCR)
 
-mkRoleAnnotEnv :: [LRoleAnnotDecl Name] -> RoleAnnotEnv
+mkRoleAnnotEnv :: [LRoleAnnotDecl GHCR] -> RoleAnnotEnv
 mkRoleAnnotEnv role_annot_decls
  = mkNameEnv [ (name, ra_decl)
              | ra_decl <- role_annot_decls
@@ -3493,10 +3495,11 @@ mkRoleAnnotEnv role_annot_decls
 emptyRoleAnnotEnv :: RoleAnnotEnv
 emptyRoleAnnotEnv = emptyNameEnv
 
-lookupRoleAnnot :: RoleAnnotEnv -> Name -> Maybe (LRoleAnnotDecl Name)
+lookupRoleAnnot :: RoleAnnotEnv -> IdP GHCR -> Maybe (LRoleAnnotDecl GHCR)
 lookupRoleAnnot = lookupNameEnv
 
-getRoleAnnots :: [Name] -> RoleAnnotEnv -> ([LRoleAnnotDecl Name], RoleAnnotEnv)
+getRoleAnnots :: [IdP GHCR] -> RoleAnnotEnv
+              -> ([LRoleAnnotDecl GHCR], RoleAnnotEnv)
 getRoleAnnots bndrs role_env
   = ( mapMaybe (lookupRoleAnnot role_env) bndrs
     , delListFromNameEnv role_env bndrs )

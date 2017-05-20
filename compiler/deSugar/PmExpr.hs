@@ -25,7 +25,6 @@ import TysWiredIn
 import Outputable
 import Util
 import SrcLoc
-import HsExtension
 
 import Data.Maybe (mapMaybe)
 import Data.List (groupBy, sortBy, nubBy)

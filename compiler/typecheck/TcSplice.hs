@@ -144,7 +144,7 @@ tcSpliceExpr     :: HsSplice Name  -> ExpRhoType -> TcM (HsExpr TcId)
 -- runQuasiQuoteType :: HsQuasiQuote RdrName -> RnM (LHsType RdrName)
 -- runQuasiQuoteDecl :: HsQuasiQuote RdrName -> RnM [LHsDecl RdrName]
 
-runAnnotation     :: CoreAnnTarget -> LHsExpr Name -> TcM Annotation
+runAnnotation     :: CoreAnnTarget -> LHsExpr GHCR -> TcM Annotation
 {-
 ************************************************************************
 *                                                                      *

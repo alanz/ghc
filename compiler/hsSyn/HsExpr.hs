@@ -1771,7 +1771,7 @@ data TransForm   -- The 'f' below is the 'using' function, 'e' is the by functio
 data ParStmtBlock idL idR
   = ParStmtBlock
         [ExprLStmt idL]
-        [idR]              -- The variables to be returned
+        [IdP idR]          -- The variables to be returned
         (SyntaxExpr idR)   -- The return operator
 deriving instance (DataP idL, DataP idR) => Data (ParStmtBlock idL idR)
 
@@ -2370,7 +2370,6 @@ data HsMatchContext id -- Not an extensible tag
   | ThPatQuote             -- ^A Template Haskell pattern quotation [p| (a,b) |]
   | PatSyn                 -- ^A pattern synonym declaration
   deriving Functor
--- deriving instance (DataIdPost id) => Data (HsMatchContext id) -- AZ:remove this
 deriving instance (Data id) => Data (HsMatchContext id)
 
 instance OutputableBndr id => Outputable (HsMatchContext id) where
@@ -2392,7 +2391,8 @@ isPatSynCtxt ctxt =
     PatSyn -> True
     _      -> False
 
--- | Haskell Statement Context
+-- | Haskell Statement Context. It expects to be parameterised with one of
+-- 'RdrName', 'Name' or 'Id'
 data HsStmtContext id
   = ListComp
   | MonadComp
@@ -2407,7 +2407,6 @@ data HsStmtContext id
   | ParStmtCtxt (HsStmtContext id)   -- ^A branch of a parallel stmt
   | TransStmtCtxt (HsStmtContext id) -- ^A branch of a transform stmt
   deriving Functor
--- deriving instance (DataIdPost id) => Data (HsStmtContext id) -- AZ: remove this
 deriving instance (Data id) => Data (HsStmtContext id)
 
 isListCompExpr :: HsStmtContext id -> Bool

@@ -11,7 +11,6 @@ module HscStats ( ppSourceStats ) where
 import Bag
 import HsSyn
 import Outputable
-import RdrName
 import SrcLoc
 import Util
 

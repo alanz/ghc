@@ -22,7 +22,6 @@ import BasicTypes
 import FastString
 import NameSet
 import Name
-import RdrName
 import DataCon
 import SrcLoc
 import HsSyn
@@ -31,7 +30,6 @@ import Var
 import Module
 import DynFlags
 import Outputable hiding (space)
-import HsExtension
 
 import qualified Data.ByteString as B
 

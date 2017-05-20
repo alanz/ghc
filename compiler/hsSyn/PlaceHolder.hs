@@ -135,11 +135,3 @@ type family NameOrRdrName id where
   NameOrRdrName Id      = Name
   NameOrRdrName Name    = Name
   NameOrRdrName RdrName = RdrName
-
--- TODO:AZ Moved to HsExtension, delete
--- -- |Constraint type to bundle up the requirement for 'OutputableBndr' on both
--- -- the @id@ and the 'NameOrRdrName' type for it
--- type OutputableBndrId id =
---   ( OutputableBndr id
---   , OutputableBndr (NameOrRdrName id)
---   )

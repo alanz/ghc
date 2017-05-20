@@ -7,6 +7,7 @@ import Name     ( Name )
 import TcRnTypes( TcM, TcId )
 import TcType   ( ExpRhoType )
 import Annotations ( Annotation, CoreAnnTarget )
+import HsExtension  ( GHCTc, GHCR, GHCP )
 
 import HsSyn      ( LHsType, LPat, LHsDecl, ThModFinalizers )
 import RdrName    ( RdrName )
@@ -25,14 +26,14 @@ tcTypedBracket :: HsBracket Name
                -> ExpRhoType
                -> TcM (HsExpr TcId)
 
-runAnnotation     :: CoreAnnTarget -> LHsExpr Name -> TcM Annotation
+runAnnotation     :: CoreAnnTarget -> LHsExpr GHCR -> TcM Annotation
 
-tcTopSpliceExpr :: SpliceType -> TcM (LHsExpr TcId) -> TcM (LHsExpr TcId)
+tcTopSpliceExpr :: SpliceType -> TcM (LHsExpr GHCTc) -> TcM (LHsExpr GHCTc)
 
-runMetaE :: LHsExpr TcId -> TcM (LHsExpr RdrName)
-runMetaP :: LHsExpr TcId -> TcM (LPat RdrName)
-runMetaT :: LHsExpr TcId  -> TcM (LHsType RdrName)
-runMetaD :: LHsExpr TcId -> TcM [LHsDecl RdrName]
+runMetaE :: LHsExpr GHCTc -> TcM (LHsExpr GHCP)
+runMetaP :: LHsExpr GHCTc -> TcM (LPat GHCP)
+runMetaT :: LHsExpr GHCTc  -> TcM (LHsType GHCP)
+runMetaD :: LHsExpr GHCTc -> TcM [LHsDecl GHCP]
 
 lookupThName_maybe :: TH.Name -> TcM (Maybe Name)
 runQuasi :: TH.Q a -> TcM a

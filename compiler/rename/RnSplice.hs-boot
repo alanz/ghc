@@ -2,16 +2,14 @@ module RnSplice where
 
 import HsSyn
 import TcRnMonad
-import RdrName
-import Name
 import NameSet
 import Kind
 
 
-rnSpliceType :: HsSplice RdrName   -> PostTc Name Kind
-             -> RnM (HsType Name, FreeVars)
-rnSplicePat  :: HsSplice RdrName   -> RnM ( Either (Pat RdrName) (Pat Name)
+rnSpliceType :: HsSplice GHCP   -> PostTC GHCR Kind
+             -> RnM (HsType GHCR, FreeVars)
+rnSplicePat  :: HsSplice GHCP   -> RnM ( Either (Pat GHCP) (Pat GHCR)
                                           , FreeVars )
-rnSpliceDecl :: SpliceDecl RdrName -> RnM (SpliceDecl Name, FreeVars)
+rnSpliceDecl :: SpliceDecl GHCP -> RnM (SpliceDecl GHCR, FreeVars)
 
-rnTopSpliceDecls :: HsSplice RdrName -> RnM ([LHsDecl RdrName], FreeVars)
+rnTopSpliceDecls :: HsSplice GHCP -> RnM ([LHsDecl GHCP], FreeVars)
