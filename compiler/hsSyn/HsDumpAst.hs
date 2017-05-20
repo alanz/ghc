@@ -31,6 +31,7 @@ import Var
 import Module
 import DynFlags
 import Outputable hiding (space)
+import HsExtension
 
 import qualified Data.ByteString as B
 
@@ -78,7 +79,7 @@ showAstData b = showAstData' 0
                                 ++ "]"
 
             -- Eliminate word-size dependence
-            lit :: HsLit -> String
+            lit :: HsLit GHCP -> String
             lit (HsWordPrim   s x) = numericLit "HsWord{64}Prim" x s
             lit (HsWord64Prim s x) = numericLit "HsWord{64}Prim" x s
             lit (HsIntPrim    s x) = numericLit "HsInt{64}Prim"  x s
@@ -114,15 +115,15 @@ showAstData b = showAstData' 0
             dataCon :: DataCon -> String
             dataCon    = ("{DataCon: "++) . (++"}") . showSDoc_ . ppr
 
-            bagRdrName:: Bag (Located (HsBind RdrName)) -> String
-            bagRdrName = ("{Bag(Located (HsBind RdrName)): "++) . (++"}")
+            bagRdrName:: Bag (Located (HsBind GHCP)) -> String
+            bagRdrName = ("{Bag(Located (HsBind GHCP)): "++) . (++"}")
                           . list . bagToList
 
-            bagName   :: Bag (Located (HsBind Name)) -> String
+            bagName   :: Bag (Located (HsBind GHCR)) -> String
             bagName    = ("{Bag(Located (HsBind Name)): "++) . (++"}")
                            . list . bagToList
 
-            bagVar    :: Bag (Located (HsBind Var)) -> String
+            bagVar    :: Bag (Located (HsBind GHCT)) -> String
             bagVar     = ("{Bag(Located (HsBind Var)): "++) . (++"}")
                            . list . bagToList
 

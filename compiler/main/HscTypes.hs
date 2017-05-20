@@ -1545,7 +1545,7 @@ data InteractiveContext
     }
 
 data InteractiveImport
-  = IIDecl (ImportDecl RdrName)
+  = IIDecl (ImportDecl GHCP)
       -- ^ Bring the exports of a particular module
       -- (filtered by an import decl) into scope
 

@@ -431,7 +431,7 @@ data HsExpr p
   --             'ApiAnnotation.AnnClose'
 
   -- For details on above see note [Api annotations] in ApiAnnotation
-  | HsDo        (HsStmtContext (IdP p))  -- The parameterisation is unimportant
+  | HsDo        (HsStmtContext Name)     -- The parameterisation is unimportant
                                          -- because in this context we never use
                                          -- the PatGuard or ParStmt variant
                 (Located [ExprLStmt p]) -- "do":one or more stmts
