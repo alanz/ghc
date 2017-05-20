@@ -68,27 +68,34 @@ data GHCR
 data GHCT
 data GHCTH
 
+type GHCTc = GHCT -- TcId
+type GHCTV = GHCT -- Var
+
 deriving instance Data GHCP
 deriving instance Data GHCR
 deriving instance Data GHCT
+-- deriving instance Data GHCTc
 deriving instance Data GHCTH
 
 type family PostTC x ty -- Note [Pass sensitive types]
 type instance PostTC GHCP ty = PlaceHolder
 type instance PostTC GHCR ty = PlaceHolder
 type instance PostTC GHCT ty = ty
+-- type instance PostTC GHCTc ty = ty
 
 -- | Types that are not defined until after renaming
 type family PostRN x ty  -- Note [Pass sensitive types]
 type instance PostRN GHCP ty = PlaceHolder
 type instance PostRN GHCR ty = ty
 type instance PostRN GHCT ty = ty
+-- type instance PostRN GHCTc ty = ty
 
 -- Maps the "normal" id type for a given pass
 type family IdP p
 type instance IdP GHCP = RdrName
 type instance IdP GHCR = Name
 type instance IdP GHCT = Id
+-- type instance IdP GHCTc = TcId
 
 -- AZ: dummy for now, to allow HsTypes to build
 -- type instance IdP Name    = Name
