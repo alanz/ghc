@@ -6,6 +6,8 @@
 
 {-# LANGUAGE CPP, NondecreasingIndentation, MultiWayIf, NamedFieldPuns #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module RnNames (
@@ -17,7 +19,8 @@ module RnNames (
         checkConName,
         mkChildEnv,
         findChildren,
-        dodgyMsg
+        dodgyMsg,
+        dodgyMsgInsert
     ) where
 
 #include "HsVersions.h"
@@ -1565,18 +1568,23 @@ illegalImportItemErr :: SDoc
 illegalImportItemErr = text "Illegal import item"
 
 dodgyImportWarn :: IdP GHCP -> SDoc
-dodgyImportWarn item = dodgyMsg (text "import") item
+dodgyImportWarn item
+  = dodgyMsg (text "import") item (dodgyMsgInsert item :: IE GHCP)
 
-dodgyMsg :: SDoc -> IdP GHCP -> SDoc
-dodgyMsg kind tc
+dodgyMsg :: (Outputable a, Outputable b) => SDoc -> a -> b -> SDoc
+dodgyMsg kind tc ie
   = sep [ text "The" <+> kind <+> ptext (sLit "item")
-                     <+> quotes (ppr imp)
+                     -- <+> quotes (ppr (IEThingAll (noLoc (IEName $ noLoc tc))))
+                     <+> quotes (ppr ie)
                 <+> text "suggests that",
           quotes (ppr tc) <+> text "has (in-scope) constructors or class methods,",
           text "but it has none" ]
+
+dodgyMsgInsert :: forall p . IdP p -> IE p
+dodgyMsgInsert tc = IEThingAll ii
   where
-    imp :: IE GHCP
-    imp = IEThingAll (noLoc (IEName $ noLoc tc))
+    ii :: LIEWrappedName (IdP p)
+    ii = noLoc (IEName $ noLoc tc)
 
 
 addDupDeclErr :: [GlobalRdrElt] -> TcRn ()

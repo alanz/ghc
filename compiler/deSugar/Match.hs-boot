@@ -1,5 +1,4 @@
 module Match where
-import Var      ( Id )
 import TcType   ( Type )
 import DsMonad  ( DsM, EquationInfo, MatchResult )
 import CoreSyn  ( CoreExpr )
@@ -13,14 +12,14 @@ match   :: [IdP GHCT]
         -> DsM MatchResult
 
 matchWrapper
-        :: HsMatchContext GHCR
+        :: HsMatchContext (IdP GHCR)
         -> Maybe (LHsExpr GHCT)
         -> MatchGroup GHCT (LHsExpr GHCT)
         -> DsM ([IdP GHCT], CoreExpr)
 
 matchSimply
         :: CoreExpr
-        -> HsMatchContext GHCR
+        -> HsMatchContext (IdP GHCR)
         -> LPat GHCT
         -> CoreExpr
         -> CoreExpr
@@ -28,7 +27,7 @@ matchSimply
 
 matchSinglePat
         :: CoreExpr
-        -> HsMatchContext GHCR
+        -> HsMatchContext (IdP GHCR)
         -> LPat GHCT
         -> Type
         -> MatchResult

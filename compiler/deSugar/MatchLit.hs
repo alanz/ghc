@@ -74,22 +74,22 @@ For numeric literals, we try to detect there use at a standard type
 See also below where we look for @DictApps@ for \tr{plusInt}, etc.
 -}
 
-dsLit :: HsLit GHCT -> DsM CoreExpr
+dsLit :: HsLit GHCR -> DsM CoreExpr
 dsLit (HsStringPrim _ s) = return (Lit (MachStr s))
 dsLit (HsCharPrim   _ c) = return (Lit (MachChar c))
 dsLit (HsIntPrim    _ i) = return (Lit (MachInt i))
 dsLit (HsWordPrim   _ w) = return (Lit (MachWord w))
 dsLit (HsInt64Prim  _ i) = return (Lit (MachInt64 i))
 dsLit (HsWord64Prim _ w) = return (Lit (MachWord64 w))
-dsLit (HsFloatPrim    f) = return (Lit (MachFloat (fl_value f)))
-dsLit (HsDoublePrim   d) = return (Lit (MachDouble (fl_value d)))
+dsLit (HsFloatPrim  _ f) = return (Lit (MachFloat (fl_value f)))
+dsLit (HsDoublePrim _ d) = return (Lit (MachDouble (fl_value d)))
 dsLit (HsChar _ c)       = return (mkCharExpr c)
 dsLit (HsString _ str)   = mkStringExprFS str
 dsLit (HsInteger _ i _)  = mkIntegerExpr i
-dsLit (HsInt i)          = do dflags <- getDynFlags
+dsLit (HsInt _ i)        = do dflags <- getDynFlags
                               return (mkIntExpr dflags (il_value i))
 
-dsLit (HsRat (FL _ _ val) ty) = do
+dsLit (HsRat _ (FL _ _ val) ty) = do
   num   <- mkIntegerExpr (numerator val)
   denom <- mkIntegerExpr (denominator val)
   return (mkCoreConApps ratio_data_con [Type integer_ty, num, denom])
@@ -390,8 +390,8 @@ hsLitKey dflags (HsWordPrim   _ w) = mkMachWordWrap dflags w
 hsLitKey _      (HsInt64Prim  _ i) = mkMachInt64Wrap       i
 hsLitKey _      (HsWord64Prim _ w) = mkMachWord64Wrap      w
 hsLitKey _      (HsCharPrim   _ c) = mkMachChar            c
-hsLitKey _      (HsFloatPrim    f) = mkMachFloat           (fl_value f)
-hsLitKey _      (HsDoublePrim   d) = mkMachDouble          (fl_value d)
+hsLitKey _      (HsFloatPrim  _ f) = mkMachFloat           (fl_value f)
+hsLitKey _      (HsDoublePrim _ d) = mkMachDouble          (fl_value d)
 hsLitKey _      (HsString _ s)     = MachStr (fastStringToByteString s)
 hsLitKey _      l                  = pprPanic "hsLitKey" (ppr l)
 
