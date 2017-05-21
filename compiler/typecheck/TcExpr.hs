@@ -87,9 +87,9 @@ import qualified Data.Set as Set
 -}
 
 tcPolyExpr, tcPolyExprNC
-  :: LHsExpr Name        -- Expression to type check
+  :: LHsExpr GHCR        -- Expression to type check
   -> TcSigmaType         -- Expected type (could be a polytype)
-  -> TcM (LHsExpr TcId)  -- Generalised expr with expected type
+  -> TcM (LHsExpr GHCTc) -- Generalised expr with expected type
 
 -- tcPolyExpr is a convenient place (frequent but not too frequent)
 -- place to add context information.

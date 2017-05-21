@@ -192,7 +192,7 @@ data IE name
   | IEThingWith (LIEWrappedName (IdP name))
                 IEWildcard
                 [LIEWrappedName (IdP name)]
-                [Located (FieldLbl name)]
+                [Located (FieldLbl (IdP name))]
         -- ^ Imported or exported Thing With given imported or exported
         --
         -- The thing is a Class/Type and the imported or exported things are

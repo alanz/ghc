@@ -447,7 +447,7 @@ tcExtendLetEnvIds' top_lvl closed_group pairs thing_inside
       | (name, let_id) <- pairs ] $
     thing_inside
 
-tcExtendIdEnv :: [TcId] -> TcM a -> TcM a
+tcExtendIdEnv :: [IdP GHCTc] -> TcM a -> TcM a
 -- For lambda-bound and case-bound Ids
 -- Extends the the TcIdBinderStack as well
 tcExtendIdEnv ids thing_inside
@@ -651,7 +651,7 @@ lookup of A won't fail.
 ************************************************************************
 -}
 
-tcExtendRules :: [LRuleDecl Id] -> TcM a -> TcM a
+tcExtendRules :: [LRuleDecl GHCT] -> TcM a -> TcM a
         -- Just pop the new rules into the EPS and envt resp
         -- All the rules come from an interface file, not source
         -- Nevertheless, some may be for this module, if we read

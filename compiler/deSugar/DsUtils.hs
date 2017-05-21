@@ -92,7 +92,7 @@ hand, which should indeed be bound to the pattern as a whole, then use it;
 otherwise, make one up.
 -}
 
-selectSimpleMatchVarL :: LPat Id -> DsM Id
+selectSimpleMatchVarL :: LPat GHCT -> DsM (IdP GHCT)
 selectSimpleMatchVarL pat = selectMatchVar (unLoc pat)
 
 -- (selectMatchVars ps tys) chooses variables of type tys
@@ -111,10 +111,10 @@ selectSimpleMatchVarL pat = selectMatchVar (unLoc pat)
 --    Then we must not choose (x::Int) as the matching variable!
 -- And nowadays we won't, because the (x::Int) will be wrapped in a CoPat
 
-selectMatchVars :: [Pat Id] -> DsM [Id]
+selectMatchVars :: [Pat GHCT] -> DsM [IdP GHCT]
 selectMatchVars ps = mapM selectMatchVar ps
 
-selectMatchVar :: Pat Id -> DsM Id
+selectMatchVar :: Pat GHCT -> DsM (IdP GHCT)
 selectMatchVar (BangPat pat) = selectMatchVar (unLoc pat)
 selectMatchVar (LazyPat pat) = selectMatchVar (unLoc pat)
 selectMatchVar (ParPat pat)  = selectMatchVar (unLoc pat)
@@ -174,7 +174,7 @@ The ``equation info'' used by @match@ is relatively complicated and
 worthy of a type synonym and a few handy functions.
 -}
 
-firstPat :: EquationInfo -> Pat Id
+firstPat :: EquationInfo -> Pat GHCT
 firstPat eqn = ASSERT( notNull (eqn_pats eqn) ) head (eqn_pats eqn)
 
 shiftEqns :: [EquationInfo] -> [EquationInfo]
@@ -242,11 +242,11 @@ mkCoLetMatchResult bind = adjustMatchResult (mkCoreLet bind)
 
 -- (mkViewMatchResult var' viewExpr mr) makes the expression
 -- let var' = viewExpr in mr
-mkViewMatchResult :: Id -> CoreExpr -> MatchResult -> MatchResult
+mkViewMatchResult :: IdP GHCT -> CoreExpr -> MatchResult -> MatchResult
 mkViewMatchResult var' viewExpr =
     adjustMatchResult (mkCoreLet (NonRec var' viewExpr))
 
-mkEvalMatchResult :: Id -> Type -> MatchResult -> MatchResult
+mkEvalMatchResult :: IdP GHCT -> Type -> MatchResult -> MatchResult
 mkEvalMatchResult var ty
   = adjustMatchResult (\e -> Case (Var var) var ty [(DEFAULT, [], e)])
 
@@ -255,7 +255,7 @@ mkGuardedMatchResult pred_expr (MatchResult _ body_fn)
   = MatchResult CanFail (\fail -> do body <- body_fn fail
                                      return (mkIfThenElse pred_expr body fail))
 
-mkCoPrimCaseMatchResult :: Id                        -- Scrutinee
+mkCoPrimCaseMatchResult :: IdP GHCT                  -- Scrutinee
                         -> Type                      -- Type of the case
                         -> [(Literal, MatchResult)]  -- Alternatives
                         -> MatchResult               -- Literals are all unlifted
@@ -279,7 +279,7 @@ data CaseAlt a = MkCaseAlt{ alt_pat :: a,
 
 mkCoAlgCaseMatchResult
   :: DynFlags
-  -> Id                 -- Scrutinee
+  -> IdP GHCT           -- Scrutinee
   -> Type               -- Type of exp
   -> [CaseAlt DataCon]  -- Alternatives (bndrs *include* tyvars, dicts)
   -> MatchResult
@@ -335,13 +335,13 @@ mkCoAlgCaseMatchResult dflags var ty match_alts
         _              -> panic "DsUtils: you may not mix `[:...:]' with `PArr' patterns"
     isPArrFakeAlts [] = panic "DsUtils: unexpectedly found an empty list of PArr fake alternatives"
 
-mkCoSynCaseMatchResult :: Id -> Type -> CaseAlt PatSyn -> MatchResult
+mkCoSynCaseMatchResult :: IdP GHCT -> Type -> CaseAlt PatSyn -> MatchResult
 mkCoSynCaseMatchResult var ty alt = MatchResult CanFail $ mkPatSynCase var ty alt
 
 sort_alts :: [CaseAlt DataCon] -> [CaseAlt DataCon]
 sort_alts = sortWith (dataConTag . alt_pat)
 
-mkPatSynCase :: Id -> Type -> CaseAlt PatSyn -> CoreExpr -> DsM CoreExpr
+mkPatSynCase :: IdP GHCT -> Type -> CaseAlt PatSyn -> CoreExpr -> DsM CoreExpr
 mkPatSynCase var ty alt fail = do
     matcher <- dsLExpr $ mkLHsWrap wrapper $
                          nlHsTyApp matcher [getRuntimeRep "mkPatSynCase" ty, ty]
@@ -360,7 +360,7 @@ mkPatSynCase var ty alt fail = do
     ensure_unstrict cont | needs_void_lam = Lam voidArgId cont
                          | otherwise      = cont
 
-mkDataConCase :: Id -> Type -> [CaseAlt DataCon] -> MatchResult
+mkDataConCase :: IdP GHCT -> Type -> [CaseAlt DataCon] -> MatchResult
 mkDataConCase _   _  []            = panic "mkDataConCase: no alternatives"
 mkDataConCase var ty alts@(alt1:_) = MatchResult fail_flag mk_case
   where
@@ -414,7 +414,8 @@ mkDataConCase var ty alts@(alt1:_) = MatchResult fail_flag mk_case
 --   parallel arrays, which are introduced by `tidy1' in the `PArrPat'
 --   case
 --
-mkPArrCase :: DynFlags -> Id -> Type -> [CaseAlt DataCon] -> CoreExpr -> DsM CoreExpr
+mkPArrCase :: DynFlags -> IdP GHCT -> Type -> [CaseAlt DataCon] -> CoreExpr
+           -> DsM CoreExpr
 mkPArrCase dflags var ty sorted_alts fail = do
     lengthP <- dsDPHBuiltin lengthPVar
     alt <- unboxAlt
@@ -458,7 +459,7 @@ mkPArrCase dflags var ty sorted_alts fail = do
 ************************************************************************
 -}
 
-mkErrorAppDs :: Id              -- The error function
+mkErrorAppDs :: IdP GHCT        -- The error function
              -> Type            -- Type to which it should be applied
              -> SDoc            -- The error message string to pass
              -> DsM CoreExpr
@@ -724,10 +725,10 @@ work out well:
   which is better.
 -}
 
-mkSelectorBinds :: [[Tickish Id]] -- ^ ticks to add, possibly
-                -> LPat Id        -- ^ The pattern
-                -> CoreExpr       -- ^ Expression to which the pattern is bound
-                -> DsM (Id,[(Id,CoreExpr)])
+mkSelectorBinds :: [[Tickish (IdP GHCT)]] -- ^ ticks to add, possibly
+                -> LPat GHCT       -- ^ The pattern
+                -> CoreExpr        -- ^ Expression to which the pattern is bound
+                -> DsM (IdP GHCT,[(IdP GHCT,CoreExpr)])
                 -- ^ Id the rhs is bound to, for desugaring strict
                 -- binds (see Note [Desugar Strict binds] in DsBinds)
                 -- and all the desugared binds
@@ -814,31 +815,31 @@ is_triv_pat _           = False
 *                                                                      *
 ********************************************************************* -}
 
-mkLHsPatTup :: [LPat Id] -> LPat Id
+mkLHsPatTup :: [LPat GHCT] -> LPat GHCT
 mkLHsPatTup []     = noLoc $ mkVanillaTuplePat [] Boxed
 mkLHsPatTup [lpat] = lpat
 mkLHsPatTup lpats  = L (getLoc (head lpats)) $
                      mkVanillaTuplePat lpats Boxed
 
-mkLHsVarPatTup :: [Id] -> LPat Id
+mkLHsVarPatTup :: [IdP GHCT] -> LPat GHCT
 mkLHsVarPatTup bs  = mkLHsPatTup (map nlVarPat bs)
 
-mkVanillaTuplePat :: [OutPat Id] -> Boxity -> Pat Id
+mkVanillaTuplePat :: [OutPat GHCT] -> Boxity -> Pat GHCT
 -- A vanilla tuple pattern simply gets its type from its sub-patterns
 mkVanillaTuplePat pats box = TuplePat pats box (map hsLPatType pats)
 
 -- The Big equivalents for the source tuple expressions
-mkBigLHsVarTupId :: [Id] -> LHsExpr Id
+mkBigLHsVarTupId :: [IdP GHCT] -> LHsExpr GHCT
 mkBigLHsVarTupId ids = mkBigLHsTupId (map nlHsVar ids)
 
-mkBigLHsTupId :: [LHsExpr Id] -> LHsExpr Id
+mkBigLHsTupId :: [LHsExpr GHCT] -> LHsExpr GHCT
 mkBigLHsTupId = mkChunkified mkLHsTupleExpr
 
 -- The Big equivalents for the source tuple patterns
-mkBigLHsVarPatTupId :: [Id] -> LPat Id
+mkBigLHsVarPatTupId :: [IdP GHCT] -> LPat GHCT
 mkBigLHsVarPatTupId bs = mkBigLHsPatTupId (map nlVarPat bs)
 
-mkBigLHsPatTupId :: [LPat Id] -> LPat Id
+mkBigLHsPatTupId :: [LPat GHCT] -> LPat GHCT
 mkBigLHsPatTupId = mkChunkified mkLHsPatTup
 
 {-
@@ -951,7 +952,7 @@ the tail call property.  For example, see Trac #3403.
 *                                                                      *
 ********************************************************************* -}
 
-mkOptTickBox :: [Tickish Id] -> CoreExpr -> CoreExpr
+mkOptTickBox :: [Tickish (IdP GHCT)] -> CoreExpr -> CoreExpr
 mkOptTickBox = flip (foldr Tick)
 
 mkBinaryTickBox :: Int -> Int -> CoreExpr -> DsM CoreExpr

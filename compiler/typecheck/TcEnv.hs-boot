@@ -1,6 +1,7 @@
 {-
 >module TcEnv where
 >import TcRnTypes
+>import HsExtension ( GHCTc, IdP )
 >
->tcExtendIdEnv :: [TcId] -> TcM a -> TcM a
+>tcExtendIdEnv :: [IdP GHCTc] -> TcM a -> TcM a
 -}

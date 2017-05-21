@@ -13,7 +13,7 @@ module HsExtension where
 import Data.Data hiding ( Fixity )
 import PlaceHolder
 import BasicTypes
-import ConLike 
+import ConLike
 import NameSet
 import Name
 import RdrName
@@ -283,13 +283,8 @@ type DataP p =
 -- |Constraint type to bundle up the requirement for 'OutputableBndr' on both
 -- the @id@ and the 'NameOrRdrName' type for it
 type OutputableBndrId id =
-  -- ( OutputableBndr id
   ( OutputableBndr (NameOrRdrName (IdP id))
   , OutputableBndr (IdP id)
   )
 
-
--- Temporary
-instance Outputable GHCR where
-instance OutputableBndr GHCR where
 

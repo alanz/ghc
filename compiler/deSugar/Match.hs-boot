@@ -5,30 +5,31 @@ import DsMonad  ( DsM, EquationInfo, MatchResult )
 import CoreSyn  ( CoreExpr )
 import HsSyn    ( LPat, HsMatchContext, MatchGroup, LHsExpr )
 import Name     ( Name )
+import HsExtension ( IdP, GHCR, GHCT )
 
-match   :: [Id]
+match   :: [IdP GHCT]
         -> Type
         -> [EquationInfo]
         -> DsM MatchResult
 
 matchWrapper
-        :: HsMatchContext Name
-        -> Maybe (LHsExpr Id)
-        -> MatchGroup Id (LHsExpr Id)
-        -> DsM ([Id], CoreExpr)
+        :: HsMatchContext GHCR
+        -> Maybe (LHsExpr GHCT)
+        -> MatchGroup GHCT (LHsExpr GHCT)
+        -> DsM ([IdP GHCT], CoreExpr)
 
 matchSimply
         :: CoreExpr
-        -> HsMatchContext Name
-        -> LPat Id
+        -> HsMatchContext GHCR
+        -> LPat GHCT
         -> CoreExpr
         -> CoreExpr
         -> DsM CoreExpr
 
 matchSinglePat
         :: CoreExpr
-        -> HsMatchContext Name
-        -> LPat Id
+        -> HsMatchContext GHCR
+        -> LPat GHCT
         -> Type
         -> MatchResult
         -> DsM MatchResult

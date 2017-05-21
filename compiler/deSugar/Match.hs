@@ -787,8 +787,8 @@ pattern. It returns an expression.
 -}
 
 matchSimply :: CoreExpr                 -- Scrutinee
-            -> HsMatchContext Name      -- Match kind
-            -> LPat Id                  -- Pattern it should match
+            -> HsMatchContext GHCR      -- Match kind
+            -> LPat GHCT                -- Pattern it should match
             -> CoreExpr                 -- Return this if it matches
             -> CoreExpr                 -- Return this if it doesn't
             -> DsM CoreExpr

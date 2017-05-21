@@ -410,8 +410,8 @@ data DsMetaVal
                         -- Will be dynamically alpha renamed.
                         -- The Id has type THSyntax.Var
 
-   | DsSplice (HsExpr Id) -- These bindings are introduced by
-                          -- the PendingSplices on a HsBracketOut
+   | DsSplice (HsExpr GHCT) -- These bindings are introduced by
+                            -- the PendingSplices on a HsBracketOut
 
 
 {-
@@ -655,10 +655,10 @@ data TcGblEnv
         -- Things defined in this module, or (in GHCi)
         -- in the declarations for a single GHCi command.
         -- For the latter, see Note [The interactive package] in HscTypes
-        tcg_tr_module :: Maybe Id,           -- Id for $trModule :: GHC.Types.Module
+        tcg_tr_module :: Maybe (IdP GHCT),   -- Id for $trModule :: GHC.Types.Module
                                              -- for which every module has a top-level defn
                                              -- except in GHCi in which case we have Nothing
-        tcg_binds     :: LHsBinds Id,        -- Value bindings in this module
+        tcg_binds     :: LHsBinds GHCT,      -- Value bindings in this module
         tcg_sigs      :: NameSet,            -- ...Top-level names that *lack* a signature
         tcg_imp_specs :: [LTcSpecPrag],      -- ...SPECIALISE prags for imported Ids
         tcg_warns     :: Warnings,           -- ...Warnings and deprecations
@@ -666,9 +666,9 @@ data TcGblEnv
         tcg_tcs       :: [TyCon],            -- ...TyCons and Classes
         tcg_insts     :: [ClsInst],          -- ...Instances
         tcg_fam_insts :: [FamInst],          -- ...Family instances
-        tcg_rules     :: [LRuleDecl Id],     -- ...Rules
-        tcg_fords     :: [LForeignDecl Id],  -- ...Foreign import & exports
-        tcg_vects     :: [LVectDecl Id],     -- ...Vectorisation declarations
+        tcg_rules     :: [LRuleDecl GHCT],   -- ...Rules
+        tcg_fords     :: [LForeignDecl GHCT], -- ...Foreign import & exports
+        tcg_vects     :: [LVectDecl GHCT],   -- ...Vectorisation declarations
         tcg_patsyns   :: [PatSyn],           -- ...Pattern synonyms
 
         tcg_doc_hdr   :: Maybe LHsDocString, -- ^ Maybe Haddock header docs

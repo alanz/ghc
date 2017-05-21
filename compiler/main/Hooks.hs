@@ -43,6 +43,7 @@ import SrcLoc
 import Type
 import System.Process
 import BasicTypes
+import HsExtension
 
 import Data.Maybe
 
@@ -75,17 +76,17 @@ emptyHooks = Hooks
   }
 
 data Hooks = Hooks
-  { dsForeignsHook         :: Maybe ([LForeignDecl Id] -> DsM (ForeignStubs, OrdList (Id, CoreExpr)))
-  , tcForeignImportsHook   :: Maybe ([LForeignDecl Name] -> TcM ([Id], [LForeignDecl Id], Bag GlobalRdrElt))
-  , tcForeignExportsHook   :: Maybe ([LForeignDecl Name] -> TcM (LHsBinds TcId, [LForeignDecl TcId], Bag GlobalRdrElt))
+  { dsForeignsHook         :: Maybe ([LForeignDecl GHCT] -> DsM (ForeignStubs, OrdList (IdP GHCT, CoreExpr)))
+  , tcForeignImportsHook   :: Maybe ([LForeignDecl GHCR] -> TcM ([IdP GHCT], [LForeignDecl GHCT], Bag GlobalRdrElt))
+  , tcForeignExportsHook   :: Maybe ([LForeignDecl GHCR] -> TcM (LHsBinds GHCTc, [LForeignDecl GHCTc], Bag GlobalRdrElt))
   , hscFrontendHook        :: Maybe (ModSummary -> Hsc FrontendResult)
   , hscCompileCoreExprHook :: Maybe (HscEnv -> SrcSpan -> CoreExpr -> IO ForeignHValue)
   , ghcPrimIfaceHook       :: Maybe ModIface
   , runPhaseHook           :: Maybe (PhasePlus -> FilePath -> DynFlags -> CompPipeline (PhasePlus, FilePath))
   , runMetaHook            :: Maybe (MetaHook TcM)
   , linkHook               :: Maybe (GhcLink -> DynFlags -> Bool -> HomePackageTable -> IO SuccessFlag)
-  , runRnSpliceHook        :: Maybe (HsSplice Name -> RnM (HsSplice Name))
-  , getValueSafelyHook     :: Maybe (HscEnv -> Name -> Type -> IO (Maybe HValue))
+  , runRnSpliceHook        :: Maybe (HsSplice GHCR -> RnM (HsSplice GHCR))
+  , getValueSafelyHook     :: Maybe (HscEnv -> IdP GHCR -> Type -> IO (Maybe HValue))
   , createIservProcessHook :: Maybe (CreateProcess -> IO ProcessHandle)
   }
 
