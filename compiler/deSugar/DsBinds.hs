@@ -276,7 +276,7 @@ dsHsBind dflags
                  ,(poly_tup_id, poly_tup_rhs) :
                    concat export_binds_s) }
   where
-    inline_env :: IdEnv GHCT -- Maps a monomorphic local Id to one with
+    inline_env :: IdEnv (IdP GHCT) -- Maps a monomorphic local Id to one with
                              -- the inline pragma from the source
                              -- The type checker put the inline pragma
                              -- on the *global* Id, so we need to transfer it
@@ -289,7 +289,7 @@ dsHsBind dflags
     add_inline lcl_id = lookupVarEnv inline_env lcl_id
                         `orElse` lcl_id
 
-    global_env :: IdEnv GHCT -- Maps local Id to its global exported Id
+    global_env :: IdEnv (IdP GHCT) -- Maps local Id to its global exported Id
     global_env =
       mkVarEnv [ (local, global)
                | ABE { abe_mono = local, abe_poly = global } <- exports

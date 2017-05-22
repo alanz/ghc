@@ -138,9 +138,9 @@ data PmPat :: PatTy -> * where
             , pm_con_dicts   :: [EvVar]
             , pm_con_args    :: [PmPat t] } -> PmPat t
             -- For PmCon arguments' meaning see @ConPatOut@ in hsSyn/HsPat.hs
-  PmVar  :: { pm_var_id   :: Id    } -> PmPat t
+  PmVar  :: { pm_var_id   :: IdP GHCT } -> PmPat t
   PmLit  :: { pm_lit_lit  :: PmLit } -> PmPat t -- See Note [Literals in PmPat]
-  PmNLit :: { pm_lit_id   :: Id
+  PmNLit :: { pm_lit_id   :: IdP GHCT
             , pm_lit_not  :: [PmLit] } -> PmPat 'VA
   PmGrd  :: { pm_grd_pv   :: PatVec
             , pm_grd_expr :: PmExpr  } -> PmPat 'PAT
@@ -258,9 +258,9 @@ instance Monoid PartialResult where
 data PmResult =
   PmResult {
       pmresultProvenance :: Provenance
-    , pmresultRedundant :: [Located [LPat Id]]
+    , pmresultRedundant :: [Located [LPat GHCT]]
     , pmresultUncovered :: UncoveredCandidates
-    , pmresultInaccessible :: [Located [LPat Id]] }
+    , pmresultInaccessible :: [Located [LPat GHCT]] }
 
 -- | Either a list of patterns that are not covered, or their type, in case we
 -- have no patterns at hand. Not having patterns at hand can arise when
@@ -293,7 +293,7 @@ uncoveredWithTy ty = PmResult FromBuiltin [] (TypeOfUncovered ty) []
 -}
 
 -- | Check a single pattern binding (let)
-checkSingle :: DynFlags -> DsMatchContext -> Id -> Pat Id -> DsM ()
+checkSingle :: DynFlags -> DsMatchContext -> IdP GHCT -> Pat GHCT -> DsM ()
 checkSingle dflags ctxt@(DsMatchContext _ locn) var p = do
   tracePmD "checkSingle" (vcat [ppr ctxt, ppr var, ppr p])
   mb_pm_res <- tryM (getResult (checkSingle' locn var p))
@@ -302,7 +302,7 @@ checkSingle dflags ctxt@(DsMatchContext _ locn) var p = do
     Right res -> dsPmWarn dflags ctxt res
 
 -- | Check a single pattern binding (let)
-checkSingle' :: SrcSpan -> Id -> Pat Id -> PmM PmResult
+checkSingle' :: SrcSpan -> IdP GHCT -> Pat GHCT -> PmM PmResult
 checkSingle' locn var p = do
   liftD resetPmIterDs -- set the iter-no to zero
   fam_insts <- liftD dsGetFamInstEnvs
@@ -320,7 +320,7 @@ checkSingle' locn var p = do
 
 -- | Check a matchgroup (case, functions, etc.)
 checkMatches :: DynFlags -> DsMatchContext
-             -> [Id] -> [LMatch Id (LHsExpr Id)] -> DsM ()
+             -> [IdP GHCT] -> [LMatch GHCT (LHsExpr GHCT)] -> DsM ()
 checkMatches dflags ctxt vars matches = do
   tracePmD "checkMatches" (hang (vcat [ppr ctxt
                                , ppr vars
@@ -338,7 +338,7 @@ checkMatches dflags ctxt vars matches = do
 
 -- | Check a matchgroup (case, functions, etc.). To be called on a non-empty
 -- list of matches. For empty case expressions, use checkEmptyCase' instead.
-checkMatches' :: [Id] -> [LMatch Id (LHsExpr Id)] -> PmM PmResult
+checkMatches' :: [IdP GHCT] -> [LMatch GHCT (LHsExpr GHCT)] -> PmM PmResult
 checkMatches' vars matches
   | null matches = panic "checkMatches': EmptyCase"
   | otherwise = do
@@ -352,11 +352,11 @@ checkMatches' vars matches
                  , pmresultUncovered    = UncoveredPatterns us
                  , pmresultInaccessible = map hsLMatchToLPats ds }
   where
-    go :: [LMatch Id (LHsExpr Id)] -> Uncovered
+    go :: [LMatch GHCT (LHsExpr GHCT)] -> Uncovered
        -> PmM (Provenance
-              , [LMatch Id (LHsExpr Id)]
+              , [LMatch GHCT (LHsExpr GHCT)]
               , Uncovered
-              , [LMatch Id (LHsExpr Id)])
+              , [LMatch GHCT (LHsExpr GHCT)])
     go []     missing = return (mempty, [], missing, [])
     go (m:ms) missing = do
       tracePm "checMatches': go" (ppr m $$ ppr missing)
@@ -381,7 +381,7 @@ checkMatches' vars matches
 -- | Check an empty case expression. Since there are no clauses to process, we
 --   only compute the uncovered set. See Note [Checking EmptyCase Expressions]
 --   for details.
-checkEmptyCase' :: Id -> PmM PmResult
+checkEmptyCase' :: IdP GHCT -> PmM PmResult
 checkEmptyCase' var = do
   tm_css <- map toComplex . bagToList <$> liftD getTmCsDs
   case tmOracle initialTmState tm_css of
@@ -548,14 +548,14 @@ mkListPatVec ty xs ys = [PmCon { pm_con_con = RealDataCon consDataCon
 {-# INLINE mkListPatVec #-}
 
 -- | Create a (non-overloaded) literal pattern
-mkLitPattern :: HsLit -> Pattern
+mkLitPattern :: HsLit GHCT -> Pattern
 mkLitPattern lit = PmLit { pm_lit_lit = PmSLit lit }
 {-# INLINE mkLitPattern #-}
 
 -- -----------------------------------------------------------------------
 -- * Transform (Pat Id) into of (PmPat Id)
 
-translatePat :: FamInstEnvs -> Pat Id -> DsM PatVec
+translatePat :: FamInstEnvs -> Pat GHCT -> DsM PatVec
 translatePat fam_insts pat = case pat of
   WildPat ty  -> mkPmVars [ty]
   VarPat  id  -> return [PmVar (unLoc id)]
@@ -665,15 +665,15 @@ translatePat fam_insts pat = case pat of
 
 -- | Translate an overloaded literal (see `tidyNPat' in deSugar/MatchLit.hs)
 translateNPat :: FamInstEnvs
-              -> HsOverLit Id -> Maybe (SyntaxExpr Id) -> Type -> DsM PatVec
+              -> HsOverLit GHCT -> Maybe (SyntaxExpr GHCT) -> Type -> DsM PatVec
 translateNPat fam_insts (OverLit val False _ ty) mb_neg outer_ty
   | not type_change, isStringTy ty, HsIsString src s <- val, Nothing <- mb_neg
   = translatePat fam_insts (LitPat (HsString src s))
   | not type_change, isIntTy    ty, HsIntegral i <- val
   = translatePat fam_insts
                  (LitPat $ case mb_neg of
-                             Nothing -> HsInt i
-                             Just _  -> HsInt (negateIntegralLit i))
+                             Nothing -> HsInt def i
+                             Just _  -> HsInt def (negateIntegralLit i))
   | not type_change, isWordTy   ty, HsIntegral i <- val
   = translatePat fam_insts
                  (LitPat $ case mb_neg of
@@ -688,12 +688,12 @@ translateNPat _ ol mb_neg _
 
 -- | Translate a list of patterns (Note: each pattern is translated
 -- to a pattern vector but we do not concatenate the results).
-translatePatVec :: FamInstEnvs -> [Pat Id] -> DsM [PatVec]
+translatePatVec :: FamInstEnvs -> [Pat GHCT] -> DsM [PatVec]
 translatePatVec fam_insts pats = mapM (translatePat fam_insts) pats
 
 -- | Translate a constructor pattern
 translateConPatVec :: FamInstEnvs -> [Type] -> [TyVar]
-                   -> ConLike -> HsConPatDetails Id -> DsM PatVec
+                   -> ConLike -> HsConPatDetails GHCT -> DsM PatVec
 translateConPatVec fam_insts _univ_tys _ex_tvs _ (PrefixCon ps)
   = concat <$> translatePatVec fam_insts (map unLoc ps)
 translateConPatVec fam_insts _univ_tys _ex_tvs _ (InfixCon p1 p2)
@@ -748,13 +748,13 @@ translateConPatVec fam_insts  univ_tys  ex_tvs c (RecCon (HsRecFields fs _))
       | otherwise = subsetOf (x:xs) ys
 
 -- Translate a single match
-translateMatch :: FamInstEnvs -> LMatch Id (LHsExpr Id) -> DsM (PatVec,[PatVec])
+translateMatch :: FamInstEnvs -> LMatch GHCT (LHsExpr GHCT) -> DsM (PatVec,[PatVec])
 translateMatch fam_insts (L _ (Match _ lpats _ grhss)) = do
   pats'   <- concat <$> translatePatVec fam_insts pats
   guards' <- mapM (translateGuards fam_insts) guards
   return (pats', guards')
   where
-    extractGuards :: LGRHS Id (LHsExpr Id) -> [GuardStmt Id]
+    extractGuards :: LGRHS GHCT (LHsExpr GHCT) -> [GuardStmt GHCT]
     extractGuards (L _ (GRHS gs _)) = map unLoc gs
 
     pats   = map unLoc lpats
@@ -764,7 +764,7 @@ translateMatch fam_insts (L _ (Match _ lpats _ grhss)) = do
 -- * Transform source guards (GuardStmt Id) to PmPats (Pattern)
 
 -- | Translate a list of guard statements to a pattern vector
-translateGuards :: FamInstEnvs -> [GuardStmt Id] -> DsM PatVec
+translateGuards :: FamInstEnvs -> [GuardStmt GHCT] -> DsM PatVec
 translateGuards fam_insts guards = do
   all_guards <- concat <$> mapM (translateGuard fam_insts) guards
   return (replace_unhandled all_guards)
@@ -804,7 +804,7 @@ cantFailPattern (PmGrd pv _e)
 cantFailPattern _ = False
 
 -- | Translate a guard statement to Pattern
-translateGuard :: FamInstEnvs -> GuardStmt Id -> DsM PatVec
+translateGuard :: FamInstEnvs -> GuardStmt GHCT -> DsM PatVec
 translateGuard fam_insts guard = case guard of
   BodyStmt   e _ _ _ -> translateBoolGuard e
   LetStmt      binds -> translateLet (unLoc binds)
@@ -816,17 +816,17 @@ translateGuard fam_insts guard = case guard of
   ApplicativeStmt {} -> panic "translateGuard ApplicativeLastStmt"
 
 -- | Translate let-bindings
-translateLet :: HsLocalBinds Id -> DsM PatVec
+translateLet :: HsLocalBinds GHCT -> DsM PatVec
 translateLet _binds = return []
 
 -- | Translate a pattern guard
-translateBind :: FamInstEnvs -> LPat Id -> LHsExpr Id -> DsM PatVec
+translateBind :: FamInstEnvs -> LPat GHCT -> LHsExpr GHCT -> DsM PatVec
 translateBind fam_insts (L _ p) e = do
   ps <- translatePat fam_insts p
   return [mkGuard ps (unLoc e)]
 
 -- | Translate a boolean guard
-translateBoolGuard :: LHsExpr Id -> DsM PatVec
+translateBoolGuard :: LHsExpr GHCT -> DsM PatVec
 translateBoolGuard e
   | isJust (isTrueLHsExpr e) = return []
     -- The formal thing to do would be to generate (True <- True)
@@ -956,7 +956,7 @@ pmPatType (PmGrd  { pm_grd_pv  = pv })
 
 -- | Generate a value abstraction for a given constructor (generate
 -- fresh variables of the appropriate type for arguments)
-mkOneConFull :: Id -> ConLike -> DsM (ValAbs, ComplexEq, Bag EvVar)
+mkOneConFull :: IdP GHCT -> ConLike -> DsM (ValAbs, ComplexEq, Bag EvVar)
 --  *  x :: T tys, where T is an algebraic data type
 --     NB: in the case of a data family, T is the *representation* TyCon
 --     e.g.   data instance T (a,b) = T1 a b
@@ -1000,7 +1000,7 @@ mkOneConFull x con = do
 -- * More smart constructors and fresh variable generation
 
 -- | Create a guard pattern
-mkGuard :: PatVec -> HsExpr Id -> Pattern
+mkGuard :: PatVec -> HsExpr GHCT -> Pattern
 mkGuard pv e
   | all cantFailPattern pv = PmGrd pv expr
   | PmExprOther {} <- expr = fake_pat
@@ -1009,18 +1009,18 @@ mkGuard pv e
     expr = hsExprToPmExpr e
 
 -- | Create a term equality of the form: `(False ~ (x ~ lit))`
-mkNegEq :: Id -> PmLit -> ComplexEq
+mkNegEq :: IdP GHCT -> PmLit -> ComplexEq
 mkNegEq x l = (falsePmExpr, PmExprVar (idName x) `PmExprEq` PmExprLit l)
 {-# INLINE mkNegEq #-}
 
 -- | Create a term equality of the form: `(x ~ lit)`
-mkPosEq :: Id -> PmLit -> ComplexEq
+mkPosEq :: IdP GHCT -> PmLit -> ComplexEq
 mkPosEq x l = (PmExprVar (idName x), PmExprLit l)
 {-# INLINE mkPosEq #-}
 
 -- | Create a term equality of the form: `(x ~ x)`
 -- (always discharged by the term oracle)
-mkIdEq :: Id -> ComplexEq
+mkIdEq :: IdP GHCT -> ComplexEq
 mkIdEq x = (PmExprVar name, PmExprVar name)
   where name = idName x
 {-# INLINE mkIdEq #-}
@@ -1036,7 +1036,7 @@ mkPmVars tys = mapM mkPmVar tys
 {-# INLINE mkPmVars #-}
 
 -- | Generate a fresh `Id` of a given type
-mkPmId :: Type -> DsM Id
+mkPmId :: Type -> DsM (IdP GHCT)
 mkPmId ty = getUniqueM >>= \unique ->
   let occname = mkVarOccFS $ fsLit "$pm"
       name    = mkInternalName unique occname noSrcSpan
@@ -1045,7 +1045,7 @@ mkPmId ty = getUniqueM >>= \unique ->
 -- | Generate a fresh term variable of a given and return it in two forms:
 -- * A variable pattern
 -- * A variable expression
-mkPmId2Forms :: Type -> DsM (Pattern, LHsExpr Id)
+mkPmId2Forms :: Type -> DsM (Pattern, LHsExpr GHCT)
 mkPmId2Forms ty = do
   x <- mkPmId ty
   return (PmVar x, noLoc (HsVar (noLoc x)))
@@ -1211,7 +1211,7 @@ runMany pm (m:ms) = mappend <$> pm m <*> runMany pm ms
 
 -- | Generate the initial uncovered set. It initializes the
 -- delta with all term and type constraints in scope.
-mkInitialUncovered :: [Id] -> PmM Uncovered
+mkInitialUncovered :: [IdP GHCT] -> PmM Uncovered
 mkInitialUncovered vars = do
   ty_cs  <- liftD getDictsDs
   tm_cs  <- map toComplex . bagToList <$> liftD getTmCsDs
@@ -1512,9 +1512,9 @@ these constraints.
 -- When we go deeper to check e.g. e1 we record two equalities:
 -- (x ~ y), where y is the initial uncovered when checking (p1; .. ; pn)
 -- and (x ~ p1).
-genCaseTmCs2 :: Maybe (LHsExpr Id) -- Scrutinee
-             -> [Pat Id]           -- LHS       (should have length 1)
-             -> [Id]               -- MatchVars (should have length 1)
+genCaseTmCs2 :: Maybe (LHsExpr GHCT) -- Scrutinee
+             -> [Pat GHCT]           -- LHS       (should have length 1)
+             -> [IdP GHCT]           -- MatchVars (should have length 1)
              -> DsM (Bag SimpleEq)
 genCaseTmCs2 Nothing _ _ = return emptyBag
 genCaseTmCs2 (Just scr) [p] [var] = do
@@ -1528,7 +1528,7 @@ genCaseTmCs2 _ _ _ = panic "genCaseTmCs2: HsCase"
 --     case x of { matches }
 -- When checking matches we record that (x ~ y) where y is the initial
 -- uncovered. All matches will have to satisfy this equality.
-genCaseTmCs1 :: Maybe (LHsExpr Id) -> [Id] -> Bag SimpleEq
+genCaseTmCs1 :: Maybe (LHsExpr GHCT) -> [IdP GHCT] -> Bag SimpleEq
 genCaseTmCs1 Nothing     _    = emptyBag
 genCaseTmCs1 (Just scr) [var] = unitBag (var, lhsExprToPmExpr scr)
 genCaseTmCs1 _ _              = panic "genCaseTmCs1: HsCase"
@@ -1746,11 +1746,11 @@ pp_context singular (DsMatchContext kind _loc) msg rest_of_msg_fun
                                     \ pp -> ppr fun <+> pp)
              _                  -> (pprMatchContext kind, \ pp -> pp)
 
-ppr_pats :: HsMatchContext Name -> [Pat Id] -> SDoc
+ppr_pats :: HsMatchContext Name -> [Pat GHCT] -> SDoc
 ppr_pats kind pats
   = sep [sep (map ppr pats), matchSeparator kind, text "..."]
 
-ppr_eqn :: (SDoc -> SDoc) -> HsMatchContext Name -> [LPat Id] -> SDoc
+ppr_eqn :: (SDoc -> SDoc) -> HsMatchContext Name -> [LPat GHCT] -> SDoc
 ppr_eqn prefixF kind eqn = prefixF (ppr_pats kind (map unLoc eqn))
 
 ppr_constraint :: (SDoc,[PmLit]) -> SDoc

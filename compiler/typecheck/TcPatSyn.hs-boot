@@ -1,19 +1,18 @@
 module TcPatSyn where
 
-import Name      ( Name )
-import Id        ( Id )
 import HsSyn     ( PatSynBind, LHsBinds )
 import TcRnTypes ( TcM, TcPatSynInfo )
 import TcRnMonad ( TcGblEnv)
 import Outputable ( Outputable )
+import HsExtension ( GHCR, GHCT )
 
-tcInferPatSynDecl :: PatSynBind Name Name
-                  -> TcM (LHsBinds Id, TcGblEnv)
+tcInferPatSynDecl :: PatSynBind GHCR GHCR
+                  -> TcM (LHsBinds GHCT, TcGblEnv)
 
-tcCheckPatSynDecl :: PatSynBind Name Name
+tcCheckPatSynDecl :: PatSynBind GHCR GHCR
                   -> TcPatSynInfo
-                  -> TcM (LHsBinds Id, TcGblEnv)
+                  -> TcM (LHsBinds GHCT, TcGblEnv)
 
-tcPatSynBuilderBind :: PatSynBind Name Name -> TcM (LHsBinds Id)
+tcPatSynBuilderBind :: PatSynBind GHCR GHCR -> TcM (LHsBinds GHCT)
 
 nonBidirectionalErr :: Outputable name => name -> TcM a

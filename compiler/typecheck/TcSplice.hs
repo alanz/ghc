@@ -134,9 +134,9 @@ import GHC.Exts         ( unsafeCoerce# )
 ************************************************************************
 -}
 
-tcTypedBracket   :: HsBracket Name -> ExpRhoType -> TcM (HsExpr TcId)
-tcUntypedBracket :: HsBracket Name -> [PendingRnSplice] -> ExpRhoType -> TcM (HsExpr TcId)
-tcSpliceExpr     :: HsSplice Name  -> ExpRhoType -> TcM (HsExpr TcId)
+tcTypedBracket   :: HsBracket Name -> ExpRhoType -> TcM (HsExpr GHCTc)
+tcUntypedBracket :: HsBracket Name -> [PendingRnSplice] -> ExpRhoType -> TcM (HsExpr GHCTc)
+tcSpliceExpr     :: HsSplice Name  -> ExpRhoType -> TcM (HsExpr GHCTc)
         -- None of these functions add constraints to the LIE
 
 -- runQuasiQuoteExpr :: HsQuasiQuote RdrName -> RnM (LHsExpr RdrName)
@@ -453,7 +453,7 @@ environment (with 'addModFinalizersWithLclEnv').
 -}
 
 tcNestedSplice :: ThStage -> PendingStuff -> Name
-                -> LHsExpr Name -> ExpRhoType -> TcM (HsExpr Id)
+                -> LHsExpr Name -> ExpRhoType -> TcM (HsExpr GHCT)
     -- See Note [How brackets and nested splices are handled]
     -- A splice inside brackets
 tcNestedSplice pop_stage (TcPending ps_var lie_var) splice_name expr res_ty
@@ -473,7 +473,7 @@ tcNestedSplice pop_stage (TcPending ps_var lie_var) splice_name expr res_ty
 tcNestedSplice _ _ splice_name _ _
   = pprPanic "tcNestedSplice: rename stage found" (ppr splice_name)
 
-tcTopSplice :: LHsExpr Name -> ExpRhoType -> TcM (HsExpr Id)
+tcTopSplice :: LHsExpr Name -> ExpRhoType -> TcM (HsExpr GHCT)
 tcTopSplice expr res_ty
   = do { -- Typecheck the expression,
          -- making sure it has type Q (T res_ty)
@@ -522,7 +522,7 @@ spliceResultDoc expr
         , text "To see what the splice expanded to, use -ddump-splices"]
 
 -------------------
-tcTopSpliceExpr :: SpliceType -> TcM (LHsExpr Id) -> TcM (LHsExpr Id)
+tcTopSpliceExpr :: SpliceType -> TcM (LHsExpr GHCT) -> TcM (LHsExpr GHCT)
 -- Note [How top-level splices are handled]
 -- Type check an expression that is the body of a top-level splice
 --   (the caller will compile and run it)
@@ -660,8 +660,8 @@ runQResult show_th f runQ expr_span hval
 
 
 -----------------
-runMeta :: (MetaHook TcM -> LHsExpr Id -> TcM hs_syn)
-        -> LHsExpr Id
+runMeta :: (MetaHook TcM -> LHsExpr GHCT -> TcM hs_syn)
+        -> LHsExpr GHCT
         -> TcM hs_syn
 runMeta unwrap e
   = do { h <- getHooked runMetaHook defaultRunMeta
@@ -682,31 +682,31 @@ defaultRunMeta (MetaAW r)
     -- the toAnnotationWrapper function that we slap around the user's code
 
 ----------------
-runMetaAW :: LHsExpr Id         -- Of type AnnotationWrapper
+runMetaAW :: LHsExpr GHCT         -- Of type AnnotationWrapper
           -> TcM Serialized
 runMetaAW = runMeta metaRequestAW
 
-runMetaE :: LHsExpr Id          -- Of type (Q Exp)
-         -> TcM (LHsExpr RdrName)
+runMetaE :: LHsExpr GHCT          -- Of type (Q Exp)
+         -> TcM (LHsExpr GHCP)
 runMetaE = runMeta metaRequestE
 
-runMetaP :: LHsExpr Id          -- Of type (Q Pat)
-         -> TcM (LPat RdrName)
+runMetaP :: LHsExpr GHCT          -- Of type (Q Pat)
+         -> TcM (LPat GHCP)
 runMetaP = runMeta metaRequestP
 
-runMetaT :: LHsExpr Id          -- Of type (Q Type)
-         -> TcM (LHsType RdrName)
+runMetaT :: LHsExpr GHCT          -- Of type (Q Type)
+         -> TcM (LHsType GHCP)
 runMetaT = runMeta metaRequestT
 
-runMetaD :: LHsExpr Id          -- Of type Q [Dec]
-         -> TcM [LHsDecl RdrName]
+runMetaD :: LHsExpr GHCT          -- Of type Q [Dec]
+         -> TcM [LHsDecl GHCP]
 runMetaD = runMeta metaRequestD
 
 ---------------
 runMeta' :: Bool                 -- Whether code should be printed in the exception message
          -> (hs_syn -> SDoc)                                    -- how to print the code
          -> (SrcSpan -> ForeignHValue -> TcM (Either MsgDoc hs_syn))        -- How to run x
-         -> LHsExpr Id           -- Of type x; typically x = Q TH.Exp, or something like that
+         -> LHsExpr GHCT           -- Of type x; typically x = Q TH.Exp, or something like that
          -> TcM hs_syn           -- Of type t
 runMeta' show_code ppr_hs run_and_convert expr
   = do  { traceTc "About to run" (ppr expr)
@@ -882,7 +882,7 @@ instance TH.Quasi TcM where
       th_topdecls_var <- fmap tcg_th_topdecls getGblEnv
       updTcRef th_topdecls_var (\topds -> ds ++ topds)
     where
-      checkTopDecl :: HsDecl RdrName -> TcM ()
+      checkTopDecl :: HsDecl GHCP -> TcM ()
       checkTopDecl (ValD binds)
         = mapM_ bindName (collectHsBindBinders binds)
       checkTopDecl (SigD _)
@@ -894,7 +894,7 @@ instance TH.Quasi TcM where
       checkTopDecl _
         = addErr $ text "Only function, value, annotation, and foreign import declarations may be added with addTopDecl"
 
-      bindName :: RdrName -> TcM ()
+      bindName :: IdP GHCP -> TcM ()
       bindName (Exact n)
         = do { th_topnames_var <- fmap tcg_th_topnames getGblEnv
              ; updTcRef th_topnames_var (\ns -> extendNameSet ns n)
@@ -1165,7 +1165,7 @@ reifyInstances th_nm th_tys
     doc = ClassInstanceCtx
     bale_out msg = failWithTc msg
 
-    cvt :: SrcSpan -> TH.Type -> TcM (LHsType RdrName)
+    cvt :: SrcSpan -> TH.Type -> TcM (LHsType GHCP)
     cvt loc th_ty = case convertToHsType loc th_ty of
                       Left msg -> failWithTc msg
                       Right ty -> return ty
@@ -1882,7 +1882,7 @@ reifyFieldLabel fl
     mod_str = moduleNameString (moduleName mod)
     occ_str = unpackFS (flLabel fl)
 
-reifySelector :: Id -> TyCon -> TH.Name
+reifySelector :: IdP GHCT -> TyCon -> TH.Name
 reifySelector id tc
   = case find ((idName id ==) . flSelector) (tyConFieldLabels tc) of
       Just fl -> reifyFieldLabel fl

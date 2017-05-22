@@ -575,8 +575,8 @@ mkLHsSigType ty = mkHsImplicitBndrs ty
 mkLHsSigWcType :: LHsType GHCP -> LHsSigWcType GHCP
 mkLHsSigWcType ty = mkHsWildCardBndrs (mkHsImplicitBndrs ty)
 
-mkHsSigEnv :: forall a. (LSig Name -> Maybe ([Located Name], a))
-                     -> [LSig Name]
+mkHsSigEnv :: forall a. (LSig GHCR -> Maybe ([Located (IdP GHCR)], a))
+                     -> [LSig GHCR]
                      -> NameEnv a
 mkHsSigEnv get_info sigs
   = mkNameEnv          (mk_pairs ordinary_sigs)
@@ -597,7 +597,7 @@ mkHsSigEnv get_info sigs
     is_gen_dm_sig (L _ (ClassOpSig True _ _)) = True
     is_gen_dm_sig _                           = False
 
-    mk_pairs :: [LSig Name] -> [(Name, a)]
+    mk_pairs :: [LSig GHCR] -> [(IdP GHCR, a)]
     mk_pairs sigs = [ (n,a) | Just (ns,a) <- map get_info sigs
                             , L _ n <- ns ]
 

@@ -10,7 +10,6 @@ import Annotations ( Annotation, CoreAnnTarget )
 import HsExtension  ( GHCTc, GHCR, GHCP )
 
 import HsSyn      ( LHsType, LPat, LHsDecl, ThModFinalizers )
-import RdrName    ( RdrName )
 import TcRnTypes  ( SpliceType )
 import qualified Language.Haskell.TH as TH
 
@@ -32,7 +31,7 @@ tcTopSpliceExpr :: SpliceType -> TcM (LHsExpr GHCTc) -> TcM (LHsExpr GHCTc)
 
 runMetaE :: LHsExpr GHCTc -> TcM (LHsExpr GHCP)
 runMetaP :: LHsExpr GHCTc -> TcM (LPat GHCP)
-runMetaT :: LHsExpr GHCTc  -> TcM (LHsType GHCP)
+runMetaT :: LHsExpr GHCTc -> TcM (LHsType GHCP)
 runMetaD :: LHsExpr GHCTc -> TcM [LHsDecl GHCP]
 
 lookupThName_maybe :: TH.Name -> TcM (Maybe Name)

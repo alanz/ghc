@@ -2,6 +2,8 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -10,6 +12,7 @@ module HsExtension where
 
 -- This module captures the type families to precisely identify the extension points for HsSyn
 
+import GHC.Exts (Constraint)
 import Data.Data hiding ( Fixity )
 import PlaceHolder
 import BasicTypes
@@ -121,7 +124,7 @@ type family XHsFloatPrim x
 type family XHsDoublePrim x
 
 -- AZ:TODO: kind error trying to use this?
-type ClassX c x =
+type ClassX (c :: * -> Constraint) (x :: *) =
   ( c (XHsChar x)
   , c (XHsCharPrim x)
   , c (XHsString x)
@@ -137,24 +140,6 @@ type ClassX c x =
   , c (XHsDoublePrim x)
   )
 
--- TODO: Should this be part of DataId?
-type DataHsLitX x =
-  ( Data x
-  -- , ClassX Data x
-  , Data (XHsChar x)
-  , Data (XHsCharPrim x)
-  , Data (XHsString x)
-  , Data (XHsStringPrim x)
-  , Data (XHsInt x)
-  , Data (XHsIntPrim x)
-  , Data (XHsWordPrim x)
-  , Data (XHsInt64Prim x)
-  , Data (XHsWord64Prim x)
-  , Data (XHsInteger x)
-  , Data (XHsRat x)
-  , Data (XHsFloatPrim x)
-  , Data (XHsDoublePrim x)
-  )
 
 
 type instance XHsChar       GHCP = SourceText
@@ -226,6 +211,9 @@ instance HasSourceText SourceText where
   setSourceText s = s
   getSourceText a = a
 
+
+-- ----------------------------------------------------------------------
+-- Defaults for each annotation, used to simplify creation in arbitrary contexts
 class HasDefault a where
   def :: a
 
@@ -235,31 +223,40 @@ instance HasDefault () where
 instance HasDefault SourceText where
   def = NoSourceText
 
--- type HasDefaultX x = ClassX HasDefault x
+type HasDefaultX x = ClassX HasDefault x
 
--- AZ: Question: do we need this, as only being used for NoSourceText case atm,
--- which can be handled via noSourceText
-type HasDefaultX x =
-  ( HasDefault (XHsChar x)
-  , HasDefault (XHsCharPrim x)
-  , HasDefault (XHsString x)
-  , HasDefault (XHsStringPrim x)
-  , HasDefault (XHsInt x)
-  , HasDefault (XHsIntPrim x)
-  , HasDefault (XHsWordPrim x)
-  , HasDefault (XHsInt64Prim x)
-  , HasDefault (XHsWord64Prim x)
-  , HasDefault (XHsInteger x)
-  , HasDefault (XHsRat x)
-  , HasDefault (XHsFloatPrim x)
-  , HasDefault (XHsDoublePrim x)
-  )
+-- ----------------------------------------------------------------------
+-- Conversion of annotations from one type index to another
+class Convertable a b  | a -> b where
+  convert :: a -> b
+
+-- want to convert from
+-- convert :: XHsDoublePrim a -> XHsDoublePrim b
+
+instance Convertable a a where
+  convert = id
+
+type ConvertIdX a b =
+  (XHsDoublePrim a ~ XHsDoublePrim b,
+   XHsFloatPrim a ~ XHsFloatPrim b,
+   XHsRat a ~ XHsRat b,
+   XHsInteger a ~ XHsInteger b,
+   XHsWord64Prim a ~ XHsWord64Prim b,
+   XHsInt64Prim a ~ XHsInt64Prim b,
+   XHsWordPrim a ~ XHsWordPrim b,
+   XHsIntPrim a ~ XHsIntPrim b,
+   XHsInt a ~ XHsInt b,
+   XHsStringPrim a ~ XHsStringPrim b,
+   XHsString a ~ XHsString b,
+   XHsCharPrim a ~ XHsCharPrim b,
+   XHsChar a ~ XHsChar b)
+
 
 -- ----------------------------------------------------------------------
 
 type DataP p =
   ( Data p
-  , DataHsLitX p
+  , ClassX Data p
   , Data (NameOrRdrName (IdP p))
 
   , Data (IdP p)

@@ -1,16 +1,16 @@
 module TcMatches where
 import HsSyn    ( GRHSs, MatchGroup, LHsExpr )
 import TcEvidence( HsWrapper )
-import Name     ( Name )
 import TcType   ( ExpRhoType, TcRhoType )
-import TcRnTypes( TcM, TcId )
+import TcRnTypes( TcM )
 import SrcLoc   ( Located )
+import HsExtension ( GHCR, GHCTc, IdP )
 
-tcGRHSsPat    :: GRHSs Name (LHsExpr Name)
+tcGRHSsPat    :: GRHSs GHCR (LHsExpr GHCR)
               -> TcRhoType
-              -> TcM (GRHSs TcId (LHsExpr TcId))
+              -> TcM (GRHSs GHCTc (LHsExpr GHCTc))
 
-tcMatchesFun :: Located Name
-             -> MatchGroup Name (LHsExpr Name)
+tcMatchesFun :: Located (IdP GHCR)
+             -> MatchGroup GHCR (LHsExpr GHCR)
              -> ExpRhoType
-             -> TcM (HsWrapper, MatchGroup TcId (LHsExpr TcId))
+             -> TcM (HsWrapper, MatchGroup GHCTc (LHsExpr GHCTc))

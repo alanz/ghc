@@ -10,6 +10,7 @@ files for imported data types.
 -}
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module TcTyDecls(
         RolesInfo,
@@ -164,7 +165,7 @@ failSynCycleM loc err = SynCycleM $ \_ -> Left (loc, err)
 
 -- | Test if a 'Name' is acyclic, short-circuiting if we've
 -- seen it already.
-checkNameIsAcyclic :: Name -> SynCycleM () -> SynCycleM ()
+checkNameIsAcyclic :: IdP GHCR -> SynCycleM () -> SynCycleM ()
 checkNameIsAcyclic n m = SynCycleM $ \s ->
     if n `elemNameSet` s
         then Right ((), s) -- short circuit
@@ -177,7 +178,7 @@ checkNameIsAcyclic n m = SynCycleM $ \s ->
 -- checking those TyCons: cycles never go through foreign packages) and
 -- the corresponding @LTyClDecl Name@ for each 'TyCon', so we
 -- can give better error messages.
-checkSynCycles :: UnitId -> [TyCon] -> [LTyClDecl Name] -> TcM ()
+checkSynCycles :: UnitId -> [TyCon] -> [LTyClDecl GHCR] -> TcM ()
 checkSynCycles this_uid tcs tyclds = do
     case runSynCycleM (mapM_ (go emptyNameSet []) tcs) emptyNameSet of
         Left (loc, err) -> setSrcSpan loc $ failWithTc err
@@ -444,14 +445,14 @@ we want to totally ignore coercions when doing role inference. This includes omi
 any type variables that appear in nominal positions but only within coercions.
 -}
 
-type RolesInfo = Name -> [Role]
+type RolesInfo = IdP GHCR -> [Role]
 
 type RoleEnv = NameEnv [Role]        -- from tycon names to roles
 
 -- This, and any of the functions it calls, must *not* look at the roles
 -- field of a tycon we are inferring roles about!
 -- See Note [Role inference]
-inferRoles :: HscSource -> RoleAnnotEnv -> [TyCon] -> Name -> [Role]
+inferRoles :: HscSource -> RoleAnnotEnv -> [TyCon] -> IdP GHCR -> [Role]
 inferRoles hsc_src annots tycons
   = let role_env  = initialRoleEnv hsc_src annots tycons
         role_env' = irGroup role_env tycons in
@@ -463,7 +464,7 @@ initialRoleEnv :: HscSource -> RoleAnnotEnv -> [TyCon] -> RoleEnv
 initialRoleEnv hsc_src annots = extendNameEnvList emptyNameEnv .
                                 map (initialRoleEnv1 hsc_src annots)
 
-initialRoleEnv1 :: HscSource -> RoleAnnotEnv -> TyCon -> (Name, [Role])
+initialRoleEnv1 :: HscSource -> RoleAnnotEnv -> TyCon -> (IdP GHCR, [Role])
 initialRoleEnv1 hsc_src annots_env tc
   | isFamilyTyCon tc      = (name, map (const Nominal) bndrs)
   | isAlgTyCon tc         = (name, default_roles)
@@ -662,7 +663,7 @@ data RoleInferenceState = RIS { role_env  :: RoleEnv
 type VarPositions = VarEnv Int
 
 -- See [Role inference]
-newtype RoleM a = RM { unRM :: Maybe Name   -- of the tycon
+newtype RoleM a = RM { unRM :: Maybe (IdP GHCR) -- of the tycon
                             -> VarPositions
                             -> Int          -- size of VarPositions
                             -> RoleInferenceState
@@ -687,7 +688,7 @@ runRoleM env thing = (env', update)
         state = RIS { role_env  = env
                     , update    = False }
 
-setRoleInferenceTc :: Name -> RoleM a -> RoleM a
+setRoleInferenceTc :: IdP GHCR -> RoleM a -> RoleM a
 setRoleInferenceTc name thing = RM $ \m_name vps nvps state ->
                                 ASSERT( isNothing m_name )
                                 ASSERT( isEmptyVarEnv vps )
@@ -713,13 +714,13 @@ getRoleEnv = RM $ \_ _ _ state@(RIS { role_env = env }) -> (env, state)
 getVarNs :: RoleM VarPositions
 getVarNs = RM $ \_ vps _ state -> (vps, state)
 
-getTyConName :: RoleM Name
+getTyConName :: RoleM (IdP GHCR)
 getTyConName = RM $ \m_name _ _ state ->
                     case m_name of
                       Nothing   -> panic "getTyConName"
                       Just name -> (name, state)
 
-updateRoleEnv :: Name -> Int -> Role -> RoleM ()
+updateRoleEnv :: IdP GHCR -> Int -> Role -> RoleM ()
 updateRoleEnv name n role
   = RM $ \_ _ _ state@(RIS { role_env = role_env }) -> ((),
          case lookupNameEnv role_env name of
@@ -756,7 +757,7 @@ tcAddImplicits tycons
    implicit_things = concatMap implicitTyConThings tycons
    def_meth_ids    = mkDefaultMethodIds tycons
 
-mkDefaultMethodIds :: [TyCon] -> [Id]
+mkDefaultMethodIds :: [TyCon] -> [IdP GHCT]
 -- We want to put the default-method Ids (both vanilla and generic)
 -- into the type environment so that they are found when we typecheck
 -- the filled-in default methods of each instance declaration
@@ -767,7 +768,7 @@ mkDefaultMethodIds tycons
     , Just cls <- [tyConClass_maybe tc]
     , (sel_id, Just (dm_name, dm_spec)) <- classOpItems cls ]
 
-mkDefaultMethodType :: Class -> Id -> DefMethSpec Type -> Type
+mkDefaultMethodType :: Class -> IdP GHCT -> DefMethSpec Type -> Type
 -- Returns the top-level type of the default method
 mkDefaultMethodType _ sel_id VanillaDM        = idType sel_id
 mkDefaultMethodType cls _   (GenericDM dm_ty) = mkSpecSigmaTy cls_tvs [pred] dm_ty
@@ -809,7 +810,7 @@ when typechecking the [d| .. |] quote, and typecheck them later.
 ************************************************************************
 -}
 
-mkRecSelBinds :: [TyCon] -> HsValBinds Name
+mkRecSelBinds :: [TyCon] -> HsValBinds GHCR
 -- NB We produce *un-typechecked* bindings, rather like 'deriving'
 --    This makes life easier, because the later type checking will add
 --    all necessary type abstractions and applications
@@ -821,14 +822,14 @@ mkRecSelBinds tycons
                                 | tc <- tycons
                                 , fld <- tyConFieldLabels tc ]
 
-mkRecSelBind :: (TyCon, FieldLabel) -> (LSig Name, (RecFlag, LHsBinds Name))
+mkRecSelBind :: (TyCon, FieldLabel) -> (LSig GHCR, (RecFlag, LHsBinds GHCR))
 mkRecSelBind (tycon, fl)
   = mkOneRecordSelector all_cons (RecSelData tycon) fl
   where
     all_cons = map RealDataCon (tyConDataCons tycon)
 
 mkOneRecordSelector :: [ConLike] -> RecSelParent -> FieldLabel
-                    -> (LSig Name, (RecFlag, LHsBinds Name))
+                    -> (LSig GHCR, (RecFlag, LHsBinds GHCR))
 mkOneRecordSelector all_cons idDetails fl
   = (L loc (IdSig sel_id), (NonRecursive, unitBag (L loc sel_bind)))
   where

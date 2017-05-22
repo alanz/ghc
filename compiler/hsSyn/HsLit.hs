@@ -75,7 +75,7 @@ data HsLit x
   | HsDoublePrim (XHsDoublePrim x) FractionalLit
       -- ^ Unboxed Double
 
-deriving instance (DataHsLitX x) => Data (HsLit x)
+deriving instance (DataP x) => Data (HsLit x)
 
 
 instance Eq (HsLit x) where
@@ -101,7 +101,7 @@ data HsOverLit p
         ol_rebindable :: PostRN p Bool, -- Note [ol_rebindable]
         ol_witness :: HsExpr p,         -- Note [Overloaded literal witnesses]
         ol_type :: PostTC p Type }
-deriving instance (DataHsLitX p, DataP p) => Data (HsOverLit p)
+deriving instance (DataP p, DataP p) => Data (HsOverLit p)
 
 -- Note [Literal source text] in BasicTypes for SourceText fields in
 -- the following
@@ -119,6 +119,23 @@ negateOverLitVal _ = panic "negateOverLitVal: argument is not a number"
 
 overLitType :: HsOverLit p -> PostTC p Type
 overLitType = ol_type
+
+-- | Convert a literal from one index type to another, updating the annotations
+-- according to the relevant 'Convertable' instance
+convertLit :: (ConvertIdX a b) => HsLit a -> HsLit b
+convertLit (HsChar a x)       = (HsChar (convert a) x)
+convertLit (HsCharPrim a x)   = (HsCharPrim (convert a) x)
+convertLit (HsString a x)     = (HsString (convert a) x)
+convertLit (HsStringPrim a x) = (HsStringPrim (convert a) x)
+convertLit (HsInt a x)        = (HsInt (convert a) x)
+convertLit (HsIntPrim a x)    = (HsIntPrim (convert a) x)
+convertLit (HsWordPrim a x)   = (HsWordPrim (convert a) x)
+convertLit (HsInt64Prim a x)  = (HsInt64Prim (convert a) x)
+convertLit (HsWord64Prim a x) = (HsWord64Prim (convert a) x)
+convertLit (HsInteger a x b)  = (HsInteger (convert a) x b)
+convertLit (HsRat a x b)      = (HsRat (convert a) x b)
+convertLit (HsFloatPrim a x)  = (HsFloatPrim (convert a) x)
+convertLit (HsDoublePrim a x) = (HsDoublePrim (convert a) x)
 
 {-
 Note [ol_rebindable]
@@ -234,3 +251,5 @@ pmPprHsLit (HsInteger _ i _)  = integer i
 pmPprHsLit (HsRat _ f _)      = ppr f
 pmPprHsLit (HsFloatPrim _ f)  = ppr f
 pmPprHsLit (HsDoublePrim _ d) = ppr d
+
+  

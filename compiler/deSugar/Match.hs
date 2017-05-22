@@ -167,7 +167,7 @@ should not have an External name; Lint rejects non-top-level binders
 with External names (Trac #13043).
 -}
 
-type MatchId = Id   -- See Note [Match Ids]
+type MatchId = IdP GHCT   -- See Note [Match Ids]
 
 match :: [MatchId]        -- Variables rep\'ing the exprs we\'re matching with
                           -- See Note [Match Ids]
@@ -696,7 +696,7 @@ Call @match@ with all of this information!
 \end{enumerate}
 -}
 
-matchWrapper :: HsMatchContext GHCR            -- For shadowing warning messages
+matchWrapper :: HsMatchContext (IdP GHCR)      -- For shadowing warning messages
              -> Maybe (LHsExpr GHCT)           -- The scrutinee, if we check a case expr
              -> MatchGroup GHCT (LHsExpr GHCT) -- Matches being desugared
              -> DsM ([IdP GHCT], CoreExpr)       -- Results
@@ -764,7 +764,7 @@ matchWrapper ctxt mb_scr (MG { mg_alts = L _ matches
                      else id
 
 
-matchEquations  :: HsMatchContext GHCR
+matchEquations  :: HsMatchContext (IdP GHCR)
                 -> [MatchId] -> [EquationInfo] -> Type
                 -> DsM CoreExpr
 matchEquations ctxt vars eqns_info rhs_ty
@@ -787,11 +787,11 @@ situation where we want to match a single expression against a single
 pattern. It returns an expression.
 -}
 
-matchSimply :: CoreExpr                 -- Scrutinee
-            -> HsMatchContext GHCR      -- Match kind
-            -> LPat GHCT                -- Pattern it should match
-            -> CoreExpr                 -- Return this if it matches
-            -> CoreExpr                 -- Return this if it doesn't
+matchSimply :: CoreExpr                  -- Scrutinee
+            -> HsMatchContext (IdP GHCR) -- Match kind
+            -> LPat GHCT                 -- Pattern it should match
+            -> CoreExpr                  -- Return this if it matches
+            -> CoreExpr                  -- Return this if it doesn't
             -> DsM CoreExpr
 -- Do not warn about incomplete patterns; see matchSinglePat comments
 matchSimply scrut hs_ctx pat result_expr fail_expr = do
@@ -802,7 +802,7 @@ matchSimply scrut hs_ctx pat result_expr fail_expr = do
     match_result' <- matchSinglePat scrut hs_ctx pat rhs_ty match_result
     extractMatchResult match_result' fail_expr
 
-matchSinglePat :: CoreExpr -> HsMatchContext GHCR -> LPat GHCT
+matchSinglePat :: CoreExpr -> HsMatchContext (IdP GHCR) -> LPat GHCT
                -> Type -> MatchResult -> DsM MatchResult
 -- matchSinglePat ensures that the scrutinee is a variable
 -- and then calls match_single_pat_var
@@ -821,7 +821,7 @@ matchSinglePat scrut hs_ctx pat ty match_result
        ; return (adjustMatchResult (bindNonRec var scrut) match_result') }
 
 match_single_pat_var :: IdP GHCT   -- See Note [Match Ids]
-                     -> HsMatchContext GHCR -> LPat GHCT
+                     -> HsMatchContext (IdP GHCR) -> LPat GHCT
                      -> Type -> MatchResult -> DsM MatchResult
 match_single_pat_var var ctx pat ty match_result
   = ASSERT2( isInternalName (idName var), ppr var )

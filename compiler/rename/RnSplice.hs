@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module RnSplice (
         rnTopSpliceDecls,
@@ -67,7 +68,7 @@ import qualified GHC.LanguageExtensions as LangExt
 ************************************************************************
 -}
 
-rnBracket :: HsExpr RdrName -> HsBracket RdrName -> RnM (HsExpr Name, FreeVars)
+rnBracket :: HsExpr GHCP -> HsBracket GHCP -> RnM (HsExpr GHCR, FreeVars)
 rnBracket e br_body
   = addErrCtxt (quotationCtxtDoc br_body) $
     do { -- Check that -XTemplateHaskellQuotes is enabled and available
@@ -112,7 +113,7 @@ rnBracket e br_body
                         ; return (HsRnBracketOut body' pendings, fvs_e) }
        }
 
-rn_bracket :: ThStage -> HsBracket RdrName -> RnM (HsBracket Name, FreeVars)
+rn_bracket :: ThStage -> HsBracket GHCP -> RnM (HsBracket GHCR, FreeVars)
 rn_bracket outer_stage br@(VarBr flg rdr_name)
   = do { name <- lookupOccRn rdr_name
        ; this_mod <- getModule
@@ -159,7 +160,7 @@ rn_bracket _ (DecBrL decls)
                    ppr (duUses (tcg_dus tcg_env)))
         ; return (DecBrG group', duUses (tcg_dus tcg_env)) }
   where
-    groupDecls :: [LHsDecl RdrName] -> RnM (HsGroup RdrName)
+    groupDecls :: [LHsDecl GHCP] -> RnM (HsGroup GHCP)
     groupDecls decls
       = do { (group, mb_splice) <- findSplice decls
            ; case mb_splice of
@@ -176,7 +177,7 @@ rn_bracket _ (DecBrG _) = panic "rn_bracket: unexpected DecBrG"
 rn_bracket _ (TExpBr e) = do { (e', fvs) <- rnLExpr e
                              ; return (TExpBr e', fvs) }
 
-quotationCtxtDoc :: HsBracket RdrName -> SDoc
+quotationCtxtDoc :: HsBracket GHCP -> SDoc
 quotationCtxtDoc br_body
   = hang (text "In the Template Haskell quotation")
          2 (ppr br_body)
@@ -194,7 +195,7 @@ illegalUntypedBracket :: SDoc
 illegalUntypedBracket =
     text "Untyped brackets may only appear in untyped splices."
 
-quotedNameStageErr :: HsBracket RdrName -> SDoc
+quotedNameStageErr :: HsBracket GHCP -> SDoc
 quotedNameStageErr br
   = sep [ text "Stage error: the non-top-level quoted name" <+> ppr br
         , text "must be used at the same stage at which it is bound" ]
@@ -236,9 +237,9 @@ returns a bogus term/type, so that it can report more than one error.
 We don't want the type checker to see these bogus unbound variables.
 -}
 
-rnSpliceGen :: (HsSplice Name -> RnM (a, FreeVars))     -- Outside brackets, run splice
-            -> (HsSplice Name -> (PendingRnSplice, a))  -- Inside brackets, make it pending
-            -> HsSplice RdrName
+rnSpliceGen :: (HsSplice GHCR -> RnM (a, FreeVars))     -- Outside brackets, run splice
+            -> (HsSplice GHCR -> (PendingRnSplice, a))  -- Inside brackets, make it pending
+            -> HsSplice GHCP
             -> RnM (a, FreeVars)
 rnSpliceGen run_splice pend_splice splice
   = addErrCtxt (spliceCtxt splice) $ do
@@ -281,10 +282,10 @@ rnSpliceGen run_splice pend_splice splice
 --
 -- See Note [Delaying modFinalizers in untyped splices].
 runRnSplice :: UntypedSpliceFlavour
-            -> (LHsExpr Id -> TcRn res)
+            -> (LHsExpr GHCT -> TcRn res)
             -> (res -> SDoc)    -- How to pretty-print res
                                 -- Usually just ppr, but not for [Decl]
-            -> HsSplice Name    -- Always untyped
+            -> HsSplice GHCR    -- Always untyped
             -> TcRn (res, [ForeignRef (TH.Q ())])
 runRnSplice flavour run_meta ppr_res splice
   = do { splice' <- getHooked runRnSpliceHook return >>= ($ splice)
@@ -329,7 +330,7 @@ runRnSplice flavour run_meta ppr_res splice
 
 ------------------
 makePending :: UntypedSpliceFlavour
-            -> HsSplice Name
+            -> HsSplice GHCR
             -> PendingRnSplice
 makePending flavour (HsUntypedSplice _ n e)
   = PendingRnSplice flavour n e
@@ -341,7 +342,7 @@ makePending _ splice@(HsSpliced {})
   = pprPanic "makePending" (ppr splice)
 
 ------------------
-mkQuasiQuoteExpr :: UntypedSpliceFlavour -> Name -> SrcSpan -> FastString -> LHsExpr Name
+mkQuasiQuoteExpr :: UntypedSpliceFlavour -> IdP GHCR -> SrcSpan -> FastString -> LHsExpr GHCR
 -- Return the expression (quoter "...quote...")
 -- which is what we must run in a quasi-quote
 mkQuasiQuoteExpr flavour quoter q_span quote
@@ -359,7 +360,7 @@ mkQuasiQuoteExpr flavour quoter q_span quote
                        UntypedDeclSplice -> quoteDecName
 
 ---------------------
-rnSplice :: HsSplice RdrName -> RnM (HsSplice Name, FreeVars)
+rnSplice :: HsSplice GHCP -> RnM (HsSplice GHCR, FreeVars)
 -- Not exported...used for all
 rnSplice (HsTypedSplice hasParen splice_name expr)
   = do  { checkTH expr "Template Haskell typed splice"
@@ -391,15 +392,15 @@ rnSplice (HsQuasiQuote splice_name quoter q_loc quote)
 rnSplice splice@(HsSpliced {}) = pprPanic "rnSplice" (ppr splice)
 
 ---------------------
-rnSpliceExpr :: HsSplice RdrName -> RnM (HsExpr Name, FreeVars)
+rnSpliceExpr :: HsSplice GHCP -> RnM (HsExpr GHCR, FreeVars)
 rnSpliceExpr splice
   = rnSpliceGen run_expr_splice pend_expr_splice splice
   where
-    pend_expr_splice :: HsSplice Name -> (PendingRnSplice, HsExpr Name)
+    pend_expr_splice :: HsSplice GHCR -> (PendingRnSplice, HsExpr GHCR)
     pend_expr_splice rn_splice
         = (makePending UntypedExpSplice rn_splice, HsSpliceE rn_splice)
 
-    run_expr_splice :: HsSplice Name -> RnM (HsExpr Name, FreeVars)
+    run_expr_splice :: HsSplice GHCR -> RnM (HsExpr GHCR, FreeVars)
     run_expr_splice rn_splice
       | isTypedSplice rn_splice   -- Run it later, in the type checker
       = do {  -- Ugh!  See Note [Splices] above
@@ -516,8 +517,8 @@ References:
 -}
 
 ----------------------
-rnSpliceType :: HsSplice RdrName -> PostTc Name Kind
-             -> RnM (HsType Name, FreeVars)
+rnSpliceType :: HsSplice GHCP -> PostTC GHCR Kind
+             -> RnM (HsType GHCR, FreeVars)
 rnSpliceType splice k
   = rnSpliceGen run_type_splice pend_type_splice splice
   where
@@ -583,7 +584,7 @@ whole signature, instead of as an arbitrary type.
 
 ----------------------
 -- | Rename a splice pattern. See Note [rnSplicePat]
-rnSplicePat :: HsSplice RdrName -> RnM ( Either (Pat RdrName) (Pat Name)
+rnSplicePat :: HsSplice GHCP -> RnM ( Either (Pat GHCP) (Pat GHCR)
                                        , FreeVars)
 rnSplicePat splice
   = rnSpliceGen run_pat_splice pend_pat_splice splice
@@ -606,7 +607,7 @@ rnSplicePat splice
               -- lose the outermost location set by runQuasiQuote (#7918)
 
 ----------------------
-rnSpliceDecl :: SpliceDecl RdrName -> RnM (SpliceDecl Name, FreeVars)
+rnSpliceDecl :: SpliceDecl GHCP -> RnM (SpliceDecl GHCR, FreeVars)
 rnSpliceDecl (SpliceDecl (L loc splice) flg)
   = rnSpliceGen run_decl_splice pend_decl_splice splice
   where
@@ -615,7 +616,7 @@ rnSpliceDecl (SpliceDecl (L loc splice) flg)
 
     run_decl_splice rn_splice = pprPanic "rnSpliceDecl" (ppr rn_splice)
 
-rnTopSpliceDecls :: HsSplice RdrName -> RnM ([LHsDecl RdrName], FreeVars)
+rnTopSpliceDecls :: HsSplice GHCP -> RnM ([LHsDecl GHCP], FreeVars)
 -- Declaration splice at the very top level of the module
 rnTopSpliceDecls splice
    = do  { (rn_splice, fvs) <- checkNoErrs $
@@ -629,7 +630,7 @@ rnTopSpliceDecls splice
          ; add_mod_finalizers_now mod_finalizers
          ; return (decls,fvs) }
    where
-     ppr_decls :: [LHsDecl RdrName] -> SDoc
+     ppr_decls :: [LHsDecl GHCP] -> SDoc
      ppr_decls ds = vcat (map ppr ds)
 
      -- Adds finalizers to the global environment instead of delaying them
@@ -673,7 +674,7 @@ Pat RdrName (the result of running a top-level splice) or a Pat Name
 rnSplicePat.
 -}
 
-spliceCtxt :: HsSplice RdrName -> SDoc
+spliceCtxt :: HsSplice GHCP -> SDoc
 spliceCtxt splice
   = hang (text "In the" <+> what) 2 (ppr splice)
   where
@@ -687,7 +688,7 @@ spliceCtxt splice
 data SpliceInfo
   = SpliceInfo
     { spliceDescription   :: String
-    , spliceSource        :: Maybe (LHsExpr Name)  -- Nothing <=> top-level decls
+    , spliceSource        :: Maybe (LHsExpr GHCR)  -- Nothing <=> top-level decls
                                                    --        added by addTopDecls
     , spliceIsDecl        :: Bool    -- True <=> put the generate code in a file
                                      --          when -dth-dec-file is on
@@ -736,7 +737,7 @@ illegalTypedSplice = text "Typed splices may not appear in untyped brackets"
 illegalUntypedSplice :: SDoc
 illegalUntypedSplice = text "Untyped splices may not appear in typed brackets"
 
-checkThLocalName :: Name -> RnM ()
+checkThLocalName :: IdP GHCR -> RnM ()
 checkThLocalName name
   | isUnboundName name   -- Do not report two errors for
   = return ()            --   $(not_in_scope args)
@@ -756,7 +757,7 @@ checkThLocalName name
 
 --------------------------------------
 checkCrossStageLifting :: TopLevelFlag -> ThLevel -> ThStage -> ThLevel
-                       -> Name -> TcM ()
+                       -> IdP GHCR -> TcM ()
 -- We are inside brackets, and (use_lvl > bind_lvl)
 -- Now we must check whether there's a cross-stage lift to do
 -- Examples   \x -> [| x |]
@@ -772,7 +773,7 @@ checkCrossStageLifting top_lvl bind_lvl use_stage use_lvl name
   | otherwise
   = return ()
 
-check_cross_stage_lifting :: TopLevelFlag -> Name -> TcRef [PendingRnSplice] -> TcM ()
+check_cross_stage_lifting :: TopLevelFlag -> IdP GHCR -> TcRef [PendingRnSplice] -> TcM ()
 check_cross_stage_lifting top_lvl name ps_var
   | isTopLevel top_lvl
         -- Top-level identifiers in this module,

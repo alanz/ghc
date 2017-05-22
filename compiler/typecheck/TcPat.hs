@@ -76,7 +76,7 @@ tcLetPat sig_fn no_gen pat pat_ty thing_inside
        ; tc_lpat pat pat_ty penv thing_inside }
 
 -----------------
-tcPats :: HsMatchContext GHCR
+tcPats :: HsMatchContext (IdP GHCR)
        -> [LPat GHCR]            -- Patterns,
        -> [ExpSigmaType]         --   and their types
        -> TcM a                  --   and the checker for the body
@@ -98,14 +98,14 @@ tcPats ctxt pats pat_tys thing_inside
   where
     penv = PE { pe_lazy = False, pe_ctxt = LamPat ctxt, pe_orig = PatOrigin }
 
-tcPat :: HsMatchContext GHCR
+tcPat :: HsMatchContext (IdP GHCR)
       -> LPat GHCR -> ExpSigmaType
       -> TcM a                     -- Checker for body
       -> TcM (LPat GHCTc, a)
 tcPat ctxt = tcPat_O ctxt PatOrigin
 
 -- | A variant of 'tcPat' that takes a custom origin
-tcPat_O :: HsMatchContext GHCR
+tcPat_O :: HsMatchContext (IdP GHCR)
         -> CtOrigin              -- ^ origin to use if the type needs inst'ing
         -> LPat GHCR -> ExpSigmaType
         -> TcM a                 -- Checker for body
@@ -132,7 +132,7 @@ data PatEnv
 
 data PatCtxt
   = LamPat   -- Used for lambdas, case etc
-       (HsMatchContext GHCR)
+       (HsMatchContext (IdP GHCR))
 
   | LetPat   -- Used only for let(rec) pattern bindings
              -- See Note [Typing patterns in pattern bindings]
@@ -497,7 +497,7 @@ tc_pat penv (LitPat simple_lit) pat_ty thing_inside
         ; wrap   <- tcSubTypePat penv pat_ty lit_ty
         ; res    <- thing_inside
         ; pat_ty <- readExpType pat_ty
-        ; return ( mkHsWrapPat wrap (LitPat simple_lit) pat_ty
+        ; return ( mkHsWrapPat wrap (LitPat (convertLit simple_lit)) pat_ty
                  , res) }
 
 ------------------------
@@ -946,7 +946,7 @@ Suppose (coi, tys) = matchExpectedConType data_tc pat_ty
 -}
 
 tcConArgs :: ConLike -> [TcSigmaType]
-          -> Checker (HsConPatDetails GHCR) (HsConPatDetails Id)
+          -> Checker (HsConPatDetails GHCR) (HsConPatDetails GHCT)
 
 tcConArgs con_like arg_tys (PrefixCon arg_pats) penv thing_inside
   = do  { checkTc (con_arity == no_of_args)     -- Check correct arity

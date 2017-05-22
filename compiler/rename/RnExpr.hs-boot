@@ -10,7 +10,7 @@ rnLExpr :: LHsExpr GHCP
         -> RnM (LHsExpr GHCR, FreeVars)
 
 rnStmts :: --forall thing body.
-           Outputable (body GHCP) => HsStmtContext GHCR
+           Outputable (body GHCP) => HsStmtContext (IdP GHCR)
         -> (Located (body GHCP) -> RnM (Located (body GHCR), FreeVars))
         -> [LStmt GHCP (Located (body GHCP))]
         -> ([IdP GHCR] -> RnM (thing, FreeVars))

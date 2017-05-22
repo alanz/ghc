@@ -8,6 +8,7 @@ The deriving code for the Generic class
 
 {-# LANGUAGE CPP, ScopedTypeVariables, TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module TcGenGenerics (canDoGenerics, canDoGenerics1,
                       GenericKind(..),
@@ -65,7 +66,7 @@ For the generic representation we need to generate:
 -}
 
 gen_Generic_binds :: GenericKind -> TyCon -> [Type]
-                 -> TcM (LHsBinds RdrName, FamInst)
+                 -> TcM (LHsBinds GHCP, FamInst)
 gen_Generic_binds gk tc inst_tys = do
   repTyInsts <- tc_mkRepFamInsts gk tc inst_tys
   return (mkBindsRep gk tc, repTyInsts)
@@ -296,7 +297,7 @@ canDoGenerics1 rep_tc =
 -}
 
 type US = Int   -- Local unique supply, just a plain Int
-type Alt = (LPat RdrName, LHsExpr RdrName)
+type Alt = (LPat GHCP, LHsExpr GHCP)
 
 -- GenericKind serves to mark if a datatype derives Generic (Gen0) or
 -- Generic1 (Gen1).
@@ -320,7 +321,7 @@ gk2gkDC Gen1_{} d = Gen1_DC $ last $ dataConUnivTyVars d
 
 
 -- Bindings for the Generic instance
-mkBindsRep :: GenericKind -> TyCon -> LHsBinds RdrName
+mkBindsRep :: GenericKind -> TyCon -> LHsBinds GHCP
 mkBindsRep gk tycon =
     unitBag (mkRdrFunBind (L loc from01_RDR) [from_eqn])
   `unionBags`
@@ -752,7 +753,7 @@ mk1Sum gk_ us i n datacon = (from_alt, to_alt)
 
 
 -- Generates the L1/R1 sum pattern
-genLR_P :: Int -> Int -> LPat RdrName -> LPat RdrName
+genLR_P :: Int -> Int -> LPat GHCP -> LPat GHCP
 genLR_P i n p
   | n == 0       = error "impossible"
   | n == 1       = p
@@ -761,7 +762,7 @@ genLR_P i n p
                      where m = div n 2
 
 -- Generates the L1/R1 sum expression
-genLR_E :: Int -> Int -> LHsExpr RdrName -> LHsExpr RdrName
+genLR_E :: Int -> Int -> LHsExpr GHCP -> LHsExpr GHCP
 genLR_E i n e
   | n == 0       = error "impossible"
   | n == 1       = e
@@ -778,8 +779,9 @@ genLR_E i n e
 -- Build a product expression
 mkProd_E :: GenericKind_DC    -- Generic or Generic1?
          -> US                -- Base for unique names
-         -> [(RdrName, Type)] -- List of variables matched on the lhs and their types
-         -> LHsExpr RdrName   -- Resulting product expression
+         -> [(IdP GHCP, Type)]
+                       -- List of variables matched on the lhs and their types
+         -> LHsExpr GHCP   -- Resulting product expression
 mkProd_E _   _ []     = mkM1_E (nlHsVar u1DataCon_RDR)
 mkProd_E gk_ _ varTys = mkM1_E (foldBal prod appVars)
                      -- These M1s are meta-information for the constructor
@@ -787,7 +789,7 @@ mkProd_E gk_ _ varTys = mkM1_E (foldBal prod appVars)
     appVars = map (wrapArg_E gk_) varTys
     prod a b = prodDataCon_RDR `nlHsApps` [a,b]
 
-wrapArg_E :: GenericKind_DC -> (RdrName, Type) -> LHsExpr RdrName
+wrapArg_E :: GenericKind_DC -> (IdP GHCP, Type) -> LHsExpr GHCP
 wrapArg_E Gen0_DC          (var, ty) = mkM1_E $
                             boxRepRDR ty `nlHsVarApps` [var]
                          -- This M1 is meta-information for the selector
@@ -801,15 +803,15 @@ wrapArg_E (Gen1_DC argVar) (var, ty) = mkM1_E $
            ata_comp = \_ cnv -> nlHsVar comp1DataCon_RDR `nlHsCompose`
                                   (nlHsVar fmap_RDR `nlHsApp` cnv)}
 
-boxRepRDR :: Type -> RdrName
+boxRepRDR :: Type -> IdP GHCP
 boxRepRDR = maybe k1DataCon_RDR fst . unboxedRepRDRs
 
-unboxRepRDR :: Type -> RdrName
+unboxRepRDR :: Type -> IdP GHCP
 unboxRepRDR = maybe unK1_RDR snd . unboxedRepRDRs
 
 -- Retrieve the RDRs associated with each URec data family instance
 -- constructor. See Note [Generics and unlifted types]
-unboxedRepRDRs :: Type -> Maybe (RdrName, RdrName)
+unboxedRepRDRs :: Type -> Maybe (IdP GHCP, IdP GHCP)
 unboxedRepRDRs ty
   | ty `eqType` addrPrimTy   = Just (uAddrDataCon_RDR,   uAddrHash_RDR)
   | ty `eqType` charPrimTy   = Just (uCharDataCon_RDR,   uCharHash_RDR)
@@ -822,9 +824,9 @@ unboxedRepRDRs ty
 -- Build a product pattern
 mkProd_P :: GenericKind       -- Gen0 or Gen1
          -> US                -- Base for unique names
-         -> [(RdrName, Type)] -- List of variables to match,
+         -> [(IdP GHCP, Type)] -- List of variables to match,
                               --   along with their types
-         -> LPat RdrName      -- Resulting product pattern
+         -> LPat GHCP      -- Resulting product pattern
 mkProd_P _  _ []     = mkM1_P (nlNullaryConPat u1DataCon_RDR)
 mkProd_P gk _ varTys = mkM1_P (foldBal prod appVars)
                      -- These M1s are meta-information for the constructor
@@ -832,30 +834,30 @@ mkProd_P gk _ varTys = mkM1_P (foldBal prod appVars)
     appVars = unzipWith (wrapArg_P gk) varTys
     prod a b = nlParPat $ prodDataCon_RDR `nlConPat` [a,b]
 
-wrapArg_P :: GenericKind -> RdrName -> Type -> LPat RdrName
+wrapArg_P :: GenericKind -> IdP GHCP -> Type -> LPat GHCP
 wrapArg_P Gen0 v ty = mkM1_P (nlParPat $ boxRepRDR ty `nlConVarPat` [v])
                    -- This M1 is meta-information for the selector
 wrapArg_P Gen1 v _  = nlParPat $ m1DataCon_RDR `nlConVarPat` [v]
 
-mkGenericLocal :: US -> RdrName
+mkGenericLocal :: US -> IdP GHCP
 mkGenericLocal u = mkVarUnqual (mkFastString ("g" ++ show u))
 
-x_RDR :: RdrName
+x_RDR :: IdP GHCP
 x_RDR = mkVarUnqual (fsLit "x")
 
-x_Expr :: LHsExpr RdrName
+x_Expr :: LHsExpr GHCP
 x_Expr = nlHsVar x_RDR
 
-x_Pat :: LPat RdrName
+x_Pat :: LPat GHCP
 x_Pat = nlVarPat x_RDR
 
-mkM1_E :: LHsExpr RdrName -> LHsExpr RdrName
+mkM1_E :: LHsExpr GHCP -> LHsExpr GHCP
 mkM1_E e = nlHsVar m1DataCon_RDR `nlHsApp` e
 
-mkM1_P :: LPat RdrName -> LPat RdrName
+mkM1_P :: LPat GHCP -> LPat GHCP
 mkM1_P p = nlParPat $ m1DataCon_RDR `nlConPat` [p]
 
-nlHsCompose :: LHsExpr RdrName -> LHsExpr RdrName -> LHsExpr RdrName
+nlHsCompose :: LHsExpr GHCP -> LHsExpr GHCP -> LHsExpr GHCP
 nlHsCompose x y = compose_RDR `nlHsApps` [x, y]
 
 -- | Variant of foldr1 for producing balanced lists

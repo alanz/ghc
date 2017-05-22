@@ -1469,7 +1469,7 @@ Here we get
 
 data TcPatSynInfo
   = TPSI {
-        patsig_name           :: Name,
+        patsig_name           :: IdP GHCR,
         patsig_implicit_bndrs :: [TyVarBinder], -- Implicitly-bound kind vars (Inferred) and
                                                 -- implicitly-bound type vars (Specified)
           -- See Note [The pattern-synonym signature splitting rule] in TcPatSyn

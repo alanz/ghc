@@ -179,7 +179,7 @@ data HsBindLR idL idR
                                 -- See Note [Bind free vars]
 
 
-        fun_tick :: [Tickish Id]  -- ^ Ticks to put on the rhs, if any
+        fun_tick :: [Tickish (IdP GHCT)] -- ^ Ticks to put on the rhs, if any
     }
 
   -- | Pattern Binding
