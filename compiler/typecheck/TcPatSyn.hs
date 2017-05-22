@@ -445,7 +445,6 @@ tcPatSynMatcher (L loc name) lpat
                        , mg_res_ty = res_ty
                        , mg_origin = Generated
                        }
-             match :: Match GHCT (LHsExpr GHCT) -- AZ temporary 
              match = mkMatch (mkPrefixFunRhs (L loc name)) []
                              (mkHsLams (rr_tv:res_tv:univ_tvs)
                              req_dicts body')
@@ -789,13 +788,13 @@ tcCheckPatSynPat = go
     go1   SigPatOut{}         = panic "SigPatOut in output of renamer"
     go1   CoPat{}             = panic "CoPat in output of renamer"
 
-asPatInPatSynErr :: (OutputableBndrId name) => Pat name -> TcM a
+asPatInPatSynErr :: (SourceTextX p, OutputableBndrId p) => Pat p -> TcM a
 asPatInPatSynErr pat
   = failWithTc $
     hang (text "Pattern synonym definition cannot contain as-patterns (@):")
        2 (ppr pat)
 
-nPlusKPatInPatSynErr :: (OutputableBndrId name) => Pat name -> TcM a
+nPlusKPatInPatSynErr :: (SourceTextX p, OutputableBndrId p) => Pat p -> TcM a
 nPlusKPatInPatSynErr pat
   = failWithTc $
     hang (text "Pattern synonym definition cannot contain n+k-pattern:")

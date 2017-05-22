@@ -186,7 +186,7 @@ mkHsLam pats body = mkHsPar (L (getLoc body) (HsLam matches))
     matches = mkMatchGroup Generated
                            [mkSimpleMatch LambdaExpr pats body]
 
-mkHsLams :: [TyVar] -> [EvVar] -> LHsExpr Id -> LHsExpr Id
+mkHsLams :: [TyVar] -> [EvVar] -> LHsExpr GHCT -> LHsExpr GHCT
 mkHsLams tyvars dicts expr = mkLHsWrap (mkWpTyLams tyvars
                                        <.> mkWpLams dicts) expr
 
@@ -691,7 +691,7 @@ mkHsWrapPatCo :: TcCoercionN -> Pat id -> Type -> Pat id
 mkHsWrapPatCo co pat ty | isTcReflCo co = pat
                         | otherwise     = CoPat (mkWpCastN co) pat ty
 
-mkHsDictLet :: TcEvBinds -> LHsExpr Id -> LHsExpr Id
+mkHsDictLet :: TcEvBinds -> LHsExpr GHCT -> LHsExpr GHCT
 mkHsDictLet ev_binds expr = mkLHsWrap (mkWpLet ev_binds) expr
 
 {-

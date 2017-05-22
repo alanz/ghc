@@ -14,6 +14,7 @@ TcSplice: Template Haskell splices
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module TcSplice(
@@ -134,9 +135,9 @@ import GHC.Exts         ( unsafeCoerce# )
 ************************************************************************
 -}
 
-tcTypedBracket   :: HsBracket Name -> ExpRhoType -> TcM (HsExpr GHCTc)
-tcUntypedBracket :: HsBracket Name -> [PendingRnSplice] -> ExpRhoType -> TcM (HsExpr GHCTc)
-tcSpliceExpr     :: HsSplice Name  -> ExpRhoType -> TcM (HsExpr GHCTc)
+tcTypedBracket   :: HsBracket GHCR -> ExpRhoType -> TcM (HsExpr GHCTc)
+tcUntypedBracket :: HsBracket GHCR -> [PendingRnSplice] -> ExpRhoType -> TcM (HsExpr GHCTc)
+tcSpliceExpr     :: HsSplice GHCR  -> ExpRhoType -> TcM (HsExpr GHCTc)
         -- None of these functions add constraints to the LIE
 
 -- runQuasiQuoteExpr :: HsQuasiQuote RdrName -> RnM (LHsExpr RdrName)
@@ -190,7 +191,7 @@ tcUntypedBracket brack ps res_ty
                        (HsTcBracketOut brack ps') meta_ty res_ty }
 
 ---------------
-tcBrackTy :: HsBracket Name -> TcM TcType
+tcBrackTy :: HsBracket GHCR -> TcM TcType
 tcBrackTy (VarBr _ _) = tcMetaTy nameTyConName  -- Result type is Var (not Q-monadic)
 tcBrackTy (ExpBr _)   = tcMetaTy expQTyConName  -- Result type is ExpQ (= Q Exp)
 tcBrackTy (TypBr _)   = tcMetaTy typeQTyConName -- Result type is Type (= Q Typ)
@@ -226,7 +227,7 @@ tcTExpTy exp_ty
              , text "The type of a Typed Template Haskell expression must" <+>
                text "not have any quantification." ]
 
-quotationCtxtDoc :: HsBracket Name -> SDoc
+quotationCtxtDoc :: HsBracket GHCR -> SDoc
 quotationCtxtDoc br_body
   = hang (text "In the Template Haskell quotation")
          2 (ppr br_body)
@@ -452,8 +453,8 @@ environment (with 'addModFinalizersWithLclEnv').
 
 -}
 
-tcNestedSplice :: ThStage -> PendingStuff -> Name
-                -> LHsExpr Name -> ExpRhoType -> TcM (HsExpr GHCT)
+tcNestedSplice :: ThStage -> PendingStuff -> IdP GHCR
+                -> LHsExpr GHCR -> ExpRhoType -> TcM (HsExpr GHCT)
     -- See Note [How brackets and nested splices are handled]
     -- A splice inside brackets
 tcNestedSplice pop_stage (TcPending ps_var lie_var) splice_name expr res_ty
@@ -473,7 +474,7 @@ tcNestedSplice pop_stage (TcPending ps_var lie_var) splice_name expr res_ty
 tcNestedSplice _ _ splice_name _ _
   = pprPanic "tcNestedSplice: rename stage found" (ppr splice_name)
 
-tcTopSplice :: LHsExpr Name -> ExpRhoType -> TcM (HsExpr GHCT)
+tcTopSplice :: LHsExpr GHCR -> ExpRhoType -> TcM (HsExpr GHCT)
 tcTopSplice expr res_ty
   = do { -- Typecheck the expression,
          -- making sure it has type Q (T res_ty)
@@ -510,12 +511,12 @@ tcTopSplice expr res_ty
 ************************************************************************
 -}
 
-spliceCtxtDoc :: HsSplice Name -> SDoc
+spliceCtxtDoc :: HsSplice GHCR -> SDoc
 spliceCtxtDoc splice
   = hang (text "In the Template Haskell splice")
          2 (pprSplice splice)
 
-spliceResultDoc :: LHsExpr Name -> SDoc
+spliceResultDoc :: LHsExpr GHCR -> SDoc
 spliceResultDoc expr
   = sep [ text "In the result of the splice:"
         , nest 2 (char '$' <> ppr expr)
@@ -1226,14 +1227,14 @@ reify th_name
         ; traceTc "reify 2" (ppr thing)
         ; reifyThing thing }
 
-lookupThName :: TH.Name -> TcM Name
+lookupThName :: TH.Name -> TcM (IdP GHCR)
 lookupThName th_name = do
     mb_name <- lookupThName_maybe th_name
     case mb_name of
         Nothing   -> failWithTc (notInScope th_name)
         Just name -> return name
 
-lookupThName_maybe :: TH.Name -> TcM (Maybe Name)
+lookupThName_maybe :: TH.Name -> TcM (Maybe (IdP GHCR))
 lookupThName_maybe th_name
   =  do { names <- mapMaybeM lookup (thRdrNameGuesses th_name)
           -- Pick the first that works
@@ -1248,7 +1249,7 @@ lookupThName_maybe th_name
                  Just name -> return (Just name)
                  Nothing   -> lookupGlobalOccRn_maybe rdr_name }
 
-tcLookupTh :: Name -> TcM TcTyThing
+tcLookupTh :: IdP GHCR -> TcM TcTyThing
 -- This is a specialised version of TcEnv.tcLookup; specialised mainly in that
 -- it gives a reify-related error message on failure, whereas in the normal
 -- tcLookup, failure is a bug.
@@ -1279,7 +1280,7 @@ notInScope th_name = quotes (text (TH.pprint th_name)) <+>
                      text "is not in scope at a reify"
         -- Ugh! Rather an indirect way to display the name
 
-notInEnv :: Name -> SDoc
+notInEnv :: IdP GHCR -> SDoc
 notInEnv name = quotes (ppr name) <+>
                      text "is not in the type environment at a reify"
 
@@ -1889,7 +1890,7 @@ reifySelector id tc
       Nothing -> pprPanic "reifySelector: missing field" (ppr id $$ ppr tc)
 
 ------------------------------
-reifyFixity :: Name -> TcM (Maybe TH.Fixity)
+reifyFixity :: IdP GHCR -> TcM (Maybe TH.Fixity)
 reifyFixity name
   = do { (found, fix) <- lookupFixityRn_help name
        ; return (if found then Just (conv_fix fix) else Nothing) }
