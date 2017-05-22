@@ -146,7 +146,7 @@ rnExpr (HsLit lit@(HsString src s))
             rnExpr (HsOverLit (mkHsIsString src s placeHolderType))
          else do {
             ; rnLit lit
-            ; return (HsLit (convertlit lit), emptyFVs) } }
+            ; return (HsLit (convertLit lit), emptyFVs) } }
 
 rnExpr (HsLit lit)
   = do { rnLit lit

@@ -166,7 +166,7 @@ tcClassSigs clas sigs def_methods
 -}
 
 tcClassDecl2 :: LTyClDecl GHCR          -- The class declaration
-             -> TcM (LHsBinds GHCTC)
+             -> TcM (LHsBinds GHCTc)
 
 tcClassDecl2 (L _ (ClassDecl {tcdLName = class_name, tcdSigs = sigs,
                                 tcdMeths = default_binds}))
@@ -318,7 +318,7 @@ tcClassMinimalDef _clas sigs op_info
     defMindef = mkAnd [ noLoc (mkVar name)
                       | (name, _, Nothing) <- op_info ]
 
-instantiateMethod :: Class -> IdP GHCTC -> [TcType] -> TcType
+instantiateMethod :: Class -> IdP GHCTc -> [TcType] -> TcType
 -- Take a class operation, say
 --      op :: forall ab. C a => forall c. Ix c => (b,c) -> a
 -- Instantiate it at [ty1,ty2]
@@ -448,7 +448,7 @@ dupGenericInsts tc_inst_infos
   where
     ppr_inst_ty (_,inst) = ppr (simpleInstInfoTy inst)
 -}
-badDmPrag :: IdP GHCTC -> Sig GHCR -> TcM ()
+badDmPrag :: IdP GHCTc -> Sig GHCR -> TcM ()
 badDmPrag sel_id prag
   = addErrTc (text "The" <+> hsSigDoc prag <+> ptext (sLit "for default method")
               <+> quotes (ppr sel_id)

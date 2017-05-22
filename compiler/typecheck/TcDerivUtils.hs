@@ -37,7 +37,6 @@ import Module (getModule)
 import Name
 import Outputable
 import PrelNames
-import RdrName
 import SrcLoc
 import TcGenDeriv
 import TcGenFunctor
