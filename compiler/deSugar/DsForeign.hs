@@ -7,6 +7,7 @@ Desugaring foreign declarations (see also DsCCall).
 -}
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module DsForeign ( dsForeigns ) where

@@ -2,16 +2,14 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module TcSplice where
-import HsSyn    ( HsSplice, HsBracket, HsExpr, LHsExpr )
 import HsExpr   ( PendingRnSplice )
-import Name     ( Name )
-import TcRnTypes( TcM, TcId )
+import TcRnTypes( TcM , SpliceType )
 import TcType   ( ExpRhoType )
 import Annotations ( Annotation, CoreAnnTarget )
-import HsExtension  ( GHCTc, GHCR, GHCP, IdP )
+import HsExtension ( GHCTc, GHCR, GHCP, IdP )
 
-import HsSyn      ( LHsType, LPat, LHsDecl, ThModFinalizers )
-import TcRnTypes  ( SpliceType )
+import HsSyn      ( HsSplice, HsBracket, HsExpr, LHsExpr, LHsType, LPat,
+                    LHsDecl, ThModFinalizers )
 import qualified Language.Haskell.TH as TH
 
 tcSpliceExpr :: HsSplice GHCR

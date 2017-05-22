@@ -30,7 +30,6 @@ import TcMType
 import TcType
 import TcBinds
 import TcUnify
-import Name
 import TysWiredIn
 import Id
 import TyCon

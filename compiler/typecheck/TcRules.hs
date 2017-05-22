@@ -24,7 +24,6 @@ import TcEvidence( mkTcCoVarCo )
 import Type
 import Id
 import Var( EvVar )
-import Name
 import BasicTypes       ( RuleName )
 import SrcLoc
 import Outputable

@@ -1,8 +1,7 @@
 module TcExpr where
 import HsSyn    ( HsExpr, LHsExpr, SyntaxExpr )
-import Name     ( Name )
 import TcType   ( TcRhoType, TcSigmaType, SyntaxOpType, ExpType, ExpRhoType )
-import TcRnTypes( TcM, TcId, CtOrigin )
+import TcRnTypes( TcM, CtOrigin )
 import HsExtension ( IdP, GHCR, GHCTc )
 
 tcPolyExpr ::

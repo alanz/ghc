@@ -12,14 +12,8 @@ import Name
 import NameSet
 import RdrName
 import Var
-import Coercion
-import ConLike (ConLike)
-import FieldLabel
-import SrcLoc (Located)
-import TcEvidence ( HsWrapper )
 
 import Data.Data hiding ( Fixity )
-import BasicTypes       (Fixity)
 
 
 {-

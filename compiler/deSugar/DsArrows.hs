@@ -37,8 +37,6 @@ import CoreUtils
 import MkCore
 import DsBinds (dsHsWrapper)
 
-import Name
-import Var
 import Id
 import ConLike
 import TysWiredIn

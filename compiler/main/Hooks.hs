@@ -26,14 +26,12 @@ module Hooks ( Hooks
              ) where
 
 import DynFlags
-import Name
 import PipelineMonad
 import HscTypes
 import HsDecls
 import HsBinds
 import HsExpr
 import OrdList
-import Id
 import TcRnTypes
 import Bag
 import RdrName

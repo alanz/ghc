@@ -41,7 +41,6 @@ import FastString
 import ErrUtils         ( dumpIfSet_dyn_printer )
 import TcEnv            ( tcMetaTy )
 import Hooks
-import Var              ( Id )
 import THNames          ( quoteExpName, quotePatName, quoteDecName, quoteTypeName
                         , decsQTyConName, expQTyConName, patQTyConName, typeQTyConName, )
 

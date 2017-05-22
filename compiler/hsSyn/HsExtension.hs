@@ -77,8 +77,12 @@ type GHCTV = GHCT -- Var
 deriving instance Data GHCP
 deriving instance Data GHCR
 deriving instance Data GHCT
--- deriving instance Data GHCTc
 deriving instance Data GHCTH
+
+deriving instance Eq GHCP
+deriving instance Eq GHCR
+deriving instance Eq GHCT
+deriving instance Eq GHCTH
 
 type family PostTC x ty -- Note [Pass sensitive types]
 type instance PostTC GHCP ty = PlaceHolder

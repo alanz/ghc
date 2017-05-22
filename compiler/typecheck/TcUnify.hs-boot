@@ -4,7 +4,6 @@ import TcRnTypes   ( TcM )
 import TcEvidence  ( TcCoercion )
 import Outputable  ( Outputable )
 import HsExpr      ( HsExpr )
-import Name        ( Name )
 import HsExtension ( GHCR )
 
 -- This boot file exists only to tie the knot between
