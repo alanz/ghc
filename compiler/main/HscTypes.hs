@@ -701,35 +701,35 @@ hptObjs hpt = concat (map (maybe [] linkableObjs . hm_linkable) (eltsHpt hpt))
 
 -- | The supported metaprogramming result types
 data MetaRequest
-  = MetaE  (LHsExpr RdrName   -> MetaResult)
-  | MetaP  (LPat RdrName      -> MetaResult)
-  | MetaT  (LHsType RdrName   -> MetaResult)
-  | MetaD  ([LHsDecl RdrName] -> MetaResult)
-  | MetaAW (Serialized        -> MetaResult)
+  = MetaE  (LHsExpr GHCP   -> MetaResult)
+  | MetaP  (LPat GHCP      -> MetaResult)
+  | MetaT  (LHsType GHCP   -> MetaResult)
+  | MetaD  ([LHsDecl GHCP] -> MetaResult)
+  | MetaAW (Serialized     -> MetaResult)
 
 -- | data constructors not exported to ensure correct result type
 data MetaResult
-  = MetaResE  { unMetaResE  :: LHsExpr RdrName   }
-  | MetaResP  { unMetaResP  :: LPat RdrName      }
-  | MetaResT  { unMetaResT  :: LHsType RdrName   }
-  | MetaResD  { unMetaResD  :: [LHsDecl RdrName] }
+  = MetaResE  { unMetaResE  :: LHsExpr GHCP   }
+  | MetaResP  { unMetaResP  :: LPat GHCP      }
+  | MetaResT  { unMetaResT  :: LHsType GHCP   }
+  | MetaResD  { unMetaResD  :: [LHsDecl GHCP] }
   | MetaResAW { unMetaResAW :: Serialized        }
 
-type MetaHook f = MetaRequest -> LHsExpr Id -> f MetaResult
+type MetaHook f = MetaRequest -> LHsExpr GHCT -> f MetaResult
 
-metaRequestE :: Functor f => MetaHook f -> LHsExpr Id -> f (LHsExpr RdrName)
+metaRequestE :: Functor f => MetaHook f -> LHsExpr GHCT -> f (LHsExpr GHCP)
 metaRequestE h = fmap unMetaResE . h (MetaE MetaResE)
 
-metaRequestP :: Functor f => MetaHook f -> LHsExpr Id -> f (LPat RdrName)
+metaRequestP :: Functor f => MetaHook f -> LHsExpr GHCT -> f (LPat GHCP)
 metaRequestP h = fmap unMetaResP . h (MetaP MetaResP)
 
-metaRequestT :: Functor f => MetaHook f -> LHsExpr Id -> f (LHsType RdrName)
+metaRequestT :: Functor f => MetaHook f -> LHsExpr GHCT -> f (LHsType GHCP)
 metaRequestT h = fmap unMetaResT . h (MetaT MetaResT)
 
-metaRequestD :: Functor f => MetaHook f -> LHsExpr Id -> f [LHsDecl RdrName]
+metaRequestD :: Functor f => MetaHook f -> LHsExpr GHCT -> f [LHsDecl GHCP]
 metaRequestD h = fmap unMetaResD . h (MetaD MetaResD)
 
-metaRequestAW :: Functor f => MetaHook f -> LHsExpr Id -> f Serialized
+metaRequestAW :: Functor f => MetaHook f -> LHsExpr GHCT -> f Serialized
 metaRequestAW h = fmap unMetaResAW . h (MetaAW MetaResAW)
 
 {-

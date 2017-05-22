@@ -291,7 +291,7 @@ hscGetModuleInterface hsc_env0 mod = runInteractiveHsc hsc_env0 $ do
 
 -- -----------------------------------------------------------------------------
 -- | Rename some import declarations
-hscRnImportDecls :: HscEnv -> [LImportDecl RdrName] -> IO GlobalRdrEnv
+hscRnImportDecls :: HscEnv -> [LImportDecl GHCP] -> IO GlobalRdrEnv
 hscRnImportDecls hsc_env0 import_decls = runInteractiveHsc hsc_env0 $ do
   hsc_env <- getHscEnv
   ioMsgMaybe $ tcRnImportDecls hsc_env import_decls
@@ -381,7 +381,7 @@ hscParse' mod_summary
 -- can become a Nothing and decide whether this should instead throw an
 -- exception/signal an error.
 type RenamedStuff =
-        (Maybe (HsGroup Name, [LImportDecl Name], Maybe [LIE Name],
+        (Maybe (HsGroup GHCR, [LImportDecl GHCR], Maybe [LIE GHCR],
                 Maybe LHsDocString))
 
 -- | Rename and typecheck a module, additionally returning the renamed syntax
@@ -1499,7 +1499,7 @@ hscStmtWithLocation hsc_env0 stmt source linenumber =
         liftIO $ hscParsedStmt hsc_env parsed_stmt
 
 hscParsedStmt :: HscEnv
-              -> GhciLStmt RdrName  -- ^ The parsed statement
+              -> GhciLStmt GHCP  -- ^ The parsed statement
               -> IO ( Maybe ([Id]
                     , ForeignHValue {- IO [HValue] -}
                     , FixityEnv))
@@ -1635,7 +1635,7 @@ hscAddSptEntries hsc_env entries = do
 
 -}
 
-hscImport :: HscEnv -> String -> IO (ImportDecl RdrName)
+hscImport :: HscEnv -> String -> IO (ImportDecl GHCP)
 hscImport hsc_env str = runInteractiveHsc hsc_env $ do
     (L _ (HsModule{hsmodImports=is})) <-
        hscParseThing parseModule str
@@ -1667,7 +1667,7 @@ hscKcType hsc_env0 normalise str = runInteractiveHsc hsc_env0 $ do
     ty <- hscParseType str
     ioMsgMaybe $ tcRnType hsc_env normalise ty
 
-hscParseExpr :: String -> Hsc (LHsExpr RdrName)
+hscParseExpr :: String -> Hsc (LHsExpr GHCP)
 hscParseExpr expr = do
   hsc_env <- getHscEnv
   maybe_stmt <- hscParseStmt expr
@@ -1676,15 +1676,15 @@ hscParseExpr expr = do
     _ -> throwErrors $ unitBag $ mkPlainErrMsg (hsc_dflags hsc_env) noSrcSpan
       (text "not an expression:" <+> quotes (text expr))
 
-hscParseStmt :: String -> Hsc (Maybe (GhciLStmt RdrName))
+hscParseStmt :: String -> Hsc (Maybe (GhciLStmt GHCP))
 hscParseStmt = hscParseThing parseStmt
 
 hscParseStmtWithLocation :: String -> Int -> String
-                         -> Hsc (Maybe (GhciLStmt RdrName))
+                         -> Hsc (Maybe (GhciLStmt GHCP))
 hscParseStmtWithLocation source linenumber stmt =
     hscParseThingWithLocation source linenumber parseStmt stmt
 
-hscParseType :: String -> Hsc (LHsType RdrName)
+hscParseType :: String -> Hsc (LHsType GHCP)
 hscParseType = hscParseThing parseType
 
 hscParseIdentifier :: HscEnv -> String -> IO (Located RdrName)
