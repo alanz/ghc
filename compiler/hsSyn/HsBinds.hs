@@ -86,7 +86,7 @@ data HsLocalBindsLR idL idR
 
 type LHsLocalBindsLR idL idR = Located (HsLocalBindsLR idL idR)
 
-deriving instance (DataP idL, DataP idR) => Data (HsLocalBindsLR idL idR)
+deriving instance (DataId idL, DataId idR) => Data (HsLocalBindsLR idL idR)
 
 -- | Haskell Value Bindings
 type HsValBinds id = HsValBindsLR id id
@@ -112,7 +112,7 @@ data HsValBindsLR idL idR
         [(RecFlag, LHsBinds idL)]
         [LSig GHCR] -- AZ: how to do this?
 
-deriving instance (DataP idL, DataP idR) => Data (HsValBindsLR idL idR)
+deriving instance (DataId idL, DataId idR) => Data (HsValBindsLR idL idR)
 
 -- | Located Haskell Binding
 type LHsBind  id = LHsBindLR  id id
@@ -173,7 +173,7 @@ data HsBindLR idL idR
                                 -- type         Int -> forall a'. a' -> a'
                                 -- Notice that the coercion captures the free a'.
 
-        bind_fvs :: PostRN idL NameSet, -- ^ After the renamer, this contains
+        bind_fvs :: PostRn idL NameSet, -- ^ After the renamer, this contains
                                 --  the locally-bound
                                 -- free variables of this defn.
                                 -- See Note [Bind free vars]
@@ -195,8 +195,8 @@ data HsBindLR idL idR
   | PatBind {
         pat_lhs    :: LPat idL,
         pat_rhs    :: GRHSs idR (LHsExpr idR),
-        pat_rhs_ty :: PostTC idR Type,      -- ^ Type of the GRHSs
-        bind_fvs   :: PostRN idL NameSet, -- ^ See Note [Bind free vars]
+        pat_rhs_ty :: PostTc idR Type,      -- ^ Type of the GRHSs
+        bind_fvs   :: PostRn idL NameSet, -- ^ See Note [Bind free vars]
         pat_ticks  :: ([Tickish Id], [[Tickish Id]])
                -- ^ Ticks to put on the rhs, if any, and ticks to put on
                -- the bound variables.
@@ -256,7 +256,7 @@ data HsBindLR idL idR
 
         -- For details on above see note [Api annotations] in ApiAnnotation
 
-deriving instance (DataP idL, DataP idR) => Data (HsBindLR idL idR)
+deriving instance (DataId idL, DataId idR) => Data (HsBindLR idL idR)
 
         -- Consider (AbsBinds tvs ds [(ftvs, poly_f, mono_f) binds]
         --
@@ -278,7 +278,7 @@ data ABExport p
              -- Shape: (forall abs_tvs. abs_ev_vars => abe_mono) ~ abe_poly
         , abe_prags     :: TcSpecPrags  -- ^ SPECIALISE pragmas
   }
-deriving instance (DataP p) => Data (ABExport p)
+deriving instance (DataId p) => Data (ABExport p)
 
 -- | - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnPattern',
 --             'ApiAnnotation.AnnEqual','ApiAnnotation.AnnLarrow'
@@ -290,13 +290,13 @@ deriving instance (DataP p) => Data (ABExport p)
 -- | Pattern Synonym binding
 data PatSynBind idL idR
   = PSB { psb_id   :: Located (IdP idL),       -- ^ Name of the pattern synonym
-          psb_fvs  :: PostRN idR NameSet,      -- ^ See Note [Bind free vars]
+          psb_fvs  :: PostRn idR NameSet,      -- ^ See Note [Bind free vars]
           psb_args :: HsPatSynDetails (Located (IdP idR)),
                                                -- ^ Formal parameter names
           psb_def  :: LPat idR,                -- ^ Right-hand side
           psb_dir  :: HsPatSynDir idR          -- ^ Directionality
   }
-deriving instance (DataP idL, DataP idR) => Data (PatSynBind idL idR)
+deriving instance (DataId idL, DataId idR) => Data (PatSynBind idL idR)
 
 {-
 Note [AbsBinds]
@@ -672,7 +672,7 @@ data HsIPBinds id
         [LIPBind id]
         TcEvBinds       -- Only in typechecker output; binds
                         -- uses of the implicit parameters
-deriving instance (DataP id) => Data (HsIPBinds id)
+deriving instance (DataId id) => Data (HsIPBinds id)
 
 isEmptyIPBinds :: HsIPBinds id -> Bool
 isEmptyIPBinds (IPBinds is ds) = null is && isEmptyTcEvBinds ds
@@ -696,7 +696,7 @@ type LIPBind id = Located (IPBind id)
 -- For details on above see note [Api annotations] in ApiAnnotation
 data IPBind id
   = IPBind (Either (Located HsIPName) (IdP id)) (LHsExpr id)
-deriving instance (DataP name) => Data (IPBind name)
+deriving instance (DataId name) => Data (IPBind name)
 
 instance (SourceTextX p, OutputableBndrId p) => Outputable (HsIPBinds p) where
   ppr (IPBinds bs ds) = pprDeeperList vcat (map ppr bs)
@@ -868,14 +868,14 @@ data Sig pass
                      (Located [Located (IdP pass)])
                      (Maybe (Located (IdP pass)))
 
-deriving instance (DataP pass) => Data (Sig pass)
+deriving instance (DataId pass) => Data (Sig pass)
 
 -- | Located Fixity Signature
 type LFixitySig pass = Located (FixitySig pass)
 
 -- | Fixity Signature
 data FixitySig pass = FixitySig [Located (IdP pass)] Fixity
-deriving instance (DataP pass) => Data (FixitySig pass)
+deriving instance (DataId pass) => Data (FixitySig pass)
 
 -- | Type checker Specialisation Pragmas
 --
@@ -1161,4 +1161,4 @@ data HsPatSynDir id
   = Unidirectional
   | ImplicitBidirectional
   | ExplicitBidirectional (MatchGroup id (LHsExpr id))
-deriving instance (DataP id) => Data (HsPatSynDir id)
+deriving instance (DataId id) => Data (HsPatSynDir id)

@@ -75,7 +75,7 @@ data HsLit x
   | HsDoublePrim (XHsDoublePrim x) FractionalLit
       -- ^ Unboxed Double
 
-deriving instance (DataP x) => Data (HsLit x)
+deriving instance (DataId x) => Data (HsLit x)
 
 
 instance Eq (HsLit x) where
@@ -98,10 +98,10 @@ instance Eq (HsLit x) where
 data HsOverLit p
   = OverLit {
         ol_val :: OverLitVal,
-        ol_rebindable :: PostRN p Bool, -- Note [ol_rebindable]
+        ol_rebindable :: PostRn p Bool, -- Note [ol_rebindable]
         ol_witness :: HsExpr p,         -- Note [Overloaded literal witnesses]
-        ol_type :: PostTC p Type }
-deriving instance (DataP p, DataP p) => Data (HsOverLit p)
+        ol_type :: PostTc p Type }
+deriving instance (DataId p, DataId p) => Data (HsOverLit p)
 
 -- Note [Literal source text] in BasicTypes for SourceText fields in
 -- the following
@@ -117,7 +117,7 @@ negateOverLitVal (HsIntegral i) = HsIntegral (negateIntegralLit i)
 negateOverLitVal (HsFractional f) = HsFractional (negateFractionalLit f)
 negateOverLitVal _ = panic "negateOverLitVal: argument is not a number"
 
-overLitType :: HsOverLit p -> PostTC p Type
+overLitType :: HsOverLit p -> PostTc p Type
 overLitType = ol_type
 
 -- | Convert a literal from one index type to another, updating the annotations

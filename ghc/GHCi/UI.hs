@@ -59,7 +59,7 @@ import Packages ( trusted, getPackageDetails, getInstalledPackageDetails,
 import IfaceSyn ( showToHeader )
 import PprTyThing
 import PrelNames
-import RdrName ( RdrName, getGRE_NameQualifier_maybes, getRdrName )
+import RdrName ( getGRE_NameQualifier_maybes, getRdrName )
 import SrcLoc
 import qualified Lexer
 

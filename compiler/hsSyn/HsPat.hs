@@ -76,7 +76,7 @@ type LPat p = Located (Pat p)
 -- For details on above see note [Api annotations] in ApiAnnotation
 data Pat p
   =     ------------ Simple patterns ---------------
-    WildPat     (PostTC p Type)        -- ^ Wildcard Pattern
+    WildPat     (PostTc p Type)        -- ^ Wildcard Pattern
         -- The sole reason for a type on a WildPat is to
         -- support hsPatType :: Pat Id -> Type
 
@@ -107,8 +107,8 @@ data Pat p
 
         ------------ Lists, tuples, arrays ---------------
   | ListPat     [LPat p]
-                (PostTC p Type)                      -- The type of the elements
-                (Maybe (PostTC p Type, SyntaxExpr p)) -- For rebindable syntax
+                (PostTc p Type)                      -- The type of the elements
+                (Maybe (PostTc p Type, SyntaxExpr p)) -- For rebindable syntax
                    -- For OverloadedLists a Just (ty,fn) gives
                    -- overall type of the pattern, and the toList
                    -- function to convert the scrutinee to a list value
@@ -121,9 +121,9 @@ data Pat p
 
   | TuplePat    [LPat p]         -- Tuple sub-patterns
                 Boxity           -- UnitPat is TuplePat []
-                [PostTC p Type]  -- [] before typechecker, filled in afterwards
+                [PostTc p Type]  -- [] before typechecker, filled in afterwards
                                  -- with the types of the tuple components
-        -- You might think that the PostTC p Type was redundant, because we can
+        -- You might think that the PostTc p Type was redundant, because we can
         -- get the pattern type by getting the types of the sub-patterns.
         -- But it's essential
         --      data T a where
@@ -147,7 +147,7 @@ data Pat p
   | SumPat      (LPat p)           -- Sum sub-pattern
                 ConTag             -- Alternative (one-based)
                 Arity              -- Arity
-                (PostTC p [Type])  -- PlaceHolder before typechecker, filled in
+                (PostTc p [Type])  -- PlaceHolder before typechecker, filled in
                                    -- afterwards with the types of the
                                    -- alternative
     -- ^ Anonymous sum pattern
@@ -158,7 +158,7 @@ data Pat p
 
     -- For details on above see note [Api annotations] in ApiAnnotation
   | PArrPat     [LPat p]                -- Syntactic parallel array
-                (PostTC p Type)         -- The type of the elements
+                (PostTc p Type)         -- The type of the elements
     -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen' @'[:'@,
     --                                    'ApiAnnotation.AnnClose' @':]'@
 
@@ -195,7 +195,7 @@ data Pat p
   -- For details on above see note [Api annotations] in ApiAnnotation
   | ViewPat       (LHsExpr p)
                   (LPat p)
-                  (PostTC p Type)   -- The overall type of the pattern
+                  (PostTc p Type)   -- The overall type of the pattern
                                     -- (= the argument type of the view function)
                                     -- for hsPatType.
     -- ^ View Pattern
@@ -219,7 +219,7 @@ data Pat p
                     (Maybe (SyntaxExpr p))      -- Just (Name of 'negate') for negative
                                                 -- patterns, Nothing otherwise
                     (SyntaxExpr p)              -- Equality checker, of type t->t->Bool
-                    (PostTC p Type)             -- Overall type of pattern. Might be
+                    (PostTc p Type)             -- Overall type of pattern. Might be
                                                 -- different than the literal's type
                                                 -- if (==) or negate changes the type
 
@@ -236,7 +236,7 @@ data Pat p
 
                     (SyntaxExpr p)      -- (>=) function, of type t1->t2->Bool
                     (SyntaxExpr p)      -- Name of '-' (see RnEnv.lookupSyntaxName)
-                    (PostTC p Type)     -- Type of overall pattern
+                    (PostTc p Type)     -- Type of overall pattern
   -- ^ n+k pattern
 
         ------------ Pattern type signatures ---------------
@@ -261,7 +261,7 @@ data Pat p
         -- During desugaring a (CoPat co pat) turns into a cast with 'co' on
         -- the scrutinee, followed by a match on 'pat'
     -- ^ Coercion Pattern
-deriving instance (DataP p) => Data (Pat p)
+deriving instance (DataId p) => Data (Pat p)
 
 -- | Haskell Constructor Pattern Details
 type HsConPatDetails p = HsConDetails (LPat p) (HsRecFields p (LPat p))
@@ -281,7 +281,7 @@ data HsRecFields p arg         -- A bunch of record fields
   = HsRecFields { rec_flds   :: [LHsRecField p arg],
                   rec_dotdot :: Maybe Int }  -- Note [DotDot fields]
   deriving (Functor, Foldable, Traversable)
-deriving instance (DataP p, Data arg) => Data (HsRecFields p arg)
+deriving instance (DataId p, Data arg) => Data (HsRecFields p arg)
 
 
 -- Note [DotDot fields]
@@ -379,14 +379,14 @@ data HsRecField' id arg = HsRecField {
 --
 -- See also Note [Disambiguating record fields] in TcExpr.
 
-hsRecFields :: HsRecFields p arg -> [PostRN p (IdP p)]
+hsRecFields :: HsRecFields p arg -> [PostRn p (IdP p)]
 hsRecFields rbinds = map (unLoc . hsRecFieldSel . unLoc) (rec_flds rbinds)
 
 -- Probably won't typecheck at once, things have changed :/
 hsRecFieldsArgs :: HsRecFields p arg -> [arg]
 hsRecFieldsArgs rbinds = map (hsRecFieldArg . unLoc) (rec_flds rbinds)
 
-hsRecFieldSel :: HsRecField pass arg -> Located (PostRN pass (IdP pass))
+hsRecFieldSel :: HsRecField pass arg -> Located (PostRn pass (IdP pass))
 hsRecFieldSel = fmap selectorFieldOcc . hsRecFieldLbl
 
 hsRecFieldId :: HsRecField GHCT arg -> Located (IdP GHCT)

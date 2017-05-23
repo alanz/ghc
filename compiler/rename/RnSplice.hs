@@ -516,7 +516,7 @@ References:
 -}
 
 ----------------------
-rnSpliceType :: HsSplice GHCP -> PostTC GHCR Kind
+rnSpliceType :: HsSplice GHCP -> PostTc GHCR Kind
              -> RnM (HsType GHCR, FreeVars)
 rnSpliceType splice k
   = rnSpliceGen run_type_splice pend_type_splice splice

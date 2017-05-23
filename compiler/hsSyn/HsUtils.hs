@@ -159,7 +159,7 @@ unguardedGRHSs rhs@(L loc _)
 unguardedRHS :: SrcSpan -> Located (body id) -> [LGRHS id (Located (body id))]
 unguardedRHS loc rhs = [L loc (GRHS [] rhs)]
 
-mkMatchGroup :: (PostTC name Type ~ PlaceHolder)
+mkMatchGroup :: (PostTc name Type ~ PlaceHolder)
              => Origin -> [LMatch name (Located (body name))]
              -> MatchGroup name (Located (body name))
 mkMatchGroup origin matches = MG { mg_alts = mkLocatedList matches
@@ -220,10 +220,10 @@ nlParPat p = noLoc (ParPat p)
 -- These are the bits of syntax that contain rebindable names
 -- See RnEnv.lookupSyntaxName
 
-mkHsIntegral   :: IntegralLit -> PostTC GHCP Type
+mkHsIntegral   :: IntegralLit -> PostTc GHCP Type
                -> HsOverLit GHCP
-mkHsFractional :: FractionalLit -> PostTC GHCP Type -> HsOverLit GHCP
-mkHsIsString :: SourceText -> FastString -> PostTC GHCP Type
+mkHsFractional :: FractionalLit -> PostTc GHCP Type -> HsOverLit GHCP
+mkHsIsString :: SourceText -> FastString -> PostTc GHCP Type
              -> HsOverLit GHCP
 mkHsDo         :: HsStmtContext (IdP GHCR) -> [ExprLStmt GHCP] -> HsExpr GHCP
 mkHsComp       :: HsStmtContext (IdP GHCR) -> [ExprLStmt GHCP] -> LHsExpr GHCP
@@ -236,7 +236,7 @@ mkLastStmt :: SourceTextX idR
            => Located (bodyR idR) -> StmtLR idL idR (Located (bodyR idR))
 mkBodyStmt :: Located (bodyR GHCP)
            -> StmtLR idL GHCP (Located (bodyR GHCP))
-mkBindStmt :: (SourceTextX idR, PostTC idR Type ~ PlaceHolder)
+mkBindStmt :: (SourceTextX idR, PostTc idR Type ~ PlaceHolder)
            => LPat idL -> Located (bodyR idR)
            -> StmtLR idL idR (Located (bodyR idR))
 mkTcBindStmt :: LPat GHCT -> Located (bodyR GHCT)
@@ -266,20 +266,20 @@ mkHsIf c a b = HsIf (Just noSyntaxExpr) c a b
 mkNPat lit neg     = NPat lit neg noSyntaxExpr placeHolderType
 mkNPlusKPat id lit = NPlusKPat id lit (unLoc lit) noSyntaxExpr noSyntaxExpr placeHolderType
 
-mkTransformStmt    :: (SourceTextX idR, PostTC idR Type ~ PlaceHolder)
+mkTransformStmt    :: (SourceTextX idR, PostTc idR Type ~ PlaceHolder)
                    => [ExprLStmt idL] -> LHsExpr idR
                    -> StmtLR idL idR (LHsExpr idL)
-mkTransformByStmt  :: (SourceTextX idR, PostTC idR Type ~ PlaceHolder)
+mkTransformByStmt  :: (SourceTextX idR, PostTc idR Type ~ PlaceHolder)
                    => [ExprLStmt idL] -> LHsExpr idR -> LHsExpr idR
                    -> StmtLR idL idR (LHsExpr idL)
-mkGroupUsingStmt   :: (SourceTextX idR, PostTC idR Type ~ PlaceHolder)
+mkGroupUsingStmt   :: (SourceTextX idR, PostTc idR Type ~ PlaceHolder)
                    => [ExprLStmt idL]                -> LHsExpr idR
                    -> StmtLR idL idR (LHsExpr idL)
-mkGroupByUsingStmt :: (SourceTextX idR, PostTC idR Type ~ PlaceHolder)
+mkGroupByUsingStmt :: (SourceTextX idR, PostTc idR Type ~ PlaceHolder)
                    => [ExprLStmt idL] -> LHsExpr idR -> LHsExpr idR
                    -> StmtLR idL idR (LHsExpr idL)
 
-emptyTransStmt :: (SourceTextX idR, PostTC idR Type ~ PlaceHolder)
+emptyTransStmt :: (SourceTextX idR, PostTc idR Type ~ PlaceHolder)
                => StmtLR idL idR (LHsExpr idR)
 emptyTransStmt = TransStmt { trS_form = panic "emptyTransStmt: form"
                            , trS_stmts = [], trS_bndrs = []
@@ -299,7 +299,7 @@ mkTcBindStmt pat body = BindStmt pat body noSyntaxExpr noSyntaxExpr unitTy
   -- don't use placeHolderTypeTc above, because that panics during zonking
 
 emptyRecStmt' :: forall idL idR body. SourceTextX idR =>
-                       PostTC idR Type -> StmtLR idL idR body
+                       PostTc idR Type -> StmtLR idL idR body
 emptyRecStmt' tyVal =
    RecStmt
      { recS_stmts = [], recS_later_ids = []

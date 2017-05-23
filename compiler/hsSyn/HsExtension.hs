@@ -84,34 +84,23 @@ deriving instance Eq GHCR
 deriving instance Eq GHCT
 deriving instance Eq GHCTH
 
-type family PostTC x ty -- Note [Pass sensitive types]
-type instance PostTC GHCP ty = PlaceHolder
-type instance PostTC GHCR ty = PlaceHolder
-type instance PostTC GHCT ty = ty
--- type instance PostTC GHCTc ty = ty
+type family PostTc x ty -- Note [Pass sensitive types]
+type instance PostTc GHCP ty = PlaceHolder
+type instance PostTc GHCR ty = PlaceHolder
+type instance PostTc GHCT ty = ty
 
 -- | Types that are not defined until after renaming
-type family PostRN x ty  -- Note [Pass sensitive types]
-type instance PostRN GHCP ty = PlaceHolder
-type instance PostRN GHCR ty = ty
-type instance PostRN GHCT ty = ty
--- type instance PostRN GHCTc ty = ty
+type family PostRn x ty  -- Note [Pass sensitive types]
+type instance PostRn GHCP ty = PlaceHolder
+type instance PostRn GHCR ty = ty
+type instance PostRn GHCT ty = ty
 
 -- Maps the "normal" id type for a given pass
 type family IdP p
 type instance IdP GHCP = RdrName
 type instance IdP GHCR = Name
 type instance IdP GHCT = Id
--- type instance IdP GHCTc = TcId
 
--- AZ: dummy for now, to allow HsTypes to build
--- type instance IdP Name    = Name
--- type instance IdP RdrName = RdrName
--- type instance IdP Var     = Var
--- type instance IdP Id      = Id
-
--- Start of trees that grow extensionality -----------------------------
--- Question: What happens to SourceText? should end up in annotation, I imagine
 
 type family XHsChar x
 type family XHsCharPrim x
@@ -127,7 +116,6 @@ type family XHsRat x
 type family XHsFloatPrim x
 type family XHsDoublePrim x
 
--- AZ:TODO: kind error trying to use this?
 type ClassX (c :: * -> Constraint) (x :: *) =
   ( c (XHsChar x)
   , c (XHsCharPrim x)
@@ -258,26 +246,26 @@ type ConvertIdX a b =
 
 -- ----------------------------------------------------------------------
 
-type DataP p =
+type DataId p =
   ( Data p
   , ClassX Data p
   , Data (NameOrRdrName (IdP p))
 
   , Data (IdP p)
-  , Data (PostRN p (IdP p))
-  , Data (PostRN p (Located Name))
-  , Data (PostRN p Bool)
-  , Data (PostRN p Fixity)
-  , Data (PostRN p NameSet)
-  , Data (PostRN p [Name])
+  , Data (PostRn p (IdP p))
+  , Data (PostRn p (Located Name))
+  , Data (PostRn p Bool)
+  , Data (PostRn p Fixity)
+  , Data (PostRn p NameSet)
+  , Data (PostRn p [Name])
 
-  , Data (PostTC p (IdP p))
-  , Data (PostTC p Coercion)
-  , Data (PostTC p ConLike)
-  , Data (PostTC p HsWrapper)
-  , Data (PostTC p Type)
-  , Data (PostTC p [ConLike])
-  , Data (PostTC p [Type])
+  , Data (PostTc p (IdP p))
+  , Data (PostTc p Coercion)
+  , Data (PostTc p ConLike)
+  , Data (PostTc p HsWrapper)
+  , Data (PostTc p Type)
+  , Data (PostTc p [ConLike])
+  , Data (PostTc p [Type])
   )
 
 

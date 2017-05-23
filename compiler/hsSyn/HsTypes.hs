@@ -253,15 +253,15 @@ type LHsTyVarBndr pass = Located (HsTyVarBndr pass)
 
 -- | Located Haskell Quantified Type Variables
 data LHsQTyVars pass   -- See Note [HsType binders]
-  = HsQTvs { hsq_implicit :: PostRN pass [Name]      -- implicit (dependent) variables
+  = HsQTvs { hsq_implicit :: PostRn pass [Name]      -- implicit (dependent) variables
            , hsq_explicit :: [LHsTyVarBndr pass]     -- explicit variables
              -- See Note [HsForAllTy tyvar binders]
-           , hsq_dependent :: PostRN pass NameSet
+           , hsq_dependent :: PostRn pass NameSet
                -- which explicit vars are dependent
                -- See Note [Dependent LHsQTyVars] in TcHsType
     }
 
-deriving instance (DataP pass) => Data (LHsQTyVars pass)
+deriving instance (DataId pass) => Data (LHsQTyVars pass)
 
 mkHsQTvs :: [LHsTyVarBndr GHCP] -> LHsQTyVars GHCP
 mkHsQTvs tvs = HsQTvs { hsq_implicit = PlaceHolder, hsq_explicit = tvs
@@ -288,19 +288,19 @@ isEmptyLHsQTvs _                = False
 
 -- | Haskell Implicit Binders
 data HsImplicitBndrs pass thing   -- See Note [HsType binders]
-  = HsIB { hsib_vars :: PostRN pass [Name] -- Implicitly-bound kind & type vars
+  = HsIB { hsib_vars :: PostRn pass [Name] -- Implicitly-bound kind & type vars
          , hsib_body :: thing              -- Main payload (type or list of types)
-         , hsib_closed :: PostRN pass Bool -- Taking the hsib_vars into account,
+         , hsib_closed :: PostRn pass Bool -- Taking the hsib_vars into account,
                                            -- is the payload closed? Used in
                                            -- TcHsType.decideKindGeneralisationPlan
     }
-deriving instance (DataP pass, Data thing) => Data (HsImplicitBndrs pass thing)
+deriving instance (DataId pass, Data thing) => Data (HsImplicitBndrs pass thing)
 
 -- | Haskell Wildcard Binders
 data HsWildCardBndrs pass thing
     -- See Note [HsType binders]
     -- See Note [The wildcard story for types]
-  = HsWC { hswc_wcs :: PostRN pass [Name]
+  = HsWC { hswc_wcs :: PostRn pass [Name]
                 -- Wild cards, both named and anonymous
                 -- after the renamer
 
@@ -310,7 +310,7 @@ data HsWildCardBndrs pass thing
                 -- it's still there in the hsc_body.
     }
 
-deriving instance (DataP pass, Data thing) => Data (HsWildCardBndrs pass thing)
+deriving instance (DataId pass, Data thing) => Data (HsWildCardBndrs pass thing)
 
 -- | Located Haskell Signature Type
 type LHsSigType   pass = HsImplicitBndrs pass (LHsType pass)    -- Implicit only
@@ -409,7 +409,7 @@ data HsTyVarBndr pass
         --          'ApiAnnotation.AnnDcolon', 'ApiAnnotation.AnnClose'
 
         -- For details on above see note [Api annotations] in ApiAnnotation
-deriving instance (DataP pass) => Data (HsTyVarBndr pass)
+deriving instance (DataId pass) => Data (HsTyVarBndr pass)
 
 -- | Does this 'HsTyVarBndr' come with an explicit kind annotation?
 isHsKindedTyVar :: HsTyVarBndr pass -> Bool
@@ -527,7 +527,7 @@ data HsType pass
       -- For details on above see note [Api annotations] in ApiAnnotation
 
   | HsSpliceTy          (HsSplice pass)   -- Includes quasi-quotes
-                        (PostTC pass Kind)
+                        (PostTc pass Kind)
       -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen' @'$('@,
       --         'ApiAnnotation.AnnClose' @')'@
 
@@ -560,7 +560,7 @@ data HsType pass
 
   | HsExplicitListTy       -- A promoted explicit list
         Promoted           -- whether explcitly promoted, for pretty printer
-        (PostTC pass Kind) -- See Note [Promoted lists and tuples]
+        (PostTc pass Kind) -- See Note [Promoted lists and tuples]
         [LHsType pass]
       -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen' @"'["@,
       --         'ApiAnnotation.AnnClose' @']'@
@@ -568,7 +568,7 @@ data HsType pass
       -- For details on above see note [Api annotations] in ApiAnnotation
 
   | HsExplicitTupleTy      -- A promoted explicit tuple
-        [PostTC pass Kind] -- See Note [Promoted lists and tuples]
+        [PostTc pass Kind] -- See Note [Promoted lists and tuples]
         [LHsType pass]
       -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen' @"'("@,
       --         'ApiAnnotation.AnnClose' @')'@
@@ -585,7 +585,7 @@ data HsType pass
       -- ^ - 'ApiAnnotation.AnnKeywordId' : None
 
       -- For details on above see note [Api annotations] in ApiAnnotation
-deriving instance (DataP pass) => Data (HsType pass)
+deriving instance (DataId pass) => Data (HsType pass)
 
 -- Note [Literal source text] in BasicTypes for SourceText fields in
 -- the following
@@ -596,10 +596,10 @@ data HsTyLit
     deriving Data
 
 newtype HsWildCardInfo pass      -- See Note [The wildcard story for types]
-    = AnonWildCard (PostRN pass (Located Name))
+    = AnonWildCard (PostRn pass (Located Name))
       -- A anonymous wild card ('_'). A fresh Name is generated for
       -- each individual anonymous wildcard during renaming
-deriving instance (DataP pass) => Data (HsWildCardInfo pass)
+deriving instance (DataId pass) => Data (HsWildCardInfo pass)
 
 -- | Located Haskell Application Type
 type LHsAppType pass = Located (HsAppType pass)
@@ -609,7 +609,7 @@ type LHsAppType pass = Located (HsAppType pass)
 data HsAppType pass
   = HsAppInfix (Located (IdP pass)) -- either a symbol or an id in backticks
   | HsAppPrefix (LHsType pass)      -- anything else, including things like (+)
-deriving instance (DataP pass) => Data (HsAppType pass)
+deriving instance (DataId pass) => Data (HsAppType pass)
 
 instance (SourceTextX pass, OutputableBndrId pass)
        => Outputable (HsAppType pass) where
@@ -754,7 +754,7 @@ data ConDeclField pass  -- Record fields have Haddoc docs on them
       -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnDcolon'
 
       -- For details on above see note [Api annotations] in ApiAnnotation
-deriving instance (DataP pass) => Data (ConDeclField pass)
+deriving instance (DataId pass) => Data (ConDeclField pass)
 
 instance (SourceTextX pass, OutputableBndrId pass)
        => Outputable (ConDeclField pass) where
@@ -1088,11 +1088,11 @@ type LFieldOcc pass = Located (FieldOcc pass)
 -- renamer, the selector function.
 data FieldOcc pass = FieldOcc { rdrNameFieldOcc  :: Located RdrName
                                  -- ^ See Note [Located RdrNames] in HsExpr
-                              , selectorFieldOcc :: PostRN pass (IdP pass)
+                              , selectorFieldOcc :: PostRn pass (IdP pass)
                               }
-deriving instance Eq (PostRN pass (IdP pass))  => Eq  (FieldOcc pass)
-deriving instance Ord (PostRN pass (IdP pass)) => Ord (FieldOcc pass)
-deriving instance (DataP pass) => Data (FieldOcc pass)
+deriving instance Eq (PostRn pass (IdP pass))  => Eq  (FieldOcc pass)
+deriving instance Ord (PostRn pass (IdP pass)) => Ord (FieldOcc pass)
+deriving instance (DataId pass) => Data (FieldOcc pass)
 
 instance Outputable (FieldOcc pass) where
   ppr = ppr . rdrNameFieldOcc
@@ -1114,11 +1114,11 @@ mkFieldOcc rdr = FieldOcc rdr PlaceHolder
 -- Note [Disambiguating record fields] in TcExpr.
 -- See Note [Located RdrNames] in HsExpr
 data AmbiguousFieldOcc pass
-  = Unambiguous (Located RdrName) (PostRN pass (IdP pass))
-  | Ambiguous   (Located RdrName) (PostTC pass (IdP pass))
+  = Unambiguous (Located RdrName) (PostRn pass (IdP pass))
+  | Ambiguous   (Located RdrName) (PostTc pass (IdP pass))
 deriving instance ( Data pass
-                  , Data (PostTC pass (IdP pass))
-                  , Data (PostRN pass (IdP pass)))
+                  , Data (PostTc pass (IdP pass))
+                  , Data (PostRn pass (IdP pass)))
                   => Data (AmbiguousFieldOcc pass)
 
 instance Outputable (AmbiguousFieldOcc pass) where

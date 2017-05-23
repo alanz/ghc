@@ -10,11 +10,11 @@ import SrcLoc( Located )
 
 import Data.Data hiding (Fixity)
 import Outputable
-import HsExtension      ( SourceTextX, DataP, OutputableBndrId )
+import HsExtension      ( SourceTextX, DataId, OutputableBndrId )
 
 type role Pat nominal
 data Pat (i :: *)
 type LPat i = Located (Pat i)
 
-instance (DataP p) => Data (Pat p)
+instance (DataId p) => Data (Pat p)
 instance (SourceTextX pass, OutputableBndrId pass) => Outputable (Pat pass)

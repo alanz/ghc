@@ -101,13 +101,13 @@ noPostTcTable = []
 -- >                         (syn_arg_wraps[1] arg1) ...
 --
 -- where the actual arguments come from elsewhere in the AST.
--- This could be defined using @PostRN@ and @PostTC@ and such, but it's
+-- This could be defined using @PostRn@ and @PostTc@ and such, but it's
 -- harder to get it all to work out that way. ('noSyntaxExpr' is hard to
 -- write, for example.)
 data SyntaxExpr p = SyntaxExpr { syn_expr      :: HsExpr p
                                , syn_arg_wraps :: [HsWrapper]
                                , syn_res_wrap  :: HsWrapper }
-deriving instance (DataP p) => Data (SyntaxExpr p)
+deriving instance (DataId p) => Data (SyntaxExpr p)
 
 -- | This is used for rebindable-syntax pieces that are too polymorphic
 -- for tcSyntaxOp (trS_fmap and the mzip in ParStmt)
@@ -340,7 +340,7 @@ data HsExpr p
 
   | OpApp       (LHsExpr p)    -- left operand
                 (LHsExpr p)    -- operator
-                (PostRN p Fixity) -- Renamer adds fixity; bottom until then
+                (PostRn p Fixity) -- Renamer adds fixity; bottom until then
                 (LHsExpr p)    -- right operand
 
   -- | Negation operator. Contains the negated expression and the name
@@ -384,7 +384,7 @@ data HsExpr p
           ConTag --  Alternative (one-based)
           Arity  --  Sum arity
           (LHsExpr p)
-          (PostTC p [Type])   -- the type arguments
+          (PostTc p [Type])   -- the type arguments
 
   -- | - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnCase',
   --       'ApiAnnotation.AnnOf','ApiAnnotation.AnnOpen' @'{'@,
@@ -413,7 +413,7 @@ data HsExpr p
   --       'ApiAnnotation.AnnOpen','ApiAnnotation.AnnClose',
 
   -- For details on above see note [Api annotations] in ApiAnnotation
-  | HsMultiIf   (PostTC p Type) [LGRHS p (LHsExpr p)]
+  | HsMultiIf   (PostTc p Type) [LGRHS p (LHsExpr p)]
 
   -- | let(rec)
   --
@@ -435,7 +435,7 @@ data HsExpr p
                                          -- because in this context we never use
                                          -- the PatGuard or ParStmt variant
                 (Located [ExprLStmt p]) -- "do":one or more stmts
-                (PostTC p Type)         -- Type of the whole expression
+                (PostTc p Type)         -- Type of the whole expression
 
   -- | Syntactic list: [a,b,c,...]
   --
@@ -444,7 +444,7 @@ data HsExpr p
 
   -- For details on above see note [Api annotations] in ApiAnnotation
   | ExplicitList
-                (PostTC p Type)        -- Gives type of components of list
+                (PostTc p Type)        -- Gives type of components of list
                 (Maybe (SyntaxExpr p)) -- For OverloadedLists, the fromListN witness
                 [LHsExpr p]
 
@@ -457,7 +457,7 @@ data HsExpr p
 
   -- For details on above see note [Api annotations] in ApiAnnotation
   | ExplicitPArr
-                (PostTC p Type)   -- type of elements of the parallel array
+                (PostTc p Type)   -- type of elements of the parallel array
                 [LHsExpr p]
 
   -- | Record construction
@@ -469,7 +469,7 @@ data HsExpr p
   | RecordCon
       { rcon_con_name :: Located (IdP p)    -- The constructor name;
                                             --  not used after type checking
-      , rcon_con_like :: PostTC p ConLike   -- The data constructor or pattern synonym
+      , rcon_con_like :: PostTc p ConLike   -- The data constructor or pattern synonym
       , rcon_con_expr :: PostTcExpr         -- Instantiated constructor function
       , rcon_flds     :: HsRecordBinds p }  -- The fields
 
@@ -482,16 +482,16 @@ data HsExpr p
   | RecordUpd
       { rupd_expr :: LHsExpr p
       , rupd_flds :: [LHsRecUpdField p]
-      , rupd_cons :: PostTC p [ConLike]
+      , rupd_cons :: PostTc p [ConLike]
                 -- Filled in by the type checker to the
                 -- _non-empty_ list of DataCons that have
                 -- all the upd'd fields
 
-      , rupd_in_tys  :: PostTC p [Type]  -- Argument types of *input* record type
-      , rupd_out_tys :: PostTC p [Type]  --              and  *output* record type
+      , rupd_in_tys  :: PostTc p [Type]  -- Argument types of *input* record type
+      , rupd_out_tys :: PostTc p [Type]  --              and  *output* record type
                                          -- The original type can be reconstructed
                                          -- with conLikeResTy
-      , rupd_wrap :: PostTC p HsWrapper  -- See note [Record Update HsWrapper]
+      , rupd_wrap :: PostTc p HsWrapper  -- See note [Record Update HsWrapper]
       }
   -- For a type family, the arg types are of the *instance* tycon,
   -- not the family tycon
@@ -600,7 +600,7 @@ data HsExpr p
   -- | - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnStatic',
 
   -- For details on above see note [Api annotations] in ApiAnnotation
-  | HsStatic (PostRN p NameSet) -- Free variables of the body
+  | HsStatic (PostRn p NameSet) -- Free variables of the body
              (LHsExpr p)        -- Body
 
   ---------------------------------------
@@ -616,7 +616,7 @@ data HsExpr p
   | HsArrApp             -- Arrow tail, or arrow application (f -< arg)
         (LHsExpr p)     -- arrow expression, f
         (LHsExpr p)     -- input expression, arg
-        (PostTC p Type) -- type of the arrow expressions f,
+        (PostTc p Type) -- type of the arrow expressions f,
                         -- of the form a t t', where arg :: t
         HsArrAppType    -- higher-order (-<<) or first-order (-<)
         Bool            -- True => right-to-left (f -< arg)
@@ -698,7 +698,7 @@ data HsExpr p
   |  HsWrap     HsWrapper    -- TRANSLATION
                 (HsExpr p)
 
-deriving instance (DataP p) => Data (HsExpr p)
+deriving instance (DataId p) => Data (HsExpr p)
 
 -- | Located Haskell Tuple Argument
 --
@@ -714,8 +714,8 @@ type LHsTupArg id = Located (HsTupArg id)
 -- | Haskell Tuple Argument
 data HsTupArg id
   = Present (LHsExpr id)     -- ^ The argument
-  | Missing (PostTC id Type) -- ^ The argument is missing, but this is its type
-deriving instance (DataP id) => Data (HsTupArg id)
+  | Missing (PostTc id Type) -- ^ The argument is missing, but this is its type
+deriving instance (DataId id) => Data (HsTupArg id)
 
 tupArgPresent :: LHsTupArg id -> Bool
 tupArgPresent (L _ (Present {})) = True
@@ -1161,7 +1161,7 @@ data HsCmd id
   = HsCmdArrApp          -- Arrow tail, or arrow application (f -< arg)
         (LHsExpr id)     -- arrow expression, f
         (LHsExpr id)     -- input expression, arg
-        (PostTC id Type) -- type of the arrow expressions f,
+        (PostTc id Type) -- type of the arrow expressions f,
                          -- of the form a t t', where arg :: t
         HsArrAppType     -- higher-order (-<<) or first-order (-<)
         Bool             -- True => right-to-left (f -< arg)
@@ -1224,7 +1224,7 @@ data HsCmd id
     -- For details on above see note [Api annotations] in ApiAnnotation
 
   | HsCmdDo     (Located [CmdLStmt id])
-                (PostTC id Type)                -- Type of the whole expression
+                (PostTc id Type)                -- Type of the whole expression
     -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnDo',
     --             'ApiAnnotation.AnnOpen', 'ApiAnnotation.AnnSemi',
     --             'ApiAnnotation.AnnVbar',
@@ -1236,7 +1236,7 @@ data HsCmd id
                 (HsCmd id)     -- If   cmd :: arg1 --> res
                                --      wrap :: arg1 "->" arg2
                                -- Then (HsCmdWrap wrap cmd) :: arg2 --> res
-deriving instance (DataP id) => Data (HsCmd id)
+deriving instance (DataId id) => Data (HsCmd id)
 
 -- | Haskell Array Application Type
 data HsArrAppType = HsHigherOrderApp | HsFirstOrderApp
@@ -1254,10 +1254,10 @@ type LHsCmdTop p = Located (HsCmdTop p)
 -- | Haskell Top-level Command
 data HsCmdTop p
   = HsCmdTop (LHsCmd p)
-             (PostTC p Type)    -- Nested tuple of inputs on the command's stack
-             (PostTC p Type)    -- return type of the command
+             (PostTc p Type)    -- Nested tuple of inputs on the command's stack
+             (PostTc p Type)    -- return type of the command
              (CmdSyntaxTable p) -- See Note [CmdSyntaxTable]
-deriving instance (DataP p) => Data (HsCmdTop p)
+deriving instance (DataId p) => Data (HsCmdTop p)
 
 instance (SourceTextX p, OutputableBndrId p) => Outputable (HsCmd p) where
     ppr cmd = pprCmd cmd
@@ -1388,13 +1388,13 @@ patterns in each equation.
 
 data MatchGroup p body
   = MG { mg_alts    :: Located [LMatch p body]  -- The alternatives
-       , mg_arg_tys :: [PostTC p Type]  -- Types of the arguments, t1..tn
-       , mg_res_ty  :: PostTC p Type    -- Type of the result, tr
+       , mg_arg_tys :: [PostTc p Type]  -- Types of the arguments, t1..tn
+       , mg_res_ty  :: PostTc p Type    -- Type of the result, tr
        , mg_origin  :: Origin }
      -- The type is the type of the entire group
      --      t1 -> ... -> tn -> tr
      -- where there are n patterns
-deriving instance (Data body,DataP p) => Data (MatchGroup p body)
+deriving instance (Data body,DataId p) => Data (MatchGroup p body)
 
 -- | Located Match
 type LMatch id body = Located (Match id body)
@@ -1413,7 +1413,7 @@ data Match p body
                                  -- NB: No longer supported
         m_grhss :: (GRHSs p body)
   }
-deriving instance (Data body,DataP p) => Data (Match p body)
+deriving instance (Data body,DataId p) => Data (Match p body)
 
 instance (SourceTextX idR, OutputableBndrId idR, Outputable body)
             => Outputable (Match idR body) where
@@ -1498,7 +1498,7 @@ data GRHSs p body
       grhssGRHSs :: [LGRHS p body],      -- ^ Guarded RHSs
       grhssLocalBinds :: LHsLocalBinds p -- ^ The where clause
     }
-deriving instance (Data body,DataP p) => Data (GRHSs p body)
+deriving instance (Data body,DataId p) => Data (GRHSs p body)
 
 -- | Located Guarded Right-Hand Side
 type LGRHS id body = Located (GRHS id body)
@@ -1506,7 +1506,7 @@ type LGRHS id body = Located (GRHS id body)
 -- | Guarded Right Hand Side.
 data GRHS id body = GRHS [GuardLStmt id] -- Guards
                          body            -- Right hand side
-deriving instance (Data body,DataP id) => Data (GRHS id body)
+deriving instance (Data body,DataId id) => Data (GRHS id body)
 
 -- We know the list must have at least one @Match@ in it.
 
@@ -1658,7 +1658,7 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
              -- The fail operator is noSyntaxExpr
              -- if the pattern match can't fail
 
-             (PostTC idR Type)  -- result type of the function passed to bind;
+             (PostTc idR Type)  -- result type of the function passed to bind;
                                 -- that is, S in (>>=) :: Q -> (R -> S) -> T
 
   -- | 'ApplicativeStmt' represents an applicative expression built with
@@ -1673,13 +1673,13 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
                , ApplicativeArg idL idR) ]
                       -- [(<$>, e1), (<*>, e2), ..., (<*>, en)]
              (Maybe (SyntaxExpr idR))  -- 'join', if necessary
-             (PostTC idR Type)     -- Type of the body
+             (PostTc idR Type)     -- Type of the body
 
   | BodyStmt body              -- See Note [BodyStmt]
              (SyntaxExpr idR)  -- The (>>) operator
              (SyntaxExpr idR)  -- The `guard` operator; used only in MonadComp
                                -- See notes [Monad Comprehensions]
-             (PostTC idR Type) -- Element type of the RHS (used for arrows)
+             (PostTc idR Type) -- Element type of the RHS (used for arrows)
 
   -- | - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnLet'
   --          'ApiAnnotation.AnnOpen' @'{'@,'ApiAnnotation.AnnClose' @'}'@,
@@ -1692,7 +1692,7 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
              (HsExpr idR)               -- Polymorphic `mzip` for monad comprehensions
              (SyntaxExpr idR)           -- The `>>=` operator
                                         -- See notes [Monad Comprehensions]
-             (PostTC idR Type)          -- S in (>>=) :: Q -> (R -> S) -> T
+             (PostTc idR Type)          -- S in (>>=) :: Q -> (R -> S) -> T
             -- After renaming, the ids are the binders
             -- bound by the stmts and used after themp
 
@@ -1710,7 +1710,7 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
       trS_ret :: SyntaxExpr idR,      -- The monomorphic 'return' function for
                                       -- the inner monad comprehensions
       trS_bind :: SyntaxExpr idR,     -- The '(>>=)' operator
-      trS_bind_arg_ty :: PostTC idR Type,  -- R in (>>=) :: Q -> (R -> S) -> T
+      trS_bind_arg_ty :: PostTc idR Type,  -- R in (>>=) :: Q -> (R -> S) -> T
       trS_fmap :: HsExpr idR          -- The polymorphic 'fmap' function for desugaring
                                       -- Only for 'group' forms
                                       -- Just a simple HsExpr, because it's
@@ -1741,7 +1741,7 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
      , recS_bind_fn :: SyntaxExpr idR -- The bind function
      , recS_ret_fn  :: SyntaxExpr idR -- The return function
      , recS_mfix_fn :: SyntaxExpr idR -- The mfix function
-     , recS_bind_ty :: PostTC idR Type  -- S in (>>=) :: Q -> (R -> S) -> T
+     , recS_bind_ty :: PostTc idR Type  -- S in (>>=) :: Q -> (R -> S) -> T
 
         -- These fields are only valid after typechecking
      , recS_later_rets :: [PostTcExpr] -- (only used in the arrow version)
@@ -1754,12 +1754,12 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
                                      -- the returned thing has to be *monomorphic*,
                                      -- so they may be type applications
 
-      , recS_ret_ty :: PostTC idR Type -- The type of
+      , recS_ret_ty :: PostTc idR Type -- The type of
                                        -- do { stmts; return (a,b,c) }
                                    -- With rebindable syntax the type might not
                                    -- be quite as simple as (m (tya, tyb, tyc)).
       }
-deriving instance (Data body, DataP idL, DataP idR)
+deriving instance (Data body, DataId idL, DataId idR)
   => Data (StmtLR idL idR body)
 
 data TransForm   -- The 'f' below is the 'using' function, 'e' is the by function
@@ -1773,7 +1773,7 @@ data ParStmtBlock idL idR
         [ExprLStmt idL]
         [IdP idR]          -- The variables to be returned
         (SyntaxExpr idR)   -- The return operator
-deriving instance (DataP idL, DataP idR) => Data (ParStmtBlock idL idR)
+deriving instance (DataId idL, DataId idR) => Data (ParStmtBlock idL idR)
 
 -- | Applicative Argument
 data ApplicativeArg idL idR
@@ -1784,7 +1784,7 @@ data ApplicativeArg idL idR
       [ExprLStmt idL]            -- stmts
       (HsExpr idL)               -- return (v1,..,vn), or just (v1,..,vn)
       (LPat idL)                 -- (v1,...,vn)
-deriving instance (DataP idL, DataP idR) => Data (ApplicativeArg idL idR)
+deriving instance (DataId idL, DataId idR) => Data (ApplicativeArg idL idR)
 
 {-
 Note [The type of bind in Stmts]
@@ -2085,7 +2085,7 @@ data HsSplice id
         ThModFinalizers     -- TH finalizers produced by the splice.
         (HsSplicedThing id) -- The result of splicing
   deriving Typeable
-deriving instance (DataP id) => Data (HsSplice id)
+deriving instance (DataId id) => Data (HsSplice id)
 
 -- | A splice can appear with various decorations wrapped around it. This data
 -- type captures explicitly how it was originally written, for use in the pretty
@@ -2127,14 +2127,14 @@ data HsSplicedThing id
     | HsSplicedPat  (Pat id)    -- ^ Haskell Spliced Pattern
   deriving Typeable
 
-deriving instance (DataP id) => Data (HsSplicedThing id)
+deriving instance (DataId id) => Data (HsSplicedThing id)
 
 -- See Note [Pending Splices]
 type SplicePointName = Name
 
 -- | Pending Renamer Splice
 data PendingRnSplice
-  -- AZ:TODO: The hard-coded GHCR feels wrong. How to force the PostRN?
+  -- AZ:TODO: The hard-coded GHCR feels wrong. How to force the PostRn?
   = PendingRnSplice UntypedSpliceFlavour SplicePointName (LHsExpr GHCR)
   deriving Data
 
@@ -2147,7 +2147,7 @@ data UntypedSpliceFlavour
 
 -- | Pending Type-checker Splice
 data PendingTcSplice
-  -- AZ:TODO: The hard-coded GHCT feels wrong. How to force the PostTC?
+  -- AZ:TODO: The hard-coded GHCT feels wrong. How to force the PostTc?
   = PendingTcSplice SplicePointName (LHsExpr GHCT)
   deriving Data
 
@@ -2274,7 +2274,7 @@ data HsBracket p = ExpBr (LHsExpr p)    -- [|  expr  |]
                   | VarBr Bool (IdP p)  -- True: 'x, False: ''T
                                  -- (The Bool flag is used only in pprHsBracket)
                   | TExpBr (LHsExpr p)  -- [||  expr  ||]
-deriving instance (DataP p) => Data (HsBracket p)
+deriving instance (DataId p) => Data (HsBracket p)
 
 isTypedBracket :: HsBracket id -> Bool
 isTypedBracket (TExpBr {}) = True
@@ -2327,7 +2327,7 @@ data ArithSeqInfo id
   | FromThenTo      (LHsExpr id)
                     (LHsExpr id)
                     (LHsExpr id)
-deriving instance (DataP id) => Data (ArithSeqInfo id)
+deriving instance (DataId id) => Data (ArithSeqInfo id)
 
 instance (SourceTextX p, OutputableBndrId p)
          => Outputable (ArithSeqInfo p) where
