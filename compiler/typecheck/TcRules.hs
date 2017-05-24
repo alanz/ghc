@@ -49,15 +49,15 @@ an example (test simplCore/should_compile/rule2.hs) produced by Roman:
 He wanted the rule to typecheck.
 -}
 
-tcRules :: [LRuleDecls GHCR] -> TcM [LRuleDecls GHCTc]
+tcRules :: [LRuleDecls GhcRn] -> TcM [LRuleDecls GhcTcId]
 tcRules decls = mapM (wrapLocM tcRuleDecls) decls
 
-tcRuleDecls :: RuleDecls GHCR -> TcM (RuleDecls GHCTc)
+tcRuleDecls :: RuleDecls GhcRn -> TcM (RuleDecls GhcTcId)
 tcRuleDecls (HsRules src decls)
    = do { tc_decls <- mapM (wrapLocM tcRule) decls
         ; return (HsRules src tc_decls) }
 
-tcRule :: RuleDecl GHCR -> TcM (RuleDecl GHCTc)
+tcRule :: RuleDecl GhcRn -> TcM (RuleDecl GhcTcId)
 tcRule (HsRule name act hs_bndrs lhs fv_lhs rhs fv_rhs)
   = addErrCtxt (ruleCtxt $ snd $ unLoc name)  $
     do { traceTc "---- Rule ------" (pprFullRuleName name)
@@ -131,7 +131,7 @@ tcRule (HsRule name act hs_bndrs lhs fv_lhs rhs fv_rhs)
                     (mkHsDictLet lhs_binds lhs') fv_lhs
                     (mkHsDictLet rhs_binds rhs') fv_rhs) }
 
-tcRuleBndrs :: [LRuleBndr GHCR] -> TcM [Var]
+tcRuleBndrs :: [LRuleBndr GhcRn] -> TcM [Var]
 tcRuleBndrs []
   = return []
 tcRuleBndrs (L _ (RuleBndr (L _ name)) : rule_bndrs)

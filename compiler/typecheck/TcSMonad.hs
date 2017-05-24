@@ -135,7 +135,6 @@ import DynFlags
 import Type
 import Coercion
 import Unify
-import HsExtension
 
 import TcEvidence
 import Class
@@ -2654,7 +2653,7 @@ getLclEnv = wrapTcS $ TcM.getLclEnv
 tcLookupClass :: Name -> TcS Class
 tcLookupClass c = wrapTcS $ TcM.tcLookupClass c
 
-tcLookupId :: IdP GHCR -> TcS (IdP GHCT)
+tcLookupId :: Name -> TcS Id
 tcLookupId n = wrapTcS $ TcM.tcLookupId n
 
 -- Setting names as used (used in the deriving of Coercible evidence)

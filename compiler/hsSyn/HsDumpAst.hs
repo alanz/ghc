@@ -77,7 +77,7 @@ showAstData b = showAstData' 0
                                 ++ "]"
 
             -- Eliminate word-size dependence
-            lit :: HsLit GHCP -> String
+            lit :: HsLit GhcPs -> String
             lit (HsWordPrim   s x) = numericLit "HsWord{64}Prim" x s
             lit (HsWord64Prim s x) = numericLit "HsWord{64}Prim" x s
             lit (HsIntPrim    s x) = numericLit "HsInt{64}Prim"  x s
@@ -113,15 +113,15 @@ showAstData b = showAstData' 0
             dataCon :: DataCon -> String
             dataCon    = ("{DataCon: "++) . (++"}") . showSDoc_ . ppr
 
-            bagRdrName:: Bag (Located (HsBind GHCP)) -> String
-            bagRdrName = ("{Bag(Located (HsBind GHCP)): "++) . (++"}")
+            bagRdrName:: Bag (Located (HsBind GhcPs)) -> String
+            bagRdrName = ("{Bag(Located (HsBind GhcPs)): "++) . (++"}")
                           . list . bagToList
 
-            bagName   :: Bag (Located (HsBind GHCR)) -> String
+            bagName   :: Bag (Located (HsBind GhcRn)) -> String
             bagName    = ("{Bag(Located (HsBind Name)): "++) . (++"}")
                            . list . bagToList
 
-            bagVar    :: Bag (Located (HsBind GHCT)) -> String
+            bagVar    :: Bag (Located (HsBind GhcTc)) -> String
             bagVar     = ("{Bag(Located (HsBind Var)): "++) . (++"}")
                            . list . bagToList
 

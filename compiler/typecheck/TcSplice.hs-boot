@@ -2,38 +2,39 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module TcSplice where
+import Name
 import HsExpr   ( PendingRnSplice )
 import TcRnTypes( TcM , SpliceType )
 import TcType   ( ExpRhoType )
 import Annotations ( Annotation, CoreAnnTarget )
-import HsExtension ( GHCTc, GHCR, GHCP, IdP )
+import HsExtension ( GhcTcId, GhcRn, GhcPs )
 
 import HsSyn      ( HsSplice, HsBracket, HsExpr, LHsExpr, LHsType, LPat,
                     LHsDecl, ThModFinalizers )
 import qualified Language.Haskell.TH as TH
 
-tcSpliceExpr :: HsSplice GHCR
+tcSpliceExpr :: HsSplice GhcRn
              -> ExpRhoType
-             -> TcM (HsExpr GHCTc)
+             -> TcM (HsExpr GhcTcId)
 
-tcUntypedBracket :: HsBracket GHCR
+tcUntypedBracket :: HsBracket GhcRn
                  -> [PendingRnSplice]
                  -> ExpRhoType
-                 -> TcM (HsExpr GHCTc)
-tcTypedBracket :: HsBracket GHCR
+                 -> TcM (HsExpr GhcTcId)
+tcTypedBracket :: HsBracket GhcRn
                -> ExpRhoType
-               -> TcM (HsExpr GHCTc)
+               -> TcM (HsExpr GhcTcId)
 
-runAnnotation     :: CoreAnnTarget -> LHsExpr GHCR -> TcM Annotation
+runAnnotation     :: CoreAnnTarget -> LHsExpr GhcRn -> TcM Annotation
 
-tcTopSpliceExpr :: SpliceType -> TcM (LHsExpr GHCTc) -> TcM (LHsExpr GHCTc)
+tcTopSpliceExpr :: SpliceType -> TcM (LHsExpr GhcTcId) -> TcM (LHsExpr GhcTcId)
 
-runMetaE :: LHsExpr GHCTc -> TcM (LHsExpr GHCP)
-runMetaP :: LHsExpr GHCTc -> TcM (LPat GHCP)
-runMetaT :: LHsExpr GHCTc -> TcM (LHsType GHCP)
-runMetaD :: LHsExpr GHCTc -> TcM [LHsDecl GHCP]
+runMetaE :: LHsExpr GhcTcId -> TcM (LHsExpr GhcPs)
+runMetaP :: LHsExpr GhcTcId -> TcM (LPat GhcPs)
+runMetaT :: LHsExpr GhcTcId -> TcM (LHsType GhcPs)
+runMetaD :: LHsExpr GhcTcId -> TcM [LHsDecl GhcPs]
 
-lookupThName_maybe :: TH.Name -> TcM (Maybe (IdP GHCR))
+lookupThName_maybe :: TH.Name -> TcM (Maybe Name)
 runQuasi :: TH.Q a -> TcM a
 runRemoteModFinalizers :: ThModFinalizers -> TcM ()
 finishTH :: TcM ()

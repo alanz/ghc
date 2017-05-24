@@ -771,14 +771,14 @@ tc_sub_type_ds eq_orig inst_orig ctxt ty_actual ty_expected
 -----------------
 -- needs both un-type-checked (for origins) and type-checked (for wrapping)
 -- expressions
-tcWrapResult :: HsExpr GHCR -> HsExpr GHCTc -> TcSigmaType -> ExpRhoType
-             -> TcM (HsExpr GHCTc)
+tcWrapResult :: HsExpr GhcRn -> HsExpr GhcTcId -> TcSigmaType -> ExpRhoType
+             -> TcM (HsExpr GhcTcId)
 tcWrapResult rn_expr = tcWrapResultO (exprCtOrigin rn_expr)
 
 -- | Sometimes we don't have a @HsExpr Name@ to hand, and this is more
 -- convenient.
-tcWrapResultO :: CtOrigin -> HsExpr GHCTc -> TcSigmaType -> ExpRhoType
-               -> TcM (HsExpr GHCTc)
+tcWrapResultO :: CtOrigin -> HsExpr GhcTcId -> TcSigmaType -> ExpRhoType
+               -> TcM (HsExpr GhcTcId)
 tcWrapResultO orig expr actual_ty res_ty
   = do { traceTc "tcWrapResult" (vcat [ text "Actual:  " <+> ppr actual_ty
                                       , text "Expected:" <+> ppr res_ty ])
@@ -1169,7 +1169,7 @@ unifyType thing ty1 ty2 = traceTc "utype" (ppr ty1 $$ ppr ty2 $$ ppr thing) >>
 -- | Use this instead of 'Nothing' when calling 'unifyType' without
 -- a good "thing" (where the "thing" has the "actual" type passed in)
 -- This has an 'Outputable' instance, avoiding amgiguity problems.
-noThing :: Maybe (HsExpr GHCR)
+noThing :: Maybe (HsExpr GhcRn)
 noThing = Nothing
 
 unifyKind :: Outputable a => Maybe a -> TcKind -> TcKind -> TcM CoercionN

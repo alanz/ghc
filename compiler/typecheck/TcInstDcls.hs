@@ -363,9 +363,9 @@ Gather up the instance declarations from their various sources
 -}
 
 tcInstDecls1    -- Deal with both source-code and imported instance decls
-   :: [LInstDecl GHCR]          -- Source code instance decls
+   :: [LInstDecl GhcRn]          -- Source code instance decls
    -> TcM (TcGblEnv,            -- The full inst env
-           [InstInfo GHCR],     -- Source-code instance decls to process;
+           [InstInfo GhcRn],     -- Source-code instance decls to process;
                                 -- contains all dfuns for this module
            [DerivInfo])         -- From data family instances
 
@@ -390,9 +390,9 @@ tcInstDecls1 inst_decls
 --   (DerivDecl) to check and process all derived class instances.
 tcInstDeclsDeriv
   :: [DerivInfo]
-  -> [LTyClDecl GHCR]
-  -> [LDerivDecl GHCR]
-  -> TcM (TcGblEnv, [InstInfo GHCR], HsValBinds GHCR)
+  -> [LTyClDecl GhcRn]
+  -> [LDerivDecl GhcRn]
+  -> TcM (TcGblEnv, [InstInfo GhcRn], HsValBinds GhcRn)
 tcInstDeclsDeriv datafam_deriv_infos tyclds derivds
   = do th_stage <- getStage -- See Note [Deriving inside TH brackets]
        if isBrackStage th_stage
@@ -403,7 +403,7 @@ tcInstDeclsDeriv datafam_deriv_infos tyclds derivds
                ; (tcg_env, info_bag, valbinds) <- tcDeriving deriv_infos derivds
                ; return (tcg_env, bagToList info_bag, valbinds) }
 
-addClsInsts :: [InstInfo GHCR] -> TcM a -> TcM a
+addClsInsts :: [InstInfo GhcRn] -> TcM a -> TcM a
 addClsInsts infos thing_inside
   = tcExtendLocalInstEnv (map iSpec infos) thing_inside
 
@@ -442,8 +442,8 @@ bindings.)  This will become moot when we shift to the new TH plan, so
 the brutal solution will do.
 -}
 
-tcLocalInstDecl :: LInstDecl GHCR
-                -> TcM ([InstInfo GHCR], [FamInst], [DerivInfo])
+tcLocalInstDecl :: LInstDecl GhcRn
+                -> TcM ([InstInfo GhcRn], [FamInst], [DerivInfo])
         -- A source-file instance declaration
         -- Type-check all the stuff before the "where"
         --
@@ -460,8 +460,8 @@ tcLocalInstDecl (L loc (ClsInstD { cid_inst = decl }))
   = do { (insts, fam_insts, deriv_infos) <- tcClsInstDecl (L loc decl)
        ; return (insts, fam_insts, deriv_infos) }
 
-tcClsInstDecl :: LClsInstDecl GHCR
-              -> TcM ([InstInfo GHCR], [FamInst], [DerivInfo])
+tcClsInstDecl :: LClsInstDecl GhcRn
+              -> TcM ([InstInfo GhcRn], [FamInst], [DerivInfo])
 -- The returned DerivInfos are for any associated data families
 tcClsInstDecl (L loc (ClsInstDecl { cid_poly_ty = poly_ty, cid_binds = binds
                                   , cid_sigs = uprags, cid_tyfam_insts = ats
@@ -513,7 +513,7 @@ tcClsInstDecl (L loc (ClsInstDecl { cid_poly_ty = poly_ty, cid_binds = binds
                  , deriv_infos ) }
 
 
-doClsInstErrorChecks :: InstInfo GHCR -> TcM ()
+doClsInstErrorChecks :: InstInfo GhcRn -> TcM ()
 doClsInstErrorChecks inst_info
  = do { traceTc "doClsInstErrorChecks" (ppr ispec)
       ; dflags <- getDynFlags
@@ -575,7 +575,7 @@ GADTs).
 -}
 
 tcFamInstDeclCombined :: Maybe ClsInstInfo
-                      -> Located (IdP GHCR) -> TcM TyCon
+                      -> Located Name -> TcM TyCon
 tcFamInstDeclCombined mb_clsinfo fam_tc_lname
   = do { -- Type family instances require -XTypeFamilies
          -- and can't (currently) be in an hs-boot file
@@ -595,7 +595,7 @@ tcFamInstDeclCombined mb_clsinfo fam_tc_lname
        ; return fam_tc }
 
 tcTyFamInstDecl :: Maybe ClsInstInfo
-                -> LTyFamInstDecl GHCR -> TcM FamInst
+                -> LTyFamInstDecl GhcRn -> TcM FamInst
   -- "type instance"
 tcTyFamInstDecl mb_clsinfo (L loc decl@(TyFamInstDecl { tfid_eqn = eqn }))
   = setSrcSpan loc           $
@@ -620,7 +620,7 @@ tcTyFamInstDecl mb_clsinfo (L loc decl@(TyFamInstDecl { tfid_eqn = eqn }))
        ; newFamInst SynFamilyInst axiom }
 
 tcDataFamInstDecl :: Maybe ClsInstInfo
-                  -> LDataFamInstDecl GHCR -> TcM (FamInst, Maybe DerivInfo)
+                  -> LDataFamInstDecl GhcRn -> TcM (FamInst, Maybe DerivInfo)
   -- "newtype instance" and "data instance"
 tcDataFamInstDecl mb_clsinfo
     (L loc decl@(DataFamInstDecl
@@ -737,8 +737,8 @@ tcDataFamInstDecl mb_clsinfo
 *                                                                      *
 ********************************************************************* -}
 
-tcInstDecls2 :: [LTyClDecl GHCR] -> [InstInfo GHCR]
-             -> TcM (LHsBinds GHCT)
+tcInstDecls2 :: [LTyClDecl GhcRn] -> [InstInfo GhcRn]
+             -> TcM (LHsBinds GhcTc)
 -- (a) From each class declaration,
 --      generate any default-method bindings
 -- (b) From each instance decl
@@ -775,7 +775,7 @@ So right here in tcInstDecls2 we must re-extend the type envt with
 the default method Ids replete with their INLINE pragmas.  Urk.
 -}
 
-tcInstDecl2 :: InstInfo GHCR -> TcM (LHsBinds GHCT)
+tcInstDecl2 :: InstInfo GhcRn -> TcM (LHsBinds GhcTc)
             -- Returns a binding for the dfun
 tcInstDecl2 (InstInfo { iSpec = ispec, iBinds = ibinds })
   = recoverM (return emptyLHsBinds)             $
@@ -853,7 +853,7 @@ tcInstDecl2 (InstInfo { iSpec = ispec, iBinds = ibinds })
 
              con_app_args = foldl app_to_meth con_app_tys sc_meth_ids
 
-             app_to_meth :: HsExpr GHCT -> IdP GHCT -> HsExpr GHCT
+             app_to_meth :: HsExpr GhcTc -> Id -> HsExpr GhcTc
              app_to_meth fun meth_id = L loc fun `HsApp` L loc (wrapId arg_wrapper meth_id)
 
              inst_tv_tys = mkTyVarTys inst_tyvars
@@ -884,7 +884,7 @@ tcInstDecl2 (InstInfo { iSpec = ispec, iBinds = ibinds })
    dfun_id = instanceDFunId ispec
    loc     = getSrcSpan dfun_id
 
-addDFunPrags :: DFunId -> [IdP GHCT] -> DFunId
+addDFunPrags :: DFunId -> [Id] -> DFunId
 -- DFuns need a special Unfolding and InlinePrag
 --    See Note [ClassOp/DFun selection]
 --    and Note [Single-method classes]
@@ -991,7 +991,7 @@ Notice that
 tcSuperClasses :: DFunId -> Class -> [TcTyVar] -> [EvVar] -> [TcType]
                -> TcEvBinds
                -> TcThetaType
-               -> TcM ([EvVar], LHsBinds GHCT, Bag Implication)
+               -> TcM ([EvVar], LHsBinds GhcTc, Bag Implication)
 -- Make a new top-level function binding for each superclass,
 -- something like
 --    $Ordp1 :: forall a. Ord a => Eq [a]
@@ -1252,8 +1252,8 @@ tcMethods :: DFunId -> Class
           -> TcEvBinds
           -> ([Located TcSpecPrag], TcPragEnv)
           -> [ClassOpItem]
-          -> InstBindings GHCR
-          -> TcM ([IdP GHCT], LHsBinds GHCT, Bag Implication)
+          -> InstBindings GhcRn
+          -> TcM ([Id], LHsBinds GhcTc, Bag Implication)
         -- The returned inst_meth_ids all have types starting
         --      forall tvs. theta => ...
 tcMethods dfun_id clas tyvars dfun_ev_vars inst_tys
@@ -1278,7 +1278,7 @@ tcMethods dfun_id clas tyvars dfun_ev_vars inst_tys
     inst_loc  = getSrcSpan dfun_id
 
     ----------------------
-    tc_item :: ClassOpItem -> TcM (IdP GHCT, LHsBind GHCT, Maybe Implication)
+    tc_item :: ClassOpItem -> TcM (Id, LHsBind GhcTc, Maybe Implication)
     tc_item (sel_id, dm_info)
       | Just (user_bind, bndr_loc, prags) <- findMethodBind (idName sel_id) binds prag_fn
       = tcMethodBody clas tyvars dfun_ev_vars inst_tys
@@ -1290,7 +1290,7 @@ tcMethods dfun_id clas tyvars dfun_ev_vars inst_tys
            ; tc_default sel_id dm_info }
 
     ----------------------
-    tc_default :: IdP GHCT -> DefMethInfo -> TcM (IdP GHCTc, LHsBind GHCT, Maybe Implication)
+    tc_default :: Id -> DefMethInfo -> TcM (TcId, LHsBind GhcTc, Maybe Implication)
 
     tc_default sel_id (Just (dm_name, _))
       = do { (meth_bind, inline_prags) <- mkDefMethBind clas inst_tys sel_id dm_name
@@ -1333,9 +1333,9 @@ tcMethods dfun_id clas tyvars dfun_ev_vars inst_tys
 tcMethodBody :: Class -> [TcTyVar] -> [EvVar] -> [TcType]
              -> TcEvBinds -> Bool
              -> HsSigFun
-             -> [LTcSpecPrag] -> [LSig GHCR]
-             -> IdP GHCT -> LHsBind GHCR -> SrcSpan
-             -> TcM (IdP GHCTc, LHsBind GHCT, Maybe Implication)
+             -> [LTcSpecPrag] -> [LSig GhcRn]
+             -> Id -> LHsBind GhcRn -> SrcSpan
+             -> TcM (TcId, LHsBind GhcTc, Maybe Implication)
 tcMethodBody clas tyvars dfun_ev_vars inst_tys
                      dfun_ev_binds is_derived
                      sig_fn spec_inst_prags prags
@@ -1381,8 +1381,8 @@ tcMethodBody clas tyvars dfun_ev_vars inst_tys
       | is_derived = addLandmarkErrCtxt (derivBindCtxt sel_id clas inst_tys) thing
       | otherwise  = thing
 
-tcMethodBodyHelp :: HsSigFun -> IdP GHCT -> IdP GHCTc
-                 -> LHsBind GHCR -> TcM (LHsBinds GHCTc)
+tcMethodBodyHelp :: HsSigFun -> Id -> TcId
+                 -> LHsBind GhcRn -> TcM (LHsBinds GhcTcId)
 tcMethodBodyHelp hs_sig_fn sel_id local_meth_id meth_bind
   | Just hs_sig_ty <- hs_sig_fn sel_name
               -- There is a signature in the instance
@@ -1440,7 +1440,7 @@ tcMethodBodyHelp hs_sig_fn sel_id local_meth_id meth_bind
 
 ------------------------
 mkMethIds :: Class -> [TcTyVar] -> [EvVar]
-          -> [TcType] -> IdP GHCT -> TcM (IdP GHCTc, IdP GHCTc)
+          -> [TcType] -> Id -> TcM (TcId, TcId)
              -- returns (poly_id, local_id), but ignoring any instance signature
              -- See Note [Instance method signatures]
 mkMethIds clas tyvars dfun_ev_vars inst_tys sel_id
@@ -1459,7 +1459,7 @@ mkMethIds clas tyvars dfun_ev_vars inst_tys sel_id
     poly_meth_ty  = mkSpecSigmaTy tyvars theta local_meth_ty
     theta         = map idType dfun_ev_vars
 
-methSigCtxt :: IdP GHCR -> TcType -> TcType -> TidyEnv -> TcM (TidyEnv, MsgDoc)
+methSigCtxt :: Name -> TcType -> TcType -> TidyEnv -> TcM (TidyEnv, MsgDoc)
 methSigCtxt sel_name sig_ty meth_ty env0
   = do { (env1, sig_ty)  <- zonkTidyTcType env0 sig_ty
        ; (env2, meth_ty) <- zonkTidyTcType env1 meth_ty
@@ -1469,7 +1469,7 @@ methSigCtxt sel_name sig_ty meth_ty env0
                               , text "   Class sig:" <+> ppr meth_ty ])
        ; return (env2, msg) }
 
-misplacedInstSig :: IdP GHCR -> LHsSigType GHCR -> SDoc
+misplacedInstSig :: Name -> LHsSigType GhcRn -> SDoc
 misplacedInstSig name hs_ty
   = vcat [ hang (text "Illegal type signature in instance declaration:")
               2 (hang (pprPrefixName name)
@@ -1523,7 +1523,7 @@ Wow!  Three nested AbsBinds!
 -}
 
 ----------------------
-mk_meth_spec_prags :: IdP GHCT -> [LTcSpecPrag] -> [LTcSpecPrag] -> TcSpecPrags
+mk_meth_spec_prags :: Id -> [LTcSpecPrag] -> [LTcSpecPrag] -> TcSpecPrags
         -- Adapt the 'SPECIALISE instance' pragmas to work for this method Id
         -- There are two sources:
         --   * spec_prags_for_me: {-# SPECIALISE op :: <blah> #-}
@@ -1545,7 +1545,7 @@ mk_meth_spec_prags meth_id spec_inst_prags spec_prags_for_me
          | L inst_loc (SpecPrag _       wrap inl) <- spec_inst_prags]
 
 
-mkDefMethBind :: Class -> [Type] -> IdP GHCT -> IdP GHCR -> TcM (LHsBind GHCR, [LSig GHCR])
+mkDefMethBind :: Class -> [Type] -> Id -> Name -> TcM (LHsBind GhcRn, [LSig GhcRn])
 -- The is a default method (vanailla or generic) defined in the class
 -- So make a binding   op = $dmop @t1 @t2
 -- where $dmop is the name of the default method in the class,
@@ -1576,13 +1576,13 @@ mkDefMethBind clas inst_tys sel_id dm_name
 
        ; return (bind, inline_prags) }
   where
-    mk_vta :: LHsExpr GHCR -> Type -> LHsExpr GHCR
+    mk_vta :: LHsExpr GhcRn -> Type -> LHsExpr GhcRn
     mk_vta fun ty = noLoc (HsAppType fun (mkEmptyWildCardBndrs $ noLoc $ HsCoreTy ty))
        -- NB: use visible type application
        -- See Note [Default methods in instances]
 
 ----------------------
-derivBindCtxt :: IdP GHCT -> Class -> [Type ] -> SDoc
+derivBindCtxt :: Id -> Class -> [Type ] -> SDoc
 derivBindCtxt sel_id clas tys
    = vcat [ text "When typechecking the code for" <+> quotes (ppr sel_id)
           , nest 2 (text "in a derived instance for"
@@ -1769,7 +1769,7 @@ Note that
     just once, and pass the result (in spec_inst_info) to tcMethods.
 -}
 
-tcSpecInstPrags :: DFunId -> InstBindings GHCR
+tcSpecInstPrags :: DFunId -> InstBindings GhcRn
                 -> TcM ([Located TcSpecPrag], TcPragEnv)
 tcSpecInstPrags dfun_id (InstBindings { ib_binds = binds, ib_pragmas = uprags })
   = do { spec_inst_prags <- mapM (wrapLocM (tcSpecInst dfun_id)) $
@@ -1778,7 +1778,7 @@ tcSpecInstPrags dfun_id (InstBindings { ib_binds = binds, ib_pragmas = uprags })
        ; return (spec_inst_prags, mkPragEnv uprags binds) }
 
 ------------------------------
-tcSpecInst :: IdP GHCT -> Sig GHCR -> TcM TcSpecPrag
+tcSpecInst :: Id -> Sig GhcRn -> TcM TcSpecPrag
 tcSpecInst dfun_id prag@(SpecInstSig _ hs_ty)
   = addErrCtxt (spec_ctxt prag) $
     do  { (tyvars, theta, clas, tys) <- tcHsClsInstType SpecInstCtxt hs_ty
@@ -1798,7 +1798,7 @@ tcSpecInst _  _ = panic "tcSpecInst"
 ************************************************************************
 -}
 
-instDeclCtxt1 :: LHsSigType GHCR -> SDoc
+instDeclCtxt1 :: LHsSigType GhcRn -> SDoc
 instDeclCtxt1 hs_inst_ty
   = inst_decl_ctxt (ppr (getLHsInstDeclHead hs_inst_ty))
 
@@ -1826,12 +1826,12 @@ tooFewParmsErr arity
   = text "Family instance has too few parameters; expected" <+>
     ppr arity
 
-assocInClassErr :: Located (IdP GHCR) -> SDoc
+assocInClassErr :: Located Name -> SDoc
 assocInClassErr name
  = text "Associated type" <+> quotes (ppr name) <+>
    text "must be inside a class instance"
 
-badFamInstDecl :: Located (IdP GHCR) -> SDoc
+badFamInstDecl :: Located Name -> SDoc
 badFamInstDecl tc_name
   = vcat [ text "Illegal family instance for" <+>
            quotes (ppr tc_name)

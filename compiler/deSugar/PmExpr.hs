@@ -56,15 +56,15 @@ data PmExpr = PmExprVar   Name
             | PmExprCon   ConLike [PmExpr]
             | PmExprLit   PmLit
             | PmExprEq    PmExpr PmExpr  -- Syntactic equality
-            | PmExprOther (HsExpr GHCT)  -- Note [PmExprOther in PmExpr]
+            | PmExprOther (HsExpr GhcTc)  -- Note [PmExprOther in PmExpr]
 
 
 mkPmExprData :: DataCon -> [PmExpr] -> PmExpr
 mkPmExprData dc args = PmExprCon (RealDataCon dc) args
 
 -- | Literals (simple and overloaded ones) for pattern match checking.
-data PmLit = PmSLit (HsLit GHCT)                               -- simple
-           | PmOLit Bool {- is it negated? -} (HsOverLit GHCT) -- overloaded
+data PmLit = PmSLit (HsLit GhcTc)                               -- simple
+           | PmOLit Bool {- is it negated? -} (HsOverLit GhcTc) -- overloaded
 
 -- | Equality between literals for pattern match checking.
 eqPmLit :: PmLit -> PmLit -> Bool
@@ -229,10 +229,10 @@ substComplexEq x e (ex, ey)
 -- -----------------------------------------------------------------------
 -- ** Lift source expressions (HsExpr Id) to PmExpr
 
-lhsExprToPmExpr :: LHsExpr GHCT -> PmExpr
+lhsExprToPmExpr :: LHsExpr GhcTc -> PmExpr
 lhsExprToPmExpr (L _ e) = hsExprToPmExpr e
 
-hsExprToPmExpr :: HsExpr GHCT -> PmExpr
+hsExprToPmExpr :: HsExpr GhcTc -> PmExpr
 
 hsExprToPmExpr (HsVar         x) = PmExprVar (idName (unLoc x))
 hsExprToPmExpr (HsConLikeOut  c) = PmExprVar (conLikeName c)
@@ -282,7 +282,7 @@ hsExprToPmExpr (ExprWithTySigOut  e _) = lhsExprToPmExpr e
 hsExprToPmExpr (HsWrap            _ e) =  hsExprToPmExpr e
 hsExprToPmExpr e = PmExprOther e -- the rest are not handled by the oracle
 
-synExprToPmExpr :: SyntaxExpr GHCT -> PmExpr
+synExprToPmExpr :: SyntaxExpr GhcTc -> PmExpr
 synExprToPmExpr = hsExprToPmExpr . syn_expr  -- ignore the wrappers
 
 {-

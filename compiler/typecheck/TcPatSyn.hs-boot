@@ -4,15 +4,15 @@ import HsSyn     ( PatSynBind, LHsBinds )
 import TcRnTypes ( TcM, TcPatSynInfo )
 import TcRnMonad ( TcGblEnv)
 import Outputable ( Outputable )
-import HsExtension ( GHCR, GHCT )
+import HsExtension ( GhcRn, GhcTc )
 
-tcInferPatSynDecl :: PatSynBind GHCR GHCR
-                  -> TcM (LHsBinds GHCT, TcGblEnv)
+tcInferPatSynDecl :: PatSynBind GhcRn GhcRn
+                  -> TcM (LHsBinds GhcTc, TcGblEnv)
 
-tcCheckPatSynDecl :: PatSynBind GHCR GHCR
+tcCheckPatSynDecl :: PatSynBind GhcRn GhcRn
                   -> TcPatSynInfo
-                  -> TcM (LHsBinds GHCT, TcGblEnv)
+                  -> TcM (LHsBinds GhcTc, TcGblEnv)
 
-tcPatSynBuilderBind :: PatSynBind GHCR GHCR -> TcM (LHsBinds GHCT)
+tcPatSynBuilderBind :: PatSynBind GhcRn GhcRn -> TcM (LHsBinds GhcTc)
 
 nonBidirectionalErr :: Outputable name => name -> TcM a

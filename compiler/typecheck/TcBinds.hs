@@ -76,7 +76,7 @@ import Control.Monad
 *                                                                      *
 ********************************************************************* -}
 
-addTypecheckedBinds :: TcGblEnv -> [LHsBinds GHCT] -> TcGblEnv
+addTypecheckedBinds :: TcGblEnv -> [LHsBinds GhcTc] -> TcGblEnv
 addTypecheckedBinds tcg_env binds
   | isHsBootOrSig (tcg_src tcg_env) = tcg_env
     -- Do not add the code for record-selector bindings
@@ -177,7 +177,7 @@ Then we get
                                fm
 -}
 
-tcTopBinds :: [(RecFlag, LHsBinds GHCR)] -> [LSig GHCR] -> TcM (TcGblEnv, TcLclEnv)
+tcTopBinds :: [(RecFlag, LHsBinds GhcRn)] -> [LSig GhcRn] -> TcM (TcGblEnv, TcLclEnv)
 -- The TcGblEnv contains the new tcg_binds and tcg_spects
 -- The TcLclEnv has an extended type envt for the new bindings
 tcTopBinds binds sigs
@@ -228,10 +228,10 @@ tcTopBinds binds sigs
 -- `Nothing` in the case that the type is fixed by a type signature
 data CompleteSigType = AcceptAny | Fixed (Maybe ConLike) TyCon
 
-tcCompleteSigs  :: [LSig GHCR] -> TcM [CompleteMatch]
+tcCompleteSigs  :: [LSig GhcRn] -> TcM [CompleteMatch]
 tcCompleteSigs sigs =
   let
-      doOne :: Sig GHCR -> TcM (Maybe CompleteMatch)
+      doOne :: Sig GhcRn -> TcM (Maybe CompleteMatch)
       doOne c@(CompleteMatchSig _ lns mtc)
         = fmap Just $ do
            addErrCtxt (text "In" <+> ppr c) $
@@ -267,7 +267,7 @@ tcCompleteSigs sigs =
 
 
       -- See note [Typechecking Complete Matches]
-      checkCLType :: (CompleteSigType, [ConLike]) -> Located (IdP GHCR)
+      checkCLType :: (CompleteSigType, [ConLike]) -> Located Name
                   -> TcM (CompleteSigType, [ConLike])
       checkCLType (cst, cs) n = do
         cl <- addLocM tcLookupConLike n
@@ -303,7 +303,7 @@ tcCompleteSigs sigs =
                                <+> quotes (ppr tc'))
   in  mapMaybeM (addLocM doOne) sigs
 
-tcRecSelBinds :: HsValBinds GHCR -> TcM TcGblEnv
+tcRecSelBinds :: HsValBinds GhcRn -> TcM TcGblEnv
 tcRecSelBinds (ValBindsOut binds sigs)
   = tcExtendGlobalValEnv [sel_id | L _ (IdSig sel_id) <- sigs] $
     do { (rec_sel_binds, tcg_env) <- discardWarnings $
@@ -312,7 +312,7 @@ tcRecSelBinds (ValBindsOut binds sigs)
        ; return tcg_env' }
 tcRecSelBinds (ValBindsIn {}) = panic "tcRecSelBinds"
 
-tcHsBootSigs :: [(RecFlag, LHsBinds GHCR)] -> [LSig GHCR] -> TcM [IdP GHCT]
+tcHsBootSigs :: [(RecFlag, LHsBinds GhcRn)] -> [LSig GhcRn] -> TcM [Id]
 -- A hs-boot file has only one BindGroup, and it only has type
 -- signatures in it.  The renamer checked all this
 tcHsBootSigs binds sigs
@@ -331,8 +331,8 @@ badBootDeclErr :: MsgDoc
 badBootDeclErr = text "Illegal declarations in an hs-boot file"
 
 ------------------------
-tcLocalBinds :: HsLocalBinds GHCR -> TcM thing
-             -> TcM (HsLocalBinds GHCTc, thing)
+tcLocalBinds :: HsLocalBinds GhcRn -> TcM thing
+             -> TcM (HsLocalBinds GhcTcId, thing)
 
 tcLocalBinds EmptyLocalBinds thing_inside
   = do  { thing <- thing_inside
@@ -391,9 +391,9 @@ untouchable-range idea.
 -}
 
 tcValBinds :: TopLevelFlag
-           -> [(RecFlag, LHsBinds GHCR)] -> [LSig GHCR]
+           -> [(RecFlag, LHsBinds GhcRn)] -> [LSig GhcRn]
            -> TcM thing
-           -> TcM ([(RecFlag, LHsBinds GHCTc)], thing)
+           -> TcM ([(RecFlag, LHsBinds GhcTcId)], thing)
 
 tcValBinds top_lvl binds sigs thing_inside
   = do  { let patsyns = getPatSynBinds binds
@@ -420,8 +420,8 @@ tcValBinds top_lvl binds sigs thing_inside
 
 ------------------------
 tcBindGroups :: TopLevelFlag -> TcSigFun -> TcPragEnv
-             -> [(RecFlag, LHsBinds GHCR)] -> TcM thing
-             -> TcM ([(RecFlag, LHsBinds GHCTc)], thing)
+             -> [(RecFlag, LHsBinds GhcRn)] -> TcM thing
+             -> TcM ([(RecFlag, LHsBinds GhcTcId)], thing)
 -- Typecheck a whole lot of value bindings,
 -- one strongly-connected component at a time
 -- Here a "strongly connected component" has the strightforward
@@ -460,8 +460,8 @@ tcBindGroups top_lvl sig_fn prag_fn (group : groups) thing_inside
 ------------------------
 tc_group :: forall thing.
             TopLevelFlag -> TcSigFun -> TcPragEnv
-         -> (RecFlag, LHsBinds GHCR) -> IsGroupClosed -> TcM thing
-         -> TcM ([(RecFlag, LHsBinds GHCTc)], thing)
+         -> (RecFlag, LHsBinds GhcRn) -> IsGroupClosed -> TcM thing
+         -> TcM ([(RecFlag, LHsBinds GhcTcId)], thing)
 
 -- Typecheck one strongly-connected component of the original program.
 -- We get a list of groups back, because there may
@@ -495,10 +495,10 @@ tc_group top_lvl sig_fn prag_fn (Recursive, binds) closed thing_inside
     isPatSyn PatSynBind{} = True
     isPatSyn _ = False
 
-    sccs :: [SCC (LHsBind GHCR)]
+    sccs :: [SCC (LHsBind GhcRn)]
     sccs = stronglyConnCompFromEdgedVerticesUniq (mkEdges sig_fn binds)
 
-    go :: [SCC (LHsBind GHCR)] -> TcM (LHsBinds GHCTc, thing)
+    go :: [SCC (LHsBind GhcRn)] -> TcM (LHsBinds GhcTcId, thing)
     go (scc:sccs) = do  { (binds1, ids1) <- tc_scc scc
                         ; (binds2, thing) <- tcExtendLetEnv top_lvl closed ids1
                                                             (go sccs)
@@ -523,8 +523,8 @@ recursivePatSynErr binds
 
 tc_single :: forall thing.
             TopLevelFlag -> TcSigFun -> TcPragEnv
-          -> LHsBind GHCR -> IsGroupClosed -> TcM thing
-          -> TcM (LHsBinds GHCTc, thing)
+          -> LHsBind GhcRn -> IsGroupClosed -> TcM thing
+          -> TcM (LHsBinds GhcTcId, thing)
 tc_single _top_lvl sig_fn _prag_fn
           (L _ (PatSynBind psb@PSB{ psb_id = L _ name }))
           _ thing_inside
@@ -533,7 +533,7 @@ tc_single _top_lvl sig_fn _prag_fn
        ; return (aux_binds, thing)
        }
   where
-    tc_pat_syn_decl :: TcM (LHsBinds GHCTc, TcGblEnv)
+    tc_pat_syn_decl :: TcM (LHsBinds GhcTcId, TcGblEnv)
     tc_pat_syn_decl = case sig_fn name of
         Nothing                 -> tcInferPatSynDecl psb
         Just (TcPatSynSig tpsi) -> tcCheckPatSynDecl psb tpsi
@@ -550,7 +550,7 @@ tc_single top_lvl sig_fn prag_fn lbind closed thing_inside
 ------------------------
 type BKey = Int -- Just number off the bindings
 
-mkEdges :: TcSigFun -> LHsBinds GHCR -> [Node BKey (LHsBind GHCR)]
+mkEdges :: TcSigFun -> LHsBinds GhcRn -> [Node BKey (LHsBind GhcRn)]
 -- See Note [Polymorphic recursion] in HsBinds.
 mkEdges sig_fn binds
   = [ DigraphNode bind key [key | n <- nonDetEltsUniqSet (bind_fvs (unLoc bind)),
@@ -561,7 +561,7 @@ mkEdges sig_fn binds
     -- is still deterministic even if the edges are in nondeterministic order
     -- as explained in Note [Deterministic SCC] in Digraph.
   where
-    no_sig :: IdP GHCR -> Bool
+    no_sig :: Name -> Bool
     no_sig n = noCompleteSig (sig_fn n)
 
     keyd_binds = bagToList binds `zip` [0::BKey ..]
@@ -576,8 +576,8 @@ tcPolyBinds :: TcSigFun -> TcPragEnv
             -> RecFlag         -- Whether it's recursive after breaking
                                -- dependencies based on type signatures
             -> IsGroupClosed   -- Whether the group is closed
-            -> [LHsBind GHCR]  -- None are PatSynBind
-            -> TcM (LHsBinds GHCTc, [IdP GHCTc])
+            -> [LHsBind GhcRn]  -- None are PatSynBind
+            -> TcM (LHsBinds GhcTcId, [TcId])
 
 -- Typechecks a single bunch of values bindings all together,
 -- and generalises them.  The bunch may be only part of a recursive
@@ -621,7 +621,7 @@ tcPolyBinds sig_fn prag_fn rec_group rec_tc closed bind_list
 -- If typechecking the binds fails, then return with each
 -- signature-less binder given type (forall a.a), to minimise
 -- subsequent error messages
-recoveryCode :: [IdP GHCR] -> TcSigFun -> TcM (LHsBinds GHCTc, [IdP GHCT])
+recoveryCode :: [Name] -> TcSigFun -> TcM (LHsBinds GhcTcId, [Id])
 recoveryCode binder_names sig_fn
   = do  { traceTc "tcBindsWithSigs: error recovery" (ppr binder_names)
         ; let poly_ids = map mk_dummy binder_names
@@ -647,8 +647,8 @@ tcPolyNoGen     -- No generalisation whatsoever
   :: RecFlag       -- Whether it's recursive after breaking
                    -- dependencies based on type signatures
   -> TcPragEnv -> TcSigFun
-  -> [LHsBind GHCR]
-  -> TcM (LHsBinds GHCTc, [IdP GHCTc])
+  -> [LHsBind GhcRn]
+  -> TcM (LHsBinds GhcTcId, [TcId])
 
 tcPolyNoGen rec_tc prag_fn tc_sig_fn bind_list
   = do { (binds', mono_infos) <- tcMonoBinds rec_tc tc_sig_fn
@@ -674,8 +674,8 @@ tcPolyNoGen rec_tc prag_fn tc_sig_fn bind_list
 
 tcPolyCheck :: TcPragEnv
             -> TcIdSigInfo     -- Must be a complete signature
-            -> LHsBind GHCR    -- Must be a FunBind
-            -> TcM (LHsBinds GHCTc, [IdP GHCTc])
+            -> LHsBind GhcRn    -- Must be a FunBind
+            -> TcM (LHsBinds GhcTcId, [TcId])
 -- There is just one binding,
 --   it is a Funbind
 --   it has a complete type signature,
@@ -727,8 +727,8 @@ tcPolyCheck prag_fn
 tcPolyCheck _prag_fn sig bind
   = pprPanic "tcPolyCheck" (ppr sig $$ ppr bind)
 
-funBindTicks :: SrcSpan -> IdP GHCTc -> Module -> [LSig GHCR]
-             -> [Tickish (IdP GHCTc)]
+funBindTicks :: SrcSpan -> TcId -> Module -> [LSig GhcRn]
+             -> [Tickish TcId]
 funBindTicks loc fun_id mod sigs
   | (mb_cc_str : _) <- [ cc_name | L _ (SCCFunSig _ _ cc_name) <- sigs ]
       -- this can only be a singleton list, as duplicate pragmas are rejected
@@ -769,8 +769,8 @@ tcPolyInfer
                    -- dependencies based on type signatures
   -> TcPragEnv -> TcSigFun
   -> Bool         -- True <=> apply the monomorphism restriction
-  -> [LHsBind GHCR]
-  -> TcM (LHsBinds GHCTc, [IdP GHCTc])
+  -> [LHsBind GhcRn]
+  -> TcM (LHsBinds GhcTcId, [TcId])
 tcPolyInfer rec_tc prag_fn tc_sig_fn mono bind_list
   = do { (tclvl, wanted, (binds', mono_infos))
              <- pushLevelAndCaptureConstraints  $
@@ -806,7 +806,7 @@ tcPolyInfer rec_tc prag_fn tc_sig_fn mono bind_list
 mkExport :: TcPragEnv
          -> [TyVar] -> TcThetaType      -- Both already zonked
          -> MonoBindInfo
-         -> TcM (ABExport GHCT)
+         -> TcM (ABExport GhcTc)
 -- Only called for generalisation plan InferGen, not by CheckGen or NoGen
 --
 -- mkExport generates exports with
@@ -861,8 +861,8 @@ mkExport prag_fn qtvs theta
     sig_ctxt  = InfSigCtxt poly_name
 
 mkInferredPolyId :: [TyVar] -> TcThetaType
-                 -> IdP GHCR -> Maybe TcIdSigInst -> TcType
-                 -> TcM (IdP GHCTc)
+                 -> Name -> Maybe TcIdSigInst -> TcType
+                 -> TcM TcId
 mkInferredPolyId qtvs inferred_theta poly_name mb_sig_inst mono_ty
   | Just (TISI { sig_inst_sig = sig })  <- mb_sig_inst
   , CompleteSig { sig_bndr = poly_id } <- sig
@@ -972,7 +972,7 @@ chooseInferredQuantifiers inferred_theta tau_tvs qtvs
     mk_ctuple preds  = do { tc <- tcLookupTyCon (cTupleTyConName (length preds))
                           ; return (mkTyConApp tc preds) }
 
-    mk_psig_qtvs :: [(IdP GHCR,TcTyVar)] -> TcM TcTyVarSet
+    mk_psig_qtvs :: [(Name,TcTyVar)] -> TcM TcTyVarSet
     mk_psig_qtvs annotated_tvs
        = do { psig_qtvs <- mapM (zonkTcTyVarToTyVar . snd) annotated_tvs
             ; return (mkVarSet psig_qtvs) }
@@ -997,7 +997,7 @@ mk_impedance_match_msg (MBI { mbi_poly_name = name, mbi_sig = mb_sig })
                       | otherwise        -> empty
 
 
-mk_inf_msg :: IdP GHCR -> TcType -> TidyEnv -> TcM (TidyEnv, SDoc)
+mk_inf_msg :: Name -> TcType -> TidyEnv -> TcM (TidyEnv, SDoc)
 mk_inf_msg poly_name poly_ty tidy_env
  = do { (tidy_env1, poly_ty) <- zonkTidyTcType tidy_env poly_ty
       ; let msg = vcat [ text "When checking the inferred type"
@@ -1006,7 +1006,7 @@ mk_inf_msg poly_name poly_ty tidy_env
 
 
 -- | Warn the user about polymorphic local binders that lack type signatures.
-localSigWarn :: WarningFlag -> IdP GHCT -> Maybe TcIdSigInst -> TcM ()
+localSigWarn :: WarningFlag -> Id -> Maybe TcIdSigInst -> TcM ()
 localSigWarn flag id mb_sig
   | Just _ <- mb_sig               = return ()
   | not (isSigmaTy (idType id))    = return ()
@@ -1014,7 +1014,7 @@ localSigWarn flag id mb_sig
   where
     msg = text "Polymorphic local binding with no type signature:"
 
-warnMissingSignatures :: WarningFlag -> SDoc -> IdP GHCT -> TcM ()
+warnMissingSignatures :: WarningFlag -> SDoc -> Id -> TcM ()
 warnMissingSignatures flag msg id
   = do  { env0 <- tcInitTidyEnv
         ; let (env1, tidy_ty) = tidyOpenType env0 (idType id)
@@ -1133,7 +1133,7 @@ where F is a non-injective type function.
 *                                                                      *
 ********************************************************************* -}
 
-tcVectDecls :: [LVectDecl GHCR] -> TcM ([LVectDecl GHCTc])
+tcVectDecls :: [LVectDecl GhcRn] -> TcM ([LVectDecl GhcTcId])
 tcVectDecls decls
   = do { decls' <- mapM (wrapLocM tcVect) decls
        ; let ids  = [lvectDeclName decl | decl <- decls', not $ lvectInstDecl decl]
@@ -1149,7 +1149,7 @@ tcVectDecls decls
     reportVectDups _ = return ()
 
 --------------
-tcVect :: VectDecl GHCR -> TcM (VectDecl GHCTc)
+tcVect :: VectDecl GhcRn -> TcM (VectDecl GhcTcId)
 -- FIXME: We can't typecheck the expression of a vectorisation declaration against the vectorised
 --   type of the original definition as this requires internals of the vectoriser not available
 --   during type checking.  Instead, constrain the rhs of a vectorisation declaration to be a single
@@ -1236,16 +1236,16 @@ for a non-overloaded function.
 The signatures have been dealt with already.
 -}
 
-data MonoBindInfo = MBI { mbi_poly_name :: IdP GHCR
+data MonoBindInfo = MBI { mbi_poly_name :: Name
                         , mbi_sig       :: Maybe TcIdSigInst
-                        , mbi_mono_id   :: IdP GHCTc }
+                        , mbi_mono_id   :: TcId }
 
 tcMonoBinds :: RecFlag  -- Whether the binding is recursive for typechecking purposes
                         -- i.e. the binders are mentioned in their RHSs, and
                         --      we are not rescued by a type signature
             -> TcSigFun -> LetBndrSpec
-            -> [LHsBind GHCR]
-            -> TcM (LHsBinds GHCTc, [MonoBindInfo])
+            -> [LHsBind GhcRn]
+            -> TcM (LHsBinds GhcTcId, [MonoBindInfo])
 tcMonoBinds is_rec sig_fn no_gen
            [ L b_loc (FunBind { fun_id = L nm_loc name,
                                 fun_matches = matches, bind_fvs = fvs })]
@@ -1319,10 +1319,10 @@ tcMonoBinds _ sig_fn no_gen binds
 -- it; hence the TcMonoBind data type in which the LHS is done but the RHS isn't
 
 data TcMonoBind         -- Half completed; LHS done, RHS not done
-  = TcFunBind  MonoBindInfo  SrcSpan (MatchGroup GHCR (LHsExpr GHCR))
-  | TcPatBind [MonoBindInfo] (LPat GHCTc) (GRHSs GHCR (LHsExpr GHCR)) TcSigmaType
+  = TcFunBind  MonoBindInfo  SrcSpan (MatchGroup GhcRn (LHsExpr GhcRn))
+  | TcPatBind [MonoBindInfo] (LPat GhcTcId) (GRHSs GhcRn (LHsExpr GhcRn)) TcSigmaType
 
-tcLhs :: TcSigFun -> LetBndrSpec -> HsBind GHCR -> TcM TcMonoBind
+tcLhs :: TcSigFun -> LetBndrSpec -> HsBind GhcRn -> TcM TcMonoBind
 -- Only called with plan InferGen (LetBndrSpec = LetLclBndr)
 --                    or NoGen    (LetBndrSpec = LetGblBndr)
 -- CheckGen is used only for functions with a complete type signature,
@@ -1373,7 +1373,7 @@ tcLhs sig_fn no_gen (PatBind { pat_lhs = pat, pat_rhs = grhss })
     bndr_names = collectPatBinders pat
     (nosig_names, sig_names) = partitionWith find_sig bndr_names
 
-    find_sig :: IdP GHCR -> Either (IdP GHCR) (IdP GHCR, TcIdSigInfo)
+    find_sig :: Name -> Either Name (Name, TcIdSigInfo)
     find_sig name = case sig_fn name of
                       Just (TcIdSig sig) -> Right (name, sig)
                       _                  -> Left name
@@ -1381,7 +1381,7 @@ tcLhs sig_fn no_gen (PatBind { pat_lhs = pat, pat_rhs = grhss })
       -- After typechecking the pattern, look up the binder
       -- names that lack a signature, which the pattern has brought
       -- into scope.
-    lookup_info :: IdP GHCR -> TcM MonoBindInfo
+    lookup_info :: Name -> TcM MonoBindInfo
     lookup_info name
       = do { mono_id <- tcLookupId name
            ; return (MBI { mbi_poly_name = name
@@ -1392,7 +1392,7 @@ tcLhs _ _ other_bind = pprPanic "tcLhs" (ppr other_bind)
         -- AbsBind, VarBind impossible
 
 -------------------
-tcLhsSigId :: LetBndrSpec -> (IdP GHCR, TcIdSigInfo) -> TcM MonoBindInfo
+tcLhsSigId :: LetBndrSpec -> (Name, TcIdSigInfo) -> TcM MonoBindInfo
 tcLhsSigId no_gen (name, sig)
   = do { inst_sig <- tcInstSig sig
        ; mono_id <- newSigLetBndr no_gen name inst_sig
@@ -1401,7 +1401,7 @@ tcLhsSigId no_gen (name, sig)
                      , mbi_mono_id   = mono_id }) }
 
 ------------
-newSigLetBndr :: LetBndrSpec -> IdP GHCR -> TcIdSigInst -> TcM (IdP GHCTc)
+newSigLetBndr :: LetBndrSpec -> Name -> TcIdSigInst -> TcM TcId
 newSigLetBndr (LetGblBndr prags) name (TISI { sig_inst_sig = id_sig })
   | CompleteSig { sig_bndr = poly_id } <- id_sig
   = addInlinePrags poly_id (lookupPragEnv prags name)
@@ -1409,7 +1409,7 @@ newSigLetBndr no_gen name (TISI { sig_inst_tau = tau })
   = newLetBndr no_gen name tau
 
 -------------------
-tcRhs :: TcMonoBind -> TcM (HsBind GHCTc)
+tcRhs :: TcMonoBind -> TcM (HsBind GhcTcId)
 tcRhs (TcFunBind info@(MBI { mbi_sig = mb_sig, mbi_mono_id = mono_id })
                  loc matches)
   = tcExtendIdBinderStackForRhs [info]  $
@@ -1597,7 +1597,7 @@ data GeneralisationPlan
   | InferGen            -- Implicit generalisation; there is an AbsBinds
        Bool             --   True <=> apply the MR; generalise only unconstrained type vars
 
-  | CheckGen (LHsBind GHCR) TcIdSigInfo
+  | CheckGen (LHsBind GhcRn) TcIdSigInfo
                         -- One FunBind with a signature
                         -- Explicit generalisation; there is an AbsBindsSig
 
@@ -1610,7 +1610,7 @@ instance Outputable GeneralisationPlan where
   ppr (CheckGen _ s) = text "CheckGen" <+> ppr s
 
 decideGeneralisationPlan
-   :: DynFlags -> [LHsBind GHCR] -> IsGroupClosed -> TcSigFun
+   :: DynFlags -> [LHsBind GhcRn] -> IsGroupClosed -> TcSigFun
    -> GeneralisationPlan
 decideGeneralisationPlan dflags lbinds closed sig_fn
   | has_partial_sigs                         = InferGen (and partial_sig_mrs)
@@ -1661,7 +1661,7 @@ decideGeneralisationPlan dflags lbinds closed sig_fn
 
     no_sig n = noCompleteSig (sig_fn n)
 
-isClosedBndrGroup :: Bag (LHsBind GHCR) -> TcM IsGroupClosed
+isClosedBndrGroup :: Bag (LHsBind GhcRn) -> TcM IsGroupClosed
 isClosedBndrGroup binds = do
     type_env <- getLclTypeEnv
     if foldUFM (is_closed_ns type_env) True fv_env
@@ -1671,7 +1671,7 @@ isClosedBndrGroup binds = do
     fv_env :: NameEnv NameSet
     fv_env = mkNameEnv $ concatMap (bindFvs . unLoc) binds
 
-    bindFvs :: HsBindLR GHCR idR -> [(IdP GHCR, NameSet)]
+    bindFvs :: HsBindLR GhcRn idR -> [(Name, NameSet)]
     bindFvs (FunBind { fun_id = f, bind_fvs = fvs })
        = [(unLoc f, fvs)]
     bindFvs (PatBind { pat_lhs = pat, bind_fvs = fvs })
@@ -1683,7 +1683,7 @@ isClosedBndrGroup binds = do
     is_closed_ns type_env ns b = b && nameSetAll (is_closed_id type_env) ns
         -- ns are the Names referred to from the RHS of this bind
 
-    is_closed_id :: TcTypeEnv -> IdP GHCR -> Bool
+    is_closed_id :: TcTypeEnv -> Name -> Bool
     -- See Note [Bindings with closed types] in TcRnTypes
     is_closed_id type_env name
       | Just thing <- lookupNameEnv type_env name
@@ -1709,6 +1709,6 @@ isClosedBndrGroup binds = do
 -- This one is called on LHS, when pat and grhss are both Name
 -- and on RHS, when pat is TcId and grhss is still Name
 patMonoBindsCtxt :: (SourceTextX p, OutputableBndrId p, Outputable body)
-                 => LPat p -> GRHSs GHCR body -> SDoc
+                 => LPat p -> GRHSs GhcRn body -> SDoc
 patMonoBindsCtxt pat grhss
   = hang (text "In a pattern binding:") 2 (pprPatBind pat grhss)

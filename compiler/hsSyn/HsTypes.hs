@@ -263,17 +263,17 @@ data LHsQTyVars pass   -- See Note [HsType binders]
 
 deriving instance (DataId pass) => Data (LHsQTyVars pass)
 
-mkHsQTvs :: [LHsTyVarBndr GHCP] -> LHsQTyVars GHCP
+mkHsQTvs :: [LHsTyVarBndr GhcPs] -> LHsQTyVars GhcPs
 mkHsQTvs tvs = HsQTvs { hsq_implicit = PlaceHolder, hsq_explicit = tvs
                       , hsq_dependent = PlaceHolder }
 
 hsQTvExplicit :: LHsQTyVars pass -> [LHsTyVarBndr pass]
 hsQTvExplicit = hsq_explicit
 
-emptyLHsQTvs :: LHsQTyVars GHCR
+emptyLHsQTvs :: LHsQTyVars GhcRn
 emptyLHsQTvs = HsQTvs [] [] emptyNameSet
 
-isEmptyLHsQTvs :: LHsQTyVars GHCR -> Bool
+isEmptyLHsQTvs :: LHsQTyVars GhcRn -> Bool
 isEmptyLHsQTvs (HsQTvs [] [] _) = True
 isEmptyLHsQTvs _                = False
 
@@ -356,23 +356,23 @@ The implicit kind variable 'k' is bound by the HsIB;
 the explicitly forall'd tyvar 'a' is bound by the HsForAllTy
 -}
 
-mkHsImplicitBndrs :: thing -> HsImplicitBndrs GHCP thing
+mkHsImplicitBndrs :: thing -> HsImplicitBndrs GhcPs thing
 mkHsImplicitBndrs x = HsIB { hsib_body   = x
                            , hsib_vars   = PlaceHolder
                            , hsib_closed = PlaceHolder }
 
-mkHsWildCardBndrs :: thing -> HsWildCardBndrs GHCP thing
+mkHsWildCardBndrs :: thing -> HsWildCardBndrs GhcPs thing
 mkHsWildCardBndrs x = HsWC { hswc_body = x
                            , hswc_wcs  = PlaceHolder }
 
 -- Add empty binders.  This is a bit suspicious; what if
 -- the wrapped thing had free type variables?
-mkEmptyImplicitBndrs :: thing -> HsImplicitBndrs GHCR thing
+mkEmptyImplicitBndrs :: thing -> HsImplicitBndrs GhcRn thing
 mkEmptyImplicitBndrs x = HsIB { hsib_body   = x
                               , hsib_vars   = []
                               , hsib_closed = False }
 
-mkEmptyWildCardBndrs :: thing -> HsWildCardBndrs GHCR thing
+mkEmptyWildCardBndrs :: thing -> HsWildCardBndrs GhcRn thing
 mkEmptyWildCardBndrs x = HsWC { hswc_body = x
                               , hswc_wcs  = [] }
 
@@ -782,11 +782,11 @@ updateGadtResult
   :: (Monad m)
      => (SDoc -> m ())
      -> SDoc
-     -> HsConDetails (LHsType GHCR) (Located [LConDeclField GHCR])
+     -> HsConDetails (LHsType GhcRn) (Located [LConDeclField GhcRn])
                      -- ^ Original details
-     -> LHsType GHCR -- ^ Original result type
-     -> m (HsConDetails (LHsType GHCR) (Located [LConDeclField GHCR]),
-           LHsType GHCR)
+     -> LHsType GhcRn -- ^ Original result type
+     -> m (HsConDetails (LHsType GhcRn) (Located [LConDeclField GhcRn]),
+           LHsType GhcRn)
 updateGadtResult failWith doc details ty
   = do { let (arg_tys, res_ty) = splitHsFunType ty
              badConSig         = text "Malformed constructor signature"
@@ -824,7 +824,7 @@ gives
 -- types
 
 ---------------------
-hsWcScopedTvs :: LHsSigWcType GHCR -> [Name]
+hsWcScopedTvs :: LHsSigWcType GhcRn -> [Name]
 -- Get the lexically-scoped type variables of a HsSigType
 --  - the explicitly-given forall'd type variables
 --  - the implicitly-bound kind variables
@@ -840,7 +840,7 @@ hsWcScopedTvs sig_ty
                -- (this is consistent with GHC 7 behaviour)
       _                                    -> nwcs
 
-hsScopedTvs :: LHsSigType GHCR -> [Name]
+hsScopedTvs :: LHsSigType GhcRn -> [Name]
 -- Same as hsWcScopedTvs, but for a LHsSigType
 hsScopedTvs sig_ty
   | HsIB { hsib_vars = vars,  hsib_body = sig_ty2 } <- sig_ty
@@ -874,7 +874,7 @@ hsExplicitLTyVarNames :: LHsQTyVars pass -> [IdP pass]
 -- Explicit variables only
 hsExplicitLTyVarNames qtvs = map hsLTyVarName (hsQTvExplicit qtvs)
 
-hsAllLTyVarNames :: LHsQTyVars GHCR -> [Name]
+hsAllLTyVarNames :: LHsQTyVars GhcRn -> [Name]
 -- All variables
 hsAllLTyVarNames (HsQTvs { hsq_implicit = kvs, hsq_explicit = tvs })
   = kvs ++ map hsLTyVarName tvs
@@ -898,7 +898,7 @@ hsLTyVarBndrsToTypes :: LHsQTyVars pass -> [LHsType pass]
 hsLTyVarBndrsToTypes (HsQTvs { hsq_explicit = tvbs }) = map hsLTyVarBndrToType tvbs
 
 ---------------------
-wildCardName :: HsWildCardInfo GHCR -> Name
+wildCardName :: HsWildCardInfo GhcRn -> Name
 wildCardName (AnonWildCard  (L _ n)) = n
 
 -- Two wild cards are the same when they have the same location
@@ -919,7 +919,7 @@ ignoreParens ty                                      = ty
 ************************************************************************
 -}
 
-mkAnonWildCardTy :: HsType GHCP
+mkAnonWildCardTy :: HsType GhcPs
 mkAnonWildCardTy = HsWildCardTy (AnonWildCard PlaceHolder)
 
 mkHsOpTy :: LHsType pass -> Located (IdP pass) -> LHsType pass -> HsType pass
@@ -946,7 +946,7 @@ mkHsAppTys = foldl mkHsAppTy
 --      splitHsFunType (a -> (b -> c)) = ([a,b], c)
 -- Also deals with (->) t1 t2; that is why it only works on LHsType Name
 --   (see Trac #9096)
-splitHsFunType :: LHsType GHCR -> ([LHsType GHCR], LHsType GHCR)
+splitHsFunType :: LHsType GhcRn -> ([LHsType GhcRn], LHsType GhcRn)
 splitHsFunType (L _ (HsParTy ty))
   = splitHsFunType ty
 
@@ -1014,7 +1014,7 @@ hsTyGetAppHead_maybe = go []
     go tys (L _ (HsKindSig t _))         = go tys t
     go _   _                             = Nothing
 
-splitHsAppTys :: LHsType GHCR -> [LHsType GHCR] -> (LHsType GHCR, [LHsType GHCR])
+splitHsAppTys :: LHsType GhcRn -> [LHsType GhcRn] -> (LHsType GhcRn, [LHsType GhcRn])
   -- no need to worry about HsAppsTy here
 splitHsAppTys (L _ (HsAppTy f a)) as = splitHsAppTys f (a:as)
 splitHsAppTys (L _ (HsParTy f))   as = splitHsAppTys f as
@@ -1048,8 +1048,8 @@ splitLHsQualTy :: LHsType pass -> (LHsContext pass, LHsType pass)
 splitLHsQualTy (L _ (HsQualTy { hst_ctxt = ctxt, hst_body = body })) = (ctxt,     body)
 splitLHsQualTy body                                                  = (noLoc [], body)
 
-splitLHsInstDeclTy :: LHsSigType GHCR
-                   -> ([Name], LHsContext GHCR, LHsType GHCR)
+splitLHsInstDeclTy :: LHsSigType GhcRn
+                   -> ([Name], LHsContext GhcRn, LHsType GhcRn)
 -- Split up an instance decl type, returning the pieces
 splitLHsInstDeclTy (HsIB { hsib_vars = itkvs
                          , hsib_body = inst_ty })
@@ -1097,7 +1097,7 @@ deriving instance (DataId pass) => Data (FieldOcc pass)
 instance Outputable (FieldOcc pass) where
   ppr = ppr . rdrNameFieldOcc
 
-mkFieldOcc :: Located RdrName -> FieldOcc GHCP
+mkFieldOcc :: Located RdrName -> FieldOcc GhcPs
 mkFieldOcc rdr = FieldOcc rdr PlaceHolder
 
 
@@ -1128,18 +1128,18 @@ instance OutputableBndr (AmbiguousFieldOcc pass) where
   pprInfixOcc  = pprInfixOcc . rdrNameAmbiguousFieldOcc
   pprPrefixOcc = pprPrefixOcc . rdrNameAmbiguousFieldOcc
 
-mkAmbiguousFieldOcc :: Located RdrName -> AmbiguousFieldOcc GHCP
+mkAmbiguousFieldOcc :: Located RdrName -> AmbiguousFieldOcc GhcPs
 mkAmbiguousFieldOcc rdr = Unambiguous rdr PlaceHolder
 
 rdrNameAmbiguousFieldOcc :: AmbiguousFieldOcc pass -> RdrName
 rdrNameAmbiguousFieldOcc (Unambiguous (L _ rdr) _) = rdr
 rdrNameAmbiguousFieldOcc (Ambiguous   (L _ rdr) _) = rdr
 
-selectorAmbiguousFieldOcc :: AmbiguousFieldOcc GHCT -> Id
+selectorAmbiguousFieldOcc :: AmbiguousFieldOcc GhcTc -> Id
 selectorAmbiguousFieldOcc (Unambiguous _ sel) = sel
 selectorAmbiguousFieldOcc (Ambiguous   _ sel) = sel
 
-unambiguousFieldOcc :: AmbiguousFieldOcc GHCT -> FieldOcc GHCT
+unambiguousFieldOcc :: AmbiguousFieldOcc GhcTc -> FieldOcc GhcTc
 unambiguousFieldOcc (Unambiguous rdr sel) = FieldOcc rdr sel
 unambiguousFieldOcc (Ambiguous   rdr sel) = FieldOcc rdr sel
 

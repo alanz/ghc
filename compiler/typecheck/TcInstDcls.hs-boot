@@ -9,8 +9,8 @@ import HsSyn
 import TcRnTypes
 import TcEnv( InstInfo )
 import TcDeriv
-import HsExtension ( GHCR )
+import HsExtension ( GhcRn )
 
 -- We need this because of the mutual recursion
 -- between TcTyClsDecls and TcInstDcls
-tcInstDecls1 :: [LInstDecl GHCR] -> TcM (TcGblEnv, [InstInfo GHCR], [DerivInfo])
+tcInstDecls1 :: [LInstDecl GhcRn] -> TcM (TcGblEnv, [InstInfo GhcRn], [DerivInfo])

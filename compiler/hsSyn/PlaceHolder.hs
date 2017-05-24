@@ -97,31 +97,6 @@ DataId constraint type based on this, so even though it is safe the
 UndecidableInstances pragma is required where this is used.
 -}
 
--- type DataId id =
---   ( DataIdPost id
---   , DataIdPost (NameOrRdrName id)
---   )
-
--- type DataIdPost id =
---   ( Data id
---   , Data (PostRn id NameSet)
---   , Data (PostRn id Fixity)
---   , Data (PostRn id Bool)
---   , Data (PostRn id Name)
---   , Data (PostRn id (Located Name))
---   , Data (PostRn id [Name])
-
---   , Data (PostRn id id)
---   , Data (PostTc id Type)
---   , Data (PostTc id Coercion)
---   , Data (PostTc id id)
---   , Data (PostTc id [Type])
---   , Data (PostTc id ConLike)
---   , Data (PostTc id [ConLike])
---   , Data (PostTc id HsWrapper)
---   , Data (PostTc id [FieldLabel])
---   )
-
 
 -- |Follow the @id@, but never beyond Name. This is used in a 'HsMatchContext',
 -- for printing messages related to a 'Match'

@@ -47,20 +47,20 @@ import Language.Haskell.TH.Syntax as TH
 -------------------------------------------------------------------
 --              The external interface
 
-convertToHsDecls :: SrcSpan -> [TH.Dec] -> Either MsgDoc [LHsDecl GHCP]
+convertToHsDecls :: SrcSpan -> [TH.Dec] -> Either MsgDoc [LHsDecl GhcPs]
 convertToHsDecls loc ds = initCvt loc (fmap catMaybes (mapM cvt_dec ds))
   where
     cvt_dec d = wrapMsg "declaration" d (cvtDec d)
 
-convertToHsExpr :: SrcSpan -> TH.Exp -> Either MsgDoc (LHsExpr GHCP)
+convertToHsExpr :: SrcSpan -> TH.Exp -> Either MsgDoc (LHsExpr GhcPs)
 convertToHsExpr loc e
   = initCvt loc $ wrapMsg "expression" e $ cvtl e
 
-convertToPat :: SrcSpan -> TH.Pat -> Either MsgDoc (LPat GHCP)
+convertToPat :: SrcSpan -> TH.Pat -> Either MsgDoc (LPat GhcPs)
 convertToPat loc p
   = initCvt loc $ wrapMsg "pattern" p $ cvtPat p
 
-convertToHsType :: SrcSpan -> TH.Type -> Either MsgDoc (LHsType GHCP)
+convertToHsType :: SrcSpan -> TH.Type -> Either MsgDoc (LHsType GhcPs)
 convertToHsType loc t
   = initCvt loc $ wrapMsg "type" t $ cvtType t
 
@@ -134,10 +134,10 @@ wrapL (CvtM m) = CvtM (\loc -> case m loc of
                                Right (loc',v) -> Right (loc',L loc v))
 
 -------------------------------------------------------------------
-cvtDecs :: [TH.Dec] -> CvtM [LHsDecl GHCP]
+cvtDecs :: [TH.Dec] -> CvtM [LHsDecl GhcPs]
 cvtDecs = fmap catMaybes . mapM cvtDec
 
-cvtDec :: TH.Dec -> CvtM (Maybe (LHsDecl GHCP))
+cvtDec :: TH.Dec -> CvtM (Maybe (LHsDecl GhcPs))
 cvtDec (TH.ValD pat body ds)
   | TH.VarP s <- pat
   = do  { s' <- vNameL s
@@ -249,7 +249,7 @@ cvtDec (ClassD ctxt cl tvs fds decs)
                               -- no docs in TH ^^
         }
   where
-    cvt_at_def :: LTyFamInstDecl GHCP -> CvtM (LTyFamDefltEqn GHCP)
+    cvt_at_def :: LTyFamInstDecl GhcPs -> CvtM (LTyFamDefltEqn GhcPs)
     -- Very similar to what happens in RdrHsSyn.mkClassDecl
     cvt_at_def decl = case RdrHsSyn.mkATDefault decl of
                         Right def     -> return def
@@ -385,7 +385,7 @@ cvtDec (TH.PatSynSigD nm ty)
        ; returnJustL $ Hs.SigD $ PatSynSig [nm'] (mkLHsSigType ty') }
 
 ----------------
-cvtTySynEqn :: Located (IdP GHCP) -> TySynEqn -> CvtM (LTyFamInstEqn GHCP)
+cvtTySynEqn :: Located RdrName -> TySynEqn -> CvtM (LTyFamInstEqn GhcPs)
 cvtTySynEqn tc (TySynEqn lhs rhs)
   = do  { lhs' <- mapM (wrap_apps <=< cvtType) lhs
         ; rhs' <- cvtType rhs
@@ -396,11 +396,11 @@ cvtTySynEqn tc (TySynEqn lhs rhs)
 
 ----------------
 cvt_ci_decs :: MsgDoc -> [TH.Dec]
-            -> CvtM (LHsBinds GHCP,
-                     [LSig GHCP],
-                     [LFamilyDecl GHCP],
-                     [LTyFamInstDecl GHCP],
-                     [LDataFamInstDecl GHCP])
+            -> CvtM (LHsBinds GhcPs,
+                     [LSig GhcPs],
+                     [LFamilyDecl GhcPs],
+                     [LTyFamInstDecl GhcPs],
+                     [LDataFamInstDecl GhcPs])
 -- Convert the declarations inside a class or instance decl
 -- ie signatures, bindings, and associated types
 cvt_ci_decs doc decs
@@ -417,9 +417,9 @@ cvt_ci_decs doc decs
 
 ----------------
 cvt_tycl_hdr :: TH.Cxt -> TH.Name -> [TH.TyVarBndr]
-             -> CvtM ( LHsContext GHCP
-                     , Located (IdP GHCP)
-                     , LHsQTyVars GHCP)
+             -> CvtM ( LHsContext GhcPs
+                     , Located RdrName
+                     , LHsQTyVars GhcPs)
 cvt_tycl_hdr cxt tc tvs
   = do { cxt' <- cvtContext cxt
        ; tc'  <- tconNameL tc
@@ -428,9 +428,9 @@ cvt_tycl_hdr cxt tc tvs
        }
 
 cvt_tyinst_hdr :: TH.Cxt -> TH.Name -> [TH.Type]
-               -> CvtM ( LHsContext GHCP
-                       , Located (IdP GHCP)
-                       , HsImplicitBndrs GHCP [LHsType GHCP])
+               -> CvtM ( LHsContext GhcPs
+                       , Located RdrName
+                       , HsImplicitBndrs GhcPs [LHsType GhcPs])
 cvt_tyinst_hdr cxt tc tys
   = do { cxt' <- cvtContext cxt
        ; tc'  <- tconNameL tc
@@ -439,10 +439,10 @@ cvt_tyinst_hdr cxt tc tys
 
 ----------------
 cvt_tyfam_head :: TypeFamilyHead
-               -> CvtM ( Located (IdP GHCP)
-                       , LHsQTyVars GHCP
-                       , Hs.LFamilyResultSig GHCP
-                       , Maybe (Hs.LInjectivityAnn GHCP))
+               -> CvtM ( Located RdrName
+                       , LHsQTyVars GhcPs
+                       , Hs.LFamilyResultSig GhcPs
+                       , Maybe (Hs.LInjectivityAnn GhcPs))
 
 cvt_tyfam_head (TypeFamilyHead tc tyvars result injectivity)
   = do {(_, tc', tyvars') <- cvt_tycl_hdr [] tc tyvars
@@ -454,23 +454,23 @@ cvt_tyfam_head (TypeFamilyHead tc tyvars result injectivity)
 --              Partitioning declarations
 -------------------------------------------------------------------
 
-is_fam_decl :: LHsDecl GHCP -> Either (LFamilyDecl GHCP) (LHsDecl GHCP)
+is_fam_decl :: LHsDecl GhcPs -> Either (LFamilyDecl GhcPs) (LHsDecl GhcPs)
 is_fam_decl (L loc (TyClD (FamDecl { tcdFam = d }))) = Left (L loc d)
 is_fam_decl decl = Right decl
 
-is_tyfam_inst :: LHsDecl GHCP -> Either (LTyFamInstDecl GHCP) (LHsDecl GHCP)
+is_tyfam_inst :: LHsDecl GhcPs -> Either (LTyFamInstDecl GhcPs) (LHsDecl GhcPs)
 is_tyfam_inst (L loc (Hs.InstD (TyFamInstD { tfid_inst = d }))) = Left (L loc d)
 is_tyfam_inst decl                                              = Right decl
 
-is_datafam_inst :: LHsDecl GHCP -> Either (LDataFamInstDecl GHCP) (LHsDecl GHCP)
+is_datafam_inst :: LHsDecl GhcPs -> Either (LDataFamInstDecl GhcPs) (LHsDecl GhcPs)
 is_datafam_inst (L loc (Hs.InstD (DataFamInstD { dfid_inst = d }))) = Left (L loc d)
 is_datafam_inst decl                                                = Right decl
 
-is_sig :: LHsDecl GHCP -> Either (LSig GHCP) (LHsDecl GHCP)
+is_sig :: LHsDecl GhcPs -> Either (LSig GhcPs) (LHsDecl GhcPs)
 is_sig (L loc (Hs.SigD sig)) = Left (L loc sig)
 is_sig decl                  = Right decl
 
-is_bind :: LHsDecl GHCP -> Either (LHsBind GHCP) (LHsDecl GHCP)
+is_bind :: LHsDecl GhcPs -> Either (LHsBind GhcPs) (LHsDecl GhcPs)
 is_bind (L loc (Hs.ValD bind)) = Left (L loc bind)
 is_bind decl                   = Right decl
 
@@ -483,7 +483,7 @@ mkBadDecMsg doc bads
 --      Data types
 ---------------------------------------------------
 
-cvtConstr :: TH.Con -> CvtM (LConDecl GHCP)
+cvtConstr :: TH.Con -> CvtM (LConDecl GhcPs)
 
 cvtConstr (NormalC c strtys)
   = do  { c'   <- cNameL c
@@ -551,7 +551,7 @@ cvtSrcStrictness NoSourceStrictness = NoSrcStrict
 cvtSrcStrictness SourceLazy         = SrcLazy
 cvtSrcStrictness SourceStrict       = SrcStrict
 
-cvt_arg :: (TH.Bang, TH.Type) -> CvtM (LHsType GHCP)
+cvt_arg :: (TH.Bang, TH.Type) -> CvtM (LHsType GhcPs)
 cvt_arg (Bang su ss, ty)
   = do { ty'' <- cvtType ty
        ; ty' <- wrap_apps ty''
@@ -559,7 +559,7 @@ cvt_arg (Bang su ss, ty)
        ; let ss' = cvtSrcStrictness ss
        ; returnL $ HsBangTy (HsSrcBang NoSourceText su' ss') ty' }
 
-cvt_id_arg :: (TH.Name, TH.Bang, TH.Type) -> CvtM (LConDeclField GHCP)
+cvt_id_arg :: (TH.Name, TH.Bang, TH.Type) -> CvtM (LConDeclField GhcPs)
 cvt_id_arg (i, str, ty)
   = do  { L li i' <- vNameL i
         ; ty' <- cvt_arg (str,ty)
@@ -569,11 +569,11 @@ cvt_id_arg (i, str, ty)
                           , cd_fld_type =  ty'
                           , cd_fld_doc = Nothing}) }
 
-cvtDerivs :: [TH.DerivClause] -> CvtM (HsDeriving GHCP)
+cvtDerivs :: [TH.DerivClause] -> CvtM (HsDeriving GhcPs)
 cvtDerivs cs = do { cs' <- mapM cvtDerivClause cs
                   ; returnL cs' }
 
-cvt_fundep :: FunDep -> CvtM (Located (Class.FunDep (Located (IdP GHCP))))
+cvt_fundep :: FunDep -> CvtM (Located (Class.FunDep (Located RdrName)))
 cvt_fundep (FunDep xs ys) = do { xs' <- mapM tNameL xs
                                ; ys' <- mapM tNameL ys
                                ; returnL (xs', ys') }
@@ -583,7 +583,7 @@ cvt_fundep (FunDep xs ys) = do { xs' <- mapM tNameL xs
 --      Foreign declarations
 ------------------------------------------
 
-cvtForD :: Foreign -> CvtM (ForeignDecl GHCP)
+cvtForD :: Foreign -> CvtM (ForeignDecl GhcPs)
 cvtForD (ImportF callconv safety from nm ty)
   -- the prim and javascript calling conventions do not support headers
   -- and are inserted verbatim, analogous to mkImport in RdrHsSyn
@@ -636,7 +636,7 @@ cvt_conv TH.JavaScript = JavaScriptCallConv
 --              Pragmas
 ------------------------------------------
 
-cvtPragmaD :: Pragma -> CvtM (Maybe (LHsDecl GHCP))
+cvtPragmaD :: Pragma -> CvtM (Maybe (LHsDecl GhcPs))
 cvtPragmaD (InlineP nm inline rm phases)
   = do { nm' <- vNameL nm
        ; let dflt = dfltActivation inline
@@ -728,7 +728,7 @@ cvtPhases AllPhases       dflt = dflt
 cvtPhases (FromPhase i)   _    = ActiveAfter NoSourceText i
 cvtPhases (BeforePhase i) _    = ActiveBefore NoSourceText i
 
-cvtRuleBndr :: TH.RuleBndr -> CvtM (Hs.LRuleBndr GHCP)
+cvtRuleBndr :: TH.RuleBndr -> CvtM (Hs.LRuleBndr GhcPs)
 cvtRuleBndr (RuleVar n)
   = do { n' <- vNameL n
        ; return $ noLoc $ Hs.RuleBndr n' }
@@ -741,7 +741,7 @@ cvtRuleBndr (TypedRuleVar n ty)
 --              Declarations
 ---------------------------------------------------
 
-cvtLocalDecs :: MsgDoc -> [TH.Dec] -> CvtM (HsLocalBinds GHCP)
+cvtLocalDecs :: MsgDoc -> [TH.Dec] -> CvtM (HsLocalBinds GhcPs)
 cvtLocalDecs doc ds
   | null ds
   = return EmptyLocalBinds
@@ -752,8 +752,8 @@ cvtLocalDecs doc ds
        ; unless (null bads) (failWith (mkBadDecMsg doc bads))
        ; return (HsValBinds (ValBindsIn (listToBag binds) sigs)) }
 
-cvtClause :: HsMatchContext (IdP GHCP)
-          -> TH.Clause -> CvtM (Hs.LMatch GHCP (LHsExpr GHCP))
+cvtClause :: HsMatchContext RdrName
+          -> TH.Clause -> CvtM (Hs.LMatch GhcPs (LHsExpr GhcPs))
 cvtClause ctxt (Clause ps body wheres)
   = do  { ps' <- cvtPats ps
         ; pps <- mapM wrap_conpat ps'
@@ -767,7 +767,7 @@ cvtClause ctxt (Clause ps body wheres)
 --              Expressions
 -------------------------------------------------------------------
 
-cvtl :: TH.Exp -> CvtM (LHsExpr GHCP)
+cvtl :: TH.Exp -> CvtM (LHsExpr GhcPs)
 cvtl e = wrapL (cvt e)
   where
     cvt (VarE s)        = do { s' <- vName s; return $ HsVar (noLoc s') }
@@ -876,14 +876,14 @@ and the above expression would be reassociated to
 which we don't want.
 -}
 
-cvtFld :: (IdP GHCP -> t) -> (TH.Name, TH.Exp) -> CvtM (LHsRecField' t (LHsExpr GHCP))
+cvtFld :: (RdrName -> t) -> (TH.Name, TH.Exp) -> CvtM (LHsRecField' t (LHsExpr GhcPs))
 cvtFld f (v,e)
   = do  { v' <- vNameL v; e' <- cvtl e
         ; return (noLoc $ HsRecField { hsRecFieldLbl = fmap f v'
                                      , hsRecFieldArg = e'
                                      , hsRecPun      = False}) }
 
-cvtDD :: Range -> CvtM (ArithSeqInfo GHCP)
+cvtDD :: Range -> CvtM (ArithSeqInfo GhcPs)
 cvtDD (FromR x)           = do { x' <- cvtl x; return $ From x' }
 cvtDD (FromThenR x y)     = do { x' <- cvtl x; y' <- cvtl y; return $ FromThen x' y' }
 cvtDD (FromToR x y)       = do { x' <- cvtl x; y' <- cvtl y; return $ FromTo x' y' }
@@ -941,7 +941,7 @@ the recursive calls to @cvtOpApp@.
 When we call @cvtOpApp@ from @cvtl@, the first argument will always be left-biased
 since we have already run @cvtl@ on it.
 -}
-cvtOpApp :: LHsExpr GHCP -> TH.Exp -> TH.Exp -> CvtM (HsExpr GHCP)
+cvtOpApp :: LHsExpr GhcPs -> TH.Exp -> TH.Exp -> CvtM (HsExpr GhcPs)
 cvtOpApp x op1 (UInfixE y op2 z)
   = do { l <- wrapL $ cvtOpApp x op1 y
        ; cvtOpApp l op2 z }
@@ -954,7 +954,7 @@ cvtOpApp x op y
 --      Do notation and statements
 -------------------------------------
 
-cvtHsDo :: HsStmtContext Name.Name -> [TH.Stmt] -> CvtM (HsExpr GHCP)
+cvtHsDo :: HsStmtContext Name.Name -> [TH.Stmt] -> CvtM (HsExpr GhcPs)
 cvtHsDo do_or_lc stmts
   | null stmts = failWith (text "Empty stmt list in do-block")
   | otherwise
@@ -971,10 +971,10 @@ cvtHsDo do_or_lc stmts
                          , nest 2 $ Outputable.ppr stmt
                          , text "(It should be an expression.)" ]
 
-cvtStmts :: [TH.Stmt] -> CvtM [Hs.LStmt GHCP (LHsExpr GHCP)]
+cvtStmts :: [TH.Stmt] -> CvtM [Hs.LStmt GhcPs (LHsExpr GhcPs)]
 cvtStmts = mapM cvtStmt
 
-cvtStmt :: TH.Stmt -> CvtM (Hs.LStmt GHCP (LHsExpr GHCP))
+cvtStmt :: TH.Stmt -> CvtM (Hs.LStmt GhcPs (LHsExpr GhcPs))
 cvtStmt (NoBindS e)    = do { e' <- cvtl e; returnL $ mkBodyStmt e' }
 cvtStmt (TH.BindS p e) = do { p' <- cvtPat p; e' <- cvtl e; returnL $ mkBindStmt p' e' }
 cvtStmt (TH.LetS ds)   = do { ds' <- cvtLocalDecs (text "a let binding") ds
@@ -983,8 +983,8 @@ cvtStmt (TH.ParS dss)  = do { dss' <- mapM cvt_one dss; returnL $ ParStmt dss' n
                        where
                          cvt_one ds = do { ds' <- cvtStmts ds; return (ParStmtBlock ds' undefined noSyntaxExpr) }
 
-cvtMatch :: HsMatchContext (IdP GHCP)
-         -> TH.Match -> CvtM (Hs.LMatch GHCP (LHsExpr GHCP))
+cvtMatch :: HsMatchContext RdrName
+         -> TH.Match -> CvtM (Hs.LMatch GhcPs (LHsExpr GhcPs))
 cvtMatch ctxt (TH.Match p body decs)
   = do  { p' <- cvtPat p
         ; lp <- case ctxt of
@@ -995,18 +995,18 @@ cvtMatch ctxt (TH.Match p body decs)
         ; returnL $ Hs.Match ctxt [lp] Nothing
                              (GRHSs g' (noLoc decs')) }
 
-cvtGuard :: TH.Body -> CvtM [LGRHS GHCP (LHsExpr GHCP)]
+cvtGuard :: TH.Body -> CvtM [LGRHS GhcPs (LHsExpr GhcPs)]
 cvtGuard (GuardedB pairs) = mapM cvtpair pairs
 cvtGuard (NormalB e)      = do { e' <- cvtl e; g' <- returnL $ GRHS [] e'; return [g'] }
 
-cvtpair :: (TH.Guard, TH.Exp) -> CvtM (LGRHS GHCP (LHsExpr GHCP))
+cvtpair :: (TH.Guard, TH.Exp) -> CvtM (LGRHS GhcPs (LHsExpr GhcPs))
 cvtpair (NormalG ge,rhs) = do { ge' <- cvtl ge; rhs' <- cvtl rhs
                               ; g' <- returnL $ mkBodyStmt ge'
                               ; returnL $ GRHS [g'] rhs' }
 cvtpair (PatG gs,rhs)    = do { gs' <- cvtStmts gs; rhs' <- cvtl rhs
                               ; returnL $ GRHS gs' rhs' }
 
-cvtOverLit :: Lit -> CvtM (HsOverLit GHCP)
+cvtOverLit :: Lit -> CvtM (HsOverLit GhcPs)
 cvtOverLit (IntegerL i)
   = do { force i; return $ mkHsIntegral   (mkIntegralLit i)   placeHolderType}
 cvtOverLit (RationalL r)
@@ -1041,7 +1041,7 @@ allCharLs xs
     go cs (LitE (CharL c) : ys) = go (c:cs) ys
     go _  _                     = Nothing
 
-cvtLit :: Lit -> CvtM (HsLit GHCP)
+cvtLit :: Lit -> CvtM (HsLit GhcPs)
 cvtLit (IntPrimL i)    = do { force i; return $ HsIntPrim NoSourceText i }
 cvtLit (WordPrimL w)   = do { force w; return $ HsWordPrim NoSourceText w }
 cvtLit (FloatPrimL f)
@@ -1064,13 +1064,13 @@ cvtLit _ = panic "Convert.cvtLit: Unexpected literal"
 quotedSourceText :: String -> SourceText
 quotedSourceText s = SourceText $ "\"" ++ s ++ "\""
 
-cvtPats :: [TH.Pat] -> CvtM [Hs.LPat GHCP]
+cvtPats :: [TH.Pat] -> CvtM [Hs.LPat GhcPs]
 cvtPats pats = mapM cvtPat pats
 
-cvtPat :: TH.Pat -> CvtM (Hs.LPat GHCP)
+cvtPat :: TH.Pat -> CvtM (Hs.LPat GhcPs)
 cvtPat pat = wrapL (cvtp pat)
 
-cvtp :: TH.Pat -> CvtM (Hs.Pat GHCP)
+cvtp :: TH.Pat -> CvtM (Hs.Pat GhcPs)
 cvtp (TH.LitP l)
   | overloadedLit l    = do { l' <- cvtOverLit l
                             ; return (mkNPat (noLoc l') Nothing) }
@@ -1111,7 +1111,7 @@ cvtp (SigP p t)        = do { p' <- cvtPat p; t' <- cvtType t
 cvtp (ViewP e p)       = do { e' <- cvtl e; p' <- cvtPat p
                             ; return $ ViewPat e' p' placeHolderType }
 
-cvtPatFld :: (TH.Name, TH.Pat) -> CvtM (LHsRecField GHCP (LPat GHCP))
+cvtPatFld :: (TH.Name, TH.Pat) -> CvtM (LHsRecField GhcPs (LPat GhcPs))
 cvtPatFld (s,p)
   = do  { L ls s' <- vNameL s; p' <- cvtPat p
         ; return (noLoc $ HsRecField { hsRecFieldLbl
@@ -1119,7 +1119,7 @@ cvtPatFld (s,p)
                                      , hsRecFieldArg = p'
                                      , hsRecPun      = False}) }
 
-wrap_conpat :: Hs.LPat GHCP -> CvtM (Hs.LPat GHCP)
+wrap_conpat :: Hs.LPat GhcPs -> CvtM (Hs.LPat GhcPs)
 wrap_conpat p@(L _ (ConPatIn _ (InfixCon{})))   = returnL $ ParPat p
 wrap_conpat p@(L _ (ConPatIn _ (PrefixCon []))) = return p
 wrap_conpat p@(L _ (ConPatIn _ (PrefixCon _)))  = returnL $ ParPat p
@@ -1130,7 +1130,7 @@ The produced tree of infix patterns will be left-biased, provided @x@ is.
 
 See the @cvtOpApp@ documentation for how this function works.
 -}
-cvtOpAppP :: Hs.LPat GHCP -> TH.Name -> TH.Pat -> CvtM (Hs.Pat GHCP)
+cvtOpAppP :: Hs.LPat GhcPs -> TH.Name -> TH.Pat -> CvtM (Hs.Pat GhcPs)
 cvtOpAppP x op1 (UInfixP y op2 z)
   = do { l <- wrapL $ cvtOpAppP x op1 y
        ; cvtOpAppP l op2 z }
@@ -1142,10 +1142,10 @@ cvtOpAppP x op y
 -----------------------------------------------------------
 --      Types and type variables
 
-cvtTvs :: [TH.TyVarBndr] -> CvtM (LHsQTyVars GHCP)
+cvtTvs :: [TH.TyVarBndr] -> CvtM (LHsQTyVars GhcPs)
 cvtTvs tvs = do { tvs' <- mapM cvt_tv tvs; return (mkHsQTvs tvs') }
 
-cvt_tv :: TH.TyVarBndr -> CvtM (LHsTyVarBndr GHCP)
+cvt_tv :: TH.TyVarBndr -> CvtM (LHsTyVarBndr GhcPs)
 cvt_tv (TH.PlainTV nm)
   = do { nm' <- tNameL nm
        ; returnL $ UserTyVar nm' }
@@ -1160,14 +1160,14 @@ cvtRole TH.RepresentationalR = Just Coercion.Representational
 cvtRole TH.PhantomR          = Just Coercion.Phantom
 cvtRole TH.InferR            = Nothing
 
-cvtContext :: TH.Cxt -> CvtM (LHsContext GHCP)
+cvtContext :: TH.Cxt -> CvtM (LHsContext GhcPs)
 cvtContext tys = do { preds' <- mapM cvtPred tys; returnL preds' }
 
-cvtPred :: TH.Pred -> CvtM (LHsType GHCP)
+cvtPred :: TH.Pred -> CvtM (LHsType GhcPs)
 cvtPred = cvtType
 
 cvtDerivClause :: TH.DerivClause
-               -> CvtM (LHsDerivingClause GHCP)
+               -> CvtM (LHsDerivingClause GhcPs)
 cvtDerivClause (TH.DerivClause ds ctxt)
   = do { ctxt'@(L loc _) <- fmap (map mkLHsSigType) <$> cvtContext ctxt
        ; let ds' = fmap (L loc . cvtDerivStrategy) ds
@@ -1178,10 +1178,10 @@ cvtDerivStrategy TH.StockStrategy    = Hs.StockStrategy
 cvtDerivStrategy TH.AnyclassStrategy = Hs.AnyclassStrategy
 cvtDerivStrategy TH.NewtypeStrategy  = Hs.NewtypeStrategy
 
-cvtType :: TH.Type -> CvtM (LHsType GHCP)
+cvtType :: TH.Type -> CvtM (LHsType GhcPs)
 cvtType = cvtTypeKind "type"
 
-cvtTypeKind :: String -> TH.Type -> CvtM (LHsType GHCP)
+cvtTypeKind :: String -> TH.Type -> CvtM (LHsType GhcPs)
 cvtTypeKind ty_str ty
   = do { (head_ty, tys') <- split_ty_app ty
        ; case head_ty of
@@ -1312,7 +1312,7 @@ cvtTypeKind ty_str ty
     }
 
 -- | Constructs an application of a type to arguments passed in a list.
-mk_apps :: HsType GHCP -> [LHsType GHCP] -> CvtM (LHsType GHCP)
+mk_apps :: HsType GhcPs -> [LHsType GhcPs] -> CvtM (LHsType GhcPs)
 mk_apps head_ty []       = returnL head_ty
 mk_apps head_ty (ty:tys) =
   do { head_ty' <- returnL head_ty
@@ -1322,18 +1322,18 @@ mk_apps head_ty (ty:tys) =
     add_parens t@(L _ HsAppTy{}) = returnL (HsParTy t)
     add_parens t                 = return t
 
-wrap_apps  :: LHsType GHCP -> CvtM (LHsType GHCP)
+wrap_apps  :: LHsType GhcPs -> CvtM (LHsType GhcPs)
 wrap_apps t@(L _ HsAppTy {}) = returnL (HsParTy t)
 wrap_apps t                  = return t
 
 -- | Constructs an arrow type with a specified return type
-mk_arr_apps :: [LHsType GHCP] -> HsType GHCP -> CvtM (LHsType GHCP)
+mk_arr_apps :: [LHsType GhcPs] -> HsType GhcPs -> CvtM (LHsType GhcPs)
 mk_arr_apps tys return_ty = foldrM go return_ty tys >>= returnL
-    where go :: LHsType GHCP -> HsType GHCP -> CvtM (HsType GHCP)
+    where go :: LHsType GhcPs -> HsType GhcPs -> CvtM (HsType GhcPs)
           go arg ret_ty = do { ret_ty_l <- returnL ret_ty
                              ; return (HsFunTy arg ret_ty_l) }
 
-split_ty_app :: TH.Type -> CvtM (TH.Type, [LHsType GHCP])
+split_ty_app :: TH.Type -> CvtM (TH.Type, [LHsType GhcPs])
 split_ty_app ty = go ty []
   where
     go (AppT f a) as' = do { a' <- cvtType a; go f (a':as') }
@@ -1346,7 +1346,7 @@ cvtTyLit (TH.StrTyLit s) = HsStrTy NoSourceText (fsLit s)
 {- | @cvtOpAppT x op y@ takes converted arguments and flattens any HsAppsTy
    structure in them.
 -}
-cvtOpAppT :: LHsType GHCP -> IdP GHCP -> LHsType GHCP -> LHsType GHCP
+cvtOpAppT :: LHsType GhcPs -> RdrName -> LHsType GhcPs -> LHsType GhcPs
 cvtOpAppT t1@(L loc1 _) op t2@(L loc2 _)
   = L (combineSrcSpans loc1 loc2) $
     HsAppsTy (t1' ++ [noLoc $ HsAppInfix (noLoc op)] ++ t2')
@@ -1361,21 +1361,21 @@ cvtOpAppT t1@(L loc1 _) op t2@(L loc2 _)
         | otherwise
         = [noLoc $ HsAppPrefix t2]
 
-cvtKind :: TH.Kind -> CvtM (LHsKind GHCP)
+cvtKind :: TH.Kind -> CvtM (LHsKind GhcPs)
 cvtKind = cvtTypeKind "kind"
 
 -- | Convert Maybe Kind to a type family result signature. Used with data
 -- families where naming of the result is not possible (thus only kind or no
 -- signature is possible).
 cvtMaybeKindToFamilyResultSig :: Maybe TH.Kind
-                              -> CvtM (LFamilyResultSig GHCP)
+                              -> CvtM (LFamilyResultSig GhcPs)
 cvtMaybeKindToFamilyResultSig Nothing   = returnL Hs.NoSig
 cvtMaybeKindToFamilyResultSig (Just ki) = do { ki' <- cvtKind ki
                                              ; returnL (Hs.KindSig ki') }
 
 -- | Convert type family result signature. Used with both open and closed type
 -- families.
-cvtFamilyResultSig :: TH.FamilyResultSig -> CvtM (Hs.LFamilyResultSig GHCP)
+cvtFamilyResultSig :: TH.FamilyResultSig -> CvtM (Hs.LFamilyResultSig GhcPs)
 cvtFamilyResultSig TH.NoSig           = returnL Hs.NoSig
 cvtFamilyResultSig (TH.KindSig ki)    = do { ki' <- cvtKind ki
                                            ; returnL (Hs.KindSig ki') }
@@ -1384,13 +1384,13 @@ cvtFamilyResultSig (TH.TyVarSig bndr) = do { tv <- cvt_tv bndr
 
 -- | Convert injectivity annotation of a type family.
 cvtInjectivityAnnotation :: TH.InjectivityAnn
-                         -> CvtM (Hs.LInjectivityAnn GHCP)
+                         -> CvtM (Hs.LInjectivityAnn GhcPs)
 cvtInjectivityAnnotation (TH.InjectivityAnn annLHS annRHS)
   = do { annLHS' <- tNameL annLHS
        ; annRHS' <- mapM tNameL annRHS
        ; returnL (Hs.InjectivityAnn annLHS' annRHS') }
 
-cvtPatSynSigTy :: TH.Type -> CvtM (LHsType GHCP)
+cvtPatSynSigTy :: TH.Type -> CvtM (LHsType GhcPs)
 -- pattern synonym types are of peculiar shapes, which is why we treat
 -- them separately from regular types;
 -- see Note [Pattern synonym type signatures and Template Haskell]
@@ -1493,8 +1493,8 @@ mkHsQualTy ctxt loc ctxt' ty
 --------------------------------------------------------------------
 
 -- variable names
-vNameL, cNameL, vcNameL, tNameL, tconNameL :: TH.Name -> CvtM (Located (IdP GHCP))
-vName,  cName,  vcName,  tName,  tconName  :: TH.Name -> CvtM (IdP GHCP)
+vNameL, cNameL, vcNameL, tNameL, tconNameL :: TH.Name -> CvtM (Located RdrName)
+vName,  cName,  vcName,  tName,  tconName  :: TH.Name -> CvtM RdrName
 
 -- Variable names
 vNameL n = wrapL (vName n)

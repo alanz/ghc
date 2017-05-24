@@ -144,7 +144,7 @@ we do not report deprecation warnings for LocalDef.  See also
 Note [Handling of deprecations]
 -}
 
-newTopSrcBinder :: Located (IdP GHCP) -> RnM (IdP GHCR)
+newTopSrcBinder :: Located RdrName -> RnM Name
 newTopSrcBinder (L loc rdr_name)
   | Just name <- isExact_maybe rdr_name
   =     -- This is here to catch
@@ -230,17 +230,17 @@ terribly efficient, but there seems to be no better way.
 
 -- Can be made to not be exposed
 -- Only used unwrapped in rnAnnProvenance
-lookupTopBndrRn :: IdP GHCP -> RnM (IdP GHCR)
+lookupTopBndrRn :: RdrName -> RnM Name
 lookupTopBndrRn n = do nopt <- lookupTopBndrRn_maybe n
                        case nopt of
                          Just n' -> return n'
                          Nothing -> do traceRn "lookupTopBndrRn fail" (ppr n)
                                        unboundName WL_LocalTop n
 
-lookupLocatedTopBndrRn :: Located (IdP GHCP) -> RnM (Located (IdP GHCR))
+lookupLocatedTopBndrRn :: Located RdrName -> RnM (Located Name)
 lookupLocatedTopBndrRn = wrapLocM lookupTopBndrRn
 
-lookupTopBndrRn_maybe :: IdP GHCP -> RnM (Maybe (IdP GHCR))
+lookupTopBndrRn_maybe :: RdrName -> RnM (Maybe Name)
 -- Look up a top-level source-code binder.   We may be looking up an unqualified 'f',
 -- and there may be several imported 'f's too, which must not confuse us.
 -- For example, this is OK:
@@ -275,7 +275,7 @@ lookupTopBndrRn_maybe rdr_name =
 -----------------------------------------------
 -- | Lookup an @Exact@ @RdrName@. See Note [Looking up Exact RdrNames].
 -- This adds an error if the name cannot be found.
-lookupExactOcc :: IdP GHCR -> RnM (IdP GHCR)
+lookupExactOcc :: Name -> RnM Name
 lookupExactOcc name
   = do { result <- lookupExactOcc_either name
        ; case result of
@@ -285,7 +285,7 @@ lookupExactOcc name
 
 -- | Lookup an @Exact@ @RdrName@. See Note [Looking up Exact RdrNames].
 -- This never adds an error, but it may return one.
-lookupExactOcc_either :: IdP GHCR -> RnM (Either MsgDoc (IdP GHCR))
+lookupExactOcc_either :: Name -> RnM (Either MsgDoc Name)
 -- See Note [Looking up Exact RdrNames]
 lookupExactOcc_either name
   | Just thing <- wiredInNameTyThing_maybe name
@@ -351,7 +351,7 @@ sameNameErr gres@(_ : _)
 
 
 -----------------------------------------------
-lookupInstDeclBndr :: IdP GHCR -> SDoc -> IdP GHCP -> RnM (IdP GHCR)
+lookupInstDeclBndr :: Name -> SDoc -> RdrName -> RnM Name
 -- This is called on the method name on the left-hand side of an
 -- instance declaration binding. eg.  instance Functor T where
 --                                       fmap = ...
@@ -385,8 +385,8 @@ lookupInstDeclBndr cls what rdr
     doc = what <+> text "of class" <+> quotes (ppr cls)
 
 -----------------------------------------------
-lookupFamInstName :: Maybe (IdP GHCR) -> Located (IdP GHCP)
-                  -> RnM (Located (IdP GHCR))
+lookupFamInstName :: Maybe Name -> Located RdrName
+                  -> RnM (Located Name)
 -- Used for TyData and TySynonym family instances only,
 -- See Note [Family instance binders]
 lookupFamInstName (Just cls) tc_rdr  -- Associated type; c.f RnBinds.rnMethodBind
@@ -395,7 +395,7 @@ lookupFamInstName Nothing tc_rdr     -- Family instance; tc_rdr is an *occurrenc
   = lookupLocatedOccRn tc_rdr
 
 -----------------------------------------------
-lookupConstructorFields :: (IdP GHCR) -> RnM [FieldLabel]
+lookupConstructorFields :: Name -> RnM [FieldLabel]
 -- Look up the fields of a given constructor
 --   *  For constructors from this module, use the record field env,
 --      which is itself gathered from the (as yet un-typechecked)
@@ -418,7 +418,7 @@ lookupConstructorFields con_name
 
 
 -- In CPS style as `RnM r` is monadic
-lookupExactOrOrig :: IdP GHCP -> (IdP GHCR -> r) -> RnM r -> RnM r
+lookupExactOrOrig :: RdrName -> (Name -> r) -> RnM r -> RnM r
 lookupExactOrOrig rdr_name res k
   | Just n <- isExact_maybe rdr_name   -- This happens in derived code
   = res <$> lookupExactOcc n
@@ -441,10 +441,10 @@ lookupExactOrOrig rdr_name res k
 -- unambiguous because there is only one field id 'fld' in scope.
 -- But currently it's rejected.
 
-lookupRecFieldOcc :: Maybe (IdP GHCR) -- Nothing    => just look it up as usual
+lookupRecFieldOcc :: Maybe Name -- Nothing    => just look it up as usual
                                       -- Just tycon => use tycon to disambiguate
-                  -> SDoc -> IdP GHCP
-                  -> RnM (IdP GHCR)
+                  -> SDoc -> RdrName
+                  -> RnM Name
 lookupRecFieldOcc parent doc rdr_name
   | Just tc_name <- parent
   = do { mb_name <- lookupSubBndrOcc True tc_name doc rdr_name
@@ -460,7 +460,7 @@ lookupRecFieldOcc parent doc rdr_name
 
 
 -- | Used in export lists to lookup the children.
-lookupSubBndrOcc_helper :: Bool -> Bool -> (IdP GHCR) -> IdP GHCP
+lookupSubBndrOcc_helper :: Bool -> Bool -> Name -> RdrName
                         -> RnM ChildLookupResult
 lookupSubBndrOcc_helper must_have_parent warn_if_deprec parent rdr_name
   | isUnboundName parent
@@ -498,7 +498,7 @@ lookupSubBndrOcc_helper must_have_parent warn_if_deprec parent rdr_name
               FoundFL  (fldParentToFieldLabel gre_name mfs)
             _ -> FoundName gre_par gre_name
 
-        fldParentToFieldLabel :: (IdP GHCR) -> Maybe FastString -> FieldLabel
+        fldParentToFieldLabel :: Name -> Maybe FastString -> FieldLabel
         fldParentToFieldLabel name mfs =
           case mfs of
             Nothing ->
@@ -538,7 +538,7 @@ lookupSubBndrOcc_helper must_have_parent warn_if_deprec parent rdr_name
           addNameClashErrRn rdr_name gres
           return (FoundName (gre_par (head gres)) (gre_name (head gres)))
 
-        getParent :: GlobalRdrElt -> Maybe (IdP GHCR)
+        getParent :: GlobalRdrElt -> Maybe Name
         getParent (GRE { gre_par = p } ) =
           case p of
             ParentIs cur_parent -> Just cur_parent
@@ -609,11 +609,11 @@ data ChildLookupResult
       | NameErr ErrMsg              --  We found an unambiguous name
                                     --  but there's another error
                                     --  we should abort from
-      | IncorrectParent (IdP GHCR)  -- Parent
-                        (IdP GHCR)  -- Name of thing we were looking for
+      | IncorrectParent Name  -- Parent
+                        Name  -- Name of thing we were looking for
                         SDoc        -- How to print the name
-                        [IdP GHCR]  -- List of possible parents
-      | FoundName Parent (IdP GHCR) --  We resolved to a normal name
+                        [Name]  -- List of possible parents
+      | FoundName Parent Name --  We resolved to a normal name
       | FoundFL FieldLabel       --  We resolved to a FL
 
 -- | Specialised version of msum for RnM ChildLookupResult
@@ -634,10 +634,10 @@ instance Outputable ChildLookupResult where
                                   <+> hsep [ppr p, ppr n, td, ppr ns]
 
 lookupSubBndrOcc :: Bool
-                 -> (IdP GHCR)     -- Parent
+                 -> Name     -- Parent
                  -> SDoc
-                 -> IdP GHCP
-                 -> RnM (Either MsgDoc (IdP GHCR))
+                 -> RdrName
+                 -> RnM (Either MsgDoc Name)
 -- Find all the things the rdr-name maps to
 -- and pick the one with the right parent namep
 lookupSubBndrOcc warn_if_deprec the_parent doc rdr_name = do
@@ -789,23 +789,23 @@ we'll miss the fact that the qualified import is redundant.
 -}
 
 
-lookupLocatedOccRn :: Located (IdP GHCP) -> RnM (Located (IdP GHCR))
+lookupLocatedOccRn :: Located RdrName -> RnM (Located Name)
 lookupLocatedOccRn = wrapLocM lookupOccRn
 
-lookupLocalOccRn_maybe :: IdP GHCP -> RnM (Maybe (IdP GHCR))
+lookupLocalOccRn_maybe :: RdrName -> RnM (Maybe Name)
 -- Just look in the local environment
 lookupLocalOccRn_maybe rdr_name
   = do { local_env <- getLocalRdrEnv
        ; return (lookupLocalRdrEnv local_env rdr_name) }
 
-lookupLocalOccThLvl_maybe :: (IdP GHCR) -> RnM (Maybe (TopLevelFlag, ThLevel))
+lookupLocalOccThLvl_maybe :: Name -> RnM (Maybe (TopLevelFlag, ThLevel))
 -- Just look in the local environment
 lookupLocalOccThLvl_maybe name
   = do { lcl_env <- getLclEnv
        ; return (lookupNameEnv (tcl_th_bndrs lcl_env) name) }
 
 -- lookupOccRn looks up an occurrence of a RdrName
-lookupOccRn :: IdP GHCP -> RnM (IdP GHCR)
+lookupOccRn :: RdrName -> RnM Name
 lookupOccRn rdr_name
   = do { mb_name <- lookupOccRn_maybe rdr_name
        ; case mb_name of
@@ -814,14 +814,14 @@ lookupOccRn rdr_name
 
 -- Only used in one place, to rename pattern synonym binders.
 -- See Note [Renaming pattern synonym variables] in RnBinds
-lookupLocalOccRn :: IdP GHCP -> RnM (IdP GHCR)
+lookupLocalOccRn :: RdrName -> RnM Name
 lookupLocalOccRn rdr_name
   = do { mb_name <- lookupLocalOccRn_maybe rdr_name
        ; case mb_name of
            Just name -> return name
            Nothing   -> unboundName WL_LocalOnly rdr_name }
 
-lookupKindOccRn :: IdP GHCP -> RnM (IdP GHCR)
+lookupKindOccRn :: RdrName -> RnM Name
 -- Looking up a name occurring in a kind
 lookupKindOccRn rdr_name
   | isVarOcc (rdrNameOcc rdr_name)  -- See Note [Promoted variables in types]
@@ -836,7 +836,7 @@ lookupKindOccRn rdr_name
             | otherwise            -> lookupOccRn rdr_name }
 
 -- lookupPromotedOccRn looks up an optionally promoted RdrName.
-lookupTypeOccRn :: IdP GHCP -> RnM (IdP GHCR)
+lookupTypeOccRn :: RdrName -> RnM Name
 -- see Note [Demotion]
 lookupTypeOccRn rdr_name
   | isVarOcc (rdrNameOcc rdr_name)  -- See Note [Promoted variables in types]
@@ -848,7 +848,7 @@ lookupTypeOccRn rdr_name
              Nothing   -> do { dflags <- getDynFlags
                              ; lookup_demoted rdr_name dflags } } }
 
-lookup_demoted :: IdP GHCP -> DynFlags -> RnM (IdP GHCR)
+lookup_demoted :: RdrName -> DynFlags -> RnM Name
 lookup_demoted rdr_name dflags
   | Just demoted_rdr <- demoteRdrName rdr_name
     -- Maybe it's the name of a *data* constructor
@@ -889,7 +889,7 @@ lookup_demoted rdr_name dflags
       = empty
 
 
-badVarInType :: IdP GHCP -> RnM (IdP GHCR)
+badVarInType :: RdrName -> RnM Name
 badVarInType rdr_name
   = do { addErr (text "Illegal promoted term variable in a type:"
                  <+> ppr rdr_name)
@@ -926,22 +926,22 @@ The final result (after the renamer) will be:
   HsTyVar ("Zero", DataName)
 -}
 
-lookupOccRnX_maybe :: (IdP GHCP -> RnM (Maybe r)) -> (Name -> r) -> IdP GHCP
+lookupOccRnX_maybe :: (RdrName -> RnM (Maybe r)) -> (Name -> r) -> RdrName
                    -> RnM (Maybe r)
 lookupOccRnX_maybe globalLookup wrapper rdr_name
   = runMaybeT . msum . map MaybeT $
       [ fmap wrapper <$> lookupLocalOccRn_maybe rdr_name
       , globalLookup rdr_name ]
 
-lookupOccRn_maybe :: IdP GHCP -> RnM (Maybe (IdP GHCR))
+lookupOccRn_maybe :: RdrName -> RnM (Maybe Name)
 lookupOccRn_maybe = lookupOccRnX_maybe lookupGlobalOccRn_maybe id
 
-lookupOccRn_overloaded :: Bool -> IdP GHCP
-                       -> RnM (Maybe (Either (IdP GHCR) [IdP GHCR]))
+lookupOccRn_overloaded :: Bool -> RdrName
+                       -> RnM (Maybe (Either Name [Name]))
 lookupOccRn_overloaded overload_ok
   = lookupOccRnX_maybe global_lookup Left
       where
-        global_lookup :: IdP GHCP -> RnM (Maybe (Either (IdP GHCR) [IdP GHCR]))
+        global_lookup :: RdrName -> RnM (Maybe (Either Name [Name]))
         global_lookup n =
           runMaybeT . msum . map MaybeT $
             [ lookupGlobalOccRn_overloaded overload_ok n
@@ -949,7 +949,7 @@ lookupOccRn_overloaded overload_ok
 
 
 
-lookupGlobalOccRn_maybe :: IdP GHCP -> RnM (Maybe (IdP GHCR))
+lookupGlobalOccRn_maybe :: RdrName -> RnM (Maybe Name)
 -- Looks up a RdrName occurrence in the top-level
 --   environment, including using lookupQualifiedNameGHCi
 --   for the GHCi case
@@ -963,7 +963,7 @@ lookupGlobalOccRn_maybe rdr_name =
                       -- This test is not expensive,
                       -- and only happens for failed lookups
 
-lookupGlobalOccRn :: IdP GHCP -> RnM (IdP GHCR)
+lookupGlobalOccRn :: RdrName -> RnM Name
 -- lookupGlobalOccRn is like lookupOccRn, except that it looks in the global
 -- environment.  Adds an error message if the RdrName is not in scope.
 -- You usually want to use "lookupOccRn" which also looks in the local
@@ -975,7 +975,7 @@ lookupGlobalOccRn rdr_name
            Nothing -> do { traceRn "lookupGlobalOccRn" (ppr rdr_name)
                          ; unboundName WL_Global rdr_name } }
 
-lookupInfoOccRn :: IdP GHCP -> RnM [IdP GHCR]
+lookupInfoOccRn :: RdrName -> RnM [Name]
 -- lookupInfoOccRn is intended for use in GHCi's ":info" command
 -- It finds all the GREs that RdrName could mean, not complaining
 -- about ambiguity, but rather returning them all
@@ -997,8 +997,8 @@ lookupInfoOccRn rdr_name =
 --                        if overload_ok was False, this list will be
 --                        a singleton.
 
-lookupGlobalOccRn_overloaded :: Bool -> IdP GHCP
-                             -> RnM (Maybe (Either (IdP GHCR) [IdP GHCR]))
+lookupGlobalOccRn_overloaded :: Bool -> RdrName
+                             -> RnM (Maybe (Either Name [Name]))
 lookupGlobalOccRn_overloaded overload_ok rdr_name =
   lookupExactOrOrig rdr_name (Just . Left) $
      do  { res <- lookupGreRn_helper rdr_name
@@ -1024,7 +1024,7 @@ data GreLookupResult = GreNotFound
                      | OneNameMatch GlobalRdrElt
                      | MultipleNames [GlobalRdrElt]
 
-lookupGreRn_maybe :: IdP GHCP -> RnM (Maybe GlobalRdrElt)
+lookupGreRn_maybe :: RdrName -> RnM (Maybe GlobalRdrElt)
 -- Look up the RdrName in the GlobalRdrEnv
 --   Exactly one binding: records it as "used", return (Just gre)
 --   No bindings:         return Nothing
@@ -1070,7 +1070,7 @@ is enabled then we defer the selection until the typechecker.
 
 
 -- Internal Function
-lookupGreRn_helper :: IdP GHCP -> RnM GreLookupResult
+lookupGreRn_helper :: RdrName -> RnM GreLookupResult
 lookupGreRn_helper rdr_name
   = do  { env <- getGlobalRdrEnv
         ; case lookupGRE_RdrName rdr_name env of
@@ -1079,7 +1079,7 @@ lookupGreRn_helper rdr_name
                         ; return (OneNameMatch gre) }
             gres  -> return (MultipleNames gres) }
 
-lookupGreAvailRn :: IdP GHCP -> RnM (Name, AvailInfo)
+lookupGreAvailRn :: RdrName -> RnM (Name, AvailInfo)
 -- Used in export lists
 -- If not found or ambiguous, add error message, and fake with UnboundName
 -- Uses addUsedRdrName to record use and deprecations
@@ -1247,7 +1247,7 @@ this requires some refactoring so leave as a TODO
 
 
 
-lookupQualifiedNameGHCi :: IdP GHCP -> RnM [IdP GHCR]
+lookupQualifiedNameGHCi :: RdrName -> RnM [Name]
 lookupQualifiedNameGHCi rdr_name
   = -- We want to behave as we would for a source file import here,
     -- and respect hiddenness of modules/packages, hence loadSrcInterface.
@@ -1329,7 +1329,7 @@ data HsSigCtxt
   = TopSigCtxt NameSet       -- At top level, binding these names
                              -- See Note [Signatures for top level things]
   | LocalBindCtxt NameSet    -- In a local binding, binding these names
-  | ClsDeclCtxt   (IdP GHCR)       -- Class decl for this class
+  | ClsDeclCtxt   Name       -- Class decl for this class
   | InstDeclCtxt  NameSet    -- Instance decl whose user-written method
                              -- bindings are for these methods
   | HsBootCtxt NameSet       -- Top level of a hs-boot file, binding these names
@@ -1345,15 +1345,15 @@ instance Outputable HsSigCtxt where
     ppr (RoleAnnotCtxt ns) = text "RoleAnnotCtxt" <+> ppr ns
 
 lookupSigOccRn :: HsSigCtxt
-               -> Sig GHCP
-               -> Located (IdP GHCP) -> RnM (Located (IdP GHCR))
+               -> Sig GhcPs
+               -> Located RdrName -> RnM (Located Name)
 lookupSigOccRn ctxt sig = lookupSigCtxtOccRn ctxt (hsSigDoc sig)
 
 -- | Lookup a name in relation to the names in a 'HsSigCtxt'
 lookupSigCtxtOccRn :: HsSigCtxt
                    -> SDoc         -- ^ description of thing we're looking up,
                                    -- like "type family"
-                   -> Located (IdP GHCP) -> RnM (Located (IdP GHCR))
+                   -> Located RdrName -> RnM (Located Name)
 lookupSigCtxtOccRn ctxt what
   = wrapLocM $ \ rdr_name ->
     do { mb_name <- lookupBindGroupOcc ctxt what rdr_name
@@ -1363,7 +1363,7 @@ lookupSigCtxtOccRn ctxt what
 
 lookupBindGroupOcc :: HsSigCtxt
                    -> SDoc
-                   -> IdP GHCP -> RnM (Either MsgDoc (IdP GHCR))
+                   -> RdrName -> RnM (Either MsgDoc Name)
 -- Looks up the RdrName, expecting it to resolve to one of the
 -- bound names passed in.  If not, return an appropriate error message
 --
@@ -1421,7 +1421,7 @@ lookupBindGroupOcc ctxt what rdr_name
 
 
 ---------------
-lookupLocalTcNames :: HsSigCtxt -> SDoc -> IdP GHCP -> RnM [(IdP GHCP, (IdP GHCR))]
+lookupLocalTcNames :: HsSigCtxt -> SDoc -> RdrName -> RnM [(RdrName, Name)]
 -- GHC extension: look up both the tycon and data con or variable.
 -- Used for top-level fixity signatures and deprecations.
 -- Complain if neither is in scope.
@@ -1435,7 +1435,7 @@ lookupLocalTcNames ctxt what rdr_name
     lookup rdr = do { name <- lookupBindGroupOcc ctxt what rdr
                     ; return (fmap ((,) rdr) name) }
 
-dataTcOccs :: IdP GHCP -> [IdP GHCP]
+dataTcOccs :: RdrName -> [RdrName]
 -- Return both the given name and the same name promoted to the TcClsName
 -- namespace.  This is useful when we aren't sure which we are looking at.
 -- See also Note [dataTcOccs and Exact Names]
@@ -1509,10 +1509,10 @@ We treat the original (standard) names as free-vars too, because the type checke
 checks the type of the user thing against the type of the standard thing.
 -}
 
-lookupIfThenElse :: RnM (Maybe (SyntaxExpr GHCR), FreeVars)
+lookupIfThenElse :: RnM (Maybe (SyntaxExpr GhcRn), FreeVars)
 -- Different to lookupSyntaxName because in the non-rebindable
 -- case we desugar directly rather than calling an existing function
--- Hence the (Maybe (SyntaxExpr GHCR)) return type
+-- Hence the (Maybe (SyntaxExpr GhcRn)) return type
 lookupIfThenElse
   = do { rebindable_on <- xoptM LangExt.RebindableSyntax
        ; if not rebindable_on
@@ -1521,8 +1521,8 @@ lookupIfThenElse
                  ; return ( Just (mkRnSyntaxExpr ite)
                           , unitFV ite ) } }
 
-lookupSyntaxName' :: (IdP GHCR)          -- ^ The standard name
-                  -> RnM (IdP GHCR)      -- ^ Possibly a non-standard name
+lookupSyntaxName' :: Name          -- ^ The standard name
+                  -> RnM Name      -- ^ Possibly a non-standard name
 lookupSyntaxName' std_name
   = do { rebindable_on <- xoptM LangExt.RebindableSyntax
        ; if not rebindable_on then
@@ -1531,8 +1531,8 @@ lookupSyntaxName' std_name
             -- Get the similarly named thing from the local environment
            lookupOccRn (mkRdrUnqual (nameOccName std_name)) }
 
-lookupSyntaxName :: (IdP GHCR)                      -- The standard name
-                 -> RnM (SyntaxExpr GHCR, FreeVars) -- Possibly a non-standard
+lookupSyntaxName :: Name                      -- The standard name
+                 -> RnM (SyntaxExpr GhcRn, FreeVars) -- Possibly a non-standard
                                                     -- name
 lookupSyntaxName std_name
   = do { rebindable_on <- xoptM LangExt.RebindableSyntax
@@ -1543,8 +1543,8 @@ lookupSyntaxName std_name
            do { usr_name <- lookupOccRn (mkRdrUnqual (nameOccName std_name))
               ; return (mkRnSyntaxExpr usr_name, unitFV usr_name) } }
 
-lookupSyntaxNames :: [IdP GHCR]                      -- Standard names
-                  -> RnM ([HsExpr GHCR], FreeVars)   -- See comments with HsExpr.ReboundNames
+lookupSyntaxNames :: [Name]                      -- Standard names
+                  -> RnM ([HsExpr GhcRn], FreeVars)   -- See comments with HsExpr.ReboundNames
    -- this works with CmdTop, which wants HsExprs, not SyntaxExprs
 lookupSyntaxNames std_names
   = do { rebindable_on <- xoptM LangExt.RebindableSyntax
@@ -1557,12 +1557,12 @@ lookupSyntaxNames std_names
 -- Error messages
 
 
-opDeclErr :: IdP GHCP -> SDoc
+opDeclErr :: RdrName -> SDoc
 opDeclErr n
   = hang (text "Illegal declaration of a type or class operator" <+> quotes (ppr n))
        2 (text "Use TypeOperators to declare operators in type and declarations")
 
-badOrigBinding :: IdP GHCP -> SDoc
+badOrigBinding :: RdrName -> SDoc
 badOrigBinding name
   = text "Illegal binding of built-in syntax:" <+> ppr (rdrNameOcc name)
         -- The rdrNameOcc is because we don't want to print Prelude.(,)

@@ -23,13 +23,13 @@ import TysPrim ( primTyCons )
 import TysWiredIn ( tupleTyCon, sumTyCon, runtimeRepTyCon
                   , vecCountTyCon, vecElemTyCon
                   , nilDataCon, consDataCon )
+import Name
 import Id
 import Type
 import Kind ( isTYPEApp )
 import TyCon
 import DataCon
 import Name ( getOccName )
-import OccName
 import Module
 import HsSyn
 import DynFlags
@@ -194,7 +194,7 @@ mkModIdBindings
        ; return (tcg_env { tcg_tr_module = Just mod_id }
                  `addTypecheckedBinds` [unitBag mod_bind]) }
 
-mkModIdRHS :: Module -> TcM (LHsExpr GHCT)
+mkModIdRHS :: Module -> TcM (LHsExpr GhcTc)
 mkModIdRHS mod
   = do { trModuleDataCon <- tcLookupDataCon trModuleDataConName
        ; trNameLit <- mkTrNameLit
@@ -215,25 +215,25 @@ mkModIdRHS mod
 data TypeableTyCon
     = TypeableTyCon
       { tycon        :: !TyCon
-      , tycon_rep_id :: !(IdP GHCT)
+      , tycon_rep_id :: !Id
       }
 
 -- | A group of 'TyCon's in need of type-rep bindings.
 data TypeRepTodo
     = TypeRepTodo
-      { mod_rep_expr    :: LHsExpr GHCT       -- ^ Module's typerep binding
+      { mod_rep_expr    :: LHsExpr GhcTc       -- ^ Module's typerep binding
       , pkg_fingerprint :: !Fingerprint     -- ^ Package name fingerprint
       , mod_fingerprint :: !Fingerprint     -- ^ Module name fingerprint
       , todo_tycons     :: [TypeableTyCon]
         -- ^ The 'TyCon's in need of bindings kinds
       }
-    | ExportedKindRepsTodo [(Kind, IdP GHCT)]
+    | ExportedKindRepsTodo [(Kind, Id)]
       -- ^ Build exported 'KindRep' bindings for the given set of kinds.
 
-todoForTyCons :: Module -> IdP GHCT -> [TyCon] -> TcM TypeRepTodo
+todoForTyCons :: Module -> Id -> [TyCon] -> TcM TypeRepTodo
 todoForTyCons mod mod_id tycons = do
     trTyConTy <- mkTyConTy <$> tcLookupTyCon trTyConTyConName
-    let mk_rep_id :: TyConRepName -> IdP GHCT
+    let mk_rep_id :: TyConRepName -> Id
         mk_rep_id rep_name = mkExportedVanillaId rep_name trTyConTy
 
     let typeable_tycons :: [TypeableTyCon]
@@ -261,7 +261,7 @@ todoForTyCons mod mod_id tycons = do
     mod_fpr = fingerprintString $ moduleNameString $ moduleName mod
     pkg_fpr = fingerprintString $ unitIdString $ moduleUnitId mod
 
-todoForExportedKindReps :: [(Kind, IdP GHCR)] -> TcM TypeRepTodo
+todoForExportedKindReps :: [(Kind, Name)] -> TcM TypeRepTodo
 todoForExportedKindReps kinds = do
     trKindRepTy <- mkTyConTy <$> tcLookupTyCon kindRepTyConName
     let mkId (k, name) = (k, mkExportedVanillaId name trKindRepTy)
@@ -278,7 +278,7 @@ mkTypeRepTodoBinds todos
          -- while generating kind representations (namely, when we want to
          -- represent a TyConApp in a kind, we must be able to look up the
          -- TyCon associated with the applied type constructor).
-       ; let produced_bndrs :: [IdP GHCT]
+       ; let produced_bndrs :: [Id]
              produced_bndrs = [ tycon_rep_id
                               | todo@(TypeRepTodo{}) <- todos
                               , TypeableTyCon {..} <- todo_tycons todo
@@ -289,7 +289,7 @@ mkTypeRepTodoBinds todos
                               ]
        ; gbl_env <- tcExtendGlobalValEnv produced_bndrs getGblEnv
 
-       ; let mk_binds :: TypeRepTodo -> KindRepM [LHsBinds GHCT]
+       ; let mk_binds :: TypeRepTodo -> KindRepM [LHsBinds GhcTc]
              mk_binds todo@(TypeRepTodo {}) =
                  mapM (mkTyConRepBinds stuff todo) (todo_tycons todo)
              mk_binds (ExportedKindRepsTodo kinds) =
@@ -353,7 +353,7 @@ ghcPrimTypeableTyCons = concat
 data TypeableStuff
     = Stuff { dflags         :: DynFlags
             , trTyConDataCon :: DataCon         -- ^ of @TyCon@
-            , trNameLit      :: FastString -> LHsExpr GHCT
+            , trNameLit      :: FastString -> LHsExpr GhcTc
                                                 -- ^ To construct @TrName@s
               -- The various TyCon and DataCons of KindRep
             , kindRepTyCon           :: TyCon
@@ -387,17 +387,17 @@ collect_stuff = do
 -- | Lookup the necessary pieces to construct the @trNameLit@. We do this so we
 -- can save the work of repeating lookups when constructing many TyCon
 -- representations.
-mkTrNameLit :: TcM (FastString -> LHsExpr GHCT)
+mkTrNameLit :: TcM (FastString -> LHsExpr GhcTc)
 mkTrNameLit = do
     trNameSDataCon <- tcLookupDataCon trNameSDataConName
-    let trNameLit :: FastString -> LHsExpr GHCT
+    let trNameLit :: FastString -> LHsExpr GhcTc
         trNameLit fs = nlHsPar $ nlHsDataCon trNameSDataCon
                        `nlHsApp` nlHsLit (mkHsStringPrimLit fs)
     return trNameLit
 
 -- | Make Typeable bindings for the given 'TyCon'.
 mkTyConRepBinds :: TypeableStuff -> TypeRepTodo
-                -> TypeableTyCon -> KindRepM (LHsBinds GHCT)
+                -> TypeableTyCon -> KindRepM (LHsBinds GhcTc)
 mkTyConRepBinds stuff@(Stuff {..}) todo (TypeableTyCon {..})
   = do -- Make a KindRep
        let (bndrs, kind) = splitForAllTyVarBndrs (tyConKind tycon)
@@ -445,7 +445,7 @@ typeIsTypeable (CoercionTy{})       = panic "typeIsTypeable(Coercion)"
 -- some other module (in which case the @Maybe (LHsExpr Id@ will be 'Nothing')
 -- or a binding which we generated in the current module (in which case it will
 -- be 'Just' the RHS of the binding).
-type KindRepEnv = TypeMap (IdP GHCT, Maybe (LHsExpr GHCT))
+type KindRepEnv = TypeMap (Id, Maybe (LHsExpr GhcTc))
 
 -- | A monad within which we will generate 'KindRep's. Here we keep an
 -- environment containing 'KindRep's which we've already generated so we can
@@ -458,7 +458,7 @@ liftTc = KindRepM . lift
 
 -- | We generate @KindRep@s for a few common kinds in @GHC.Types@ so that they
 -- can be reused across modules.
-builtInKindReps :: [(Kind, IdP GHCR)]
+builtInKindReps :: [(Kind, Name)]
 builtInKindReps =
     [ (star, starKindRepName)
     , (mkFunTy star star, starArrStarKindRepName)
@@ -476,13 +476,13 @@ initialKindRepEnv = foldlM add_kind_rep emptyTypeMap builtInKindReps
 
 -- | Performed while compiling "GHC.Types" to generate the built-in 'KindRep's.
 mkExportedKindReps :: TypeableStuff
-                   -> [(Kind, IdP GHCT)]  -- ^ the kinds to generate bindings for
+                   -> [(Kind, Id)]  -- ^ the kinds to generate bindings for
                    -> KindRepM ()
 mkExportedKindReps stuff@(Stuff {..}) = mapM_ kindrep_binding
   where
     empty_scope = mkDeBruijnContext []
 
-    kindrep_binding :: (Kind, IdP GHCT) -> KindRepM ()
+    kindrep_binding :: (Kind, Id) -> KindRepM ()
     kindrep_binding (kind, rep_bndr) = do
         -- We build the binding manually here instead of using mkKindRepRhs
         -- since the latter would find the built-in 'KindRep's in the
@@ -490,7 +490,7 @@ mkExportedKindReps stuff@(Stuff {..}) = mapM_ kindrep_binding
         rhs <- mkKindRepRhs stuff empty_scope kind
         addKindRepBind empty_scope kind rep_bndr rhs
 
-addKindRepBind :: CmEnv -> Kind -> IdP GHCT -> LHsExpr GHCT -> KindRepM ()
+addKindRepBind :: CmEnv -> Kind -> Id -> LHsExpr GhcTc -> KindRepM ()
 addKindRepBind in_scope k bndr rhs =
     KindRepM $ modify' $
     \env -> extendTypeMapWithScope env in_scope k (bndr, Just rhs)
@@ -512,13 +512,13 @@ runKindRepM (KindRepM action) = do
 -- | Produce or find a 'KindRep' for the given kind.
 getKindRep :: TypeableStuff -> CmEnv  -- ^ in-scope kind variables
            -> Kind   -- ^ the kind we want a 'KindRep' for
-           -> KindRepM (LHsExpr GHCT)
+           -> KindRepM (LHsExpr GhcTc)
 getKindRep stuff@(Stuff {..}) in_scope = go
   where
-    go :: Kind -> KindRepM (LHsExpr GHCT)
+    go :: Kind -> KindRepM (LHsExpr GhcTc)
     go = KindRepM . StateT . go'
 
-    go' :: Kind -> KindRepEnv -> TcRn (LHsExpr GHCT, KindRepEnv)
+    go' :: Kind -> KindRepEnv -> TcRn (LHsExpr GhcTc, KindRepEnv)
     go' k env
         -- Look through type synonyms
       | Just k' <- tcView k = go' k' env
@@ -545,7 +545,7 @@ getKindRep stuff@(Stuff {..}) in_scope = go
 mkKindRepRhs :: TypeableStuff
              -> CmEnv       -- ^ in-scope kind variables
              -> Kind        -- ^ the kind we want a 'KindRep' for
-             -> KindRepM (LHsExpr GHCT) -- ^ RHS expression
+             -> KindRepM (LHsExpr GhcTc) -- ^ RHS expression
 mkKindRepRhs stuff@(Stuff {..}) in_scope = new_kind_rep
   where
     new_kind_rep k
@@ -606,8 +606,8 @@ mkKindRepRhs stuff@(Stuff {..}) in_scope = new_kind_rep
 -- | Produce the right-hand-side of a @TyCon@ representation.
 mkTyConRepTyConRHS :: TypeableStuff -> TypeRepTodo
                    -> TyCon      -- ^ the 'TyCon' we are producing a binding for
-                   -> LHsExpr GHCT -- ^ its 'KindRep'
-                   -> LHsExpr GHCT
+                   -> LHsExpr GhcTc -- ^ its 'KindRep'
+                   -> LHsExpr GhcTc
 mkTyConRepTyConRHS (Stuff {..}) todo tycon kind_rep
   =           nlHsDataCon trTyConDataCon
     `nlHsApp` nlHsLit (word64 dflags high)
@@ -629,10 +629,10 @@ mkTyConRepTyConRHS (Stuff {..}) todo tycon kind_rep
                                                    , fingerprintString tycon_str
                                                    ]
 
-    int :: Int -> HsLit GHCT
+    int :: Int -> HsLit GhcTc
     int n = HsIntPrim (sourceText $ show n) (toInteger n)
 
-word64 :: DynFlags -> Word64 -> HsLit GHCT
+word64 :: DynFlags -> Word64 -> HsLit GhcTc
 word64 dflags n
   | wORD_SIZE dflags == 4 = HsWord64Prim noSourceText (toInteger n)
   | otherwise             = HsWordPrim   noSourceText (toInteger n)
@@ -693,15 +693,15 @@ polymorphic types.  So instead
                  ...
 -}
 
-mkList :: Type -> [LHsExpr GHCT] -> LHsExpr GHCT
+mkList :: Type -> [LHsExpr GhcTc] -> LHsExpr GhcTc
 mkList ty = foldr consApp (nilExpr ty)
   where
     cons = consExpr ty
-    consApp :: LHsExpr GHCT -> LHsExpr GHCT -> LHsExpr GHCT
+    consApp :: LHsExpr GhcTc -> LHsExpr GhcTc -> LHsExpr GhcTc
     consApp x xs = cons `nlHsApp` x `nlHsApp` xs
 
-    nilExpr :: Type -> LHsExpr GHCT
+    nilExpr :: Type -> LHsExpr GhcTc
     nilExpr ty = mkLHsWrap (mkWpTyApps [ty]) (nlHsDataCon nilDataCon)
 
-    consExpr :: Type -> LHsExpr GHCT
+    consExpr :: Type -> LHsExpr GhcTc
     consExpr ty = mkLHsWrap (mkWpTyApps [ty]) (nlHsDataCon consDataCon)

@@ -410,7 +410,7 @@ data DsMetaVal
                         -- Will be dynamically alpha renamed.
                         -- The Id has type THSyntax.Var
 
-   | DsSplice (HsExpr GHCT) -- These bindings are introduced by
+   | DsSplice (HsExpr GhcTc) -- These bindings are introduced by
                             -- the PendingSplices on a HsBracketOut
 
 
@@ -616,22 +616,22 @@ data TcGblEnv
         -- The binds, rules and foreign-decl fields are collected
         -- initially in un-zonked form and are finally zonked in tcRnSrcDecls
 
-        tcg_rn_exports :: Maybe [Located (IE GHCR)],
+        tcg_rn_exports :: Maybe [Located (IE GhcRn)],
                 -- Nothing <=> no explicit export list
                 -- Is always Nothing if we don't want to retain renamed
                 -- exports
 
-        tcg_rn_imports :: [LImportDecl GHCR],
+        tcg_rn_imports :: [LImportDecl GhcRn],
                 -- Keep the renamed imports regardless.  They are not
                 -- voluminous and are needed if you want to report unused imports
 
-        tcg_rn_decls :: Maybe (HsGroup GHCR),
+        tcg_rn_decls :: Maybe (HsGroup GhcRn),
           -- ^ Renamed decls, maybe.  @Nothing@ <=> Don't retain renamed
           -- decls.
 
         tcg_dependent_files :: TcRef [FilePath], -- ^ dependencies from addDependentFile
 
-        tcg_th_topdecls :: TcRef [LHsDecl GHCP],
+        tcg_th_topdecls :: TcRef [LHsDecl GhcPs],
         -- ^ Top-level declarations from addTopDecls
 
         tcg_th_foreign_files :: TcRef [(ForeignSrcLang, String)],
@@ -655,10 +655,10 @@ data TcGblEnv
         -- Things defined in this module, or (in GHCi)
         -- in the declarations for a single GHCi command.
         -- For the latter, see Note [The interactive package] in HscTypes
-        tcg_tr_module :: Maybe (IdP GHCT),   -- Id for $trModule :: GHC.Types.Module
+        tcg_tr_module :: Maybe Id,   -- Id for $trModule :: GHC.Types.Module
                                              -- for which every module has a top-level defn
                                              -- except in GHCi in which case we have Nothing
-        tcg_binds     :: LHsBinds GHCT,      -- Value bindings in this module
+        tcg_binds     :: LHsBinds GhcTc,      -- Value bindings in this module
         tcg_sigs      :: NameSet,            -- ...Top-level names that *lack* a signature
         tcg_imp_specs :: [LTcSpecPrag],      -- ...SPECIALISE prags for imported Ids
         tcg_warns     :: Warnings,           -- ...Warnings and deprecations
@@ -666,9 +666,9 @@ data TcGblEnv
         tcg_tcs       :: [TyCon],            -- ...TyCons and Classes
         tcg_insts     :: [ClsInst],          -- ...Instances
         tcg_fam_insts :: [FamInst],          -- ...Family instances
-        tcg_rules     :: [LRuleDecl GHCT],   -- ...Rules
-        tcg_fords     :: [LForeignDecl GHCT], -- ...Foreign import & exports
-        tcg_vects     :: [LVectDecl GHCT],   -- ...Vectorisation declarations
+        tcg_rules     :: [LRuleDecl GhcTc],   -- ...Rules
+        tcg_fords     :: [LForeignDecl GhcTc], -- ...Foreign import & exports
+        tcg_vects     :: [LVectDecl GhcTc],   -- ...Vectorisation declarations
         tcg_patsyns   :: [PatSyn],           -- ...Pattern synonyms
 
         tcg_doc_hdr   :: Maybe LHsDocString, -- ^ Maybe Haddock header docs
@@ -678,7 +678,7 @@ data TcGblEnv
         tcg_self_boot :: SelfBootInfo,       -- ^ Whether this module has a
                                              -- corresponding hi-boot file
 
-        tcg_main      :: Maybe (IdP GHCR),   -- ^ The Name of the main
+        tcg_main      :: Maybe Name,   -- ^ The Name of the main
                                              -- function, if this module is
                                              -- the main module.
 
@@ -1385,8 +1385,8 @@ data TcIdSigInfo   -- See Note [Complete and partial type signatures]
                    -- wildcards). In this case it doesn't make sense to give
                    -- the polymorphic Id, because we are going to /infer/ its
                    -- type, so we can't make the polymorphic Id ab-initio
-      { psig_name  :: (IdP GHCR)         -- Name of the function; used when report wildcards
-      , psig_hs_ty :: LHsSigWcType GHCR  -- The original partial signature in HsSyn form
+      { psig_name  :: Name         -- Name of the function; used when report wildcards
+      , psig_hs_ty :: LHsSigWcType GhcRn  -- The original partial signature in HsSyn form
       , sig_ctxt   :: UserTypeCtxt
       , sig_loc    :: SrcSpan            -- Location of the type signature
       }
@@ -1469,7 +1469,7 @@ Here we get
 
 data TcPatSynInfo
   = TPSI {
-        patsig_name           :: IdP GHCR,
+        patsig_name           :: Name,
         patsig_implicit_bndrs :: [TyVarBinder], -- Implicitly-bound kind vars (Inferred) and
                                                 -- implicitly-bound type vars (Specified)
           -- See Note [The pattern-synonym signature splitting rule] in TcPatSyn
@@ -3098,18 +3098,18 @@ data CtOrigin
   | IPOccOrigin  HsIPName       -- Occurrence of an implicit parameter
   | OverLabelOrigin FastString  -- Occurrence of an overloaded label
 
-  | LiteralOrigin (HsOverLit GHCR)      -- Occurrence of a literal
+  | LiteralOrigin (HsOverLit GhcRn)      -- Occurrence of a literal
   | NegateOrigin                        -- Occurrence of syntactic negation
 
-  | ArithSeqOrigin (ArithSeqInfo GHCR) -- [x..], [x..y] etc
-  | PArrSeqOrigin  (ArithSeqInfo GHCR) -- [:x..y:] and [:x,y..z:]
+  | ArithSeqOrigin (ArithSeqInfo GhcRn) -- [x..], [x..y] etc
+  | PArrSeqOrigin  (ArithSeqInfo GhcRn) -- [:x..y:] and [:x,y..z:]
   | SectionOrigin
   | TupleOrigin                        -- (..,..)
   | ExprSigOrigin       -- e :: ty
   | PatSigOrigin        -- p :: ty
   | PatOrigin           -- Instantiating a polytyped pattern at a constructor
   | ProvCtxtOrigin      -- The "provided" context of a pattern synonym signature
-        (PatSynBind GHCR GHCR) -- Information about the pattern synonym, in particular
+        (PatSynBind GhcRn GhcRn) -- Information about the pattern synonym, in particular
                                -- the name and the right-hand side
   | RecordUpdOrigin
   | ViewPatOrigin
@@ -3128,10 +3128,10 @@ data CtOrigin
   | StandAloneDerivOrigin -- Typechecking stand-alone deriving
   | DefaultOrigin       -- Typechecking a default decl
   | DoOrigin            -- Arising from a do expression
-  | DoPatOrigin (LPat GHCR) -- Arising from a failable pattern in
+  | DoPatOrigin (LPat GhcRn) -- Arising from a failable pattern in
                             -- a do expression
   | MCompOrigin         -- Arising from a monad comprehension
-  | MCompPatOrigin (LPat GHCR) -- Arising from a failable pattern in a
+  | MCompPatOrigin (LPat GhcRn) -- Arising from a failable pattern in a
                                -- monad comprehension
   | IfOrigin            -- Arising from an if statement
   | ProcOrigin          -- Arising from a proc expression
@@ -3153,7 +3153,7 @@ data CtOrigin
   | StaticOrigin        -- A static form
   -- | FailablePattern (LPat TcId) -- A failable pattern in do-notation for the
   -- AZ:TODO: do we need to distinguish TcId?
-  | FailablePattern (LPat GHCT) -- A failable pattern in do-notation for the
+  | FailablePattern (LPat GhcTc) -- A failable pattern in do-notation for the
                                 -- MonadFail Proposal (MFP). Obsolete when
                                 -- actual desugaring to MonadFail.fail is live.
   | Shouldn'tHappenOrigin String
@@ -3205,10 +3205,10 @@ ctoHerald :: SDoc
 ctoHerald = text "arising from"
 
 -- | Extract a suitable CtOrigin from a HsExpr
-lexprCtOrigin :: LHsExpr GHCR -> CtOrigin
+lexprCtOrigin :: LHsExpr GhcRn -> CtOrigin
 lexprCtOrigin (L _ e) = exprCtOrigin e
 
-exprCtOrigin :: HsExpr GHCR -> CtOrigin
+exprCtOrigin :: HsExpr GhcRn -> CtOrigin
 exprCtOrigin (HsVar (L _ name)) = OccurrenceOf name
 exprCtOrigin (HsUnboundVar uv)  = UnboundOccurrenceOf (unboundVarOcc uv)
 exprCtOrigin (HsConLikeOut {})  = panic "exprCtOrigin HsConLikeOut"
@@ -3263,7 +3263,7 @@ exprCtOrigin (ELazyPat {})      = panic "exprCtOrigin ELazyPat"
 exprCtOrigin (HsWrap {})        = panic "exprCtOrigin HsWrap"
 
 -- | Extract a suitable CtOrigin from a MatchGroup
-matchesCtOrigin :: MatchGroup GHCR (LHsExpr GHCR) -> CtOrigin
+matchesCtOrigin :: MatchGroup GhcRn (LHsExpr GhcRn) -> CtOrigin
 matchesCtOrigin (MG { mg_alts = alts })
   | L _ [L _ match] <- alts
   , Match { m_grhss = grhss } <- match
@@ -3273,11 +3273,11 @@ matchesCtOrigin (MG { mg_alts = alts })
   = Shouldn'tHappenOrigin "multi-way match"
 
 -- | Extract a suitable CtOrigin from guarded RHSs
-grhssCtOrigin :: GRHSs GHCR (LHsExpr GHCR) -> CtOrigin
+grhssCtOrigin :: GRHSs GhcRn (LHsExpr GhcRn) -> CtOrigin
 grhssCtOrigin (GRHSs { grhssGRHSs = lgrhss }) = lGRHSCtOrigin lgrhss
 
 -- | Extract a suitable CtOrigin from a list of guarded RHSs
-lGRHSCtOrigin :: [LGRHS GHCR (LHsExpr GHCR)] -> CtOrigin
+lGRHSCtOrigin :: [LGRHS GhcRn (LHsExpr GhcRn)] -> CtOrigin
 lGRHSCtOrigin [L _ (GRHS _ (L _ e))] = exprCtOrigin e
 lGRHSCtOrigin _ = Shouldn'tHappenOrigin "multi-way GRHS"
 
@@ -3481,9 +3481,9 @@ data TcPluginResult
 *                                                                      *
 ********************************************************************* -}
 
-type RoleAnnotEnv = NameEnv (LRoleAnnotDecl GHCR)
+type RoleAnnotEnv = NameEnv (LRoleAnnotDecl GhcRn)
 
-mkRoleAnnotEnv :: [LRoleAnnotDecl GHCR] -> RoleAnnotEnv
+mkRoleAnnotEnv :: [LRoleAnnotDecl GhcRn] -> RoleAnnotEnv
 mkRoleAnnotEnv role_annot_decls
  = mkNameEnv [ (name, ra_decl)
              | ra_decl <- role_annot_decls
@@ -3495,11 +3495,11 @@ mkRoleAnnotEnv role_annot_decls
 emptyRoleAnnotEnv :: RoleAnnotEnv
 emptyRoleAnnotEnv = emptyNameEnv
 
-lookupRoleAnnot :: RoleAnnotEnv -> IdP GHCR -> Maybe (LRoleAnnotDecl GHCR)
+lookupRoleAnnot :: RoleAnnotEnv -> Name -> Maybe (LRoleAnnotDecl GhcRn)
 lookupRoleAnnot = lookupNameEnv
 
-getRoleAnnots :: [IdP GHCR] -> RoleAnnotEnv
-              -> ([LRoleAnnotDecl GHCR], RoleAnnotEnv)
+getRoleAnnots :: [Name] -> RoleAnnotEnv
+              -> ([LRoleAnnotDecl GhcRn], RoleAnnotEnv)
 getRoleAnnots bndrs role_env
   = ( mapMaybe (lookupRoleAnnot role_env) bndrs
     , delListFromNameEnv role_env bndrs )

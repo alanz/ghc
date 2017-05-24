@@ -1,17 +1,18 @@
 module RnExpr where
+import Name
 import HsSyn
 import NameSet     ( FreeVars )
 import TcRnTypes
 import SrcLoc      ( Located )
 import Outputable  ( Outputable )
-import HsExtension (IdP, GHCP, GHCR )
+import HsExtension ( GhcPs, GhcRn )
 
-rnLExpr :: LHsExpr GHCP
-        -> RnM (LHsExpr GHCR, FreeVars)
+rnLExpr :: LHsExpr GhcPs
+        -> RnM (LHsExpr GhcRn, FreeVars)
 
 rnStmts :: --forall thing body.
-           Outputable (body GHCP) => HsStmtContext (IdP GHCR)
-        -> (Located (body GHCP) -> RnM (Located (body GHCR), FreeVars))
-        -> [LStmt GHCP (Located (body GHCP))]
-        -> ([IdP GHCR] -> RnM (thing, FreeVars))
-        -> RnM (([LStmt GHCR (Located (body GHCR))], thing), FreeVars)
+           Outputable (body GhcPs) => HsStmtContext Name
+        -> (Located (body GhcPs) -> RnM (Located (body GhcRn), FreeVars))
+        -> [LStmt GhcPs (Located (body GhcPs))]
+        -> ([Name] -> RnM (thing, FreeVars))
+        -> RnM (([LStmt GhcRn (Located (body GhcRn))], thing), FreeVars)

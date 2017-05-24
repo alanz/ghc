@@ -701,35 +701,35 @@ hptObjs hpt = concat (map (maybe [] linkableObjs . hm_linkable) (eltsHpt hpt))
 
 -- | The supported metaprogramming result types
 data MetaRequest
-  = MetaE  (LHsExpr GHCP   -> MetaResult)
-  | MetaP  (LPat GHCP      -> MetaResult)
-  | MetaT  (LHsType GHCP   -> MetaResult)
-  | MetaD  ([LHsDecl GHCP] -> MetaResult)
+  = MetaE  (LHsExpr GhcPs   -> MetaResult)
+  | MetaP  (LPat GhcPs      -> MetaResult)
+  | MetaT  (LHsType GhcPs   -> MetaResult)
+  | MetaD  ([LHsDecl GhcPs] -> MetaResult)
   | MetaAW (Serialized     -> MetaResult)
 
 -- | data constructors not exported to ensure correct result type
 data MetaResult
-  = MetaResE  { unMetaResE  :: LHsExpr GHCP   }
-  | MetaResP  { unMetaResP  :: LPat GHCP      }
-  | MetaResT  { unMetaResT  :: LHsType GHCP   }
-  | MetaResD  { unMetaResD  :: [LHsDecl GHCP] }
+  = MetaResE  { unMetaResE  :: LHsExpr GhcPs   }
+  | MetaResP  { unMetaResP  :: LPat GhcPs      }
+  | MetaResT  { unMetaResT  :: LHsType GhcPs   }
+  | MetaResD  { unMetaResD  :: [LHsDecl GhcPs] }
   | MetaResAW { unMetaResAW :: Serialized        }
 
-type MetaHook f = MetaRequest -> LHsExpr GHCT -> f MetaResult
+type MetaHook f = MetaRequest -> LHsExpr GhcTc -> f MetaResult
 
-metaRequestE :: Functor f => MetaHook f -> LHsExpr GHCT -> f (LHsExpr GHCP)
+metaRequestE :: Functor f => MetaHook f -> LHsExpr GhcTc -> f (LHsExpr GhcPs)
 metaRequestE h = fmap unMetaResE . h (MetaE MetaResE)
 
-metaRequestP :: Functor f => MetaHook f -> LHsExpr GHCT -> f (LPat GHCP)
+metaRequestP :: Functor f => MetaHook f -> LHsExpr GhcTc -> f (LPat GhcPs)
 metaRequestP h = fmap unMetaResP . h (MetaP MetaResP)
 
-metaRequestT :: Functor f => MetaHook f -> LHsExpr GHCT -> f (LHsType GHCP)
+metaRequestT :: Functor f => MetaHook f -> LHsExpr GhcTc -> f (LHsType GhcPs)
 metaRequestT h = fmap unMetaResT . h (MetaT MetaResT)
 
-metaRequestD :: Functor f => MetaHook f -> LHsExpr GHCT -> f [LHsDecl GHCP]
+metaRequestD :: Functor f => MetaHook f -> LHsExpr GhcTc -> f [LHsDecl GhcPs]
 metaRequestD h = fmap unMetaResD . h (MetaD MetaResD)
 
-metaRequestAW :: Functor f => MetaHook f -> LHsExpr GHCT -> f Serialized
+metaRequestAW :: Functor f => MetaHook f -> LHsExpr GhcTc -> f Serialized
 metaRequestAW h = fmap unMetaResAW . h (MetaAW MetaResAW)
 
 {-
@@ -1545,7 +1545,7 @@ data InteractiveContext
     }
 
 data InteractiveImport
-  = IIDecl (ImportDecl GHCP)
+  = IIDecl (ImportDecl GhcPs)
       -- ^ Bring the exports of a particular module
       -- (filtered by an import decl) into scope
 
@@ -2936,7 +2936,7 @@ instance Binary IfaceTrustInfo where
 -}
 
 data HsParsedModule = HsParsedModule {
-    hpm_module    :: Located (HsModule GHCP),
+    hpm_module    :: Located (HsModule GhcPs),
     hpm_src_files :: [FilePath],
        -- ^ extra source files (e.g. from #includes).  The lexer collects
        -- these from '# <file> <line>' pragmas, which the C preprocessor

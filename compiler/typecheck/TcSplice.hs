@@ -135,9 +135,9 @@ import GHC.Exts         ( unsafeCoerce# )
 ************************************************************************
 -}
 
-tcTypedBracket   :: HsBracket GHCR -> ExpRhoType -> TcM (HsExpr GHCTc)
-tcUntypedBracket :: HsBracket GHCR -> [PendingRnSplice] -> ExpRhoType -> TcM (HsExpr GHCTc)
-tcSpliceExpr     :: HsSplice GHCR  -> ExpRhoType -> TcM (HsExpr GHCTc)
+tcTypedBracket   :: HsBracket GhcRn -> ExpRhoType -> TcM (HsExpr GhcTcId)
+tcUntypedBracket :: HsBracket GhcRn -> [PendingRnSplice] -> ExpRhoType -> TcM (HsExpr GhcTcId)
+tcSpliceExpr     :: HsSplice GhcRn  -> ExpRhoType -> TcM (HsExpr GhcTcId)
         -- None of these functions add constraints to the LIE
 
 -- runQuasiQuoteExpr :: HsQuasiQuote RdrName -> RnM (LHsExpr RdrName)
@@ -145,7 +145,7 @@ tcSpliceExpr     :: HsSplice GHCR  -> ExpRhoType -> TcM (HsExpr GHCTc)
 -- runQuasiQuoteType :: HsQuasiQuote RdrName -> RnM (LHsType RdrName)
 -- runQuasiQuoteDecl :: HsQuasiQuote RdrName -> RnM [LHsDecl RdrName]
 
-runAnnotation     :: CoreAnnTarget -> LHsExpr GHCR -> TcM Annotation
+runAnnotation     :: CoreAnnTarget -> LHsExpr GhcRn -> TcM Annotation
 {-
 ************************************************************************
 *                                                                      *
@@ -191,7 +191,7 @@ tcUntypedBracket brack ps res_ty
                        (HsTcBracketOut brack ps') meta_ty res_ty }
 
 ---------------
-tcBrackTy :: HsBracket GHCR -> TcM TcType
+tcBrackTy :: HsBracket GhcRn -> TcM TcType
 tcBrackTy (VarBr _ _) = tcMetaTy nameTyConName  -- Result type is Var (not Q-monadic)
 tcBrackTy (ExpBr _)   = tcMetaTy expQTyConName  -- Result type is ExpQ (= Q Exp)
 tcBrackTy (TypBr _)   = tcMetaTy typeQTyConName -- Result type is Type (= Q Typ)
@@ -227,7 +227,7 @@ tcTExpTy exp_ty
              , text "The type of a Typed Template Haskell expression must" <+>
                text "not have any quantification." ]
 
-quotationCtxtDoc :: HsBracket GHCR -> SDoc
+quotationCtxtDoc :: HsBracket GhcRn -> SDoc
 quotationCtxtDoc br_body
   = hang (text "In the Template Haskell quotation")
          2 (ppr br_body)
@@ -453,8 +453,8 @@ environment (with 'addModFinalizersWithLclEnv').
 
 -}
 
-tcNestedSplice :: ThStage -> PendingStuff -> IdP GHCR
-                -> LHsExpr GHCR -> ExpRhoType -> TcM (HsExpr GHCT)
+tcNestedSplice :: ThStage -> PendingStuff -> Name
+                -> LHsExpr GhcRn -> ExpRhoType -> TcM (HsExpr GhcTc)
     -- See Note [How brackets and nested splices are handled]
     -- A splice inside brackets
 tcNestedSplice pop_stage (TcPending ps_var lie_var) splice_name expr res_ty
@@ -474,7 +474,7 @@ tcNestedSplice pop_stage (TcPending ps_var lie_var) splice_name expr res_ty
 tcNestedSplice _ _ splice_name _ _
   = pprPanic "tcNestedSplice: rename stage found" (ppr splice_name)
 
-tcTopSplice :: LHsExpr GHCR -> ExpRhoType -> TcM (HsExpr GHCT)
+tcTopSplice :: LHsExpr GhcRn -> ExpRhoType -> TcM (HsExpr GhcTc)
 tcTopSplice expr res_ty
   = do { -- Typecheck the expression,
          -- making sure it has type Q (T res_ty)
@@ -511,19 +511,19 @@ tcTopSplice expr res_ty
 ************************************************************************
 -}
 
-spliceCtxtDoc :: HsSplice GHCR -> SDoc
+spliceCtxtDoc :: HsSplice GhcRn -> SDoc
 spliceCtxtDoc splice
   = hang (text "In the Template Haskell splice")
          2 (pprSplice splice)
 
-spliceResultDoc :: LHsExpr GHCR -> SDoc
+spliceResultDoc :: LHsExpr GhcRn -> SDoc
 spliceResultDoc expr
   = sep [ text "In the result of the splice:"
         , nest 2 (char '$' <> ppr expr)
         , text "To see what the splice expanded to, use -ddump-splices"]
 
 -------------------
-tcTopSpliceExpr :: SpliceType -> TcM (LHsExpr GHCT) -> TcM (LHsExpr GHCT)
+tcTopSpliceExpr :: SpliceType -> TcM (LHsExpr GhcTc) -> TcM (LHsExpr GhcTc)
 -- Note [How top-level splices are handled]
 -- Type check an expression that is the body of a top-level splice
 --   (the caller will compile and run it)
@@ -661,8 +661,8 @@ runQResult show_th f runQ expr_span hval
 
 
 -----------------
-runMeta :: (MetaHook TcM -> LHsExpr GHCT -> TcM hs_syn)
-        -> LHsExpr GHCT
+runMeta :: (MetaHook TcM -> LHsExpr GhcTc -> TcM hs_syn)
+        -> LHsExpr GhcTc
         -> TcM hs_syn
 runMeta unwrap e
   = do { h <- getHooked runMetaHook defaultRunMeta
@@ -683,31 +683,31 @@ defaultRunMeta (MetaAW r)
     -- the toAnnotationWrapper function that we slap around the user's code
 
 ----------------
-runMetaAW :: LHsExpr GHCT         -- Of type AnnotationWrapper
+runMetaAW :: LHsExpr GhcTc         -- Of type AnnotationWrapper
           -> TcM Serialized
 runMetaAW = runMeta metaRequestAW
 
-runMetaE :: LHsExpr GHCT          -- Of type (Q Exp)
-         -> TcM (LHsExpr GHCP)
+runMetaE :: LHsExpr GhcTc          -- Of type (Q Exp)
+         -> TcM (LHsExpr GhcPs)
 runMetaE = runMeta metaRequestE
 
-runMetaP :: LHsExpr GHCT          -- Of type (Q Pat)
-         -> TcM (LPat GHCP)
+runMetaP :: LHsExpr GhcTc          -- Of type (Q Pat)
+         -> TcM (LPat GhcPs)
 runMetaP = runMeta metaRequestP
 
-runMetaT :: LHsExpr GHCT          -- Of type (Q Type)
-         -> TcM (LHsType GHCP)
+runMetaT :: LHsExpr GhcTc          -- Of type (Q Type)
+         -> TcM (LHsType GhcPs)
 runMetaT = runMeta metaRequestT
 
-runMetaD :: LHsExpr GHCT          -- Of type Q [Dec]
-         -> TcM [LHsDecl GHCP]
+runMetaD :: LHsExpr GhcTc          -- Of type Q [Dec]
+         -> TcM [LHsDecl GhcPs]
 runMetaD = runMeta metaRequestD
 
 ---------------
 runMeta' :: Bool                 -- Whether code should be printed in the exception message
          -> (hs_syn -> SDoc)                                    -- how to print the code
          -> (SrcSpan -> ForeignHValue -> TcM (Either MsgDoc hs_syn))        -- How to run x
-         -> LHsExpr GHCT           -- Of type x; typically x = Q TH.Exp, or something like that
+         -> LHsExpr GhcTc           -- Of type x; typically x = Q TH.Exp, or something like that
          -> TcM hs_syn           -- Of type t
 runMeta' show_code ppr_hs run_and_convert expr
   = do  { traceTc "About to run" (ppr expr)
@@ -883,7 +883,7 @@ instance TH.Quasi TcM where
       th_topdecls_var <- fmap tcg_th_topdecls getGblEnv
       updTcRef th_topdecls_var (\topds -> ds ++ topds)
     where
-      checkTopDecl :: HsDecl GHCP -> TcM ()
+      checkTopDecl :: HsDecl GhcPs -> TcM ()
       checkTopDecl (ValD binds)
         = mapM_ bindName (collectHsBindBinders binds)
       checkTopDecl (SigD _)
@@ -895,7 +895,7 @@ instance TH.Quasi TcM where
       checkTopDecl _
         = addErr $ text "Only function, value, annotation, and foreign import declarations may be added with addTopDecl"
 
-      bindName :: IdP GHCP -> TcM ()
+      bindName :: RdrName -> TcM ()
       bindName (Exact n)
         = do { th_topnames_var <- fmap tcg_th_topnames getGblEnv
              ; updTcRef th_topnames_var (\ns -> extendNameSet ns n)
@@ -1166,7 +1166,7 @@ reifyInstances th_nm th_tys
     doc = ClassInstanceCtx
     bale_out msg = failWithTc msg
 
-    cvt :: SrcSpan -> TH.Type -> TcM (LHsType GHCP)
+    cvt :: SrcSpan -> TH.Type -> TcM (LHsType GhcPs)
     cvt loc th_ty = case convertToHsType loc th_ty of
                       Left msg -> failWithTc msg
                       Right ty -> return ty
@@ -1227,14 +1227,14 @@ reify th_name
         ; traceTc "reify 2" (ppr thing)
         ; reifyThing thing }
 
-lookupThName :: TH.Name -> TcM (IdP GHCR)
+lookupThName :: TH.Name -> TcM Name
 lookupThName th_name = do
     mb_name <- lookupThName_maybe th_name
     case mb_name of
         Nothing   -> failWithTc (notInScope th_name)
         Just name -> return name
 
-lookupThName_maybe :: TH.Name -> TcM (Maybe (IdP GHCR))
+lookupThName_maybe :: TH.Name -> TcM (Maybe Name)
 lookupThName_maybe th_name
   =  do { names <- mapMaybeM lookup (thRdrNameGuesses th_name)
           -- Pick the first that works
@@ -1249,7 +1249,7 @@ lookupThName_maybe th_name
                  Just name -> return (Just name)
                  Nothing   -> lookupGlobalOccRn_maybe rdr_name }
 
-tcLookupTh :: IdP GHCR -> TcM TcTyThing
+tcLookupTh :: Name -> TcM TcTyThing
 -- This is a specialised version of TcEnv.tcLookup; specialised mainly in that
 -- it gives a reify-related error message on failure, whereas in the normal
 -- tcLookup, failure is a bug.
@@ -1280,7 +1280,7 @@ notInScope th_name = quotes (text (TH.pprint th_name)) <+>
                      text "is not in scope at a reify"
         -- Ugh! Rather an indirect way to display the name
 
-notInEnv :: IdP GHCR -> SDoc
+notInEnv :: Name -> SDoc
 notInEnv name = quotes (ppr name) <+>
                      text "is not in the type environment at a reify"
 
@@ -1883,14 +1883,14 @@ reifyFieldLabel fl
     mod_str = moduleNameString (moduleName mod)
     occ_str = unpackFS (flLabel fl)
 
-reifySelector :: IdP GHCT -> TyCon -> TH.Name
+reifySelector :: Id -> TyCon -> TH.Name
 reifySelector id tc
   = case find ((idName id ==) . flSelector) (tyConFieldLabels tc) of
       Just fl -> reifyFieldLabel fl
       Nothing -> pprPanic "reifySelector: missing field" (ppr id $$ ppr tc)
 
 ------------------------------
-reifyFixity :: IdP GHCR -> TcM (Maybe TH.Fixity)
+reifyFixity :: Name -> TcM (Maybe TH.Fixity)
 reifyFixity name
   = do { (found, fix) <- lookupFixityRn_help name
        ; return (if found then Just (conv_fix fix) else Nothing) }

@@ -4,11 +4,11 @@ import TcRnTypes   ( TcM )
 import TcEvidence  ( TcCoercion )
 import Outputable  ( Outputable )
 import HsExpr      ( HsExpr )
-import HsExtension ( GHCR )
+import HsExtension ( GhcRn )
 
 -- This boot file exists only to tie the knot between
 --              TcUnify and Inst
 
 unifyType :: Outputable a => Maybe a -> TcTauType -> TcTauType -> TcM TcCoercion
 unifyKind :: Outputable a => Maybe a -> TcTauType -> TcTauType -> TcM TcCoercion
-noThing   :: Maybe (HsExpr GHCR)
+noThing   :: Maybe (HsExpr GhcRn)

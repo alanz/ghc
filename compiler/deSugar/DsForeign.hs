@@ -71,14 +71,14 @@ is the same as
 so we reuse the desugaring code in @DsCCall@ to deal with these.
 -}
 
-type Binding = (IdP GHCT, CoreExpr) -- No rec/nonrec structure;
+type Binding = (Id, CoreExpr) -- No rec/nonrec structure;
                                 -- the occurrence analyser will sort it all out
 
-dsForeigns :: [LForeignDecl GHCT]
+dsForeigns :: [LForeignDecl GhcTc]
            -> DsM (ForeignStubs, OrdList Binding)
 dsForeigns fos = getHooked dsForeignsHook dsForeigns' >>= ($ fos)
 
-dsForeigns' :: [LForeignDecl GHCT]
+dsForeigns' :: [LForeignDecl GhcTc]
             -> DsM (ForeignStubs, OrdList Binding)
 dsForeigns' []
   = return (NoStubs, nilOL)
@@ -134,14 +134,14 @@ inside returned tuples; but inlining this wrapper is a Really Good Idea
 because it exposes the boxing to the call site.
 -}
 
-dsFImport :: IdP GHCT
+dsFImport :: Id
           -> Coercion
           -> ForeignImport
           -> DsM ([Binding], SDoc, SDoc)
 dsFImport id co (CImport cconv safety mHeader spec _) =
     dsCImport id co spec (unLoc cconv) (unLoc safety) mHeader
 
-dsCImport :: IdP GHCT
+dsCImport :: Id
           -> Coercion
           -> CImportSpec
           -> CCallConv
@@ -194,8 +194,8 @@ fun_type_arg_stdcall_info _ _other_conv _
 ************************************************************************
 -}
 
-dsFCall :: IdP GHCT -> Coercion -> ForeignCall -> Maybe Header
-        -> DsM ([(IdP GHCT, Expr TyVar)], SDoc, SDoc)
+dsFCall :: Id -> Coercion -> ForeignCall -> Maybe Header
+        -> DsM ([(Id, Expr TyVar)], SDoc, SDoc)
 dsFCall fn_id co fcall mDeclHeader = do
     let
         ty                   = pFst $ coercionKind co
@@ -294,8 +294,8 @@ kind of Id, or perhaps to bundle them with PrimOps since semantically and
 for calling convention they are really prim ops.
 -}
 
-dsPrimCall :: IdP GHCT -> Coercion -> ForeignCall
-           -> DsM ([(IdP GHCT, Expr TyVar)], SDoc, SDoc)
+dsPrimCall :: Id -> Coercion -> ForeignCall
+           -> DsM ([(Id, Expr TyVar)], SDoc, SDoc)
 dsPrimCall fn_id co fcall = do
     let
         ty                   = pFst $ coercionKind co
@@ -331,7 +331,7 @@ For each `@foreign export foo@' in a module M we generate:
 the user-written Haskell function `@M.foo@'.
 -}
 
-dsFExport :: IdP GHCT           -- Either the exported Id,
+dsFExport :: Id           -- Either the exported Id,
                                 -- or the foreign-export-dynamic constructor
           -> Coercion           -- Coercion between the Haskell type callable
                                 -- from C, and its representation type
@@ -407,7 +407,7 @@ f_helper(StablePtr s, HsBool b, HsInt i)
 \end{verbatim}
 -}
 
-dsFExportDynamic :: IdP GHCT
+dsFExportDynamic :: Id
                  -> Coercion
                  -> CCallConv
                  -> DsM ([Binding], SDoc, SDoc)
@@ -481,7 +481,7 @@ dsFExportDynamic id co0 cconv = do
         -- Must have an IO type; hence Just
 
 
-toCName :: DynFlags -> IdP GHCT -> String
+toCName :: DynFlags -> Id -> String
 toCName dflags i = showSDoc dflags (pprCode CStyle (ppr (idName i)))
 
 {-
@@ -498,7 +498,7 @@ using the hugs/ghc rts invocation API.
 
 mkFExportCBits :: DynFlags
                -> FastString
-               -> Maybe (IdP GHCT) -- Just==static, Nothing==dynamic
+               -> Maybe Id -- Just==static, Nothing==dynamic
                -> [Type]
                -> Type
                -> Bool          -- True <=> returns an IO type
@@ -664,7 +664,7 @@ mkFExportCBits dflags c_nm maybe_target arg_htys res_hty is_IO_res_ty cc
      ]
 
 
-foreignExportInitialiser :: IdP GHCT -> SDoc
+foreignExportInitialiser :: Id -> SDoc
 foreignExportInitialiser hs_fn =
    -- Initialise foreign exports by registering a stable pointer from an
    -- __attribute__((constructor)) function.

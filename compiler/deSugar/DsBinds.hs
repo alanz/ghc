@@ -74,7 +74,7 @@ import Control.Monad
 
 -- | Desugar top level binds, strict binds are treated like normal
 -- binds since there is no good time to force before first usage.
-dsTopLHsBinds :: LHsBinds GHCT -> DsM (OrdList (IdP GHCT,CoreExpr))
+dsTopLHsBinds :: LHsBinds GhcTc -> DsM (OrdList (Id,CoreExpr))
 dsTopLHsBinds binds
      -- see Note [Strict binds checks]
   | not (isEmptyBag unlifted_binds) || not (isEmptyBag bang_binds)
@@ -103,7 +103,7 @@ dsTopLHsBinds binds
 
 -- | Desugar all other kind of bindings, Ids of strict binds are returned to
 -- later be forced in the binding group body, see Note [Desugar Strict binds]
-dsLHsBinds :: LHsBinds GHCT -> DsM ([IdP GHCT], [(IdP GHCT,CoreExpr)])
+dsLHsBinds :: LHsBinds GhcTc -> DsM ([Id], [(Id,CoreExpr)])
 dsLHsBinds binds
   = do { MASSERT( allBag (not . isUnliftedHsBind . unLoc) binds )
        ; ds_bs <- mapBagM dsLHsBind binds
@@ -111,15 +111,15 @@ dsLHsBinds binds
                          id ([], []) ds_bs) }
 
 ------------------------
-dsLHsBind :: LHsBind GHCT
-          -> DsM ([IdP GHCT], [(IdP GHCT,CoreExpr)])
+dsLHsBind :: LHsBind GhcTc
+          -> DsM ([Id], [(Id,CoreExpr)])
 dsLHsBind (L loc bind) = do dflags <- getDynFlags
                             putSrcSpanDs loc $ dsHsBind dflags bind
 
 -- | Desugar a single binding (or group of recursive binds).
 dsHsBind :: DynFlags
-         -> HsBind GHCT
-         -> DsM ([IdP GHCT], [(IdP GHCT,CoreExpr)])
+         -> HsBind GhcTc
+         -> DsM ([Id], [(Id,CoreExpr)])
          -- ^ The Ids of strict binds, to be forced in the body of the
          -- binding group see Note [Desugar Strict binds] and all
          -- bindings and their desugared right hand sides.
@@ -276,7 +276,7 @@ dsHsBind dflags
                  ,(poly_tup_id, poly_tup_rhs) :
                    concat export_binds_s) }
   where
-    inline_env :: IdEnv (IdP GHCT) -- Maps a monomorphic local Id to one with
+    inline_env :: IdEnv Id -- Maps a monomorphic local Id to one with
                              -- the inline pragma from the source
                              -- The type checker put the inline pragma
                              -- on the *global* Id, so we need to transfer it
@@ -285,11 +285,11 @@ dsHsBind dflags
                  | ABE { abe_mono = lcl_id, abe_poly = gbl_id } <- exports
                  , let prag = idInlinePragma gbl_id ]
 
-    add_inline :: IdP GHCT -> IdP GHCT    -- tran
+    add_inline :: Id -> Id    -- tran
     add_inline lcl_id = lookupVarEnv inline_env lcl_id
                         `orElse` lcl_id
 
-    global_env :: IdEnv (IdP GHCT) -- Maps local Id to its global exported Id
+    global_env :: IdEnv Id -- Maps local Id to its global exported Id
     global_env =
       mkVarEnv [ (local, global)
                | ABE { abe_mono = local, abe_poly = global } <- exports
@@ -303,7 +303,7 @@ dsHsBind dflags
             [] lcls
 
     -- find exports or make up new exports for force variables
-    get_exports :: [IdP GHCT] -> DsM ([IdP GHCT], [ABExport GHCT])
+    get_exports :: [Id] -> DsM ([Id], [ABExport GhcTc])
     get_exports lcls =
       foldM (\(glbls, exports) lcl ->
               case lookupVarEnv global_env lcl of
@@ -374,8 +374,8 @@ dsHsBind _ (PatSynBind{}) = panic "dsHsBind: PatSynBind"
 -- the unfolding in the interface file is made in `TidyPgm.addExternal`
 -- using this information.
 ------------------------
-makeCorePair :: DynFlags -> IdP GHCT -> Bool -> Arity -> CoreExpr
-             -> (IdP GHCT, CoreExpr)
+makeCorePair :: DynFlags -> Id -> Bool -> Arity -> CoreExpr
+             -> (Id, CoreExpr)
 makeCorePair dflags gbl_id is_default_method dict_arity rhs
   | is_default_method                 -- Default methods are *always* inlined
   = (gbl_id `setIdUnfolding` mkCompulsoryUnfolding rhs, rhs)
@@ -646,7 +646,7 @@ The restrictions are:
 ------------------------
 dsSpecs :: CoreExpr     -- Its rhs
         -> TcSpecPrags
-        -> DsM ( OrdList (IdP GHCT,CoreExpr)  -- Binding for specialised Ids
+        -> DsM ( OrdList (Id,CoreExpr)  -- Binding for specialised Ids
                , [CoreRule] )           -- Rules for the Global Ids
 -- See Note [Handling SPECIALISE pragmas] in TcBinds
 dsSpecs _ IsDefaultMethod = return (nilOL, [])
@@ -659,7 +659,7 @@ dsSpec :: Maybe CoreExpr        -- Just rhs => RULE is for a local binding
                                 -- Nothing => RULE is for an imported Id
                                 --            rhs is in the Id's unfolding
        -> Located TcSpecPrag
-       -> DsM (Maybe (OrdList (IdP GHCT,CoreExpr), CoreRule))
+       -> DsM (Maybe (OrdList (Id,CoreExpr), CoreRule))
 dsSpec mb_poly_rhs (L loc (SpecPrag poly_id spec_co spec_inl))
   | isJust (isClassOpId_maybe poly_id)
   = putSrcSpanDs loc $
@@ -834,7 +834,7 @@ SPEC f :: ty                [n]   INLINE [k]
 ************************************************************************
 -}
 
-decomposeRuleLhs :: [Var] -> CoreExpr -> Either SDoc ([Var], IdP GHCT, [CoreExpr])
+decomposeRuleLhs :: [Var] -> CoreExpr -> Either SDoc ([Var], Id, [CoreExpr])
 -- (decomposeRuleLhs bndrs lhs) takes apart the LHS of a RULE,
 -- The 'bndrs' are the quantified binders of the rules, but decomposeRuleLhs
 -- may add some extra dictionary binders (see Note [Free dictionaries])
@@ -1164,7 +1164,7 @@ dsEvBinds bs = mapM ds_scc (sccEvBinds bs)
                           = liftM (NonRec v) (dsEvTerm r)
     ds_scc (CyclicSCC bs) = liftM Rec (mapM dsEvBind bs)
 
-dsEvBind :: EvBind -> DsM (IdP GHCT, CoreExpr)
+dsEvBind :: EvBind -> DsM (Id, CoreExpr)
 dsEvBind (EvBind { eb_lhs = v, eb_rhs = r}) = liftM ((,) v) (dsEvTerm r)
 
 {-**********************************************************************

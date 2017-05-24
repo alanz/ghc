@@ -192,7 +192,7 @@ instance Ord OverLitVal where
   compare (HsIsString _ _)    (HsIntegral   _)    = GT
   compare (HsIsString _ _)    (HsFractional _)    = GT
 
--- Instance specific to GHCP, need the SourceText
+-- Instance specific to GhcPs, need the SourceText
 instance (SourceTextX x) => Outputable (HsLit x) where
     ppr (HsChar st c)       = pprWithSourceText (getSourceText st) (pprHsChar c)
     ppr (HsCharPrim st c)

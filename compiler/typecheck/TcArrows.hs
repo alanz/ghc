@@ -23,6 +23,7 @@ import TcUnify
 import TcRnMonad
 import TcEnv
 import TcEvidence
+import Name
 import Id( mkLocalId )
 import Inst
 import TysWiredIn
@@ -76,9 +77,9 @@ Note that
 ************************************************************************
 -}
 
-tcProc :: InPat GHCR -> LHsCmdTop GHCR          -- proc pat -> expr
+tcProc :: InPat GhcRn -> LHsCmdTop GhcRn          -- proc pat -> expr
        -> ExpRhoType                            -- Expected type of whole proc expression
-       -> TcM (OutPat GHCTc, LHsCmdTop GHCTc, TcCoercion)
+       -> TcM (OutPat GhcTcId, LHsCmdTop GhcTcId, TcCoercion)
 
 tcProc pat cmd exp_ty
   = newArrowScope $
@@ -114,9 +115,9 @@ mkCmdArrTy env t1 t2 = mkAppTys (cmd_arr env) [t1, t2]
 
 ---------------------------------------
 tcCmdTop :: CmdEnv
-         -> LHsCmdTop GHCR
+         -> LHsCmdTop GhcRn
          -> CmdType
-         -> TcM (LHsCmdTop GHCTc)
+         -> TcM (LHsCmdTop GhcTcId)
 
 tcCmdTop env (L loc (HsCmdTop cmd _ _ names)) cmd_ty@(cmd_stk, res_ty)
   = setSrcSpan loc $
@@ -124,14 +125,14 @@ tcCmdTop env (L loc (HsCmdTop cmd _ _ names)) cmd_ty@(cmd_stk, res_ty)
         ; names' <- mapM (tcSyntaxName ProcOrigin (cmd_arr env)) names
         ; return (L loc $ HsCmdTop cmd' cmd_stk res_ty names') }
 ----------------------------------------
-tcCmd  :: CmdEnv -> LHsCmd GHCR -> CmdType -> TcM (LHsCmd GHCTc)
+tcCmd  :: CmdEnv -> LHsCmd GhcRn -> CmdType -> TcM (LHsCmd GhcTcId)
         -- The main recursive function
 tcCmd env (L loc cmd) res_ty
   = setSrcSpan loc $ do
         { cmd' <- tc_cmd env cmd res_ty
         ; return (L loc cmd') }
 
-tc_cmd :: CmdEnv -> HsCmd GHCR  -> CmdType -> TcM (HsCmd GHCTc)
+tc_cmd :: CmdEnv -> HsCmd GhcRn  -> CmdType -> TcM (HsCmd GhcTcId)
 tc_cmd env (HsCmdPar cmd) res_ty
   = do  { cmd' <- tcCmd env cmd res_ty
         ; return (HsCmdPar cmd') }
@@ -256,7 +257,7 @@ tc_cmd env
         ; return (mkHsCmdWrap (mkWpCastN co) cmd') }
   where
     n_pats     = length pats
-    match_ctxt = (LambdaExpr :: HsMatchContext (IdP GHCR))  -- Maybe KappaExpr?
+    match_ctxt = (LambdaExpr :: HsMatchContext Name)  -- Maybe KappaExpr?
     pg_ctxt    = PatGuard match_ctxt
 
     tc_grhss (GRHSs grhss (L l binds)) stk_ty res_ty
@@ -304,7 +305,7 @@ tc_cmd env cmd@(HsCmdArrForm expr f fixity cmd_args) (cmd_stk, res_ty)
         ; return (HsCmdArrForm expr' f fixity cmd_args') }
 
   where
-    tc_cmd_arg :: LHsCmdTop GHCR -> TcM (LHsCmdTop GHCTc, TcType)
+    tc_cmd_arg :: LHsCmdTop GhcRn -> TcM (LHsCmdTop GhcTcId, TcType)
     tc_cmd_arg cmd
        = do { arr_ty <- newFlexiTyVarTy arrowTyConKind
             ; stk_ty <- newFlexiTyVarTy liftedTypeKind
@@ -396,7 +397,7 @@ tcArrDoStmt env ctxt (RecStmt { recS_stmts = stmts, recS_later_ids = later_names
 tcArrDoStmt _ _ stmt _ _
   = pprPanic "tcArrDoStmt: unexpected Stmt" (ppr stmt)
 
-tc_arr_rhs :: CmdEnv -> LHsCmd GHCR -> TcM (LHsCmd GHCTc, TcType)
+tc_arr_rhs :: CmdEnv -> LHsCmd GhcRn -> TcM (LHsCmd GhcTcId, TcType)
 tc_arr_rhs env rhs = do { ty <- newFlexiTyVarTy liftedTypeKind
                         ; rhs' <- tcCmd env rhs (unitTy, ty)
                         ; return (rhs', ty) }
@@ -423,5 +424,5 @@ arrowTyConKind = mkFunTys [liftedTypeKind, liftedTypeKind] liftedTypeKind
 ************************************************************************
 -}
 
-cmdCtxt :: HsCmd GHCR -> SDoc
+cmdCtxt :: HsCmd GhcRn -> SDoc
 cmdCtxt cmd = text "In the command:" <+> ppr cmd

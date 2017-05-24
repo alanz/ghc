@@ -389,16 +389,16 @@ hsRecFieldsArgs rbinds = map (hsRecFieldArg . unLoc) (rec_flds rbinds)
 hsRecFieldSel :: HsRecField pass arg -> Located (PostRn pass (IdP pass))
 hsRecFieldSel = fmap selectorFieldOcc . hsRecFieldLbl
 
-hsRecFieldId :: HsRecField GHCT arg -> Located (IdP GHCT)
+hsRecFieldId :: HsRecField GhcTc arg -> Located Id
 hsRecFieldId = hsRecFieldSel
 
 hsRecUpdFieldRdr :: HsRecUpdField p -> Located RdrName
 hsRecUpdFieldRdr = fmap rdrNameAmbiguousFieldOcc . hsRecFieldLbl
 
-hsRecUpdFieldId :: HsRecField' (AmbiguousFieldOcc GHCT) arg -> Located (IdP GHCT)
+hsRecUpdFieldId :: HsRecField' (AmbiguousFieldOcc GhcTc) arg -> Located Id
 hsRecUpdFieldId = fmap selectorFieldOcc . hsRecUpdFieldOcc
 
-hsRecUpdFieldOcc :: HsRecField' (AmbiguousFieldOcc GHCT) arg -> LFieldOcc GHCT 
+hsRecUpdFieldOcc :: HsRecField' (AmbiguousFieldOcc GhcTc) arg -> LFieldOcc GhcTc 
 hsRecUpdFieldOcc = fmap unambiguousFieldOcc . hsRecFieldLbl
 
 

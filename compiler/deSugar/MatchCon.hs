@@ -85,7 +85,7 @@ have-we-used-all-the-constructors? question; the local function
 @match_cons_used@ does all the real work.
 -}
 
-matchConFamily :: [IdP GHCT]
+matchConFamily :: [Id]
                -> Type
                -> [[EquationInfo]]
                -> DsM MatchResult
@@ -100,7 +100,7 @@ matchConFamily (var:vars) ty groups
         _ -> panic "matchConFamily: not RealDataCon"
 matchConFamily [] _ _ = panic "matchConFamily []"
 
-matchPatSyn :: [IdP GHCT]
+matchPatSyn :: [Id]
             -> Type
             -> [EquationInfo]
             -> DsM MatchResult
@@ -113,9 +113,9 @@ matchPatSyn (var:vars) ty eqns
         _ -> panic "matchPatSyn: not PatSynCon"
 matchPatSyn _ _ _ = panic "matchPatSyn []"
 
-type ConArgPats = HsConDetails (LPat GHCT) (HsRecFields GHCT (LPat GHCT))
+type ConArgPats = HsConDetails (LPat GhcTc) (HsRecFields GhcTc (LPat GhcTc))
 
-matchOneConLike :: [IdP GHCT]
+matchOneConLike :: [Id]
                 -> Type
                 -> [EquationInfo]
                 -> DsM (CaseAlt ConLike)
@@ -127,7 +127,7 @@ matchOneConLike vars ty (eqn1 : eqns)   -- All eqns for a single constructor
         -- dataConInstOrigArgTys takes the univ and existential tyvars
         -- and returns the types of the *value* args, which is what we want
 
-              match_group :: [IdP GHCT]
+              match_group :: [Id]
                           -> [(ConArgPats, EquationInfo)] -> DsM MatchResult
               -- All members of the group have compatible ConArgPats
               match_group arg_vars arg_eqn_prs
@@ -173,7 +173,7 @@ matchOneConLike vars ty (eqn1 : eqns)   -- All eqns for a single constructor
 
     -- Choose the right arg_vars in the right order for this group
     -- Note [Record patterns]
-    select_arg_vars :: [IdP GHCT] -> [(ConArgPats, EquationInfo)] -> [IdP GHCT]
+    select_arg_vars :: [Id] -> [(ConArgPats, EquationInfo)] -> [Id]
     select_arg_vars arg_vars ((arg_pats, _) : _)
       | RecCon flds <- arg_pats
       , let rpats = rec_flds flds
@@ -199,7 +199,7 @@ compatible_pats (RecCon flds1, _) _                 = null (rec_flds flds1)
 compatible_pats _                 (RecCon flds2, _) = null (rec_flds flds2)
 compatible_pats _                 _                 = True -- Prefix or infix con
 
-same_fields :: HsRecFields GHCT (LPat GHCT) -> HsRecFields GHCT (LPat GHCT) -> Bool
+same_fields :: HsRecFields GhcTc (LPat GhcTc) -> HsRecFields GhcTc (LPat GhcTc) -> Bool
 same_fields flds1 flds2
   = all2 (\(L _ f1) (L _ f2)
                           -> unLoc (hsRecFieldId f1) == unLoc (hsRecFieldId f2))
@@ -207,7 +207,7 @@ same_fields flds1 flds2
 
 
 -----------------
-selectConMatchVars :: [Type] -> ConArgPats -> DsM [IdP GHCT]
+selectConMatchVars :: [Type] -> ConArgPats -> DsM [Id]
 selectConMatchVars arg_tys (RecCon {})      = newSysLocalsDsNoLP arg_tys
 selectConMatchVars _       (PrefixCon ps)   = selectMatchVars (map unLoc ps)
 selectConMatchVars _       (InfixCon p1 p2) = selectMatchVars [unLoc p1, unLoc p2]
@@ -216,7 +216,7 @@ conArgPats :: [Type]      -- Instantiated argument types
                           -- Used only to fill in the types of WildPats, which
                           -- are probably never looked at anyway
            -> ConArgPats
-           -> [Pat GHCT]
+           -> [Pat GhcTc]
 conArgPats _arg_tys (PrefixCon ps)   = map unLoc ps
 conArgPats _arg_tys (InfixCon p1 p2) = [unLoc p1, unLoc p2]
 conArgPats  arg_tys (RecCon (HsRecFields { rec_flds = rpats }))

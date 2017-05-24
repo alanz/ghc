@@ -1,40 +1,41 @@
 module TcExpr where
+import Name
 import HsSyn    ( HsExpr, LHsExpr, SyntaxExpr )
 import TcType   ( TcRhoType, TcSigmaType, SyntaxOpType, ExpType, ExpRhoType )
 import TcRnTypes( TcM, CtOrigin )
-import HsExtension ( IdP, GHCR, GHCTc )
+import HsExtension ( GhcRn, GhcTcId )
 
 tcPolyExpr ::
-          LHsExpr GHCR
+          LHsExpr GhcRn
        -> TcSigmaType
-       -> TcM (LHsExpr GHCTc)
+       -> TcM (LHsExpr GhcTcId)
 
 tcMonoExpr, tcMonoExprNC ::
-          LHsExpr GHCR
+          LHsExpr GhcRn
        -> ExpRhoType
-       -> TcM (LHsExpr GHCTc)
+       -> TcM (LHsExpr GhcTcId)
 
 tcInferSigma, tcInferSigmaNC ::
-          LHsExpr GHCR
-       -> TcM (LHsExpr GHCTc, TcSigmaType)
+          LHsExpr GhcRn
+       -> TcM (LHsExpr GhcTcId, TcSigmaType)
 
 tcInferRho ::
-          LHsExpr GHCR
-       -> TcM (LHsExpr GHCTc, TcRhoType)
+          LHsExpr GhcRn
+       -> TcM (LHsExpr GhcTcId, TcRhoType)
 
 tcSyntaxOp :: CtOrigin
-           -> SyntaxExpr GHCR
+           -> SyntaxExpr GhcRn
            -> [SyntaxOpType]           -- ^ shape of syntax operator arguments
            -> ExpType                  -- ^ overall result type
            -> ([TcSigmaType] -> TcM a) -- ^ Type check any arguments
-           -> TcM (a, SyntaxExpr GHCTc)
+           -> TcM (a, SyntaxExpr GhcTcId)
 
 tcSyntaxOpGen :: CtOrigin
-              -> SyntaxExpr GHCR
+              -> SyntaxExpr GhcRn
               -> [SyntaxOpType]
               -> SyntaxOpType
               -> ([TcSigmaType] -> TcM a)
-              -> TcM (a, SyntaxExpr GHCTc)
+              -> TcM (a, SyntaxExpr GhcTcId)
 
 
-tcCheckId :: IdP GHCR -> ExpRhoType -> TcM (HsExpr GHCTc)
+tcCheckId :: Name -> ExpRhoType -> TcM (HsExpr GhcTcId)

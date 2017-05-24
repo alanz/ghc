@@ -44,7 +44,7 @@ import SrcLoc
 import Module
 import GHCi
 import GHCi.RemoteTypes
-import HsSyn (ImportDecl, GHCP)
+import HsSyn (ImportDecl, GhcPs)
 
 import Exception
 import Numeric
@@ -107,7 +107,7 @@ data GHCiState = GHCiState
             -- :load, :reload, and :add.  In between it may be modified
             -- by :module.
 
-        extra_imports  :: [ImportDecl GHCP],
+        extra_imports  :: [ImportDecl GhcPs],
             -- ^ These are "always-on" imports, added to the
             -- context regardless of what other imports we have.
             -- This is useful for adding imports that are required
@@ -120,7 +120,7 @@ data GHCiState = GHCiState
             -- on the GHCi code.  Potentially we could also expose
             -- this functionality via GHCi commands.
 
-        prelude_imports :: [ImportDecl GHCP],
+        prelude_imports :: [ImportDecl GhcPs],
             -- ^ These imports are added to the context when
             -- -XImplicitPrelude is on and we don't have a *-module
             -- in the context.  They can also be overridden by another

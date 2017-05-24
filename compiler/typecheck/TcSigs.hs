@@ -144,18 +144,18 @@ errors were dealt with by the renamer.
 *                                                                      *
 ********************************************************************* -}
 
-type TcSigFun  = IdP GHCR -> Maybe TcSigInfo
+type TcSigFun  = Name -> Maybe TcSigInfo
 
 -- | No signature or a partial signature
 noCompleteSig :: Maybe TcSigInfo -> Bool
 noCompleteSig (Just (TcIdSig (CompleteSig {}))) = False
 noCompleteSig _                                 = True
 
-tcIdSigName :: TcIdSigInfo -> IdP GHCR
+tcIdSigName :: TcIdSigInfo -> Name
 tcIdSigName (CompleteSig { sig_bndr = id }) = idName id
 tcIdSigName (PartialSig { psig_name = n })  = n
 
-tcSigInfoName :: TcSigInfo -> IdP GHCR
+tcSigInfoName :: TcSigInfo -> Name
 tcSigInfoName (TcIdSig     idsi) = tcIdSigName idsi
 tcSigInfoName (TcPatSynSig tpsi) = patsig_name tpsi
 
@@ -172,7 +172,7 @@ completeSigPolyId_maybe sig
 *                                                                      *
 ********************************************************************* -}
 
-tcTySigs :: [LSig GHCR] -> TcM ([TcId], TcSigFun)
+tcTySigs :: [LSig GhcRn] -> TcM ([TcId], TcSigFun)
 tcTySigs hs_sigs
   = checkNoErrs $   -- See Note [Fail eagerly on bad signatures]
     do { ty_sigs_s <- mapAndRecoverM tcTySig hs_sigs
@@ -184,7 +184,7 @@ tcTySigs hs_sigs
              env = mkNameEnv [(tcSigInfoName sig, sig) | sig <- ty_sigs]
        ; return (poly_ids, lookupNameEnv env) }
 
-tcTySig :: LSig GHCR -> TcM [TcSigInfo]
+tcTySig :: LSig GhcRn -> TcM [TcSigInfo]
 tcTySig (L _ (IdSig id))
   = do { let ctxt = FunSigCtxt (idName id) False
                     -- False: do not report redundant constraints
@@ -207,7 +207,7 @@ tcTySig (L loc (PatSynSig names sig_ty))
 tcTySig _ = return []
 
 
-tcUserTypeSig :: SrcSpan -> LHsSigWcType GHCR -> Maybe (IdP GHCR)
+tcUserTypeSig :: SrcSpan -> LHsSigWcType GhcRn -> Maybe Name
               -> TcM TcIdSigInfo
 -- A function or expression type signature
 -- Returns a fully quantified type signature; even the wildcards
@@ -253,7 +253,7 @@ completeSigFromId ctxt id
                 , sig_ctxt = ctxt
                 , sig_loc  = getSrcSpan id }
 
-isCompleteHsSig :: LHsSigWcType GHCR -> Bool
+isCompleteHsSig :: LHsSigWcType GhcRn -> Bool
 -- ^ If there are no wildcards, return a LHsSigType
 isCompleteHsSig (HsWC { hswc_wcs = wcs }) = null wcs
 
@@ -344,7 +344,7 @@ for example, in hs-boot file, we may need to think what to do...
 (eg don't have any implicitly-bound variables).
 -}
 
-tcPatSynSig :: IdP GHCR -> LHsSigType GHCR -> TcM TcPatSynInfo
+tcPatSynSig :: Name -> LHsSigType GhcRn -> TcM TcPatSynInfo
 tcPatSynSig name sig_ty
   | HsIB { hsib_vars = implicit_hs_tvs
          , hsib_body = hs_ty }  <- sig_ty
@@ -486,25 +486,25 @@ signature, which doesn't use tcInstSig.  See TcBinds.tcPolyCheck.
 *                                                                      *
 ********************************************************************* -}
 
-type TcPragEnv = NameEnv [LSig GHCR]
+type TcPragEnv = NameEnv [LSig GhcRn]
 
 emptyPragEnv :: TcPragEnv
 emptyPragEnv = emptyNameEnv
 
-lookupPragEnv :: TcPragEnv -> IdP GHCR -> [LSig GHCR]
+lookupPragEnv :: TcPragEnv -> Name -> [LSig GhcRn]
 lookupPragEnv prag_fn n = lookupNameEnv prag_fn n `orElse` []
 
-extendPragEnv :: TcPragEnv -> (IdP GHCR, LSig GHCR) -> TcPragEnv
+extendPragEnv :: TcPragEnv -> (Name, LSig GhcRn) -> TcPragEnv
 extendPragEnv prag_fn (n, sig) = extendNameEnv_Acc (:) singleton prag_fn n sig
 
 ---------------
-mkPragEnv :: [LSig GHCR] -> LHsBinds GHCR -> TcPragEnv
+mkPragEnv :: [LSig GhcRn] -> LHsBinds GhcRn -> TcPragEnv
 mkPragEnv sigs binds
   = foldl extendPragEnv emptyNameEnv prs
   where
     prs = mapMaybe get_sig sigs
 
-    get_sig :: LSig GHCR -> Maybe (IdP GHCR, LSig GHCR)
+    get_sig :: LSig GhcRn -> Maybe (Name, LSig GhcRn)
     get_sig (L l (SpecSig lnm@(L _ nm) ty inl)) = Just (nm, L l $ SpecSig   lnm ty (add_arity nm inl))
     get_sig (L l (InlineSig lnm@(L _ nm) inl))  = Just (nm, L l $ InlineSig lnm    (add_arity nm inl))
     get_sig (L l (SCCFunSig st lnm@(L _ nm) str))  = Just (nm, L l $ SCCFunSig st lnm str)
@@ -525,14 +525,14 @@ mkPragEnv sigs binds
     ar_env :: NameEnv Arity
     ar_env = foldrBag lhsBindArity emptyNameEnv binds
 
-lhsBindArity :: LHsBind GHCR -> NameEnv Arity -> NameEnv Arity
+lhsBindArity :: LHsBind GhcRn -> NameEnv Arity -> NameEnv Arity
 lhsBindArity (L _ (FunBind { fun_id = id, fun_matches = ms })) env
   = extendNameEnv env (unLoc id) (matchGroupArity ms)
 lhsBindArity _ env = env        -- PatBind/VarBind
 
 
 -----------------
-addInlinePrags :: TcId -> [LSig GHCR] -> TcM TcId
+addInlinePrags :: TcId -> [LSig GhcRn] -> TcM TcId
 addInlinePrags poly_id prags_for_me
   | inl@(L _ prag) : inls <- inl_prags
   = do { traceTc "addInlinePrag" (ppr poly_id $$ ppr prag)
@@ -669,7 +669,7 @@ Some wrinkles
    well as the dict.  That's what goes on in TcInstDcls.mk_meth_spec_prags
 -}
 
-tcSpecPrags :: Id -> [LSig GHCR]
+tcSpecPrags :: Id -> [LSig GhcRn]
             -> TcM [LTcSpecPrag]
 -- Add INLINE and SPECIALSE pragmas
 --    INLINE prags are added to the (polymorphic) Id directly
@@ -692,7 +692,7 @@ tcSpecPrags poly_id prag_sigs
                       2 (vcat (map (ppr . getLoc) bad_sigs)))
 
 --------------
-tcSpecPrag :: TcId -> Sig GHCR -> TcM [TcSpecPrag]
+tcSpecPrag :: TcId -> Sig GhcRn -> TcM [TcSpecPrag]
 tcSpecPrag poly_id prag@(SpecSig fun_name hs_tys inl)
 -- See Note [Handling SPECIALISE pragmas]
 --
@@ -739,7 +739,7 @@ tcSpecWrapper ctxt poly_ty spec_ty
     orig = SpecPragOrigin ctxt
 
 --------------
-tcImpPrags :: [LSig GHCR] -> TcM [LTcSpecPrag]
+tcImpPrags :: [LSig GhcRn] -> TcM [LTcSpecPrag]
 -- SPECIALISE pragmas for imported things
 tcImpPrags prags
   = do { this_mod <- getModule
@@ -764,14 +764,14 @@ tcImpPrags prags
                       HscInterpreted -> True
                       _other         -> False
 
-tcImpSpec :: (IdP GHCR, Sig GHCR) -> TcM [TcSpecPrag]
+tcImpSpec :: (Name, Sig GhcRn) -> TcM [TcSpecPrag]
 tcImpSpec (name, prag)
  = do { id <- tcLookupId name
       ; unless (isAnyInlinePragma (idInlinePragma id))
                (addWarnTc NoReason (impSpecErr name))
       ; tcSpecPrag id prag }
 
-impSpecErr :: IdP GHCR -> SDoc
+impSpecErr :: Name -> SDoc
 impSpecErr name
   = hang (text "You cannot SPECIALISE" <+> quotes (ppr name))
        2 (vcat [ text "because its definition has no INLINE/INLINABLE pragma"

@@ -1566,7 +1566,7 @@ cmdCmd str = handleSourceError GHC.printException $ do
 
 -- | Generate a typed ghciStepIO expression
 -- @ghciStepIO :: Ty String -> IO String@.
-getGhciStepIO :: GHCi (LHsExpr GHCP)
+getGhciStepIO :: GHCi (LHsExpr GhcPs)
 getGhciStepIO = do
   ghciTyConName <- GHC.getGHCiMonad
   let stringTy = nlHsTyVar stringTy_RDR
@@ -2385,7 +2385,7 @@ iiModuleName (IIDecl d)   = unLoc (ideclName d)
 preludeModuleName :: ModuleName
 preludeModuleName = GHC.mkModuleName "Prelude"
 
-sameImpModule :: ImportDecl GHCP -> InteractiveImport -> Bool
+sameImpModule :: ImportDecl GhcPs -> InteractiveImport -> Bool
 sameImpModule _ (IIModule _) = False -- we only care about imports here
 sameImpModule imp (IIDecl d) = unLoc (ideclName d) == unLoc (ideclName imp)
 

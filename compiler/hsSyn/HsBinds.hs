@@ -110,7 +110,7 @@ data HsValBindsLR idL idR
     -- later bindings in the list may depend on earlier ones.
   | ValBindsOut
         [(RecFlag, LHsBinds idL)]
-        [LSig GHCR] -- AZ: how to do this?
+        [LSig GhcRn] -- AZ: how to do this?
 
 deriving instance (DataId idL, DataId idR) => Data (HsValBindsLR idL idR)
 
@@ -179,7 +179,7 @@ data HsBindLR idL idR
                                 -- See Note [Bind free vars]
 
 
-        fun_tick :: [Tickish (IdP GHCT)] -- ^ Ticks to put on the rhs, if any
+        fun_tick :: [Tickish Id] -- ^ Ticks to put on the rhs, if any
     }
 
   -- | Pattern Binding

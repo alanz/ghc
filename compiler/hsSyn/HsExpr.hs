@@ -71,7 +71,7 @@ type LHsExpr p = Located (HsExpr p)
 --
 -- PostTcExpr is an evidence expression attached to the syntax tree by the
 -- type checker (c.f. postTcType).
-type PostTcExpr  = HsExpr GHCT
+type PostTcExpr  = HsExpr GhcTc
 
 -- | Post-Type checking Table
 --
@@ -124,7 +124,7 @@ noSyntaxExpr = SyntaxExpr { syn_expr      = HsLit (HsString noSourceText
 
 -- | Make a 'SyntaxExpr Name' (the "rn" is because this is used in the
 -- renamer), missing its HsWrappers.
-mkRnSyntaxExpr :: Name -> SyntaxExpr GHCR
+mkRnSyntaxExpr :: Name -> SyntaxExpr GhcRn
 mkRnSyntaxExpr name = SyntaxExpr { syn_expr      = HsVar $ noLoc name
                                  , syn_arg_wraps = []
                                  , syn_res_wrap  = WpHole }
@@ -329,7 +329,7 @@ data HsExpr p
        -- - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnAt',
 
   -- TODO:AZ: Sort out Name
-  | HsAppTypeOut (LHsExpr p) (LHsWcType GHCR) -- just for pretty-printing
+  | HsAppTypeOut (LHsExpr p) (LHsWcType GhcRn) -- just for pretty-printing
 
 
   -- | Operator applications:
@@ -507,7 +507,7 @@ data HsExpr p
 
   | ExprWithTySigOut              -- Post typechecking
                 (LHsExpr p)
-                (LHsSigWcType GHCR)  -- Retain the signature,
+                (LHsSigWcType GhcRn)  -- Retain the signature,
                                      -- as HsSigType Name, for
                                      -- round-tripping purposes
 
@@ -566,12 +566,12 @@ data HsExpr p
 
     -- See Note [Pending Splices]
   | HsRnBracketOut
-      (HsBracket GHCR)     -- Output of the renamer is the *original* renamed
+      (HsBracket GhcRn)     -- Output of the renamer is the *original* renamed
                            -- expression, plus
       [PendingRnSplice]    -- _renamed_ splices to be type checked
 
   | HsTcBracketOut
-      (HsBracket GHCR)     -- Output of the type checker is the *original*
+      (HsBracket GhcRn)     -- Output of the type checker is the *original*
                            -- renamed expression, plus
       [PendingTcSplice]    -- _typechecked_ splices to be
                            -- pasted back in by the desugarer
@@ -2134,8 +2134,8 @@ type SplicePointName = Name
 
 -- | Pending Renamer Splice
 data PendingRnSplice
-  -- AZ:TODO: The hard-coded GHCR feels wrong. How to force the PostRn?
-  = PendingRnSplice UntypedSpliceFlavour SplicePointName (LHsExpr GHCR)
+  -- AZ:TODO: The hard-coded GhcRn feels wrong. How to force the PostRn?
+  = PendingRnSplice UntypedSpliceFlavour SplicePointName (LHsExpr GhcRn)
   deriving Data
 
 data UntypedSpliceFlavour
@@ -2147,8 +2147,8 @@ data UntypedSpliceFlavour
 
 -- | Pending Type-checker Splice
 data PendingTcSplice
-  -- AZ:TODO: The hard-coded GHCT feels wrong. How to force the PostTc?
-  = PendingTcSplice SplicePointName (LHsExpr GHCT)
+  -- AZ:TODO: The hard-coded GhcTc feels wrong. How to force the PostTc?
+  = PendingTcSplice SplicePointName (LHsExpr GhcTc)
   deriving Data
 
 

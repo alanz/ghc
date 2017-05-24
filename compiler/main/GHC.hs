@@ -831,10 +831,10 @@ instance TypecheckedMod DesugaredModule where
 instance DesugaredMod DesugaredModule where
   coreModule m = dm_core_module m
 
-type ParsedSource      = Located (HsModule GHCP)
-type RenamedSource     = (HsGroup GHCR, [LImportDecl GHCR], Maybe [LIE GHCR],
+type ParsedSource      = Located (HsModule GhcPs)
+type RenamedSource     = (HsGroup GhcRn, [LImportDecl GhcRn], Maybe [LIE GhcRn],
                           Maybe LHsDocString)
-type TypecheckedSource = LHsBinds GHCT
+type TypecheckedSource = LHsBinds GhcTc
 
 -- NOTE:
 --   - things that aren't in the output of the typechecker right now:
@@ -1481,7 +1481,7 @@ lookupName name =
 parser :: String         -- ^ Haskell module source text (full Unicode is supported)
        -> DynFlags       -- ^ the flags
        -> FilePath       -- ^ the filename (for source locations)
-       -> (WarningMessages, Either ErrorMessages (Located (HsModule GHCP)))
+       -> (WarningMessages, Either ErrorMessages (Located (HsModule GhcPs)))
 
 parser str dflags filename =
    let

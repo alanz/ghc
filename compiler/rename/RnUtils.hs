@@ -356,22 +356,22 @@ data HsDocContext
   | PatCtx
   | SpecInstSigCtx
   | DefaultDeclCtx
-  | ForeignDeclCtx (Located (IdP GHCP))
+  | ForeignDeclCtx (Located RdrName)
   | DerivDeclCtx
   | RuleCtx FastString
-  | TyDataCtx (Located (IdP GHCP))
-  | TySynCtx (Located (IdP GHCP))
-  | TyFamilyCtx (Located (IdP GHCP))
-  | FamPatCtx (Located (IdP GHCP))    -- The patterns of a type/data family instance
+  | TyDataCtx (Located RdrName)
+  | TySynCtx (Located RdrName)
+  | TyFamilyCtx (Located RdrName)
+  | FamPatCtx (Located RdrName)    -- The patterns of a type/data family instance
   | ConDeclCtx [Located Name]
-  | ClassDeclCtx (Located (IdP GHCP))
+  | ClassDeclCtx (Located RdrName)
   | ExprWithTySigCtx
   | TypBrCtx
   | HsTypeCtx
   | GHCiCtx
-  | SpliceTypeCtx (LHsType GHCP)
+  | SpliceTypeCtx (LHsType GhcPs)
   | ClassInstanceCtx
-  | VectDeclCtx (Located (IdP GHCP))
+  | VectDeclCtx (Located RdrName)
   | GenericCtx SDoc   -- Maybe we want to use this more!
 
 withHsDocContext :: HsDocContext -> SDoc -> SDoc

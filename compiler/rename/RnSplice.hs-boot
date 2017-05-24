@@ -6,10 +6,10 @@ import NameSet
 import Kind
 
 
-rnSpliceType :: HsSplice GHCP   -> PostTc GHCR Kind
-             -> RnM (HsType GHCR, FreeVars)
-rnSplicePat  :: HsSplice GHCP   -> RnM ( Either (Pat GHCP) (Pat GHCR)
+rnSpliceType :: HsSplice GhcPs   -> PostTc GhcRn Kind
+             -> RnM (HsType GhcRn, FreeVars)
+rnSplicePat  :: HsSplice GhcPs   -> RnM ( Either (Pat GhcPs) (Pat GhcRn)
                                           , FreeVars )
-rnSpliceDecl :: SpliceDecl GHCP -> RnM (SpliceDecl GHCR, FreeVars)
+rnSpliceDecl :: SpliceDecl GhcPs -> RnM (SpliceDecl GhcRn, FreeVars)
 
-rnTopSpliceDecls :: HsSplice GHCP -> RnM ([LHsDecl GHCP], FreeVars)
+rnTopSpliceDecls :: HsSplice GhcPs -> RnM ([LHsDecl GhcPs], FreeVars)

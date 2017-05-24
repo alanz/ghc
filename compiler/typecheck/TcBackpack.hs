@@ -396,7 +396,7 @@ thinModIface avails iface =
 -- refers to it; we can't decide to keep it by looking at the exports
 -- of a module after thinning.  Keep this synchronized with
 -- 'rnIfaceDecl'.
-ifaceDeclNeverExportedRefs :: IfaceDecl -> [IdP GHCR]
+ifaceDeclNeverExportedRefs :: IfaceDecl -> [Name]
 ifaceDeclNeverExportedRefs d@IfaceFamily{} =
     case ifFamFlav d of
         IfaceClosedSynFamilyTyCon (Just (n, _))

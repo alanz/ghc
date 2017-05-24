@@ -1,33 +1,35 @@
 module Match where
+import Name
+import Id
 import TcType   ( Type )
 import DsMonad  ( DsM, EquationInfo, MatchResult )
 import CoreSyn  ( CoreExpr )
 import HsSyn    ( LPat, HsMatchContext, MatchGroup, LHsExpr )
-import HsExtension ( IdP, GHCR, GHCT )
+import HsExtension ( GhcTc )
 
-match   :: [IdP GHCT]
+match   :: [Id]
         -> Type
         -> [EquationInfo]
         -> DsM MatchResult
 
 matchWrapper
-        :: HsMatchContext (IdP GHCR)
-        -> Maybe (LHsExpr GHCT)
-        -> MatchGroup GHCT (LHsExpr GHCT)
-        -> DsM ([IdP GHCT], CoreExpr)
+        :: HsMatchContext Name
+        -> Maybe (LHsExpr GhcTc)
+        -> MatchGroup GhcTc (LHsExpr GhcTc)
+        -> DsM ([Id], CoreExpr)
 
 matchSimply
         :: CoreExpr
-        -> HsMatchContext (IdP GHCR)
-        -> LPat GHCT
+        -> HsMatchContext Name
+        -> LPat GhcTc
         -> CoreExpr
         -> CoreExpr
         -> DsM CoreExpr
 
 matchSinglePat
         :: CoreExpr
-        -> HsMatchContext (IdP GHCR)
-        -> LPat GHCT
+        -> HsMatchContext Name
+        -> LPat GhcTc
         -> Type
         -> MatchResult
         -> DsM MatchResult

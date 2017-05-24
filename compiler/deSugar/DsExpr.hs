@@ -40,6 +40,7 @@ import MkCore
 
 import DynFlags
 import CostCentre
+import Name
 import Id
 import MkId
 import Module
@@ -66,7 +67,7 @@ import Control.Monad
 ************************************************************************
 -}
 
-dsLocalBinds :: LHsLocalBinds GHCT -> CoreExpr -> DsM CoreExpr
+dsLocalBinds :: LHsLocalBinds GhcTc -> CoreExpr -> DsM CoreExpr
 dsLocalBinds (L _   EmptyLocalBinds)    body = return body
 dsLocalBinds (L loc (HsValBinds binds)) body = putSrcSpanDs loc $
                                                dsValBinds binds body
@@ -74,12 +75,12 @@ dsLocalBinds (L _ (HsIPBinds binds))    body = dsIPBinds  binds body
 
 -------------------------
 -- caller sets location
-dsValBinds :: HsValBinds GHCT -> CoreExpr -> DsM CoreExpr
+dsValBinds :: HsValBinds GhcTc -> CoreExpr -> DsM CoreExpr
 dsValBinds (ValBindsOut binds _) body = foldrM ds_val_bind body binds
 dsValBinds (ValBindsIn {})       _    = panic "dsValBinds ValBindsIn"
 
 -------------------------
-dsIPBinds :: HsIPBinds GHCT -> CoreExpr -> DsM CoreExpr
+dsIPBinds :: HsIPBinds GhcTc -> CoreExpr -> DsM CoreExpr
 dsIPBinds (IPBinds ip_binds ev_binds) body
   = do  { ds_binds <- dsTcEvBinds ev_binds
         ; let inner = mkCoreLets ds_binds body
@@ -93,7 +94,7 @@ dsIPBinds (IPBinds ip_binds ev_binds) body
 
 -------------------------
 -- caller sets location
-ds_val_bind :: (RecFlag, LHsBinds GHCT) -> CoreExpr -> DsM CoreExpr
+ds_val_bind :: (RecFlag, LHsBinds GhcTc) -> CoreExpr -> DsM CoreExpr
 -- Special case for bindings which bind unlifted variables
 -- We need to do a case right away, rather than building
 -- a tuple and doing selections.
@@ -173,7 +174,7 @@ ds_val_bind (is_rec, binds) body
         --    only have to deal with lifted ones now; so Rec is ok
 
 ------------------
-dsUnliftedBind :: HsBind GHCT -> CoreExpr -> DsM CoreExpr
+dsUnliftedBind :: HsBind GhcTc -> CoreExpr -> DsM CoreExpr
 dsUnliftedBind (AbsBinds { abs_tvs = [], abs_ev_vars = []
                , abs_exports = exports
                , abs_ev_binds = ev_binds
@@ -228,7 +229,7 @@ dsUnliftedBind bind body = pprPanic "dsLet: unlifted" (ppr bind $$ ppr body)
 ************************************************************************
 -}
 
-dsLExpr :: LHsExpr GHCT -> DsM CoreExpr
+dsLExpr :: LHsExpr GhcTc -> DsM CoreExpr
 
 dsLExpr (L loc e)
   = putSrcSpanDs loc $
@@ -244,19 +245,19 @@ dsLExpr (L loc e)
 -- be an argument to some other function.
 -- See Note [Levity polymorphism checking] in DsMonad
 -- See Note [Levity polymorphism invariants] in CoreSyn
-dsLExprNoLP :: LHsExpr GHCT -> DsM CoreExpr
+dsLExprNoLP :: LHsExpr GhcTc -> DsM CoreExpr
 dsLExprNoLP (L loc e)
   = putSrcSpanDs loc $
     do { e' <- dsExpr e
        ; dsNoLevPolyExpr e' (text "In the type of expression:" <+> ppr e)
        ; return e' }
 
-dsExpr :: HsExpr GHCT -> DsM CoreExpr
+dsExpr :: HsExpr GhcTc -> DsM CoreExpr
 dsExpr = ds_expr False
 
 ds_expr :: Bool   -- are we directly inside an HsWrap?
                   -- See Wrinkle in Note [Detecting forced eta expansion]
-        -> HsExpr GHCT -> DsM CoreExpr
+        -> HsExpr GhcTc -> DsM CoreExpr
 ds_expr _ (HsPar e)              = dsLExpr e
 ds_expr _ (ExprWithTySigOut e _) = dsLExpr e
 ds_expr w (HsVar (L _ var))      = dsHsVar w var
@@ -614,7 +615,7 @@ ds_expr _ expr@(RecordUpd { rupd_expr = record_expr, rupd_flds = fields
 
     do  { record_expr' <- dsLExpr record_expr
         ; field_binds' <- mapM ds_field fields
-        ; let upd_fld_env :: NameEnv (IdP GHCT) -- Maps field name to the LocalId of the field binding
+        ; let upd_fld_env :: NameEnv Id -- Maps field name to the LocalId of the field binding
               upd_fld_env = mkNameEnv [(f,l) | (f,l,_) <- field_binds']
 
         -- It's important to generate the match with matchWrapper,
@@ -632,7 +633,7 @@ ds_expr _ expr@(RecordUpd { rupd_expr = record_expr, rupd_flds = fields
         ; return (add_field_binds field_binds' $
                   bindNonRec discrim_var record_expr' matching_code) }
   where
-    ds_field :: LHsRecUpdField GHCT -> DsM (IdP GHCR, IdP GHCT, CoreExpr)
+    ds_field :: LHsRecUpdField GhcTc -> DsM (Name, Id, CoreExpr)
       -- Clone the Id in the HsRecField, because its Name is that
       -- of the record selector, and we must not make that a local binder
       -- else we shadow other uses of the record selector
@@ -768,7 +769,7 @@ ds_expr _ (HsDo          {})  = panic "dsExpr:HsDo"
 ds_expr _ (HsRecFld      {})  = panic "dsExpr:HsRecFld"
 
 ------------------------------
-dsSyntaxExpr :: SyntaxExpr GHCT -> [CoreExpr] -> DsM CoreExpr
+dsSyntaxExpr :: SyntaxExpr GhcTc -> [CoreExpr] -> DsM CoreExpr
 dsSyntaxExpr (SyntaxExpr { syn_expr      = expr
                          , syn_arg_wraps = arg_wraps
                          , syn_res_wrap  = res_wrap })
@@ -782,7 +783,7 @@ dsSyntaxExpr (SyntaxExpr { syn_expr      = expr
   where
     mk_doc n = text "In the" <+> speakNth n <+> text "argument of" <+> quotes (ppr expr)
 
-findField :: [LHsRecField GHCT arg] -> IdP GHCR -> [arg]
+findField :: [LHsRecField GhcTc arg] -> Name -> [arg]
 findField rbinds sel
   = [hsRecFieldArg fld | L _ fld <- rbinds
                        , sel == idName (unLoc $ hsRecFieldId fld) ]
@@ -847,7 +848,7 @@ time.
 maxBuildLength :: Int
 maxBuildLength = 32
 
-dsExplicitList :: Type -> Maybe (SyntaxExpr GHCT) -> [LHsExpr GHCT]
+dsExplicitList :: Type -> Maybe (SyntaxExpr GhcTc) -> [LHsExpr GhcTc]
                -> DsM CoreExpr
 -- See Note [Desugaring explicit lists]
 dsExplicitList elt_ty Nothing xs
@@ -871,7 +872,7 @@ dsExplicitList elt_ty (Just fln) xs
        ; dflags <- getDynFlags
        ; dsSyntaxExpr fln [mkIntExprInt dflags (length xs), list] }
 
-dsArithSeq :: PostTcExpr -> (ArithSeqInfo GHCT) -> DsM CoreExpr
+dsArithSeq :: PostTcExpr -> (ArithSeqInfo GhcTc) -> DsM CoreExpr
 dsArithSeq expr (From from)
   = App <$> dsExpr expr <*> dsLExprNoLP from
 dsArithSeq expr (FromTo from to)
@@ -898,7 +899,7 @@ handled in DsListComp).  Basically does the translation given in the
 Haskell 98 report:
 -}
 
-dsDo :: [ExprLStmt GHCT] -> DsM CoreExpr
+dsDo :: [ExprLStmt GhcTc] -> DsM CoreExpr
 dsDo stmts
   = goL stmts
   where
@@ -994,7 +995,7 @@ dsDo stmts
     go _ (ParStmt   {}) _ = panic "dsDo ParStmt"
     go _ (TransStmt {}) _ = panic "dsDo TransStmt"
 
-handle_failure :: LPat GHCT -> MatchResult -> SyntaxExpr GHCT -> DsM CoreExpr
+handle_failure :: LPat GhcTc -> MatchResult -> SyntaxExpr GhcTc -> DsM CoreExpr
     -- In a do expression, pattern-match failure just calls
     -- the monadic 'fail' rather than throwing an exception
 handle_failure pat match fail_op
@@ -1020,7 +1021,7 @@ mk_fail_msg dflags pat = "Pattern match failure in do expression at " ++
 
 dsHsVar :: Bool  -- are we directly inside an HsWrap?
                  -- See Wrinkle in Note [Detecting forced eta expansion]
-        -> IdP GHCT -> DsM CoreExpr
+        -> Id -> DsM CoreExpr
 dsHsVar w var
   | not w
   , let bad_tys = badUseOfLevPolyPrimop var ty
@@ -1052,7 +1053,7 @@ dsConLike _ (PatSynCon ps)   = return $ case patSynBuilder ps of
 -}
 
 -- Warn about certain types of values discarded in monadic bindings (#3263)
-warnDiscardedDoBindings :: LHsExpr GHCT -> Type -> DsM ()
+warnDiscardedDoBindings :: LHsExpr GhcTc -> Type -> DsM ()
 warnDiscardedDoBindings rhs rhs_ty
   | Just (m_ty, elt_ty) <- tcSplitAppTy_maybe rhs_ty
   = do { warn_unused <- woptM Opt_WarnUnusedDoBind
@@ -1080,7 +1081,7 @@ warnDiscardedDoBindings rhs rhs_ty
   | otherwise   -- RHS does have type of form (m ty), which is weird
   = return ()   -- but at lesat this warning is irrelevant
 
-badMonadBind :: LHsExpr GHCT -> Type -> SDoc
+badMonadBind :: LHsExpr GhcTc -> Type -> SDoc
 badMonadBind rhs elt_ty
   = vcat [ hang (text "A do-notation statement discarded a result of type")
               2 (quotes (ppr elt_ty))
@@ -1143,7 +1144,7 @@ we're not directly in an HsWrap, reject.
 -- | Takes an expression and its instantiated type. If the expression is an
 -- HsVar with a hasNoBinding primop and the type has levity-polymorphic arguments,
 -- issue an error. See Note [Detecting forced eta expansion]
-checkForcedEtaExpansion :: HsExpr GHCT -> Type -> DsM ()
+checkForcedEtaExpansion :: HsExpr GhcTc -> Type -> DsM ()
 checkForcedEtaExpansion expr ty
   | Just var <- case expr of
                   HsVar (L _ var)               -> Just var
@@ -1158,7 +1159,7 @@ checkForcedEtaExpansion _ _ = return ()
 -- Returns the arguments that are levity polymorphic if they are bad;
 -- or an empty list otherwise
 -- See Note [Detecting forced eta expansion]
-badUseOfLevPolyPrimop :: IdP GHCT -> Type -> [Type]
+badUseOfLevPolyPrimop :: Id -> Type -> [Type]
 badUseOfLevPolyPrimop id ty
   | hasNoBinding id
   = filter isTypeLevPoly arg_tys
@@ -1168,7 +1169,7 @@ badUseOfLevPolyPrimop id ty
     (binders, _) = splitPiTys ty
     arg_tys      = mapMaybe binderRelevantType_maybe binders
 
-levPolyPrimopErr :: IdP GHCT -> Type -> [Type] -> DsM ()
+levPolyPrimopErr :: Id -> Type -> [Type] -> DsM ()
 levPolyPrimopErr primop ty bad_tys
   = errDs $ vcat [ hang (text "Cannot use primitive with levity-polymorphic arguments:")
                       2 (ppr primop <+> dcolon <+> ppr ty)

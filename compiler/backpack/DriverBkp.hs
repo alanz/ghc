@@ -708,7 +708,7 @@ summariseRequirement pn mod_name = do
 summariseDecl :: PackageName
               -> HscSource
               -> Located ModuleName
-              -> Maybe (Located (HsModule GHCP))
+              -> Maybe (Located (HsModule GhcPs))
               -> BkpM ModSummary
 summariseDecl pn hsc_src (L _ modname) (Just hsmod) = hsModuleToModSummary pn hsc_src modname hsmod
 summariseDecl _pn hsc_src lmodname@(L loc modname) Nothing
@@ -735,7 +735,7 @@ summariseDecl _pn hsc_src lmodname@(L loc modname) Nothing
 hsModuleToModSummary :: PackageName
                      -> HscSource
                      -> ModuleName
-                     -> Located (HsModule GHCP)
+                     -> Located (HsModule GhcPs)
                      -> BkpM ModSummary
 hsModuleToModSummary pn hsc_src modname
                      hsmod = do

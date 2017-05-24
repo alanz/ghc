@@ -59,47 +59,47 @@ data Pass = Parsed | Renamed | Typechecked | TemplateHaskell
          deriving (Data)
 
 -- Type synonyms as a shorthand for tagging
-type GHCP  = GHC 'Parsed
-type GHCR  = GHC 'Renamed
-type GHCT  = GHC 'Typechecked
-type GHCTH = GHC 'TemplateHaskell
+type GhcPs  = GHC 'Parsed
+type GhcRn  = GHC 'Renamed
+type GhcTc  = GHC 'Typechecked
+type GhcTH = GHC 'TemplateHaskell
 -}
 
 -- Running with these until the above issue is clarified
-data GHCP
-data GHCR
-data GHCT
-data GHCTH
+data GhcPs
+data GhcRn
+data GhcTc
+data GhcTH
 
-type GHCTc = GHCT -- TcId
-type GHCTV = GHCT -- Var
+type GhcTcId = GhcTc -- TcId
 
-deriving instance Data GHCP
-deriving instance Data GHCR
-deriving instance Data GHCT
-deriving instance Data GHCTH
+deriving instance Data GhcPs
+deriving instance Data GhcRn
+deriving instance Data GhcTc
+deriving instance Data GhcTH
 
-deriving instance Eq GHCP
-deriving instance Eq GHCR
-deriving instance Eq GHCT
-deriving instance Eq GHCTH
+deriving instance Eq GhcPs
+deriving instance Eq GhcRn
+deriving instance Eq GhcTc
+deriving instance Eq GhcTH
 
+-- -- | Types that are not defined until after type checking
 type family PostTc x ty -- Note [Pass sensitive types]
-type instance PostTc GHCP ty = PlaceHolder
-type instance PostTc GHCR ty = PlaceHolder
-type instance PostTc GHCT ty = ty
+type instance PostTc GhcPs ty = PlaceHolder
+type instance PostTc GhcRn ty = PlaceHolder
+type instance PostTc GhcTc ty = ty
 
 -- | Types that are not defined until after renaming
 type family PostRn x ty  -- Note [Pass sensitive types]
-type instance PostRn GHCP ty = PlaceHolder
-type instance PostRn GHCR ty = ty
-type instance PostRn GHCT ty = ty
+type instance PostRn GhcPs ty = PlaceHolder
+type instance PostRn GhcRn ty = ty
+type instance PostRn GhcTc ty = ty
 
--- Maps the "normal" id type for a given pass
+-- | Maps the "normal" id type for a given pass
 type family IdP p
-type instance IdP GHCP = RdrName
-type instance IdP GHCR = Name
-type instance IdP GHCT = Id
+type instance IdP GhcPs = RdrName
+type instance IdP GhcRn = Name
+type instance IdP GhcTc = Id
 
 
 type family XHsChar x
@@ -116,6 +116,8 @@ type family XHsRat x
 type family XHsFloatPrim x
 type family XHsDoublePrim x
 
+-- | Helper to apply a constraint to all extension points. It has one
+-- entry per extension point type family.
 type ClassX (c :: * -> Constraint) (x :: *) =
   ( c (XHsChar x)
   , c (XHsCharPrim x)
@@ -133,49 +135,60 @@ type ClassX (c :: * -> Constraint) (x :: *) =
   )
 
 
+-- Provide the specific extension types for the parser phase.
+type instance XHsChar       GhcPs = SourceText
+type instance XHsCharPrim   GhcPs = SourceText
+type instance XHsString     GhcPs = SourceText
+type instance XHsStringPrim GhcPs = SourceText
+type instance XHsInt        GhcPs = ()
+type instance XHsIntPrim    GhcPs = SourceText
+type instance XHsWordPrim   GhcPs = SourceText
+type instance XHsInt64Prim  GhcPs = SourceText
+type instance XHsWord64Prim GhcPs = SourceText
+type instance XHsInteger    GhcPs = SourceText
+type instance XHsRat        GhcPs = ()
+type instance XHsFloatPrim  GhcPs = ()
+type instance XHsDoublePrim GhcPs = ()
 
-type instance XHsChar       GHCP = SourceText
-type instance XHsCharPrim   GHCP = SourceText
-type instance XHsString     GHCP = SourceText
-type instance XHsStringPrim GHCP = SourceText
-type instance XHsInt        GHCP = ()
-type instance XHsIntPrim    GHCP = SourceText
-type instance XHsWordPrim   GHCP = SourceText
-type instance XHsInt64Prim  GHCP = SourceText
-type instance XHsWord64Prim GHCP = SourceText
-type instance XHsInteger    GHCP = SourceText
-type instance XHsRat        GHCP = ()
-type instance XHsFloatPrim  GHCP = ()
-type instance XHsDoublePrim GHCP = ()
+-- Provide the specific extension types for the renamer phase.
+type instance XHsChar       GhcRn = SourceText
+type instance XHsCharPrim   GhcRn = SourceText
+type instance XHsString     GhcRn = SourceText
+type instance XHsStringPrim GhcRn = SourceText
+type instance XHsInt        GhcRn = ()
+type instance XHsIntPrim    GhcRn = SourceText
+type instance XHsWordPrim   GhcRn = SourceText
+type instance XHsInt64Prim  GhcRn = SourceText
+type instance XHsWord64Prim GhcRn = SourceText
+type instance XHsInteger    GhcRn = SourceText
+type instance XHsRat        GhcRn = ()
+type instance XHsFloatPrim  GhcRn = ()
+type instance XHsDoublePrim GhcRn = ()
 
-type instance XHsChar       GHCR = SourceText
-type instance XHsCharPrim   GHCR = SourceText
-type instance XHsString     GHCR = SourceText
-type instance XHsStringPrim GHCR = SourceText
-type instance XHsInt        GHCR = ()
-type instance XHsIntPrim    GHCR = SourceText
-type instance XHsWordPrim   GHCR = SourceText
-type instance XHsInt64Prim  GHCR = SourceText
-type instance XHsWord64Prim GHCR = SourceText
-type instance XHsInteger    GHCR = SourceText
-type instance XHsRat        GHCR = ()
-type instance XHsFloatPrim  GHCR = ()
-type instance XHsDoublePrim GHCR = ()
+-- Provide the specific extension types for the typechecker phase.
+type instance XHsChar       GhcTc = SourceText
+type instance XHsCharPrim   GhcTc = SourceText
+type instance XHsString     GhcTc = SourceText
+type instance XHsStringPrim GhcTc = SourceText
+type instance XHsInt        GhcTc = ()
+type instance XHsIntPrim    GhcTc = SourceText
+type instance XHsWordPrim   GhcTc = SourceText
+type instance XHsInt64Prim  GhcTc = SourceText
+type instance XHsWord64Prim GhcTc = SourceText
+type instance XHsInteger    GhcTc = SourceText
+type instance XHsRat        GhcTc = ()
+type instance XHsFloatPrim  GhcTc = ()
+type instance XHsDoublePrim GhcTc = ()
 
-type instance XHsChar       GHCT = SourceText
-type instance XHsCharPrim   GHCT = SourceText
-type instance XHsString     GHCT = SourceText
-type instance XHsStringPrim GHCT = SourceText
-type instance XHsInt        GHCT = ()
-type instance XHsIntPrim    GHCT = SourceText
-type instance XHsWordPrim   GHCT = SourceText
-type instance XHsInt64Prim  GHCT = SourceText
-type instance XHsWord64Prim GHCT = SourceText
-type instance XHsInteger    GHCT = SourceText
-type instance XHsRat        GHCT = ()
-type instance XHsFloatPrim  GHCT = ()
-type instance XHsDoublePrim GHCT = ()
 
+-- ---------------------------------------------------------------------
+
+-- | The 'SourceText' fields have been moved into the extension fields, thus
+-- placing a requirement in the extension field to contain a 'SourceText' so
+-- that the pretty printing and round tripping of source can continue to
+-- operate.
+--
+-- The 'HasSourceText' class captures this requirement for the relevant fields.
 class HasSourceText a where
   -- Provide setters to mimic existing constructors
   noSourceText  :: a
@@ -184,6 +197,9 @@ class HasSourceText a where
   setSourceText :: SourceText -> a
   getSourceText :: a -> SourceText
 
+-- | Provide a summary constraint that lists all the extension points requiring
+-- the 'HasSourceText' class, so that it can be changed in one place as the
+-- named extensions change throughout the AST.
 type SourceTextX x =
   ( HasSourceText (XHsChar x)
   , HasSourceText (XHsCharPrim x)
@@ -196,6 +212,8 @@ type SourceTextX x =
   , HasSourceText (XHsInteger x)
   )
 
+
+-- |  'SourceText' trivially implements 'HasSourceText'
 instance HasSourceText SourceText where
   noSourceText    = NoSourceText
   sourceText s    = SourceText s
@@ -205,7 +223,8 @@ instance HasSourceText SourceText where
 
 
 -- ----------------------------------------------------------------------
--- Defaults for each annotation, used to simplify creation in arbitrary contexts
+-- | Defaults for each annotation, used to simplify creation in arbitrary
+-- contexts
 class HasDefault a where
   def :: a
 
@@ -215,10 +234,12 @@ instance HasDefault () where
 instance HasDefault SourceText where
   def = NoSourceText
 
+-- | Provide a single constraint that captures the requirement for a default
+-- accross all the extension points.
 type HasDefaultX x = ClassX HasDefault x
 
 -- ----------------------------------------------------------------------
--- Conversion of annotations from one type index to another
+-- | Conversion of annotations from one type index to another
 class Convertable a b  | a -> b where
   convert :: a -> b
 
@@ -246,6 +267,7 @@ type ConvertIdX a b =
 
 -- ----------------------------------------------------------------------
 
+-- 
 type DataId p =
   ( Data p
   , ClassX Data p

@@ -125,7 +125,7 @@ so it was eta expanded to `\x -> [| f $x |]`. This resulted in too much eta expa
 It is better to produce too many lambdas than to eta expand, see ticket #7436.
 -}
 
-gen_Functor_binds :: SrcSpan -> TyCon -> (LHsBinds GHCP, BagDerivStuff)
+gen_Functor_binds :: SrcSpan -> TyCon -> (LHsBinds GhcPs, BagDerivStuff)
 -- When the argument is phantom, we can use  fmap _ = coerce
 -- See Note [Phantom types with Functor, Foldable, and Traversable]
 gen_Functor_binds loc tycon
@@ -156,7 +156,7 @@ gen_Functor_binds loc tycon
 
     fmap_eqns = map fmap_eqn data_cons
 
-    ft_fmap :: FFoldType (State [IdP GHCP] (LHsExpr GHCP))
+    ft_fmap :: FFoldType (State [RdrName] (LHsExpr GhcPs))
     ft_fmap = FT { ft_triv = mkSimpleLam $ \x -> return x
                    -- fmap f = \x -> x
                  , ft_var  = return f_Expr
@@ -191,7 +191,7 @@ gen_Functor_binds loc tycon
 
     replace_eqns = map replace_eqn data_cons
 
-    ft_replace :: FFoldType (State [IdP GHCP] Replacer)
+    ft_replace :: FFoldType (State [RdrName] Replacer)
     ft_replace = FT { ft_triv = fmap Nested $ mkSimpleLam $ \x -> return x
                    -- (p <$) = \x -> x
                  , ft_var  = fmap Immediate $ mkSimpleLam $ \_ -> return z_Expr
@@ -220,15 +220,15 @@ gen_Functor_binds loc tycon
                  , ft_co_var = panic "contravariant in ft_replace" }
 
     -- Con a1 a2 ... -> Con (f1 a1) (f2 a2) ...
-    match_for_con :: HsMatchContext (IdP GHCP)
-                  -> [LPat GHCP] -> DataCon -> [LHsExpr GHCP]
-                  -> State [IdP GHCP] (LMatch GHCP (LHsExpr GHCP))
+    match_for_con :: HsMatchContext RdrName
+                  -> [LPat GhcPs] -> DataCon -> [LHsExpr GhcPs]
+                  -> State [RdrName] (LMatch GhcPs (LHsExpr GhcPs))
     match_for_con ctxt = mkSimpleConMatch ctxt $
         \con_name xs -> return $ nlHsApps con_name xs  -- Con x1 x2 ..
 
 -- See Note [Deriving <$]
-data Replacer = Immediate {replace :: LHsExpr GHCP}
-              | Nested {replace :: LHsExpr GHCP}
+data Replacer = Immediate {replace :: LHsExpr GhcPs}
+              | Nested {replace :: LHsExpr GhcPs}
 
 {- Note [Deriving <$]
    ~~~~~~~~~~~~~~~~~~
@@ -429,8 +429,8 @@ foldDataConArgs ft con
     -- The kind checks have ensured the last type parameter is of kind *.
 
 -- Make a HsLam using a fresh variable from a State monad
-mkSimpleLam :: (LHsExpr GHCP -> State [IdP GHCP] (LHsExpr GHCP))
-            -> State [IdP GHCP] (LHsExpr GHCP)
+mkSimpleLam :: (LHsExpr GhcPs -> State [RdrName] (LHsExpr GhcPs))
+            -> State [RdrName] (LHsExpr GhcPs)
 -- (mkSimpleLam fn) returns (\x. fn(x))
 mkSimpleLam lam = do
     (n:names) <- get
@@ -438,9 +438,9 @@ mkSimpleLam lam = do
     body <- lam (nlHsVar n)
     return (mkHsLam [nlVarPat n] body)
 
-mkSimpleLam2 :: (LHsExpr GHCP -> LHsExpr GHCP
-             -> State [IdP GHCP] (LHsExpr GHCP))
-             -> State [IdP GHCP] (LHsExpr GHCP)
+mkSimpleLam2 :: (LHsExpr GhcPs -> LHsExpr GhcPs
+             -> State [RdrName] (LHsExpr GhcPs))
+             -> State [RdrName] (LHsExpr GhcPs)
 mkSimpleLam2 lam = do
     (n1:n2:names) <- get
     put names
@@ -454,12 +454,12 @@ mkSimpleLam2 lam = do
 -- constructor @con@ and its arguments. The RHS folds (with @fold@) over @con@
 -- and its arguments, applying an expression (from @insides@) to each of the
 -- respective arguments of @con@.
-mkSimpleConMatch :: Monad m => HsMatchContext (IdP GHCP)
-                 -> (IdP GHCP -> [LHsExpr GHCP] -> m (LHsExpr GHCP))
-                 -> [LPat GHCP]
+mkSimpleConMatch :: Monad m => HsMatchContext RdrName
+                 -> (RdrName -> [LHsExpr GhcPs] -> m (LHsExpr GhcPs))
+                 -> [LPat GhcPs]
                  -> DataCon
-                 -> [LHsExpr GHCP]
-                 -> m (LMatch GHCP (LHsExpr GHCP))
+                 -> [LHsExpr GhcPs]
+                 -> m (LMatch GhcPs (LHsExpr GhcPs))
 mkSimpleConMatch ctxt fold extra_pats con insides = do
     let con_name = getRdrName con
     let vars_needed = takeList insides as_RDRs
@@ -490,13 +490,13 @@ mkSimpleConMatch ctxt fold extra_pats con insides = do
 --
 -- See Note [Generated code for DeriveFoldable and DeriveTraversable]
 mkSimpleConMatch2 :: Monad m
-                  => HsMatchContext (IdP GHCP)
-                  -> (LHsExpr GHCP -> [LHsExpr GHCP]
-                                      -> m (LHsExpr GHCP))
-                  -> [LPat GHCP]
+                  => HsMatchContext RdrName
+                  -> (LHsExpr GhcPs -> [LHsExpr GhcPs]
+                                      -> m (LHsExpr GhcPs))
+                  -> [LPat GhcPs]
                   -> DataCon
-                  -> [Maybe (LHsExpr GHCP)]
-                  -> m (LMatch GHCP (LHsExpr GHCP))
+                  -> [Maybe (LHsExpr GhcPs)]
+                  -> m (LMatch GhcPs (LHsExpr GhcPs))
 mkSimpleConMatch2 ctxt fold extra_pats con insides = do
     let con_name = getRdrName con
         vars_needed = takeList insides as_RDRs
@@ -524,9 +524,9 @@ mkSimpleConMatch2 ctxt fold extra_pats con insides = do
                      (noLoc emptyLocalBinds)
 
 -- "case x of (a1,a2,a3) -> fold [x1 a1, x2 a2, x3 a3]"
-mkSimpleTupleCase :: Monad m => ([LPat GHCP] -> DataCon -> [a]
-                                 -> m (LMatch GHCP (LHsExpr GHCP)))
-                  -> TyCon -> [a] -> LHsExpr GHCP -> m (LHsExpr GHCP)
+mkSimpleTupleCase :: Monad m => ([LPat GhcPs] -> DataCon -> [a]
+                                 -> m (LMatch GhcPs (LHsExpr GhcPs)))
+                  -> TyCon -> [a] -> LHsExpr GhcPs -> m (LHsExpr GhcPs)
 mkSimpleTupleCase match_for_con tc insides x
   = do { let data_con = tyConSingleDataCon tc
        ; match <- match_for_con [] data_con insides
@@ -639,7 +639,7 @@ could surprise users if they switch to other types, but Ryan Scott seems to
 think it's okay to do it for now.
 -}
 
-gen_Foldable_binds :: SrcSpan -> TyCon -> (LHsBinds GHCP, BagDerivStuff)
+gen_Foldable_binds :: SrcSpan -> TyCon -> (LHsBinds GhcPs, BagDerivStuff)
 -- When the parameter is phantom, we can use foldMap _ _ = mempty
 -- See Note [Phantom types with Functor, Foldable, and Traversable]
 gen_Foldable_binds loc tycon
@@ -709,7 +709,7 @@ gen_Foldable_binds loc tycon
     -- Yields 'Just' an expression if we're folding over a type that mentions
     -- the last type parameter of the datatype. Otherwise, yields 'Nothing'.
     -- See Note [FFoldType and functorLikeTraverse]
-    ft_foldr :: FFoldType (State [IdP GHCP] (Maybe (LHsExpr GHCP)))
+    ft_foldr :: FFoldType (State [RdrName] (Maybe (LHsExpr GhcPs)))
     ft_foldr
       = FT { ft_triv    = return Nothing
              -- foldr f = \x z -> z
@@ -731,19 +731,19 @@ gen_Foldable_binds loc tycon
            , ft_fun     = panic "function in ft_foldr"
            , ft_bad_app = panic "in other argument in ft_foldr" }
 
-    match_foldr :: LHsExpr GHCP
-                -> [LPat GHCP]
+    match_foldr :: LHsExpr GhcPs
+                -> [LPat GhcPs]
                 -> DataCon
-                -> [Maybe (LHsExpr GHCP)]
-                -> State [IdP GHCP] (LMatch GHCP (LHsExpr GHCP))
+                -> [Maybe (LHsExpr GhcPs)]
+                -> State [RdrName] (LMatch GhcPs (LHsExpr GhcPs))
     match_foldr z = mkSimpleConMatch2 LambdaExpr $ \_ xs -> return (mkFoldr xs)
       where
         -- g1 v1 (g2 v2 (.. z))
-        mkFoldr :: [LHsExpr GHCP] -> LHsExpr GHCP
+        mkFoldr :: [LHsExpr GhcPs] -> LHsExpr GhcPs
         mkFoldr = foldr nlHsApp z
 
     -- See Note [FFoldType and functorLikeTraverse]
-    ft_foldMap :: FFoldType (State [IdP GHCP] (Maybe (LHsExpr GHCP)))
+    ft_foldMap :: FFoldType (State [RdrName] (Maybe (LHsExpr GhcPs)))
     ft_foldMap
       = FT { ft_triv = return Nothing
              -- foldMap f = \x -> mempty
@@ -761,14 +761,14 @@ gen_Foldable_binds loc tycon
            , ft_fun = panic "function in ft_foldMap"
            , ft_bad_app = panic "in other argument in ft_foldMap" }
 
-    match_foldMap :: [LPat GHCP]
+    match_foldMap :: [LPat GhcPs]
                   -> DataCon
-                  -> [Maybe (LHsExpr GHCP)]
-                  -> State [IdP GHCP] (LMatch GHCP (LHsExpr GHCP))
+                  -> [Maybe (LHsExpr GhcPs)]
+                  -> State [RdrName] (LMatch GhcPs (LHsExpr GhcPs))
     match_foldMap = mkSimpleConMatch2 CaseAlt $ \_ xs -> return (mkFoldMap xs)
       where
         -- mappend v1 (mappend v2 ..)
-        mkFoldMap :: [LHsExpr GHCP] -> LHsExpr GHCP
+        mkFoldMap :: [LHsExpr GhcPs] -> LHsExpr GhcPs
         mkFoldMap [] = mempty_Expr
         mkFoldMap xs = foldr1 (\x y -> nlHsApps mappend_RDR [x,y]) xs
 
@@ -777,7 +777,7 @@ gen_Foldable_binds loc tycon
     -- that may or may not be null. Yields IsNull if it's certainly
     -- null, and yields NotNull if it's certainly not null.
     -- See Note [Deriving null]
-    ft_null :: FFoldType (State [IdP GHCP] (NullM (LHsExpr GHCP)))
+    ft_null :: FFoldType (State [RdrName] (NullM (LHsExpr GhcPs)))
     ft_null
       = FT { ft_triv = return IsNull
              -- null = \_ -> True
@@ -809,14 +809,14 @@ gen_Foldable_binds loc tycon
            , ft_fun = panic "function in ft_null"
            , ft_bad_app = panic "in other argument in ft_null" }
 
-    match_null :: [LPat GHCP]
+    match_null :: [LPat GhcPs]
                   -> DataCon
-                  -> [Maybe (LHsExpr GHCP)]
-                  -> State [IdP GHCP] (LMatch GHCP (LHsExpr GHCP))
+                  -> [Maybe (LHsExpr GhcPs)]
+                  -> State [RdrName] (LMatch GhcPs (LHsExpr GhcPs))
     match_null = mkSimpleConMatch2 CaseAlt $ \_ xs -> return (mkNull xs)
       where
         -- v1 && v2 && ..
-        mkNull :: [LHsExpr GHCP] -> LHsExpr GHCP
+        mkNull :: [LHsExpr GhcPs] -> LHsExpr GhcPs
         mkNull [] = true_Expr
         mkNull xs = foldr1 (\x y -> nlHsApps and_RDR [x,y]) xs
 
@@ -865,7 +865,7 @@ removes all such types from consideration.
 See Note [Generated code for DeriveFoldable and DeriveTraversable].
 -}
 
-gen_Traversable_binds :: SrcSpan -> TyCon -> (LHsBinds GHCP, BagDerivStuff)
+gen_Traversable_binds :: SrcSpan -> TyCon -> (LHsBinds GhcPs, BagDerivStuff)
 -- When the argument is phantom, we can use traverse = pure . coerce
 -- See Note [Phantom types with Functor, Foldable, and Traversable]
 gen_Traversable_binds loc tycon
@@ -899,7 +899,7 @@ gen_Traversable_binds loc tycon
     -- Yields 'Just' an expression if we're folding over a type that mentions
     -- the last type parameter of the datatype. Otherwise, yields 'Nothing'.
     -- See Note [FFoldType and functorLikeTraverse]
-    ft_trav :: FFoldType (State [IdP GHCP] (Maybe (LHsExpr GHCP)))
+    ft_trav :: FFoldType (State [RdrName] (Maybe (LHsExpr GhcPs)))
     ft_trav
       = FT { ft_triv    = return Nothing
              -- traverse f = pure x
@@ -920,15 +920,15 @@ gen_Traversable_binds loc tycon
 
     -- Con a1 a2 ... -> liftA2 (\b1 b2 ... -> Con b1 b2 ...) (g1 a1)
     --                    (g2 a2) <*> ...
-    match_for_con :: [LPat GHCP]
+    match_for_con :: [LPat GhcPs]
                   -> DataCon
-                  -> [Maybe (LHsExpr GHCP)]
-                  -> State [IdP GHCP] (LMatch GHCP (LHsExpr GHCP))
+                  -> [Maybe (LHsExpr GhcPs)]
+                  -> State [RdrName] (LMatch GhcPs (LHsExpr GhcPs))
     match_for_con = mkSimpleConMatch2 CaseAlt $
                                              \con xs -> return (mkApCon con xs)
       where
         -- liftA2 (\b1 b2 ... -> Con b1 b2 ...) x1 x2 <*> ..
-        mkApCon :: LHsExpr GHCP -> [LHsExpr GHCP] -> LHsExpr GHCP
+        mkApCon :: LHsExpr GhcPs -> [LHsExpr GhcPs] -> LHsExpr GhcPs
         mkApCon con [] = nlHsApps pure_RDR [con]
         mkApCon con [x] = nlHsApps fmap_RDR [con,x]
         mkApCon con (x1:x2:xs) =
@@ -939,7 +939,7 @@ gen_Traversable_binds loc tycon
 
 f_Expr, z_Expr, fmap_Expr, replace_Expr, mempty_Expr, foldMap_Expr,
     traverse_Expr, coerce_Expr, pure_Expr, true_Expr, false_Expr,
-    all_Expr, null_Expr :: LHsExpr GHCP
+    all_Expr, null_Expr :: LHsExpr GhcPs
 f_Expr        = nlHsVar f_RDR
 z_Expr        = nlHsVar z_RDR
 fmap_Expr     = nlHsVar fmap_RDR
@@ -954,19 +954,19 @@ false_Expr    = nlHsVar false_RDR
 all_Expr      = nlHsVar all_RDR
 null_Expr     = nlHsVar null_RDR
 
-f_RDR, z_RDR :: IdP GHCP
+f_RDR, z_RDR :: RdrName
 f_RDR = mkVarUnqual (fsLit "f")
 z_RDR = mkVarUnqual (fsLit "z")
 
-as_RDRs, bs_RDRs :: [IdP GHCP]
+as_RDRs, bs_RDRs :: [RdrName]
 as_RDRs = [ mkVarUnqual (mkFastString ("a"++show i)) | i <- [(1::Int) .. ] ]
 bs_RDRs = [ mkVarUnqual (mkFastString ("b"++show i)) | i <- [(1::Int) .. ] ]
 
-as_Vars, bs_Vars :: [LHsExpr GHCP]
+as_Vars, bs_Vars :: [LHsExpr GhcPs]
 as_Vars = map nlHsVar as_RDRs
 bs_Vars = map nlHsVar bs_RDRs
 
-f_Pat, z_Pat :: LPat GHCP
+f_Pat, z_Pat :: LPat GhcPs
 f_Pat = nlVarPat f_RDR
 z_Pat = nlVarPat z_RDR
 
