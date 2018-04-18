@@ -1389,7 +1389,7 @@ zonkForeignExports env ls = mapM (wrapLocM (zonkForeignExport env)) ls
 
 zonkForeignExport :: ZonkEnv -> ForeignDecl GhcTcId -> TcM (ForeignDecl GhcTc)
 zonkForeignExport env (ForeignExport { fd_name = i, fd_co = co, fd_fe = spec })
-  = return (ForeignExport { fd_name = zonkLIdOcc env i
+  = return (ForeignExport { fd_e_ext = noExt, fd_name = zonkLIdOcc env i
                           , fd_sig_ty = undefined, fd_co = co
                           , fd_fe = spec })
 zonkForeignExport _ for_imp
@@ -1399,7 +1399,8 @@ zonkRules :: ZonkEnv -> [LRuleDecl GhcTcId] -> TcM [LRuleDecl GhcTc]
 zonkRules env rs = mapM (wrapLocM (zonkRule env)) rs
 
 zonkRule :: ZonkEnv -> RuleDecl GhcTcId -> TcM (RuleDecl GhcTc)
-zonkRule env (HsRule name act (vars{-::[RuleBndr TcId]-}) lhs fv_lhs rhs fv_rhs)
+zonkRule env (HsRule x name act (vars{-::[RuleBndr TcId]-}) lhs fv_lhs rhs
+                                                                         fv_rhs)
   = do { (env_inside, new_bndrs) <- mapAccumLM zonk_bndr env vars
 
        ; let env_lhs = setZonkType env_inside zonkTvSkolemising
@@ -1408,12 +1409,13 @@ zonkRule env (HsRule name act (vars{-::[RuleBndr TcId]-}) lhs fv_lhs rhs fv_rhs)
        ; new_lhs <- zonkLExpr env_lhs    lhs
        ; new_rhs <- zonkLExpr env_inside rhs
 
-       ; return (HsRule name act new_bndrs new_lhs fv_lhs new_rhs fv_rhs) }
+       ; return (HsRule x name act new_bndrs new_lhs fv_lhs new_rhs fv_rhs) }
   where
-   zonk_bndr env (L l (RuleBndr (L loc v)))
+   zonk_bndr env (L l (RuleBndr x (L loc v)))
       = do { (env', v') <- zonk_it env v
-           ; return (env', L l (RuleBndr (L loc v'))) }
+           ; return (env', L l (RuleBndr x (L loc v'))) }
    zonk_bndr _ (L _ (RuleBndrSig {})) = panic "zonk_bndr RuleBndrSig"
+   zonk_bndr _ (L _ (XRuleBndr {})) = panic "zonk_bndr XRuleBndr"
 
    zonk_it env v
      | isId v     = do { v' <- zonkIdBndr env v
@@ -1423,6 +1425,7 @@ zonkRule env (HsRule name act (vars{-::[RuleBndr TcId]-}) lhs fv_lhs rhs fv_rhs)
                     -- DV: used to be return (env,v) but that is plain
                     -- wrong because we may need to go inside the kind
                     -- of v and zonk there!
+zonkRule _ (XRuleDecl _) = panic "zonkRule"
 
 zonkVects :: ZonkEnv -> [LVectDecl GhcTcId] -> TcM [LVectDecl GhcTc]
 zonkVects env = mapM (wrapLocM (zonkVect env))

@@ -810,7 +810,7 @@ isDecl dflags stmt = do
   case parseThing Parser.parseDeclaration dflags stmt of
     Lexer.POk _ thing ->
       case unLoc thing of
-        SpliceD _ -> False
+        SpliceD _ _ -> False
         _ -> True
     Lexer.PFailed _ _ _ -> False
 

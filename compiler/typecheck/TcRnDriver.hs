@@ -509,9 +509,10 @@ tc_rn_src_decls ds
             else do { (th_group, th_group_tail) <- findSplice th_ds
                     ; case th_group_tail of
                         { Nothing -> return () ;
-                        ; Just (SpliceDecl (L loc _) _, _)
+                        ; Just (SpliceDecl _ (L loc _) _, _)
                             -> setSrcSpan loc $
                                addErr (text "Declaration splices are not permitted inside top-level declarations added with addTopDecls")
+                        ; Just (XSpliceDecl _, _) -> panic "tc_rn_src_decls"
                         } ;
 
                     -- Rename TH-generated top-level declarations
@@ -538,7 +539,7 @@ tc_rn_src_decls ds
           { Nothing -> return (tcg_env, tcl_env)
 
             -- If there's a splice, we must carry on
-          ; Just (SpliceDecl (L loc splice) _, rest_ds) ->
+          ; Just (SpliceDecl _ (L loc splice) _, rest_ds) ->
             do { recordTopLevelSpliceLoc loc
 
                  -- Rename the splice expression, and get its supporting decls
@@ -549,6 +550,7 @@ tc_rn_src_decls ds
                ; setGblEnv (tcg_env `addTcgDUs` usesOnly splice_fvs) $
                  tc_rn_src_decls (spliced_decls ++ rest_ds)
                }
+          ; Just (XSpliceDecl _, _) -> panic "tc_rn_src_decls"
           }
       }
 
@@ -583,7 +585,8 @@ tcRnHsBootDecls hsc_src decls
 
                 -- Check for illegal declarations
         ; case group_tail of
-             Just (SpliceDecl d _, _) -> badBootDecl hsc_src "splice" d
+             Just (SpliceDecl _ d _, _) -> badBootDecl hsc_src "splice" d
+             Just (XSpliceDecl _, _) -> panic "tcRnHsBootDecls"
              Nothing                  -> return ()
         ; mapM_ (badBootDecl hsc_src "foreign") for_decls
         ; mapM_ (badBootDecl hsc_src "default") def_decls

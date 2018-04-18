@@ -1103,6 +1103,7 @@ hsGroupBinders (HsGroup { hs_valds = val_decls, hs_tyclds = tycl_decls,
                           hs_fords = foreign_decls })
   =  collectHsValBinders val_decls
   ++ hsTyClForeignBinders tycl_decls foreign_decls
+hsGroupBinders (XHsGroup {}) = panic "hsGroupBinders"
 
 hsTyClForeignBinders :: [TyClGroup GhcRn]
                      -> [LForeignDecl GhcRn]
@@ -1133,6 +1134,8 @@ hsLTyClDeclBinders :: Located (TyClDecl pass)
 
 hsLTyClDeclBinders (L loc (FamDecl { tcdFam = FamilyDecl { fdLName = L _ name } }))
   = ([L loc name], [])
+hsLTyClDeclBinders (L _ (FamDecl { tcdFam = XFamilyDecl _ }))
+  = panic "hsLTyClDeclBinders"
 hsLTyClDeclBinders (L loc (SynDecl     { tcdLName = L _ name })) = ([L loc name], [])
 hsLTyClDeclBinders (L loc (ClassDecl   { tcdLName = L _ cls_name
                                        , tcdSigs = sigs, tcdATs = ats }))
@@ -1143,6 +1146,7 @@ hsLTyClDeclBinders (L loc (ClassDecl   { tcdLName = L _ cls_name
     , [])
 hsLTyClDeclBinders (L loc (DataDecl    { tcdLName = L _ name, tcdDataDefn = defn }))
   = (\ (xs, ys) -> (L loc name : xs, ys)) $ hsDataDefnBinders defn
+hsLTyClDeclBinders (L _ (XTyClDecl _)) = panic "hsLTyClDeclBinders"
 
 -------------------
 hsForeignDeclsBinders :: [LForeignDecl pass] -> [Located (IdP pass)]
@@ -1172,13 +1176,17 @@ getPatSynBinds binds
           , L _ (PatSynBind _ psb) <- bagToList lbinds ]
 
 -------------------
-hsLInstDeclBinders :: LInstDecl pass
-                   -> ([Located (IdP pass)], [LFieldOcc pass])
+hsLInstDeclBinders :: LInstDecl (GhcPass p)
+                   -> ([Located (IdP (GhcPass p))], [LFieldOcc (GhcPass p)])
 hsLInstDeclBinders (L _ (ClsInstD { cid_inst = ClsInstDecl { cid_datafam_insts = dfis } }))
   = foldMap (hsDataFamInstBinders . unLoc) dfis
 hsLInstDeclBinders (L _ (DataFamInstD { dfid_inst = fi }))
   = hsDataFamInstBinders fi
 hsLInstDeclBinders (L _ (TyFamInstD {})) = mempty
+hsLInstDeclBinders (L _ (ClsInstD _ (XClsInstDecl {})))
+  = panic "hsLInstDeclBinders"
+hsLInstDeclBinders (L _ (XInstDecl _))
+  = panic "hsLInstDeclBinders"
 
 -------------------
 -- the SrcLoc returned are for the whole declarations, not just the names
@@ -1188,6 +1196,9 @@ hsDataFamInstBinders (DataFamInstDecl { dfid_eqn = HsIB { hsib_body =
                        FamEqn { feqn_rhs = defn }}})
   = hsDataDefnBinders defn
   -- There can't be repeated symbols because only data instances have binders
+hsDataFamInstBinders (DataFamInstDecl
+                                    { dfid_eqn = HsIB { hsib_body = XFamEqn _}})
+  = panic "hsDataFamInstBinders"
 
 -------------------
 -- the SrcLoc returned are for the whole declarations, not just the names
@@ -1195,6 +1206,7 @@ hsDataDefnBinders :: HsDataDefn pass -> ([Located (IdP pass)], [LFieldOcc pass])
 hsDataDefnBinders (HsDataDefn { dd_cons = cons })
   = hsConDeclsBinders cons
   -- See Note [Binders in family instances]
+hsDataDefnBinders (XHsDataDefn _) = panic "hsDataDefnBinders"
 
 -------------------
 type Seen pass = [LFieldOcc pass] -> [LFieldOcc pass]
@@ -1227,6 +1239,8 @@ hsConDeclsBinders cons
              where
                 (remSeen', flds) = get_flds remSeen args
                 (ns, fs) = go remSeen' rs
+
+           L _ (XConDecl _) -> panic "hsConDeclsBinders"
 
     get_flds :: Seen pass -> HsConDeclDetails pass
              -> (Seen pass, [LFieldOcc pass])

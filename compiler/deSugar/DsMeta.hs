@@ -181,6 +181,7 @@ repTopDs group@(HsGroup { hs_valds   = valds
       = notHandledL loc "Vectorisation pragmas" (ppr decl)
     no_doc (L loc _)
       = notHandledL loc "Haddock documentation" empty
+repTopDs (XHsGroup _) = panic "repTopDs"
 
 hsSigTvBinders :: HsValBinds GhcRn -> [Name]
 -- See Note [Scoped type variables in bindings]
@@ -334,6 +335,8 @@ repTyClD (L loc (ClassDecl { tcdCtxt = cxt, tcdLName = cls,
        ; return $ Just (loc, dec)
        }
 
+repTyClD (L _ (XTyClDecl _)) = panic "repTyClD"
+
 -------------------------
 repRoleD :: LRoleAnnotDecl GhcRn -> DsM (SrcSpan, Core TH.DecQ)
 repRoleD (L loc (RoleAnnotDecl tycon roles))
@@ -367,6 +370,7 @@ repDataDefn tc bndrs opt_tys
                                ; repData cxt1 tc bndrs opt_tys ksig' cons1
                                          derivs1 }
        }
+repDataDefn _ _ _ (XHsDataDefn _) = panic "repDataDefn"
 
 repSynDecl :: Core TH.Name -> Core [TH.TyVarBndrQ]
            -> LHsType GhcRn
@@ -386,8 +390,8 @@ repFamilyDecl decl@(L loc (FamilyDecl { fdInfo      = info,
              mkHsQTvs tvs = HsQTvs { hsq_implicit = [], hsq_explicit = tvs
                                    , hsq_dependent = emptyNameSet }
              resTyVar = case resultSig of
-                     TyVarSig bndr -> mkHsQTvs [bndr]
-                     _             -> mkHsQTvs []
+                     TyVarSig _ bndr -> mkHsQTvs [bndr]
+                     _               -> mkHsQTvs []
        ; dec <- addTyClTyVarBinds tvs $ \bndrs ->
                 addTyClTyVarBinds resTyVar $ \_ ->
            case info of
@@ -408,23 +412,25 @@ repFamilyDecl decl@(L loc (FamilyDecl { fdInfo      = info,
                   ; repDataFamilyD tc1 bndrs kind }
        ; return (loc, dec)
        }
+repFamilyDecl (L _ (XFamilyDecl _)) = panic "repFamilyDecl"
 
 -- | Represent result signature of a type family
 repFamilyResultSig :: FamilyResultSig GhcRn -> DsM (Core TH.FamilyResultSigQ)
-repFamilyResultSig  NoSig          = repNoSig
-repFamilyResultSig (KindSig ki)    = do { ki' <- repLTy ki
-                                        ; repKindSig ki' }
-repFamilyResultSig (TyVarSig bndr) = do { bndr' <- repTyVarBndr bndr
-                                        ; repTyVarSig bndr' }
+repFamilyResultSig (NoSig _)         = repNoSig
+repFamilyResultSig (KindSig _ ki)    = do { ki' <- repLTy ki
+                                          ; repKindSig ki' }
+repFamilyResultSig (TyVarSig _ bndr) = do { bndr' <- repTyVarBndr bndr
+                                          ; repTyVarSig bndr' }
+repFamilyResultSig (XFamilyResultSig _) = panic "repFamilyResultSig"
 
 -- | Represent result signature using a Maybe Kind. Used with data families,
 -- where the result signature can be either missing or a kind but never a named
 -- result variable.
 repFamilyResultSigToMaybeKind :: FamilyResultSig GhcRn
                               -> DsM (Core (Maybe TH.KindQ))
-repFamilyResultSigToMaybeKind NoSig =
+repFamilyResultSigToMaybeKind (NoSig _) =
     do { coreNothing kindQTyConName }
-repFamilyResultSigToMaybeKind (KindSig ki) =
+repFamilyResultSigToMaybeKind (KindSig _ ki) =
     do { ki' <- repLTy ki
        ; coreJust kindQTyConName ki' }
 repFamilyResultSigToMaybeKind _ = panic "repFamilyResultSigToMaybeKind"
@@ -459,6 +465,7 @@ repAssocTyFamDefaults = mapM rep_deflt
            ; rhs1 <- repLTy rhs
            ; eqn1 <- repTySynEqn tys2 rhs1
            ; repTySynInst tc1 eqn1 }
+    rep_deflt (L _ (XFamEqn _)) = panic "repAssocTyFamDefaults"
 
 -------------------------
 -- represent fundeps
@@ -484,6 +491,7 @@ repInstD (L loc (DataFamInstD { dfid_inst = fi_decl }))
 repInstD (L loc (ClsInstD { cid_inst = cls_decl }))
   = do { dec <- repClsInstD cls_decl
        ; return (loc, dec) }
+repInstD (L _ (XInstDecl _)) = panic "repInstD"
 
 repClsInstD :: ClsInstDecl GhcRn -> DsM (Core TH.DecQ)
 repClsInstD (ClsInstDecl { cid_poly_ty = ty, cid_binds = binds
@@ -513,6 +521,7 @@ repClsInstD (ClsInstDecl { cid_poly_ty = ty, cid_binds = binds
                ; wrapGenSyms ss decls2 }
  where
    (tvs, cxt, inst_ty) = splitLHsInstDeclTy ty
+repClsInstD (XClsInstDecl _) = panic "repClsInstD"
 
 repStandaloneDerivD :: LDerivDecl GhcRn -> DsM (SrcSpan, Core TH.DecQ)
 repStandaloneDerivD (L loc (DerivDecl { deriv_strategy = strat
@@ -525,6 +534,7 @@ repStandaloneDerivD (L loc (DerivDecl { deriv_strategy = strat
        ; return (loc, dec) }
   where
     (tvs, cxt, inst_ty) = splitLHsInstDeclTy (dropWildCards ty)
+repStandaloneDerivD (L _ (XDerivDecl _)) = panic "repStandaloneDerivD"
 
 repTyFamInstD :: TyFamInstDecl GhcRn -> DsM (Core TH.DecQ)
 repTyFamInstD decl@(TyFamInstDecl { tfid_eqn = eqn })
@@ -545,6 +555,7 @@ repTyFamEqn (HsIB { hsib_vars = var_names
             ; tys2 <- coreList typeQTyConName tys1
             ; rhs1 <- repLTy rhs
             ; repTySynEqn tys2 rhs1 } }
+repTyFamEqn (HsIB _ (XFamEqn _) _) = panic "repTyFamEqn"
 
 repDataFamInstD :: DataFamInstDecl GhcRn -> DsM (Core TH.DecQ)
 repDataFamInstD (DataFamInstDecl { dfid_eqn =
@@ -559,6 +570,8 @@ repDataFamInstD (DataFamInstDecl { dfid_eqn =
        ; addTyClTyVarBinds hs_tvs $ \ bndrs ->
          do { tys1 <- repList typeQTyConName repLTy tys
             ; repDataDefn tc bndrs (Just tys1) defn } }
+repDataFamInstD (DataFamInstDecl (HsIB _ (XFamEqn _) _))
+  = panic "repDataFamInstD"
 
 repForD :: Located (ForeignDecl GhcRn) -> DsM (SrcSpan, Core TH.DecQ)
 repForD (L loc (ForeignImport { fd_name = name, fd_sig_ty = typ
@@ -616,7 +629,7 @@ repFixD (L loc (FixitySig _ names (Fixity _ prec dir)))
 repFixD (L _ (XFixitySig _)) = panic "repFixD"
 
 repRuleD :: LRuleDecl GhcRn -> DsM (SrcSpan, Core TH.DecQ)
-repRuleD (L loc (HsRule n act bndrs lhs _ rhs _))
+repRuleD (L loc (HsRule _ n act bndrs lhs _ rhs _))
   = do { let bndr_names = concatMap ruleBndrNames bndrs
        ; ss <- mkGenSyms bndr_names
        ; rule1 <- addBinds ss $
@@ -628,21 +641,24 @@ repRuleD (L loc (HsRule n act bndrs lhs _ rhs _))
                      ; repPragRule n' bndrs' lhs' rhs' act' }
        ; rule2 <- wrapGenSyms ss rule1
        ; return (loc, rule2) }
+repRuleD (L _ (XRuleDecl _)) = panic "repRuleD"
 
 ruleBndrNames :: LRuleBndr GhcRn -> [Name]
-ruleBndrNames (L _ (RuleBndr n))      = [unLoc n]
-ruleBndrNames (L _ (RuleBndrSig n sig))
+ruleBndrNames (L _ (RuleBndr _ n))      = [unLoc n]
+ruleBndrNames (L _ (RuleBndrSig _ n sig))
   | HsWC { hswc_body = HsIB { hsib_vars = vars }} <- sig
   = unLoc n : vars
+ruleBndrNames (L _ (XRuleBndr _)) = panic "ruleBndrNames"
 
 repRuleBndr :: LRuleBndr GhcRn -> DsM (Core TH.RuleBndrQ)
-repRuleBndr (L _ (RuleBndr n))
+repRuleBndr (L _ (RuleBndr _ n))
   = do { MkC n' <- lookupLBinder n
        ; rep2 ruleVarName [n'] }
-repRuleBndr (L _ (RuleBndrSig n sig))
+repRuleBndr (L _ (RuleBndrSig _ n sig))
   = do { MkC n'  <- lookupLBinder n
        ; MkC ty' <- repLTy (hsSigWcType sig)
        ; rep2 typedRuleVarName [n', ty'] }
+repRuleBndr (L _ (XRuleBndr _)) = panic "repRuleBndr"
 
 repAnnD :: LAnnDecl GhcRn -> DsM (SrcSpan, Core TH.DecQ)
 repAnnD (L loc (HsAnnotation _ ann_prov (L _ exp)))
@@ -703,6 +719,9 @@ repC (L _ (ConDeclGADT { con_names = cons
          then return c'
          else rep2 forallCName ([unC ex_bndrs, unC ctxt', unC c']) }
 
+repC (L _ (XConDecl _)) = panic "repC"
+                      
+
 repMbContext :: Maybe (LHsContext GhcRn) -> DsM (Core TH.CxtQ)
 repMbContext Nothing          = repContext []
 repMbContext (Just (L _ cxt)) = repContext cxt
@@ -746,6 +765,7 @@ repDerivClause (L _ (HsDerivingClause { deriv_clause_strategy = dcs
   where
     rep_deriv_ty :: LHsType GhcRn -> DsM (Core TH.TypeQ)
     rep_deriv_ty (L _ ty) = repTy ty
+repDerivClause (L _ (XHsDerivingClause _)) = panic "repDerivClause"
 
 rep_sigs_binds :: [LSig GhcRn] -> LHsBinds GhcRn
                -> DsM ([GenSymBind], [Core TH.DecQ])

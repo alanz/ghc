@@ -185,6 +185,7 @@ tcTyClGroup (TyClGroup { group_tyclds = tyclds
        ; (gbl_env, inst_info, datafam_deriv_info) <- tcInstDecls1 instds
 
        ; return (gbl_env, inst_info, datafam_deriv_info) } } }
+tcTyClGroup (XTyClGroup _) = panic "tcTyClGroup"
 
 tcTyClDecls :: [LTyClDecl GhcRn] -> RoleAnnotEnv -> TcM [TyCon]
 tcTyClDecls tyclds role_annots
@@ -501,6 +502,7 @@ kcTyClGroup decls
                       -> FamilyDecl GhcRn -> TcM TcTyCon
     generaliseFamDecl kind_env (FamilyDecl { fdLName = L _ name })
       = generalise kind_env name
+    generaliseFamDecl _ (XFamilyDecl _) = panic "generaliseFamDecl"
 
     pp_res tc = ppr (tyConName tc) <+> dcolon <+> ppr (tyConKind tc)
 
@@ -615,6 +617,10 @@ getInitialKind decl@(SynDecl { tcdLName = L _ name
         HsKindSig _ _ k   -> Just k
         _                 -> Nothing
 
+getInitialKind (DataDecl _ (L _ _) _ _ (XHsDataDefn _) _ _)
+  = panic "getInitialKind"
+getInitialKind (XTyClDecl _) = panic "getInitialKind"
+
 ---------------------------------
 getFamDeclInitialKinds :: Maybe Bool  -- if assoc., CUSKness of assoc. class
                        -> [LFamilyDecl GhcRn]
@@ -633,13 +639,13 @@ getFamDeclInitialKind mb_cusk decl@(FamilyDecl { fdLName     = L _ name
   = do { (tycon, _) <-
            kcLHsQTyVars name flav cusk ktvs $
            do { res_k <- case resultSig of
-                     KindSig ki                          -> tcLHsKindSig ctxt ki
-                     TyVarSig (L _ (KindedTyVar _ _ ki)) -> tcLHsKindSig ctxt ki
-                     _ -- open type families have * return kind by default
-                        | tcFlavourIsOpen flav     -> return liftedTypeKind
-                        -- closed type families have their return kind inferred
-                        -- by default
-                        | otherwise                -> newMetaKindVar
+                   KindSig _ ki                          -> tcLHsKindSig ctxt ki
+                   TyVarSig _ (L _ (KindedTyVar _ _ ki)) -> tcLHsKindSig ctxt ki
+                   _ -- open type families have * return kind by default
+                      | tcFlavourIsOpen flav     -> return liftedTypeKind
+                      -- closed type families have their return kind inferred
+                      -- by default
+                      | otherwise                -> newMetaKindVar
               ; return (res_k, ()) }
        ; return (mkTcTyConEnv tycon) }
   where
@@ -649,6 +655,7 @@ getFamDeclInitialKind mb_cusk decl@(FamilyDecl { fdLName     = L _ name
       OpenTypeFamily     -> OpenTypeFamilyFlavour (isJust mb_cusk)
       ClosedTypeFamily _ -> ClosedTypeFamilyFlavour
     ctxt  = TyFamResKindCtxt name
+getFamDeclInitialKind _ (XFamilyDecl _) = panic "getFamDeclInitialKind"
 
 ------------------------------------------------------------------------
 kcLTyClDecl :: LTyClDecl GhcRn -> TcM ()
@@ -703,8 +710,8 @@ kcTyClDecl (ClassDecl { tcdLName = L _ name
              = kcHsSigType (TyConSkol ClassFlavour name) nms op_ty
     kc_sig _ = return ()
 
-kcTyClDecl (FamDecl (FamilyDecl { fdLName  = L _ fam_tc_name
-                                , fdInfo   = fd_info }))
+kcTyClDecl (FamDecl _ (FamilyDecl { fdLName  = L _ fam_tc_name
+                                  , fdInfo   = fd_info }))
 -- closed type families look at their equations, but other families don't
 -- do anything here
   = case fd_info of
@@ -712,6 +719,9 @@ kcTyClDecl (FamDecl (FamilyDecl { fdLName  = L _ fam_tc_name
         do { fam_tc <- kcLookupTcTyCon fam_tc_name
            ; mapM_ (kcTyFamInstEqn fam_tc) eqns }
       _ -> return ()
+kcTyClDecl (FamDecl _ (XFamilyDecl _))                  = panic "kcTyClDecl"
+kcTyClDecl (DataDecl _ (L _ _) _ _ (XHsDataDefn _) _ _) = panic "kcTyClDecl"
+kcTyClDecl (XTyClDecl _)                                = panic "kcTyClDecl"
 
 -------------------
 kcConDecl :: ConDecl GhcRn -> TcM ()
@@ -745,6 +755,7 @@ kcConDecl (ConDeclGADT { con_names = names
        ; mapM_ (tcHsOpenType . getBangType) (hsConDeclArgTys args)
        ; _ <- tcHsOpenType res_ty
        ; return () }
+kcConDecl (XConDecl _) = panic "kcConDecl"
 
 {-
 Note [Recursion and promoting data constructors]
@@ -967,6 +978,8 @@ tcTyClDecl1 _parent roles_info
                                 ; tvs2' <- mapM (tcLookupTyVar . unLoc) tvs2 ;
                                 ; return (tvs1', tvs2') }
 
+tcTyClDecl1 _ _ (XTyClDecl _) = panic "tcTyClDecl1"
+
 tcFamDecl1 :: Maybe Class -> FamilyDecl GhcRn -> TcM TyCon
 tcFamDecl1 parent (FamilyDecl { fdInfo = fam_info, fdLName = tc_lname@(L _ tc_name)
                               , fdResultSig = L _ sig, fdTyVars = user_tyvars
@@ -1059,7 +1072,7 @@ tcFamDecl1 parent (FamilyDecl { fdInfo = fam_info, fdLName = tc_lname@(L _ tc_na
        ; return fam_tc } }
 
   | otherwise = panic "tcFamInst1"  -- Silence pattern-exhaustiveness checker
-
+tcFamDecl1 _ (XFamilyDecl _) = panic "tcFamDecl1"
 
 -- | Maybe return a list of Bools that say whether a type family was declared
 -- injective in the corresponding type arguments. Length of the list is equal to
@@ -1183,6 +1196,7 @@ tcDataDefn roles_info
           DataType -> return (mkDataTyConRhs data_cons)
           NewType  -> ASSERT( not (null data_cons) )
                       mkNewTyConRhs tc_name tycon (head data_cons)
+tcDataDefn _ _ _ _ (XHsDataDefn _) = panic "tcDataDefn"
 
 {-
 ************************************************************************
@@ -1300,6 +1314,7 @@ tcDefaultAssocDecl fam_tc [L loc (FamEqn { feqn_tycon = L _ tc_name
            -- We check for well-formedness and validity later,
            -- in checkValidClass
      }
+tcDefaultAssocDecl _ [L _ (XFamEqn _)] = panic "tcDefaultAssocDecl"
 
 {- Note [Type-checking default assoc decls]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1345,6 +1360,7 @@ kcTyFamInstEqn tc_fam_tc
   where
     fam_name = tyConName tc_fam_tc
     vis_arity = length (tyConVisibleTyVars tc_fam_tc)
+kcTyFamInstEqn _ (L _ (HsIB _ (XFamEqn _) _)) = panic "kcTyFamInstEqn"
 
 -- Infer the kind of the type on the RHS of a type family eqn. Then use
 -- this kind to check the kind of the LHS of the equation. This is useful
@@ -1395,6 +1411,7 @@ tcTyFamInstEqn fam_tc mb_clsinfo
        ; return (mkCoAxBranch tvs' [] pats' rhs_ty'
                               (map (const Nominal) tvs')
                               loc) }
+tcTyFamInstEqn _ _ (L _ (HsIB _ (XFamEqn _) _)) = panic "tcTyFamInstEqn"
 
 kcDataDefn :: Maybe (VarEnv Kind) -- ^ Possibly, instantiations for vars
                                   -- (associated types only)
@@ -1457,6 +1474,10 @@ kcDataDefn mb_kind_env
   where
     bogus_ty   = pprPanic "kcDataDefn" (ppr fam_name <+> ppr pats)
     pp_fam_app = pprFamInstLHS fam_name pats fixity (unLoc ctxt) mb_kind
+kcDataDefn _ (DataFamInstDecl (HsIB _ (FamEqn _ _ _ _ (XHsDataDefn _)) _)) _
+  = panic "kcDataDefn"
+kcDataDefn _ (DataFamInstDecl (HsIB _ (XFamEqn _) _)) _
+  = panic "kcDataDefn"
 
 {-
 Kind check type patterns and kind annotate the embedded type variables.
@@ -1938,6 +1959,7 @@ tcConDecl rep_tycon tag_map tmpl_bndrs res_tmpl
        ; traceTc "tcConDecl 2" (ppr names)
        ; mapM buildOneDataCon names
        }
+tcConDecl _ _ _ _ (XConDecl _) = panic "tcConDecl"
 
 -- | Produce the telescope of kind variables that this datacon is
 -- implicitly quantified over. Incoming type need not be zonked.

@@ -607,7 +607,7 @@ deriveStandalone :: LDerivDecl GhcRn -> TcM (Maybe EarlyDerivSpec)
 --
 -- This returns a Maybe because the user might try to derive Typeable, which is
 -- a no-op nowadays.
-deriveStandalone (L loc (DerivDecl deriv_ty deriv_strat' overlap_mode))
+deriveStandalone (L loc (DerivDecl _ deriv_ty deriv_strat' overlap_mode))
   = setSrcSpan loc                   $
     addErrCtxt (standaloneCtxt deriv_ty)  $
     do { traceTc "Standalone deriving decl for" (ppr deriv_ty)
@@ -649,6 +649,7 @@ deriveStandalone (L loc (DerivDecl deriv_ty deriv_strat' overlap_mode))
                  bale_out $
                  text "The last argument of the instance must be a data or newtype application"
         }
+deriveStandalone (L _ (XDerivDecl _)) = panic "deriveStandalone"
 
 -- Typecheck the type in a standalone deriving declaration.
 --

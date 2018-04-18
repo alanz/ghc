@@ -217,7 +217,241 @@ type ForallXFixitySig (c :: * -> Constraint) (x :: *) =
 -- =====================================================================
 -- Type families for the HsDecls extension points
 
+-- HsDecl type families
+type family XTyClD       x
+type family XInstD       x
+type family XDerivD      x
+type family XValD        x
+type family XSigD        x
+type family XDefD        x
+type family XForD        x
+type family XWarningD    x
+type family XAnnD        x
+type family XRuleD       x
+type family XVectD       x
+type family XSpliceD     x
+type family XDocD        x
+type family XRoleAnnotD  x
+type family XXHsDecl     x
 
+type ForallXHsDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XTyClD       x)
+       , c (XInstD       x)
+       , c (XDerivD      x)
+       , c (XValD        x)
+       , c (XSigD        x)
+       , c (XDefD        x)
+       , c (XForD        x)
+       , c (XWarningD    x)
+       , c (XAnnD        x)
+       , c (XRuleD       x)
+       , c (XVectD       x)
+       , c (XSpliceD     x)
+       , c (XDocD        x)
+       , c (XRoleAnnotD  x)
+       , c (XXHsDecl    x)
+       )
+
+-- -------------------------------------
+-- HsGroup type families
+type family XCHsGroup      x
+type family XXHsGroup      x
+
+type ForallXHsGroup (c :: * -> Constraint) (x :: *) =
+       ( c (XCHsGroup       x)
+       , c (XXHsGroup       x)
+       )
+
+-- -------------------------------------
+-- SpliceDecl type families
+type family XSpliceDecl       x
+type family XXSpliceDecl      x
+
+type ForallXSpliceDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XSpliceDecl        x)
+       , c (XXSpliceDecl       x)
+       )
+
+-- -------------------------------------
+-- TyClDecl type families
+type family XFamDecl       x
+type family XSynDecl       x
+type family XDataDecl      x
+type family XClassDecl     x
+type family XXTyClDecl     x
+
+type ForallXTyClDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XFamDecl       x)
+       , c (XSynDecl       x)
+       , c (XDataDecl      x)
+       , c (XClassDecl     x)
+       , c (XXTyClDecl     x)
+       )
+
+-- -------------------------------------
+-- TyClGroup type families
+type family XCTyClGroup      x
+type family XXTyClGroup      x
+
+type ForallXTyClGroup (c :: * -> Constraint) (x :: *) =
+       ( c (XCTyClGroup       x)
+       , c (XXTyClGroup       x)
+       )
+
+-- -------------------------------------
+-- FamilyResultSig type families
+type family XNoSig            x
+type family XCKindSig         x -- Clashes with XKindSig above
+type family XTyVarSig         x
+type family XXFamilyResultSig x
+
+type ForallXFamilyResultSig (c :: * -> Constraint) (x :: *) =
+       ( c (XNoSig            x)
+       , c (XCKindSig         x)
+       , c (XTyVarSig         x)
+       , c (XXFamilyResultSig x)
+       )
+
+-- -------------------------------------
+-- FamilyDecl type families
+type family XCFamilyDecl      x
+type family XXFamilyDecl      x
+
+type ForallXFamilyDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XCFamilyDecl       x)
+       , c (XXFamilyDecl       x)
+       )
+
+-- -------------------------------------
+-- HsDataDefn type families
+type family XCHsDataDefn      x
+type family XXHsDataDefn      x
+
+type ForallXHsDataDefn (c :: * -> Constraint) (x :: *) =
+       ( c (XCHsDataDefn       x)
+       , c (XXHsDataDefn       x)
+       )
+
+-- -------------------------------------
+-- HsDerivingClause type families
+type family XCHsDerivingClause      x
+type family XXHsDerivingClause      x
+
+type ForallXHsDerivingClause (c :: * -> Constraint) (x :: *) =
+       ( c (XCHsDerivingClause       x)
+       , c (XXHsDerivingClause       x)
+       )
+
+-- -------------------------------------
+-- ConDecl type families
+type family XConDeclGADT   x
+type family XConDeclH98    x
+type family XXConDecl      x
+
+type ForallXConDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XConDeclGADT    x)
+       , c (XConDeclH98     x)
+       , c (XXConDecl       x)
+       )
+
+-- -------------------------------------
+-- FamEqn type families
+type family XCFamEqn      x p r
+type family XXFamEqn      x p r
+
+type ForallXFamEqn (c :: * -> Constraint) (x :: *) (p :: *) (r :: *) =
+       ( c (XCFamEqn       x p r)
+       , c (XXFamEqn       x p r)
+       )
+
+-- -------------------------------------
+-- ClsInstDecl type families
+type family XCClsInstDecl      x
+type family XXClsInstDecl      x
+
+type ForallXClsInstDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XCClsInstDecl       x)
+       , c (XXClsInstDecl       x)
+       )
+
+-- -------------------------------------
+-- ClsInstDecl type families
+type family XClsInstD      x
+type family XDataFamInstD  x
+type family XTyFamInstD    x
+type family XXInstDecl     x
+
+type ForallXInstDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XClsInstD       x)
+       , c (XDataFamInstD   x)
+       , c (XTyFamInstD     x)
+       , c (XXInstDecl      x)
+       )
+
+-- -------------------------------------
+-- DerivDecl type families
+type family XCDerivDecl      x
+type family XXDerivDecl      x
+
+type ForallXDerivDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XCDerivDecl       x)
+       , c (XXDerivDecl       x)
+       )
+
+-- -------------------------------------
+-- DefaultDecl type families
+type family XCDefaultDecl      x
+type family XXDefaultDecl      x
+
+type ForallXDefaultDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XCDefaultDecl       x)
+       , c (XXDefaultDecl       x)
+       )
+
+-- -------------------------------------
+-- DefaultDecl type families
+type family XForeignImport     x
+type family XForeignExport     x
+type family XXForeignDecl      x
+
+type ForallXForeignDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XForeignImport      x)
+       , c (XForeignExport      x)
+       , c (XXForeignDecl       x)
+       )
+
+-- -------------------------------------
+-- RuleDecls type families
+type family XCRuleDecls      x
+type family XXRuleDecls      x
+
+type ForallXRuleDecls (c :: * -> Constraint) (x :: *) =
+       ( c (XCRuleDecls       x)
+       , c (XXRuleDecls       x)
+       )
+
+
+-- -------------------------------------
+-- RuleDecl type families
+type family XHsRule         x
+type family XXRuleDecl      x
+
+type ForallXRuleDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XHsRule          x)
+       , c (XXRuleDecl       x)
+       )
+
+-- -------------------------------------
+-- RuleBndr type families
+type family XCRuleBndr      x
+type family XRuleBndrSig    x
+type family XXRuleBndr      x
+
+type ForallXRuleBndr (c :: * -> Constraint) (x :: *) =
+       ( c (XCRuleBndr       x)
+       , c (XRuleBndrSig     x)
+       , c (XXRuleBndr       x)
+       )
 -- TODO
 
 -- =====================================================================

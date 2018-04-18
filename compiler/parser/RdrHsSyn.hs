@@ -130,11 +130,11 @@ import Data.Data       ( dataTypeOf, fromConstr, dataTypeConstrs )
 
 --         *** See Note [The Naming story] in HsDecls ****
 
-mkTyClD :: LTyClDecl n -> LHsDecl n
-mkTyClD (L loc d) = L loc (TyClD d)
+mkTyClD :: LTyClDecl (GhcPass p) -> LHsDecl (GhcPass p)
+mkTyClD (L loc d) = L loc (TyClD noExt d)
 
-mkInstD :: LInstDecl n -> LHsDecl n
-mkInstD (L loc d) = L loc (InstD d)
+mkInstD :: LInstDecl (GhcPass p) -> LHsDecl (GhcPass p)
+mkInstD (L loc d) = L loc (InstD noExt d)
 
 mkClassDecl :: SrcSpan
             -> Located (Maybe (LHsContext GhcPs), LHsType GhcPs)
@@ -149,7 +149,8 @@ mkClassDecl loc (L _ (mcxt, tycl_hdr)) fds where_cls
        ; mapM_ (\a -> a loc) ann -- Add any API Annotations to the top SrcSpan
        ; tyvars <- checkTyVarsP (text "class") whereDots cls tparams
        ; at_defs <- mapM (eitherToP . mkATDefault) at_insts
-       ; return (L loc (ClassDecl { tcdCtxt = cxt, tcdLName = cls, tcdTyVars = tyvars
+       ; return (L loc (ClassDecl { tcdCExt = noExt, tcdCtxt = cxt
+                                  , tcdLName = cls, tcdTyVars = tyvars
                                   , tcdFixity = fixity
                                   , tcdFDs = snd (unLoc fds)
                                   , tcdSigs = mkClassOpSigs sigs
@@ -169,10 +170,12 @@ mkATDefault (L loc (TyFamInstDecl { tfid_eqn = HsIB { hsib_body = e }}))
       | FamEqn { feqn_tycon = tc, feqn_pats = pats, feqn_fixity = fixity
                , feqn_rhs = rhs } <- e
       = do { tvs <- checkTyVars (text "default") equalsDots tc pats
-           ; return (L loc (FamEqn { feqn_tycon  = tc
+           ; return (L loc (FamEqn { feqn_ext    = noExt
+                                   , feqn_tycon  = tc
                                    , feqn_pats   = tvs
                                    , feqn_fixity = fixity
                                    , feqn_rhs    = rhs })) }
+mkATDefault (L _ (TyFamInstDecl (HsIB _ (XFamEqn _) _))) = panic "mkATDefault"
 
 mkTyData :: SrcSpan
          -> NewOrData
@@ -187,7 +190,8 @@ mkTyData loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
        ; mapM_ (\a -> a loc) ann -- Add any API Annotations to the top SrcSpan
        ; tyvars <- checkTyVarsP (ppr new_or_data) equalsDots tc tparams
        ; defn <- mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
-       ; return (L loc (DataDecl { tcdLName = tc, tcdTyVars = tyvars,
+       ; return (L loc (DataDecl { tcdDExt = noExt,
+                                   tcdLName = tc, tcdTyVars = tyvars,
                                    tcdFixity = fixity,
                                    tcdDataDefn = defn,
                                    tcdDataCusk = placeHolder,
@@ -203,7 +207,8 @@ mkDataDefn :: NewOrData
 mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
   = do { checkDatatypeContext mcxt
        ; let cxt = fromMaybe (noLoc []) mcxt
-       ; return (HsDataDefn { dd_ND = new_or_data, dd_cType = cType
+       ; return (HsDataDefn { dd_ext = noExt
+                            , dd_ND = new_or_data, dd_cType = cType
                             , dd_ctxt = cxt
                             , dd_cons = data_cons
                             , dd_kindSig = ksig
@@ -218,7 +223,8 @@ mkTySynonym loc lhs rhs
   = do { (tc, tparams, fixity, ann) <- checkTyClHdr False lhs
        ; mapM_ (\a -> a loc) ann -- Add any API Annotations to the top SrcSpan
        ; tyvars <- checkTyVarsP (text "type") equalsDots tc tparams
-       ; return (L loc (SynDecl { tcdLName = tc, tcdTyVars = tyvars
+       ; return (L loc (SynDecl { tcdSExt = noExt
+                                , tcdLName = tc, tcdTyVars = tyvars
                                 , tcdFixity = fixity
                                 , tcdRhs = rhs, tcdFVs = placeHolderNames })) }
 
@@ -228,7 +234,8 @@ mkTyFamInstEqn :: LHsType GhcPs
 mkTyFamInstEqn lhs rhs
   = do { (tc, tparams, fixity, ann) <- checkTyClHdr False lhs
        ; return (mkHsImplicitBndrs
-                  (FamEqn { feqn_tycon  = tc
+                  (FamEqn { feqn_ext    = noExt
+                          , feqn_tycon  = tc
                           , feqn_pats   = tparams
                           , feqn_fixity = fixity
                           , feqn_rhs    = rhs }),
@@ -246,17 +253,18 @@ mkDataFamInst loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_
   = do { (tc, tparams, fixity, ann) <- checkTyClHdr False tycl_hdr
        ; mapM_ (\a -> a loc) ann -- Add any API Annotations to the top SrcSpan
        ; defn <- mkDataDefn new_or_data cType mcxt ksig data_cons maybe_deriv
-       ; return (L loc (DataFamInstD (DataFamInstDecl (mkHsImplicitBndrs
-                  (FamEqn { feqn_tycon = tc
-                          , feqn_pats = tparams
+       ; return (L loc (DataFamInstD noExt (DataFamInstDecl (mkHsImplicitBndrs
+                  (FamEqn { feqn_ext    = noExt
+                          , feqn_tycon  = tc
+                          , feqn_pats   = tparams
                           , feqn_fixity = fixity
-                          , feqn_rhs = defn }))))) }
+                          , feqn_rhs    = defn }))))) }
 
 mkTyFamInst :: SrcSpan
             -> TyFamInstEqn GhcPs
             -> P (LInstDecl GhcPs)
 mkTyFamInst loc eqn
-  = return (L loc (TyFamInstD (TyFamInstDecl eqn)))
+  = return (L loc (TyFamInstD noExt (TyFamInstDecl eqn)))
 
 mkFamDecl :: SrcSpan
           -> FamilyInfo GhcPs
@@ -268,7 +276,9 @@ mkFamDecl loc info lhs ksig injAnn
   = do { (tc, tparams, fixity, ann) <- checkTyClHdr False lhs
        ; mapM_ (\a -> a loc) ann -- Add any API Annotations to the top SrcSpan
        ; tyvars <- checkTyVarsP (ppr info) equals_or_where tc tparams
-       ; return (L loc (FamDecl (FamilyDecl{ fdInfo      = info, fdLName = tc
+       ; return (L loc (FamDecl noExt (FamilyDecl
+                                           { fdExt       = noExt
+                                           , fdInfo      = info, fdLName = tc
                                            , fdTyVars    = tyvars
                                            , fdFixity    = fixity
                                            , fdResultSig = ksig
@@ -291,13 +301,14 @@ mkSpliceDecl :: LHsExpr GhcPs -> HsDecl GhcPs
 -- as spliced declaration.  See #10945
 mkSpliceDecl lexpr@(L loc expr)
   | HsSpliceE _ splice@(HsUntypedSplice {}) <- expr
-  = SpliceD (SpliceDecl (L loc splice) ExplicitSplice)
+  = SpliceD noExt (SpliceDecl noExt (L loc splice) ExplicitSplice)
 
   | HsSpliceE _ splice@(HsQuasiQuote {}) <- expr
-  = SpliceD (SpliceDecl (L loc splice) ExplicitSplice)
+  = SpliceD noExt (SpliceDecl noExt (L loc splice) ExplicitSplice)
 
   | otherwise
-  = SpliceD (SpliceDecl (L loc (mkUntypedSplice NoParens lexpr)) ImplicitSplice)
+  = SpliceD noExt (SpliceDecl noExt (L loc (mkUntypedSplice NoParens lexpr))
+                              ImplicitSplice)
 
 mkRoleAnnotDecl :: SrcSpan
                 -> Located RdrName                -- type being annotated
@@ -343,10 +354,10 @@ cvTopDecls :: OrdList (LHsDecl GhcPs) -> [LHsDecl GhcPs]
 cvTopDecls decls = go (fromOL decls)
   where
     go :: [LHsDecl GhcPs] -> [LHsDecl GhcPs]
-    go []                   = []
-    go (L l (ValD b) : ds)  = L l' (ValD b') : go ds'
+    go []                     = []
+    go (L l (ValD x b) : ds)  = L l' (ValD x b') : go ds'
                             where (L l' b', ds') = getMonoBind (L l b) ds
-    go (d : ds)             = d : go ds
+    go (d : ds)               = d : go ds
 
 -- Declaration list may only contain value bindings and signatures.
 cvBindGroup :: OrdList (LHsDecl GhcPs) -> P (HsValBinds GhcPs)
@@ -364,7 +375,7 @@ cvBindsAndSigs :: OrdList (LHsDecl GhcPs)
 cvBindsAndSigs fb = go (fromOL fb)
   where
     go []              = return (emptyBag, [], [], [], [], [])
-    go (L l (ValD b) : ds)
+    go (L l (ValD _ b) : ds)
       = do { (bs, ss, ts, tfis, dfis, docs) <- go ds'
            ; return (b' `consBag` bs, ss, ts, tfis, dfis, docs) }
       where
@@ -372,17 +383,17 @@ cvBindsAndSigs fb = go (fromOL fb)
     go (L l decl : ds)
       = do { (bs, ss, ts, tfis, dfis, docs) <- go ds
            ; case decl of
-               SigD s
+               SigD _ s
                  -> return (bs, L l s : ss, ts, tfis, dfis, docs)
-               TyClD (FamDecl t)
+               TyClD _ (FamDecl _ t)
                  -> return (bs, ss, L l t : ts, tfis, dfis, docs)
-               InstD (TyFamInstD { tfid_inst = tfi })
+               InstD _ (TyFamInstD { tfid_inst = tfi })
                  -> return (bs, ss, ts, L l tfi : tfis, dfis, docs)
-               InstD (DataFamInstD { dfid_inst = dfi })
+               InstD _ (DataFamInstD { dfid_inst = dfi })
                  -> return (bs, ss, ts, tfis, L l dfi : dfis, docs)
-               DocD d
+               DocD _ d
                  -> return (bs, ss, ts, tfis, dfis, L l d : docs)
-               SpliceD d
+               SpliceD _ d
                  -> parseErrorSDoc l $
                     hang (text "Declaration splices are allowed only" <+>
                           text "at the top level:")
@@ -414,12 +425,12 @@ getMonoBind (L loc1 (FunBind { fun_id = fun_id1@(L _ f1),
   = go mtchs1 loc1 binds []
   where
     go mtchs loc
-       (L loc2 (ValD (FunBind { fun_id = L _ f2,
-                                fun_matches
-                                  = MG { mg_alts = L _ mtchs2 } })) : binds) _
+       (L loc2 (ValD _ (FunBind { fun_id = L _ f2,
+                                  fun_matches
+                                    = MG { mg_alts = L _ mtchs2 } })) : binds) _
         | f1 == f2 = go (mtchs2 ++ mtchs)
                         (combineSrcSpans loc loc2) binds []
-    go mtchs loc (doc_decl@(L loc2 (DocD _)) : binds) doc_decls
+    go mtchs loc (doc_decl@(L loc2 (DocD {})) : binds) doc_decls
         = let doc_decls' = doc_decl : doc_decls
           in go mtchs (combineSrcSpans loc loc2) binds doc_decls'
     go mtchs loc binds doc_decls
@@ -561,7 +572,7 @@ mkPatSynMatchGroup (L loc patsyn_name) (L _ decls) =
        ; when (null matches) (wrongNumberErr loc)
        ; return $ mkMatchGroup FromSource matches }
   where
-    fromDecl (L loc decl@(ValD (PatBind _
+    fromDecl (L loc decl@(ValD _ (PatBind _
                                    pat@(L _ (ConPatIn ln@(L _ name) details))
                                    rhs _))) =
         do { unless (name == patsyn_name) $
@@ -607,7 +618,8 @@ mkConDeclH98 :: Located RdrName -> Maybe [LHsTyVarBndr GhcPs]
                 -> ConDecl GhcPs
 
 mkConDeclH98 name mb_forall mb_cxt args
-  = ConDeclH98 { con_name   = name
+  = ConDeclH98 { con_ext    = noExt
+               , con_name   = name
                , con_forall = isJust mb_forall
                , con_ex_tvs = mb_forall `orElse` []
                , con_mb_cxt = mb_cxt
@@ -618,7 +630,8 @@ mkGadtDecl :: [Located RdrName]
            -> LHsType GhcPs     -- Always a HsForAllTy
            -> ConDecl GhcPs
 mkGadtDecl names ty
-  = ConDeclGADT { con_names  = names
+  = ConDeclGADT { con_g_ext  = noExt
+                , con_names  = names
                 , con_forall = isLHsForAllTy ty
                 , con_qvars  = mkHsQTvs tvs
                 , con_mb_cxt = mcxt
@@ -1486,8 +1499,9 @@ mkImport cconv safety (L loc (StringLiteral esrc entity), v, ty) =
         funcTarget = CFunction (StaticTarget esrc entity' Nothing True)
         importSpec = CImport cconv safety Nothing funcTarget (L loc esrc)
 
-    returnSpec spec = return $ ForD $ ForeignImport
-          { fd_name   = v
+    returnSpec spec = return $ ForD noExt $ ForeignImport
+          { fd_i_ext  = noExt
+          , fd_name   = v
           , fd_sig_ty = ty
           , fd_co     = noForeignImportCoercionYet
           , fd_fi     = spec
@@ -1559,8 +1573,8 @@ mkExport :: Located CCallConv
          -> (Located StringLiteral, Located RdrName, LHsSigType GhcPs)
          -> P (HsDecl GhcPs)
 mkExport (L lc cconv) (L le (StringLiteral esrc entity), v, ty)
- = return $ ForD $
-   ForeignExport { fd_name = v, fd_sig_ty = ty
+ = return $ ForD noExt $
+   ForeignExport { fd_e_ext = noExt, fd_name = v, fd_sig_ty = ty
                  , fd_co = noForeignExportCoercionYet
                  , fd_fe = CExport (L lc (CExportStatic esrc entity' cconv))
                                    (L le esrc) }

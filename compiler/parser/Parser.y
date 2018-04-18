@@ -1004,48 +1004,48 @@ topdecls_semi :: { OrdList (LHsDecl GhcPs) }
         | {- empty -}                  { nilOL }
 
 topdecl :: { LHsDecl GhcPs }
-        : cl_decl                               { sL1 $1 (TyClD (unLoc $1)) }
-        | ty_decl                               { sL1 $1 (TyClD (unLoc $1)) }
-        | inst_decl                             { sL1 $1 (InstD (unLoc $1)) }
-        | stand_alone_deriving                  { sLL $1 $> (DerivD (unLoc $1)) }
-        | role_annot                            { sL1 $1 (RoleAnnotD (unLoc $1)) }
-        | 'default' '(' comma_types0 ')'    {% ams (sLL $1 $> (DefD (DefaultDecl $3)))
+        : cl_decl                               { sL1 $1 (TyClD noExt (unLoc $1)) }
+        | ty_decl                               { sL1 $1 (TyClD noExt (unLoc $1)) }
+        | inst_decl                             { sL1 $1 (InstD noExt (unLoc $1)) }
+        | stand_alone_deriving                  { sLL $1 $> (DerivD noExt (unLoc $1)) }
+        | role_annot                            { sL1 $1 (RoleAnnotD noExt (unLoc $1)) }
+        | 'default' '(' comma_types0 ')'    {% ams (sLL $1 $> (DefD noExt (DefaultDecl noExt $3)))
                                                          [mj AnnDefault $1
                                                          ,mop $2,mcp $4] }
         | 'foreign' fdecl          {% ams (sLL $1 $> (snd $ unLoc $2))
                                            (mj AnnForeign $1:(fst $ unLoc $2)) }
-        | '{-# DEPRECATED' deprecations '#-}'   {% ams (sLL $1 $> $ WarningD (Warnings (getDEPRECATED_PRAGs $1) (fromOL $2)))
+        | '{-# DEPRECATED' deprecations '#-}'   {% ams (sLL $1 $> $ WarningD noExt (Warnings (getDEPRECATED_PRAGs $1) (fromOL $2)))
                                                        [mo $1,mc $3] }
-        | '{-# WARNING' warnings '#-}'          {% ams (sLL $1 $> $ WarningD (Warnings (getWARNING_PRAGs $1) (fromOL $2)))
+        | '{-# WARNING' warnings '#-}'          {% ams (sLL $1 $> $ WarningD noExt (Warnings (getWARNING_PRAGs $1) (fromOL $2)))
                                                        [mo $1,mc $3] }
-        | '{-# RULES' rules '#-}'               {% ams (sLL $1 $> $ RuleD (HsRules (getRULES_PRAGs $1) (fromOL $2)))
+        | '{-# RULES' rules '#-}'               {% ams (sLL $1 $> $ RuleD noExt (HsRules noExt (getRULES_PRAGs $1) (fromOL $2)))
                                                        [mo $1,mc $3] }
-        | '{-# VECTORISE' qvar '=' exp '#-}' {% ams (sLL $1 $> $ VectD (HsVect (getVECT_PRAGs $1) $2 $4))
+        | '{-# VECTORISE' qvar '=' exp '#-}' {% ams (sLL $1 $> $ VectD noExt (HsVect (getVECT_PRAGs $1) $2 $4))
                                                     [mo $1,mj AnnEqual $3
                                                     ,mc $5] }
-        | '{-# NOVECTORISE' qvar '#-}'       {% ams (sLL $1 $> $ VectD (HsNoVect (getNOVECT_PRAGs $1) $2))
+        | '{-# NOVECTORISE' qvar '#-}'       {% ams (sLL $1 $> $ VectD noExt (HsNoVect (getNOVECT_PRAGs $1) $2))
                                                      [mo $1,mc $3] }
         | '{-# VECTORISE' 'type' gtycon '#-}'
                                 {% ams (sLL $1 $> $
-                                    VectD (HsVectTypeIn (getVECT_PRAGs $1) False $3 Nothing))
+                                    VectD noExt (HsVectTypeIn (getVECT_PRAGs $1) False $3 Nothing))
                                     [mo $1,mj AnnType $2,mc $4] }
 
         | '{-# VECTORISE_SCALAR' 'type' gtycon '#-}'
                                 {% ams (sLL $1 $> $
-                                    VectD (HsVectTypeIn (getVECT_SCALAR_PRAGs $1) True $3 Nothing))
+                                    VectD noExt (HsVectTypeIn (getVECT_SCALAR_PRAGs $1) True $3 Nothing))
                                     [mo $1,mj AnnType $2,mc $4] }
 
         | '{-# VECTORISE' 'type' gtycon '=' gtycon '#-}'
                                 {% ams (sLL $1 $> $
-                                    VectD (HsVectTypeIn (getVECT_PRAGs $1) False $3 (Just $5)))
+                                    VectD noExt (HsVectTypeIn (getVECT_PRAGs $1) False $3 (Just $5)))
                                     [mo $1,mj AnnType $2,mj AnnEqual $4,mc $6] }
         | '{-# VECTORISE_SCALAR' 'type' gtycon '=' gtycon '#-}'
                                 {% ams (sLL $1 $> $
-                                    VectD (HsVectTypeIn (getVECT_SCALAR_PRAGs $1) True $3 (Just $5)))
+                                    VectD noExt (HsVectTypeIn (getVECT_SCALAR_PRAGs $1) True $3 (Just $5)))
                                     [mo $1,mj AnnType $2,mj AnnEqual $4,mc $6] }
 
         | '{-# VECTORISE' 'class' gtycon '#-}'
-                                         {% ams (sLL $1 $>  $ VectD (HsVectClassIn (getVECT_PRAGs $1) $3))
+                                         {% ams (sLL $1 $>  $ VectD noExt (HsVectClassIn (getVECT_PRAGs $1) $3))
                                                  [mo $1,mj AnnClass $2,mc $4] }
         | annotation { $1 }
         | decl_no_th                            { $1 }
@@ -1326,22 +1326,22 @@ opt_kind_sig :: { Located ([AddAnn], Maybe (LHsKind GhcPs)) }
         | '::' kind     { sLL $1 $> ([mu AnnDcolon $1], Just $2) }
 
 opt_datafam_kind_sig :: { Located ([AddAnn], LFamilyResultSig GhcPs) }
-        :               { noLoc     ([]               , noLoc NoSig           )}
-        | '::' kind     { sLL $1 $> ([mu AnnDcolon $1], sLL $1 $> (KindSig $2))}
+        :               { noLoc     ([]               , noLoc (NoSig noExt)         )}
+        | '::' kind     { sLL $1 $> ([mu AnnDcolon $1], sLL $1 $> (KindSig noExt $2))}
 
 opt_tyfam_kind_sig :: { Located ([AddAnn], LFamilyResultSig GhcPs) }
-        :              { noLoc     ([]               , noLoc      NoSig       )}
-        | '::' kind    { sLL $1 $> ([mu AnnDcolon $1], sLL $1 $> (KindSig  $2))}
-        | '='  tv_bndr { sLL $1 $> ([mj AnnEqual $1] , sLL $1 $> (TyVarSig $2))}
+        :              { noLoc     ([]               , noLoc     (NoSig    noExt)   )}
+        | '::' kind    { sLL $1 $> ([mu AnnDcolon $1], sLL $1 $> (KindSig  noExt $2))}
+        | '='  tv_bndr { sLL $1 $> ([mj AnnEqual $1] , sLL $1 $> (TyVarSig noExt $2))}
 
 opt_at_kind_inj_sig :: { Located ([AddAnn], ( LFamilyResultSig GhcPs
                                             , Maybe (LInjectivityAnn GhcPs)))}
-        :            { noLoc ([], (noLoc NoSig, Nothing)) }
+        :            { noLoc ([], (noLoc (NoSig noExt), Nothing)) }
         | '::' kind  { sLL $1 $> ( [mu AnnDcolon $1]
-                                 , (sLL $2 $> (KindSig $2), Nothing)) }
+                                 , (sLL $2 $> (KindSig noExt $2), Nothing)) }
         | '='  tv_bndr '|' injectivity_cond
                 { sLL $1 $> ([mj AnnEqual $1, mj AnnVbar $3]
-                            , (sLL $1 $2 (TyVarSig $2), Just $4))}
+                            , (sLL $1 $2 (TyVarSig noExt $2), Just $4))}
 
 -- tycl_hdr parses the header of a class or data type decl,
 -- which takes the form
@@ -1377,7 +1377,7 @@ stand_alone_deriving :: { LDerivDecl GhcPs }
                 {% do { let { err = text "in the stand-alone deriving instance"
                                     <> colon <+> quotes (ppr $5) }
                       ; ams (sLL $1 (hsSigType $>)
-                                 (DerivDecl (mkHsWildCardBndrs $5) $2 $4))
+                                 (DerivDecl noExt (mkHsWildCardBndrs $5) $2 $4))
                             [mj AnnDeriving $1, mj AnnInstance $3] } }
 
 -----------------------------------------------------------------------------
@@ -1408,20 +1408,20 @@ role : VARID             { sL1 $1 $ Just $ getVARID $1 }
 pattern_synonym_decl :: { LHsDecl GhcPs }
         : 'pattern' pattern_synonym_lhs '=' pat
          {%      let (name, args,as ) = $2 in
-                 ams (sLL $1 $> . ValD $ mkPatSynBind name args $4
+                 ams (sLL $1 $> . ValD noExt $ mkPatSynBind name args $4
                                                     ImplicitBidirectional)
                (as ++ [mj AnnPattern $1, mj AnnEqual $3])
          }
 
         | 'pattern' pattern_synonym_lhs '<-' pat
          {%    let (name, args, as) = $2 in
-               ams (sLL $1 $> . ValD $ mkPatSynBind name args $4 Unidirectional)
+               ams (sLL $1 $> . ValD noExt $ mkPatSynBind name args $4 Unidirectional)
                (as ++ [mj AnnPattern $1,mu AnnLarrow $3]) }
 
         | 'pattern' pattern_synonym_lhs '<-' pat where_decls
             {% do { let (name, args, as) = $2
                   ; mg <- mkPatSynMatchGroup name (snd $ unLoc $5)
-                  ; ams (sLL $1 $> . ValD $
+                  ; ams (sLL $1 $> . ValD noExt $
                            mkPatSynBind name args $4 (ExplicitBidirectional mg))
                        (as ++ ((mj AnnPattern $1:mu AnnLarrow $3:(fst $ unLoc $5))) )
                    }}
@@ -1466,7 +1466,7 @@ decl_cls  : at_decl_cls                 { $1 }
                     {% do { v <- checkValSigLhs $2
                           ; let err = text "in default signature" <> colon <+>
                                       quotes (ppr $2)
-                          ; ams (sLL $1 $> $ SigD $ ClassOpSig noExt True [v] $ mkLHsSigType $4)
+                          ; ams (sLL $1 $> $ SigD noExt $ ClassOpSig noExt True [v] $ mkLHsSigType $4)
                                 [mj AnnDefault $1,mu AnnDcolon $3] } }
 
 decls_cls :: { Located ([AddAnn],OrdList (LHsDecl GhcPs)) }  -- Reversed
@@ -1504,7 +1504,7 @@ where_cls :: { Located ([AddAnn]
 -- Declarations in instance bodies
 --
 decl_inst  :: { Located (OrdList (LHsDecl GhcPs)) }
-decl_inst  : at_decl_inst               { sLL $1 $> (unitOL (sL1 $1 (InstD (unLoc $1)))) }
+decl_inst  : at_decl_inst               { sLL $1 $> (unitOL (sL1 $1 (InstD noExt (unLoc $1)))) }
            | decl                       { sLL $1 $> (unitOL $1) }
 
 decls_inst :: { Located ([AddAnn],OrdList (LHsDecl GhcPs)) }   -- Reversed
@@ -1602,7 +1602,7 @@ rules   :: { OrdList (LRuleDecl GhcPs) }
 
 rule    :: { LRuleDecl GhcPs }
         : STRING rule_activation rule_forall infixexp '=' exp
-         {%ams (sLL $1 $> $ (HsRule (L (gl $1) (getSTRINGs $1,getSTRING $1))
+         {%ams (sLL $1 $> $ (HsRule noExt (L (gl $1) (getSTRINGs $1,getSTRING $1))
                                   ((snd $2) `orElse` AlwaysActive)
                                   (snd $3) $4 placeHolderNames $6
                                   placeHolderNames))
@@ -1631,8 +1631,8 @@ rule_var_list :: { [LRuleBndr GhcPs] }
         | rule_var rule_var_list                { $1 : $2 }
 
 rule_var :: { LRuleBndr GhcPs }
-        : varid                         { sLL $1 $> (RuleBndr $1) }
-        | '(' varid '::' ctype ')'      {% ams (sLL $1 $> (RuleBndrSig $2
+        : varid                         { sLL $1 $> (RuleBndr noExt $1) }
+        | '(' varid '::' ctype ')'      {% ams (sLL $1 $> (RuleBndrSig noExt $2
                                                        (mkLHsSigWcType $4)))
                                                [mop $1,mu AnnDcolon $3,mcp $5] }
 
@@ -1682,17 +1682,17 @@ stringlist :: { Located (OrdList (Located StringLiteral)) }
 -----------------------------------------------------------------------------
 -- Annotations
 annotation :: { LHsDecl GhcPs }
-    : '{-# ANN' name_var aexp '#-}'      {% ams (sLL $1 $> (AnnD $ HsAnnotation
+    : '{-# ANN' name_var aexp '#-}'      {% ams (sLL $1 $> (AnnD noExt $ HsAnnotation
                                             (getANN_PRAGs $1)
                                             (ValueAnnProvenance $2) $3))
                                             [mo $1,mc $4] }
 
-    | '{-# ANN' 'type' tycon aexp '#-}'  {% ams (sLL $1 $> (AnnD $ HsAnnotation
+    | '{-# ANN' 'type' tycon aexp '#-}'  {% ams (sLL $1 $> (AnnD noExt $ HsAnnotation
                                             (getANN_PRAGs $1)
                                             (TypeAnnProvenance $3) $4))
                                             [mo $1,mj AnnType $2,mc $5] }
 
-    | '{-# ANN' 'module' aexp '#-}'      {% ams (sLL $1 $> (AnnD $ HsAnnotation
+    | '{-# ANN' 'module' aexp '#-}'      {% ams (sLL $1 $> (AnnD noExt $ HsAnnotation
                                                 (getANN_PRAGs $1)
                                                  ModuleAnnProvenance $3))
                                                 [mo $1,mj AnnModule $2,mc $4] }
@@ -2218,18 +2218,18 @@ derivings :: { HsDeriving GhcPs }
 deriving :: { LHsDerivingClause GhcPs }
         : 'deriving' deriv_strategy qtycondoc
               {% let { full_loc = comb2 $1 $> }
-                 in ams (L full_loc $ HsDerivingClause $2 $ L full_loc
+                 in ams (L full_loc $ HsDerivingClause noExt $2 $ L full_loc
                             [mkLHsSigType $3])
                         [mj AnnDeriving $1] }
 
         | 'deriving' deriv_strategy '(' ')'
               {% let { full_loc = comb2 $1 $> }
-                 in ams (L full_loc $ HsDerivingClause $2 $ L full_loc [])
+                 in ams (L full_loc $ HsDerivingClause noExt $2 $ L full_loc [])
                         [mj AnnDeriving $1,mop $3,mcp $4] }
 
         | 'deriving' deriv_strategy '(' deriv_types ')'
               {% let { full_loc = comb2 $1 $> }
-                 in ams (L full_loc $ HsDerivingClause $2 $ L full_loc $4)
+                 in ams (L full_loc $ HsDerivingClause noExt $2 $ L full_loc $4)
                         [mj AnnDeriving $1,mop $3,mcp $5] }
              -- Glasgow extension: allow partial
              -- applications in derivings
@@ -2260,7 +2260,7 @@ There's an awkward overlap with a type signature.  Consider
 -}
 
 docdecl :: { LHsDecl GhcPs }
-        : docdecld { sL1 $1 (DocD (unLoc $1)) }
+        : docdecld { sL1 $1 (DocD noExt (unLoc $1)) }
 
 docdecld :: { LDocDecl }
         : docnext                               { sL1 $1 (DocCommentNext (unLoc $1)) }
@@ -2285,7 +2285,7 @@ decl_no_th :: { LHsDecl GhcPs }
                                                 ams (L lh ()) [] >> return () } ;
 
                                         _ <- ams (L l ()) (ann ++ fst (unLoc $3) ++ [mj AnnBang $1]) ;
-                                        return $! (sL l $ ValD r) } }
+                                        return $! (sL l $ ValD noExt r) } }
 
         | infixexp_top opt_sig rhs  {% do { (ann,r) <- checkValDef empty NoSrcStrict $1 (snd $2) $3;
                                         let { l = comb2 $1 $> };
@@ -2298,7 +2298,7 @@ decl_no_th :: { LHsDecl GhcPs }
                                           (PatBind _ (L lh _lhs) _rhs _) ->
                                                 ams (L lh ()) (fst $2) >> return () } ;
                                         _ <- ams (L l ()) (ann ++ (fst $ unLoc $3));
-                                        return $! (sL l $ ValD r) } }
+                                        return $! (sL l $ ValD noExt r) } }
         | pattern_synonym_decl  { $1 }
         | docdecl               { $1 }
 
@@ -2333,69 +2333,69 @@ sigdecl :: { LHsDecl GhcPs }
           infixexp_top '::' sigtypedoc
                         {% do v <- checkValSigLhs $1
                         ; _ <- ams (sLL $1 $> ()) [mu AnnDcolon $2]
-                        ; return (sLL $1 $> $ SigD $
+                        ; return (sLL $1 $> $ SigD noExt $
                                   TypeSig noExt [v] (mkLHsSigWcType $3)) }
 
         | var ',' sig_vars '::' sigtypedoc
            {% do { let sig = TypeSig noExt ($1 : reverse (unLoc $3))
                                      (mkLHsSigWcType $5)
                  ; addAnnotation (gl $1) AnnComma (gl $2)
-                 ; ams ( sLL $1 $> $ SigD sig )
+                 ; ams ( sLL $1 $> $ SigD noExt sig )
                        [mu AnnDcolon $4] } }
 
         | infix prec ops
-              {% ams (sLL $1 $> $ SigD
+              {% ams (sLL $1 $> $ SigD noExt
                         (FixSig noExt (FixitySig noExt (fromOL $ unLoc $3)
                                 (Fixity (fst $ unLoc $2) (snd $ unLoc $2) (unLoc $1)))))
                      [mj AnnInfix $1,mj AnnVal $2] }
 
-        | pattern_synonym_sig   { sLL $1 $> . SigD . unLoc $ $1 }
+        | pattern_synonym_sig   { sLL $1 $> . SigD noExt . unLoc $ $1 }
 
         | '{-# COMPLETE' con_list opt_tyconsig  '#-}'
                 {% let (dcolon, tc) = $3
                    in ams
                        (sLL $1 $>
-                         (SigD (CompleteMatchSig noExt (getCOMPLETE_PRAGs $1) $2 tc)))
+                         (SigD noExt (CompleteMatchSig noExt (getCOMPLETE_PRAGs $1) $2 tc)))
                     ([ mo $1 ] ++ dcolon ++ [mc $4]) }
 
         -- This rule is for both INLINE and INLINABLE pragmas
         | '{-# INLINE' activation qvar '#-}'
-                {% ams ((sLL $1 $> $ SigD (InlineSig noExt $3
+                {% ams ((sLL $1 $> $ SigD noExt (InlineSig noExt $3
                             (mkInlinePragma (getINLINE_PRAGs $1) (getINLINE $1)
                                             (snd $2)))))
                        ((mo $1:fst $2) ++ [mc $4]) }
 
         | '{-# SCC' qvar '#-}'
-          {% ams (sLL $1 $> (SigD (SCCFunSig noExt (getSCC_PRAGs $1) $2 Nothing)))
+          {% ams (sLL $1 $> (SigD noExt (SCCFunSig noExt (getSCC_PRAGs $1) $2 Nothing)))
                  [mo $1, mc $3] }
 
         | '{-# SCC' qvar STRING '#-}'
           {% do { scc <- getSCC $3
                 ; let str_lit = StringLiteral (getSTRINGs $3) scc
-                ; ams (sLL $1 $> (SigD (SCCFunSig noExt (getSCC_PRAGs $1) $2 (Just ( sL1 $3 str_lit)))))
+                ; ams (sLL $1 $> (SigD noExt (SCCFunSig noExt (getSCC_PRAGs $1) $2 (Just ( sL1 $3 str_lit)))))
                       [mo $1, mc $4] } }
 
         | '{-# SPECIALISE' activation qvar '::' sigtypes1 '#-}'
              {% ams (
                  let inl_prag = mkInlinePragma (getSPEC_PRAGs $1)
                                              (NoUserInline, FunLike) (snd $2)
-                  in sLL $1 $> $ SigD (SpecSig noExt $3 (fromOL $5) inl_prag))
+                  in sLL $1 $> $ SigD noExt (SpecSig noExt $3 (fromOL $5) inl_prag))
                     (mo $1:mu AnnDcolon $4:mc $6:(fst $2)) }
 
         | '{-# SPECIALISE_INLINE' activation qvar '::' sigtypes1 '#-}'
-             {% ams (sLL $1 $> $ SigD (SpecSig noExt $3 (fromOL $5)
+             {% ams (sLL $1 $> $ SigD noExt (SpecSig noExt $3 (fromOL $5)
                                (mkInlinePragma (getSPEC_INLINE_PRAGs $1)
                                                (getSPEC_INLINE $1) (snd $2))))
                        (mo $1:mu AnnDcolon $4:mc $6:(fst $2)) }
 
         | '{-# SPECIALISE' 'instance' inst_type '#-}'
                 {% ams (sLL $1 $>
-                                  $ SigD (SpecInstSig noExt (getSPEC_PRAGs $1) $3))
+                                  $ SigD noExt (SpecInstSig noExt (getSPEC_PRAGs $1) $3))
                        [mo $1,mj AnnInstance $2,mc $4] }
 
         -- A minimal complete definition
         | '{-# MINIMAL' name_boolformula_opt '#-}'
-            {% ams (sLL $1 $> $ SigD (MinimalSig noExt (getMINIMAL_PRAGs $1) $2))
+            {% ams (sLL $1 $> $ SigD noExt (MinimalSig noExt (getMINIMAL_PRAGs $1) $2))
                    [mo $1,mc $3] }
 
 activation :: { ([AddAnn],Maybe Activation) }

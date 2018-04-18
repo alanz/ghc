@@ -1734,8 +1734,8 @@ rmDupsInRdrTyVars (FKTV kis tys)
 
 extractRdrKindSigVars :: LFamilyResultSig GhcPs -> RnM [Located RdrName]
 extractRdrKindSigVars (L _ resultSig)
-    | KindSig k                        <- resultSig = kindRdrNameFromSig k
-    | TyVarSig (L _ (KindedTyVar _ _ k)) <- resultSig = kindRdrNameFromSig k
+    | KindSig _ k                          <- resultSig = kindRdrNameFromSig k
+    | TyVarSig _ (L _ (KindedTyVar _ _ k)) <- resultSig = kindRdrNameFromSig k
     | otherwise = return []
     where kindRdrNameFromSig k = freeKiTyVarsAllVars <$> extractHsTyRdrTyVars k
 
@@ -1766,6 +1766,8 @@ extractDataDefnKindVars (HsDataDefn { dd_ctxt = ctxt, dd_kindSig = ksig
       = extract_hs_tv_bndrs ex_tvs acc =<<
         extract_mlctxt ctxt =<<
         extract_ltys TypeLevel (hsConDeclArgTys args) emptyFKTV
+    extract_con (XConDecl { }) _ = panic "extractDataDefnKindVars"
+extractDataDefnKindVars (XHsDataDefn _) = panic "extractDataDefnKindVars"
 
 extract_mlctxt :: Maybe (LHsContext GhcPs)
                -> FreeKiTyVarsWithDups -> RnM FreeKiTyVarsWithDups

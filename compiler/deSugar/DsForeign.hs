@@ -110,6 +110,7 @@ dsForeigns' fos = do
                           , fd_fe = CExport (L _ (CExportStatic _ ext_nm cconv)) _ }) = do
       (h, c, _, _) <- dsFExport id co ext_nm cconv False
       return (h, c, [id], [])
+   do_decl (XForeignDecl _) = panic "dsForeigns'"
 
 {-
 ************************************************************************

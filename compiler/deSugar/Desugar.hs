@@ -374,9 +374,9 @@ Reason
 -}
 
 dsRule :: LRuleDecl GhcTc -> DsM (Maybe CoreRule)
-dsRule (L loc (HsRule name rule_act vars lhs _tv_lhs rhs _fv_rhs))
+dsRule (L loc (HsRule _ name rule_act vars lhs _tv_lhs rhs _fv_rhs))
   = putSrcSpanDs loc $
-    do  { let bndrs' = [var | L _ (RuleBndr (L _ var)) <- vars]
+    do  { let bndrs' = [var | L _ (RuleBndr _ (L _ var)) <- vars]
 
         ; lhs' <- unsetGOptM Opt_EnableRewriteRules $
                   unsetWOptM Opt_WarnIdentities $
@@ -413,6 +413,7 @@ dsRule (L loc (HsRule name rule_act vars lhs _tv_lhs rhs _fv_rhs))
 
         ; return (Just rule)
         } } }
+dsRule (L _ (XRuleDecl _)) = panic "dsRule"
 
 
 warnRuleShadowing :: RuleName -> Activation -> Id -> [Id] -> DsM ()

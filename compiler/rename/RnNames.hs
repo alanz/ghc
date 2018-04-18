@@ -723,10 +723,10 @@ getLocalNonValBinders fixity_env
     new_assoc _ (L _ (TyFamInstD {})) = return ([], [])
       -- type instances don't bind new names
 
-    new_assoc overload_ok (L _ (DataFamInstD d))
+    new_assoc overload_ok (L _ (DataFamInstD _ d))
       = do { (avail, flds) <- new_di overload_ok Nothing d
            ; return ([avail], flds) }
-    new_assoc overload_ok (L _ (ClsInstD (ClsInstDecl { cid_poly_ty = inst_ty
+    new_assoc overload_ok (L _ (ClsInstD _ (ClsInstDecl { cid_poly_ty = inst_ty
                                                       , cid_datafam_insts = adts })))
       | Just (L loc cls_rdr) <- getLHsInstDeclClass_maybe inst_ty
       = do { cls_nm <- setSrcSpan loc $ lookupGlobalOccRn cls_rdr
@@ -736,6 +736,8 @@ getLocalNonValBinders fixity_env
       | otherwise
       = return ([], [])    -- Do not crash on ill-formed instances
                            -- Eg   instance !Show Int   Trac #3811c
+    new_assoc _ (L _ (ClsInstD _ (XClsInstDecl _))) = panic "new_assoc"
+    new_assoc _ (L _ (XInstDecl _))                 = panic "new_assoc"
 
     new_di :: Bool -> Maybe Name -> DataFamInstDecl GhcPs
                    -> RnM (AvailInfo, [(Name, [FieldLabel])])
@@ -753,6 +755,7 @@ getLocalNonValBinders fixity_env
     new_loc_di :: Bool -> Maybe Name -> LDataFamInstDecl GhcPs
                    -> RnM (AvailInfo, [(Name, [FieldLabel])])
     new_loc_di overload_ok mb_cls (L _ d) = new_di overload_ok mb_cls d
+getLocalNonValBinders _ (XHsGroup _) = panic "getLocalNonValBinders"
 
 newRecordSelector :: Bool -> [Name] -> LFieldOcc GhcPs -> RnM FieldLabel
 newRecordSelector _ [] _ = error "newRecordSelector: datatype has no constructors!"
