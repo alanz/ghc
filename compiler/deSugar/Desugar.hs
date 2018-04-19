@@ -554,26 +554,28 @@ subsequent transformations could fire.
 -}
 
 dsVect :: LVectDecl GhcTc -> DsM CoreVect
-dsVect (L loc (HsVect _ (L _ v) rhs))
+dsVect (L loc (HsVect _ _ (L _ v) rhs))
   = putSrcSpanDs loc $
     do { rhs' <- dsLExpr rhs
        ; return $ Vect v rhs'
        }
-dsVect (L _loc (HsNoVect _ (L _ v)))
+dsVect (L _loc (HsNoVect _ _ (L _ v)))
   = return $ NoVect v
-dsVect (L _loc (HsVectTypeOut isScalar tycon rhs_tycon))
+dsVect (L _loc (HsVectTypeOut _ isScalar tycon rhs_tycon))
   = return $ VectType isScalar tycon' rhs_tycon
   where
     tycon' | Just ty <- coreView $ mkTyConTy tycon
            , (tycon', []) <- splitTyConApp ty      = tycon'
            | otherwise                             = tycon
-dsVect vd@(L _ (HsVectTypeIn _ _ _ _))
+dsVect vd@(L _ (HsVectTypeIn {}))
   = pprPanic "Desugar.dsVect: unexpected 'HsVectTypeIn'" (ppr vd)
-dsVect (L _loc (HsVectClassOut cls))
+dsVect (L _loc (HsVectClassOut _ cls))
   = return $ VectClass (classTyCon cls)
-dsVect vc@(L _ (HsVectClassIn _ _))
+dsVect vc@(L _ (HsVectClassIn {}))
   = pprPanic "Desugar.dsVect: unexpected 'HsVectClassIn'" (ppr vc)
-dsVect (L _loc (HsVectInstOut inst))
+dsVect (L _loc (HsVectInstOut _ inst))
   = return $ VectInst (instanceDFunId inst)
-dsVect vi@(L _ (HsVectInstIn _))
+dsVect vi@(L _ (HsVectInstIn {}))
   = pprPanic "Desugar.dsVect: unexpected 'HsVectInstIn'" (ppr vi)
+dsVect vd@(L _ (XVectDecl {}))
+  = pprPanic "Desugar.dsVect: unexpected 'XVectDecl'" (ppr vd)

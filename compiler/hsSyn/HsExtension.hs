@@ -452,7 +452,71 @@ type ForallXRuleBndr (c :: * -> Constraint) (x :: *) =
        , c (XRuleBndrSig     x)
        , c (XXRuleBndr       x)
        )
--- TODO
+
+-- -------------------------------------
+-- RuleBndr type families
+type family XHsVect          x
+type family XHsNoVect        x
+type family XHsVectTypeIn    x
+type family XHsVectTypeOut   x
+type family XHsVectClassIn   x
+type family XHsVectClassOut  x
+type family XHsVectInstIn    x
+type family XHsVectInstOut   x
+type family XXVectDecl       x
+
+type ForallXVectDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XHsVect          x)
+       , c (XHsNoVect        x)
+       , c (XHsVectTypeIn    x)
+       , c (XHsVectTypeOut   x)
+       , c (XHsVectClassIn   x)
+       , c (XHsVectClassOut  x)
+       , c (XHsVectInstIn    x)
+       , c (XHsVectInstOut   x)
+       , c (XXVectDecl       x)
+       , c (XXVectDecl       x)
+       )
+
+-- -------------------------------------
+-- WarnDecls type families
+type family XWarnings        x
+type family XXWarnDecls      x
+
+type ForallXWarnDecls (c :: * -> Constraint) (x :: *) =
+       ( c (XWarnings        x)
+       , c (XXWarnDecls      x)
+       )
+
+-- -------------------------------------
+-- AnnDecl type families
+type family XWarning        x
+type family XXWarnDecl      x
+
+type ForallXWarnDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XWarning        x)
+       , c (XXWarnDecl      x)
+       )
+
+-- -------------------------------------
+-- AnnDecl type families
+type family XHsAnnotation  x
+type family XXAnnDecl      x
+
+type ForallXAnnDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XHsAnnotation  x)
+       , c (XXAnnDecl      x)
+       )
+
+-- -------------------------------------
+-- RoleAnnotDecl type families
+type family XCRoleAnnotDecl  x
+type family XXRoleAnnotDecl  x
+
+type ForallXRoleAnnotDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XCRoleAnnotDecl  x)
+       , c (XXRoleAnnotDecl  x)
+       )
 
 -- =====================================================================
 -- Type families for the HsExpr extension points

@@ -174,9 +174,10 @@ repTopDs group@(HsGroup { hs_valds   = valds
       = notHandledL loc "Splices within declaration brackets" empty
     no_default_decl (L loc decl)
       = notHandledL loc "Default declarations" (ppr decl)
-    no_warn (L loc (Warning thing _))
+    no_warn (L loc (Warning _ thing _))
       = notHandledL loc "WARNING and DEPRECATION pragmas" $
                     text "Pragma for declaration of" <+> ppr thing
+    no_warn (L _ (XWarnDecl _)) = panic "repTopDs"
     no_vect (L loc decl)
       = notHandledL loc "Vectorisation pragmas" (ppr decl)
     no_doc (L loc _)
@@ -339,12 +340,13 @@ repTyClD (L _ (XTyClDecl _)) = panic "repTyClD"
 
 -------------------------
 repRoleD :: LRoleAnnotDecl GhcRn -> DsM (SrcSpan, Core TH.DecQ)
-repRoleD (L loc (RoleAnnotDecl tycon roles))
+repRoleD (L loc (RoleAnnotDecl _ tycon roles))
   = do { tycon1 <- lookupLOcc tycon
        ; roles1 <- mapM repRole roles
        ; roles2 <- coreList roleTyConName roles1
        ; dec <- repRoleAnnotD tycon1 roles2
        ; return (loc, dec) }
+repRoleD (L _ (XRoleAnnotDecl _)) = panic "repRoleD"
 
 -------------------------
 repDataDefn :: Core TH.Name -> Core [TH.TyVarBndrQ]
@@ -661,11 +663,12 @@ repRuleBndr (L _ (RuleBndrSig _ n sig))
 repRuleBndr (L _ (XRuleBndr _)) = panic "repRuleBndr"
 
 repAnnD :: LAnnDecl GhcRn -> DsM (SrcSpan, Core TH.DecQ)
-repAnnD (L loc (HsAnnotation _ ann_prov (L _ exp)))
+repAnnD (L loc (HsAnnotation _ _ ann_prov (L _ exp)))
   = do { target <- repAnnProv ann_prov
        ; exp'   <- repE exp
        ; dec    <- repPragAnn target exp'
        ; return (loc, dec) }
+repAnnD (L _ (XAnnDecl _)) = panic "repAnnD"
 
 repAnnProv :: AnnProvenance Name -> DsM (Core TH.AnnTarget)
 repAnnProv (ValueAnnProvenance (L _ n))
@@ -720,7 +723,7 @@ repC (L _ (ConDeclGADT { con_names = cons
          else rep2 forallCName ([unC ex_bndrs, unC ctxt', unC c']) }
 
 repC (L _ (XConDecl _)) = panic "repC"
-                      
+
 
 repMbContext :: Maybe (LHsContext GhcRn) -> DsM (Core TH.CxtQ)
 repMbContext Nothing          = repContext []

@@ -296,15 +296,16 @@ rnSrcWarnDecls bndr_set decls'
 
    sig_ctxt = TopSigCtxt bndr_set
 
-   rn_deprec (Warning rdr_names txt)
+   rn_deprec (Warning _ rdr_names txt)
        -- ensures that the names are defined locally
      = do { names <- concatMapM (lookupLocalTcNames sig_ctxt what . unLoc)
                                 rdr_names
           ; return [(rdrNameOcc rdr, txt) | (rdr, _) <- names] }
+   rn_deprec (XWarnDecl _) = panic "rnSrcWarnDecls"
 
    what = text "deprecation"
 
-   warn_rdr_dups = findDupRdrNames $ concatMap (\(L _ (Warning ns _)) -> ns)
+   warn_rdr_dups = findDupRdrNames $ concatMap (\(L _ (Warning _ ns _)) -> ns)
                                                decls
 
 findDupRdrNames :: [Located RdrName] -> [NonEmpty (Located RdrName)]
@@ -329,13 +330,14 @@ dupWarnDecl (L loc _) rdr_name
 -}
 
 rnAnnDecl :: AnnDecl GhcPs -> RnM (AnnDecl GhcRn, FreeVars)
-rnAnnDecl ann@(HsAnnotation s provenance expr)
+rnAnnDecl ann@(HsAnnotation _ s provenance expr)
   = addErrCtxt (annCtxt ann) $
     do { (provenance', provenance_fvs) <- rnAnnProvenance provenance
        ; (expr', expr_fvs) <- setStage (Splice Untyped) $
                               rnLExpr expr
-       ; return (HsAnnotation s provenance' expr',
+       ; return (HsAnnotation noExt s provenance' expr',
                  provenance_fvs `plusFV` expr_fvs) }
+rnAnnDecl (XAnnDecl _) = panic "rnAnnDecl"
 
 rnAnnProvenance :: AnnProvenance RdrName
                 -> RnM (AnnProvenance Name, FreeVars)
@@ -1114,44 +1116,47 @@ badRuleLhsErr name lhs bad_e
 rnHsVectDecl :: VectDecl GhcPs -> RnM (VectDecl GhcRn, FreeVars)
 -- FIXME: For the moment, the right-hand side is restricted to be a variable as we cannot properly
 --        typecheck a complex right-hand side without invoking 'vectType' from the vectoriser.
-rnHsVectDecl (HsVect s var rhs@(L _ (HsVar _ _)))
+rnHsVectDecl (HsVect _ s var rhs@(L _ (HsVar _ _)))
   = do { var' <- lookupLocatedOccRn var
        ; (rhs', fv_rhs) <- rnLExpr rhs
-       ; return (HsVect s var' rhs', fv_rhs `addOneFV` unLoc var')
+       ; return (HsVect noExt s var' rhs', fv_rhs `addOneFV` unLoc var')
        }
-rnHsVectDecl (HsVect _ _var _rhs)
+rnHsVectDecl (HsVect _ _ _var _rhs)
   = failWith $ vcat
                [ text "IMPLEMENTATION RESTRICTION: right-hand side of a VECTORISE pragma"
                , text "must be an identifier"
                ]
-rnHsVectDecl (HsNoVect s var)
+rnHsVectDecl (HsNoVect _ s var)
   = do { var' <- lookupLocatedTopBndrRn var           -- only applies to local (not imported) names
-       ; return (HsNoVect s var', unitFV (unLoc var'))
+       ; return (HsNoVect noExt s var', unitFV (unLoc var'))
        }
-rnHsVectDecl (HsVectTypeIn s isScalar tycon Nothing)
+rnHsVectDecl (HsVectTypeIn _ s isScalar tycon Nothing)
   = do { tycon' <- lookupLocatedOccRn tycon
-       ; return (HsVectTypeIn s isScalar tycon' Nothing, unitFV (unLoc tycon'))
+       ; return ( HsVectTypeIn noExt s isScalar tycon' Nothing
+                , unitFV (unLoc tycon'))
        }
-rnHsVectDecl (HsVectTypeIn s isScalar tycon (Just rhs_tycon))
+rnHsVectDecl (HsVectTypeIn _ s isScalar tycon (Just rhs_tycon))
   = do { tycon'     <- lookupLocatedOccRn tycon
        ; rhs_tycon' <- lookupLocatedOccRn rhs_tycon
-       ; return ( HsVectTypeIn s isScalar tycon' (Just rhs_tycon')
+       ; return ( HsVectTypeIn noExt s isScalar tycon' (Just rhs_tycon')
                 , mkFVs [unLoc tycon', unLoc rhs_tycon'])
        }
-rnHsVectDecl (HsVectTypeOut _ _ _)
+rnHsVectDecl (HsVectTypeOut {})
   = panic "RnSource.rnHsVectDecl: Unexpected 'HsVectTypeOut'"
-rnHsVectDecl (HsVectClassIn s cls)
+rnHsVectDecl (HsVectClassIn _ s cls)
   = do { cls' <- lookupLocatedOccRn cls
-       ; return (HsVectClassIn s cls', unitFV (unLoc cls'))
+       ; return (HsVectClassIn noExt s cls', unitFV (unLoc cls'))
        }
-rnHsVectDecl (HsVectClassOut _)
+rnHsVectDecl (HsVectClassOut {})
   = panic "RnSource.rnHsVectDecl: Unexpected 'HsVectClassOut'"
-rnHsVectDecl (HsVectInstIn instTy)
+rnHsVectDecl (HsVectInstIn _ instTy)
   = do { (instTy', fvs) <- rnLHsInstType (text "a VECTORISE pragma") instTy
-       ; return (HsVectInstIn instTy', fvs)
+       ; return (HsVectInstIn noExt instTy', fvs)
        }
-rnHsVectDecl (HsVectInstOut _)
+rnHsVectDecl (HsVectInstOut {})
   = panic "RnSource.rnHsVectDecl: Unexpected 'HsVectInstOut'"
+rnHsVectDecl (XVectDecl {})
+  = panic "RnSource.rnHsVectDecl: Unexpected 'XVectDecl'"
 
 {- **************************************************************
          *                                                      *
@@ -1408,13 +1413,14 @@ rnRoleAnnots tc_names role_annots
        ; mapM_ dupRoleAnnotErr dup_annots
        ; mapM (wrapLocM rn_role_annot1) no_dups }
   where
-    rn_role_annot1 (RoleAnnotDecl tycon roles)
+    rn_role_annot1 (RoleAnnotDecl _ tycon roles)
       = do {  -- the name is an *occurrence*, but look it up only in the
               -- decls defined in this group (see #10263)
              tycon' <- lookupSigCtxtOccRn (RoleAnnotCtxt tc_names)
                                           (text "role annotation")
                                           tycon
-           ; return $ RoleAnnotDecl tycon' roles }
+           ; return $ RoleAnnotDecl noExt tycon' roles }
+    rn_role_annot1 (XRoleAnnotDecl _) = panic "rnRoleAnnots"
 
 dupRoleAnnotErr :: NonEmpty (LRoleAnnotDecl GhcPs) -> RnM ()
 dupRoleAnnotErr list

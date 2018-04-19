@@ -1014,38 +1014,38 @@ topdecl :: { LHsDecl GhcPs }
                                                          ,mop $2,mcp $4] }
         | 'foreign' fdecl          {% ams (sLL $1 $> (snd $ unLoc $2))
                                            (mj AnnForeign $1:(fst $ unLoc $2)) }
-        | '{-# DEPRECATED' deprecations '#-}'   {% ams (sLL $1 $> $ WarningD noExt (Warnings (getDEPRECATED_PRAGs $1) (fromOL $2)))
+        | '{-# DEPRECATED' deprecations '#-}'   {% ams (sLL $1 $> $ WarningD noExt (Warnings noExt (getDEPRECATED_PRAGs $1) (fromOL $2)))
                                                        [mo $1,mc $3] }
-        | '{-# WARNING' warnings '#-}'          {% ams (sLL $1 $> $ WarningD noExt (Warnings (getWARNING_PRAGs $1) (fromOL $2)))
+        | '{-# WARNING' warnings '#-}'          {% ams (sLL $1 $> $ WarningD noExt (Warnings noExt (getWARNING_PRAGs $1) (fromOL $2)))
                                                        [mo $1,mc $3] }
         | '{-# RULES' rules '#-}'               {% ams (sLL $1 $> $ RuleD noExt (HsRules noExt (getRULES_PRAGs $1) (fromOL $2)))
                                                        [mo $1,mc $3] }
-        | '{-# VECTORISE' qvar '=' exp '#-}' {% ams (sLL $1 $> $ VectD noExt (HsVect (getVECT_PRAGs $1) $2 $4))
+        | '{-# VECTORISE' qvar '=' exp '#-}' {% ams (sLL $1 $> $ VectD noExt (HsVect noExt (getVECT_PRAGs $1) $2 $4))
                                                     [mo $1,mj AnnEqual $3
                                                     ,mc $5] }
-        | '{-# NOVECTORISE' qvar '#-}'       {% ams (sLL $1 $> $ VectD noExt (HsNoVect (getNOVECT_PRAGs $1) $2))
+        | '{-# NOVECTORISE' qvar '#-}'       {% ams (sLL $1 $> $ VectD noExt (HsNoVect noExt (getNOVECT_PRAGs $1) $2))
                                                      [mo $1,mc $3] }
         | '{-# VECTORISE' 'type' gtycon '#-}'
                                 {% ams (sLL $1 $> $
-                                    VectD noExt (HsVectTypeIn (getVECT_PRAGs $1) False $3 Nothing))
+                                    VectD noExt (HsVectTypeIn noExt (getVECT_PRAGs $1) False $3 Nothing))
                                     [mo $1,mj AnnType $2,mc $4] }
 
         | '{-# VECTORISE_SCALAR' 'type' gtycon '#-}'
                                 {% ams (sLL $1 $> $
-                                    VectD noExt (HsVectTypeIn (getVECT_SCALAR_PRAGs $1) True $3 Nothing))
+                                    VectD noExt (HsVectTypeIn noExt (getVECT_SCALAR_PRAGs $1) True $3 Nothing))
                                     [mo $1,mj AnnType $2,mc $4] }
 
         | '{-# VECTORISE' 'type' gtycon '=' gtycon '#-}'
                                 {% ams (sLL $1 $> $
-                                    VectD noExt (HsVectTypeIn (getVECT_PRAGs $1) False $3 (Just $5)))
+                                    VectD noExt (HsVectTypeIn noExt (getVECT_PRAGs $1) False $3 (Just $5)))
                                     [mo $1,mj AnnType $2,mj AnnEqual $4,mc $6] }
         | '{-# VECTORISE_SCALAR' 'type' gtycon '=' gtycon '#-}'
                                 {% ams (sLL $1 $> $
-                                    VectD noExt (HsVectTypeIn (getVECT_SCALAR_PRAGs $1) True $3 (Just $5)))
+                                    VectD noExt (HsVectTypeIn noExt (getVECT_SCALAR_PRAGs $1) True $3 (Just $5)))
                                     [mo $1,mj AnnType $2,mj AnnEqual $4,mc $6] }
 
         | '{-# VECTORISE' 'class' gtycon '#-}'
-                                         {% ams (sLL $1 $>  $ VectD noExt (HsVectClassIn (getVECT_PRAGs $1) $3))
+                                         {% ams (sLL $1 $>  $ VectD noExt (HsVectClassIn noExt (getVECT_PRAGs $1) $3))
                                                  [mo $1,mj AnnClass $2,mc $4] }
         | annotation { $1 }
         | decl_no_th                            { $1 }
@@ -1651,7 +1651,7 @@ warnings :: { OrdList (LWarnDecl GhcPs) }
 -- SUP: TEMPORARY HACK, not checking for `module Foo'
 warning :: { OrdList (LWarnDecl GhcPs) }
         : namelist strings
-                {% amsu (sLL $1 $> (Warning (unLoc $1) (WarningTxt (noLoc NoSourceText) $ snd $ unLoc $2)))
+                {% amsu (sLL $1 $> (Warning noExt (unLoc $1) (WarningTxt (noLoc NoSourceText) $ snd $ unLoc $2)))
                      (fst $ unLoc $2) }
 
 deprecations :: { OrdList (LWarnDecl GhcPs) }
@@ -1666,7 +1666,7 @@ deprecations :: { OrdList (LWarnDecl GhcPs) }
 -- SUP: TEMPORARY HACK, not checking for `module Foo'
 deprecation :: { OrdList (LWarnDecl GhcPs) }
         : namelist strings
-             {% amsu (sLL $1 $> $ (Warning (unLoc $1) (DeprecatedTxt (noLoc NoSourceText) $ snd $ unLoc $2)))
+             {% amsu (sLL $1 $> $ (Warning noExt (unLoc $1) (DeprecatedTxt (noLoc NoSourceText) $ snd $ unLoc $2)))
                      (fst $ unLoc $2) }
 
 strings :: { Located ([AddAnn],[Located StringLiteral]) }
@@ -1683,17 +1683,17 @@ stringlist :: { Located (OrdList (Located StringLiteral)) }
 -----------------------------------------------------------------------------
 -- Annotations
 annotation :: { LHsDecl GhcPs }
-    : '{-# ANN' name_var aexp '#-}'      {% ams (sLL $1 $> (AnnD noExt $ HsAnnotation
+    : '{-# ANN' name_var aexp '#-}'      {% ams (sLL $1 $> (AnnD noExt $ HsAnnotation noExt
                                             (getANN_PRAGs $1)
                                             (ValueAnnProvenance $2) $3))
                                             [mo $1,mc $4] }
 
-    | '{-# ANN' 'type' tycon aexp '#-}'  {% ams (sLL $1 $> (AnnD noExt $ HsAnnotation
+    | '{-# ANN' 'type' tycon aexp '#-}'  {% ams (sLL $1 $> (AnnD noExt $ HsAnnotation noExt
                                             (getANN_PRAGs $1)
                                             (TypeAnnProvenance $3) $4))
                                             [mo $1,mj AnnType $2,mc $5] }
 
-    | '{-# ANN' 'module' aexp '#-}'      {% ams (sLL $1 $> (AnnD noExt $ HsAnnotation
+    | '{-# ANN' 'module' aexp '#-}'      {% ams (sLL $1 $> (AnnD noExt $ HsAnnotation noExt
                                                 (getANN_PRAGs $1)
                                                  ModuleAnnProvenance $3))
                                                 [mo $1,mj AnnModule $2,mc $4] }

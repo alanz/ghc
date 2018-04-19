@@ -361,7 +361,7 @@ cvtDec (ClosedTypeFamilyD head eqns)
 cvtDec (TH.RoleAnnotD tc roles)
   = do { tc' <- tconNameL tc
        ; let roles' = map (noLoc . cvtRole) roles
-       ; returnJustL $ Hs.RoleAnnotD noExt (RoleAnnotDecl tc' roles') }
+       ; returnJustL $ Hs.RoleAnnotD noExt (RoleAnnotDecl noExt tc' roles') }
 
 cvtDec (TH.StandaloneDerivD ds cxt ty)
   = do { cxt' <- cvtContext cxt
@@ -403,7 +403,7 @@ cvtDec (TH.PatSynD nm args dir pat)
 cvtDec (TH.PatSynSigD nm ty)
   = do { nm' <- cNameL nm
        ; ty' <- cvtPatSynSigTy ty
-       ; returnJustL $ Hs.SigD noExt $ PatSynSig noExt [nm'] (mkLHsSigType ty') }
+       ; returnJustL $ Hs.SigD noExt $ PatSynSig noExt [nm'] (mkLHsSigType ty')}
 
 ----------------
 cvtTySynEqn :: Located RdrName -> TySynEqn -> CvtM (LTyFamInstEqn GhcPs)
@@ -729,7 +729,7 @@ cvtPragmaD (AnnP target exp)
            n' <- vcName n
            return (ValueAnnProvenance (noLoc n'))
        ; returnJustL $ Hs.AnnD noExt
-                     $ HsAnnotation (SourceText "{-# ANN") target' exp'
+                     $ HsAnnotation noExt (SourceText "{-# ANN") target' exp'
        }
 
 cvtPragmaD (LineP line file)

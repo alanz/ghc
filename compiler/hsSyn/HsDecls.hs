@@ -1766,7 +1766,7 @@ type LDerivDecl pass = Located (DerivDecl pass)
 
 -- | Deriving Declaration
 data DerivDecl pass = DerivDecl
-        { deriv_ext :: XCDerivDecl pass
+        { deriv_ext          :: XCDerivDecl pass
         , deriv_type         :: LHsSigWcType pass
           -- ^ The instance type to derive.
           --
@@ -1997,7 +1997,7 @@ type LRuleDecls pass = Located (RuleDecls pass)
 
   -- Note [Pragma source text] in BasicTypes
 -- | Rule Declarations
-data RuleDecls pass = HsRules { rds_Ext   :: XCRuleDecls pass
+data RuleDecls pass = HsRules { rds_ext   :: XCRuleDecls pass
                               , rds_src   :: SourceText
                               , rds_rules :: [LRuleDecl pass] }
   | XRuleDecls (XXRuleDecls pass)
@@ -2107,6 +2107,7 @@ type LVectDecl pass = Located (VectDecl pass)
 -- | Vectorise Declaration
 data VectDecl pass
   = HsVect
+      (XHsVect pass)
       SourceText   -- Note [Pragma source text] in BasicTypes
       (Located (IdP pass))
       (LHsExpr pass)
@@ -2115,6 +2116,7 @@ data VectDecl pass
 
         -- For details on above see note [Api annotations] in ApiAnnotation
   | HsNoVect
+      (XHsNoVect pass)
       SourceText   -- Note [Pragma source text] in BasicTypes
       (Located (IdP pass))
         -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
@@ -2122,6 +2124,7 @@ data VectDecl pass
 
         -- For details on above see note [Api annotations] in ApiAnnotation
   | HsVectTypeIn                -- pre type-checking
+      (XHsVectTypeIn pass)
       SourceText                -- Note [Pragma source text] in BasicTypes
       Bool                      -- 'TRUE' => SCALAR declaration
       (Located (IdP pass))
@@ -2132,10 +2135,12 @@ data VectDecl pass
 
         -- For details on above see note [Api annotations] in ApiAnnotation
   | HsVectTypeOut               -- post type-checking
+      (XHsVectTypeOut pass)
       Bool                      -- 'TRUE' => SCALAR declaration
       TyCon
       (Maybe TyCon)             -- 'Nothing' => no right-hand side
   | HsVectClassIn               -- pre type-checking
+      (XHsVectClassIn pass)
       SourceText                -- Note [Pragma source text] in BasicTypes
       (Located (IdP pass))
         -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
@@ -2143,60 +2148,78 @@ data VectDecl pass
 
        -- For details on above see note [Api annotations] in ApiAnnotation
   | HsVectClassOut              -- post type-checking
+      (XHsVectClassOut pass)
       Class
   | HsVectInstIn                -- pre type-checking (always SCALAR)  !!!FIXME: should be superfluous now
+      (XHsVectInstIn pass)
       (LHsSigType pass)
   | HsVectInstOut               -- post type-checking (always SCALAR) !!!FIXME: should be superfluous now
+      (XHsVectInstOut pass)
       ClsInst
+  | XVectDecl (XXVectDecl pass)
+
+type instance XHsVect        (GhcPass _) = PlaceHolder
+type instance XHsNoVect      (GhcPass _) = PlaceHolder
+type instance XHsVectTypeIn  (GhcPass _) = PlaceHolder
+type instance XHsVectTypeOut (GhcPass _) = PlaceHolder
+type instance XHsVectClassIn (GhcPass _) = PlaceHolder
+type instance XHsVectClassOut(GhcPass _) = PlaceHolder
+type instance XHsVectInstIn  (GhcPass _) = PlaceHolder
+type instance XHsVectInstOut (GhcPass _) = PlaceHolder
+type instance XXVectDecl     (GhcPass _) = PlaceHolder
+
 
 lvectDeclName :: NamedThing (IdP pass) => LVectDecl pass -> Name
-lvectDeclName (L _ (HsVect _       (L _ name) _))    = getName name
-lvectDeclName (L _ (HsNoVect _     (L _ name)))      = getName name
-lvectDeclName (L _ (HsVectTypeIn _  _ (L _ name) _)) = getName name
-lvectDeclName (L _ (HsVectTypeOut  _ tycon _))       = getName tycon
-lvectDeclName (L _ (HsVectClassIn _ (L _ name)))     = getName name
-lvectDeclName (L _ (HsVectClassOut cls))             = getName cls
-lvectDeclName (L _ (HsVectInstIn _))
+lvectDeclName (L _ (HsVect _ _       (L _ name) _))    = getName name
+lvectDeclName (L _ (HsNoVect _ _     (L _ name)))      = getName name
+lvectDeclName (L _ (HsVectTypeIn _ _  _ (L _ name) _)) = getName name
+lvectDeclName (L _ (HsVectTypeOut _ _ tycon _))        = getName tycon
+lvectDeclName (L _ (HsVectClassIn _ _ (L _ name)))     = getName name
+lvectDeclName (L _ (HsVectClassOut _ cls))             = getName cls
+lvectDeclName (L _ (HsVectInstIn {}))
   = panic "HsDecls.lvectDeclName: HsVectInstIn"
-lvectDeclName (L _ (HsVectInstOut  _))
+lvectDeclName (L _ (HsVectInstOut {}))
   = panic "HsDecls.lvectDeclName: HsVectInstOut"
+lvectDeclName (L _ (XVectDecl {}))
+  = panic "HsDecls.lvectDeclName: XVectDecl"
 
 lvectInstDecl :: LVectDecl pass -> Bool
-lvectInstDecl (L _ (HsVectInstIn _))  = True
-lvectInstDecl (L _ (HsVectInstOut _)) = True
-lvectInstDecl _                       = False
+lvectInstDecl (L _ (HsVectInstIn {}))  = True
+lvectInstDecl (L _ (HsVectInstOut {})) = True
+lvectInstDecl _                        = False
 
 instance (p ~ GhcPass pass, OutputableBndrId p) => Outputable (VectDecl p) where
-  ppr (HsVect _ v rhs)
+  ppr (HsVect _ _ v rhs)
     = sep [text "{-# VECTORISE" <+> ppr v,
            nest 4 $
              pprExpr (unLoc rhs) <+> text "#-}" ]
-  ppr (HsNoVect _ v)
+  ppr (HsNoVect _ _ v)
     = sep [text "{-# NOVECTORISE" <+> ppr v <+> text "#-}" ]
-  ppr (HsVectTypeIn _ False t Nothing)
+  ppr (HsVectTypeIn _ _ False t Nothing)
     = sep [text "{-# VECTORISE type" <+> ppr t <+> text "#-}" ]
-  ppr (HsVectTypeIn _ False t (Just t'))
+  ppr (HsVectTypeIn _ _ False t (Just t'))
     = sep [text "{-# VECTORISE type" <+> ppr t, text "=", ppr t', text "#-}" ]
-  ppr (HsVectTypeIn _ True t Nothing)
+  ppr (HsVectTypeIn _ _ True t Nothing)
     = sep [text "{-# VECTORISE SCALAR type" <+> ppr t <+> text "#-}" ]
-  ppr (HsVectTypeIn _ True t (Just t'))
+  ppr (HsVectTypeIn _ _ True t (Just t'))
     = sep [text "{-# VECTORISE SCALAR type" <+> ppr t, text "=", ppr t', text "#-}" ]
-  ppr (HsVectTypeOut False t Nothing)
+  ppr (HsVectTypeOut _ False t Nothing)
     = sep [text "{-# VECTORISE type" <+> ppr t <+> text "#-}" ]
-  ppr (HsVectTypeOut False t (Just t'))
+  ppr (HsVectTypeOut _ False t (Just t'))
     = sep [text "{-# VECTORISE type" <+> ppr t, text "=", ppr t', text "#-}" ]
-  ppr (HsVectTypeOut True t Nothing)
+  ppr (HsVectTypeOut _ True t Nothing)
     = sep [text "{-# VECTORISE SCALAR type" <+> ppr t <+> text "#-}" ]
-  ppr (HsVectTypeOut True t (Just t'))
+  ppr (HsVectTypeOut _ True t (Just t'))
     = sep [text "{-# VECTORISE SCALAR type" <+> ppr t, text "=", ppr t', text "#-}" ]
-  ppr (HsVectClassIn _ c)
+  ppr (HsVectClassIn _ _ c)
     = sep [text "{-# VECTORISE class" <+> ppr c <+> text "#-}" ]
-  ppr (HsVectClassOut c)
+  ppr (HsVectClassOut _ c)
     = sep [text "{-# VECTORISE class" <+> ppr c <+> text "#-}" ]
-  ppr (HsVectInstIn ty)
+  ppr (HsVectInstIn _ ty)
     = sep [text "{-# VECTORISE SCALAR instance" <+> ppr ty <+> text "#-}" ]
-  ppr (HsVectInstOut i)
+  ppr (HsVectInstOut _ i)
     = sep [text "{-# VECTORISE SCALAR instance" <+> ppr i <+> text "#-}" ]
+  ppr (XVectDecl x) = ppr x
 
 {-
 ************************************************************************
@@ -2242,25 +2265,39 @@ type LWarnDecls pass = Located (WarnDecls pass)
 
  -- Note [Pragma source text] in BasicTypes
 -- | Warning pragma Declarations
-data WarnDecls pass = Warnings { wd_src :: SourceText
+data WarnDecls pass = Warnings { wd_ext      :: XWarnings pass
+                               , wd_src :: SourceText
                                , wd_warnings :: [LWarnDecl pass]
                                }
+  | XWarnDecls (XXWarnDecls pass)
+
+type instance XWarnings      (GhcPass _) = PlaceHolder
+type instance XXWarnDecls    (GhcPass _) = PlaceHolder
 
 -- | Located Warning pragma Declaration
 type LWarnDecl pass = Located (WarnDecl pass)
 
 -- | Warning pragma Declaration
-data WarnDecl pass = Warning [Located (IdP pass)] WarningTxt
+data WarnDecl pass = Warning (XWarning pass) [Located (IdP pass)] WarningTxt
+                   | XWarnDecl (XXWarnDecl pass)
 
-instance OutputableBndr (IdP pass) => Outputable (WarnDecls pass) where
-    ppr (Warnings (SourceText src) decls)
+type instance XWarning      (GhcPass _) = PlaceHolder
+type instance XXWarnDecl    (GhcPass _) = PlaceHolder
+
+
+instance (p ~ GhcPass pass,OutputableBndr (IdP p))
+        => Outputable (WarnDecls p) where
+    ppr (Warnings _ (SourceText src) decls)
       = text src <+> vcat (punctuate comma (map ppr decls)) <+> text "#-}"
-    ppr (Warnings NoSourceText _decls) = panic "WarnDecls"
+    ppr (Warnings _ NoSourceText _decls) = panic "WarnDecls"
+    ppr (XWarnDecls x) = ppr x
 
-instance OutputableBndr (IdP pass) => Outputable (WarnDecl pass) where
-    ppr (Warning thing txt)
+instance (p ~ GhcPass pass, OutputableBndr (IdP p))
+       => Outputable (WarnDecl p) where
+    ppr (Warning _ thing txt)
       = hsep ( punctuate comma (map ppr thing))
               <+> ppr txt
+    ppr (XWarnDecl x) = ppr x
 
 {-
 ************************************************************************
@@ -2275,6 +2312,7 @@ type LAnnDecl pass = Located (AnnDecl pass)
 
 -- | Annotation Declaration
 data AnnDecl pass = HsAnnotation
+                      (XHsAnnotation pass)
                       SourceText -- Note [Pragma source text] in BasicTypes
                       (AnnProvenance (IdP pass)) (Located (HsExpr pass))
       -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
@@ -2283,10 +2321,15 @@ data AnnDecl pass = HsAnnotation
       --           'ApiAnnotation.AnnClose'
 
       -- For details on above see note [Api annotations] in ApiAnnotation
+  | XAnnDecl (XXAnnDecl pass)
+
+type instance XHsAnnotation (GhcPass _) = PlaceHolder
+type instance XXAnnDecl     (GhcPass _) = PlaceHolder
 
 instance (p ~ GhcPass pass, OutputableBndrId p) => Outputable (AnnDecl p) where
-    ppr (HsAnnotation _ provenance expr)
+    ppr (HsAnnotation _ _ provenance expr)
       = hsep [text "{-#", pprAnnProvenance provenance, pprExpr (unLoc expr), text "#-}"]
+    ppr (XAnnDecl x) = ppr x
 
 -- | Annotation Provenance
 data AnnProvenance name = ValueAnnProvenance (Located name)
@@ -2324,20 +2367,28 @@ type LRoleAnnotDecl pass = Located (RoleAnnotDecl pass)
 -- top-level declarations
 -- | Role Annotation Declaration
 data RoleAnnotDecl pass
-  = RoleAnnotDecl (Located (IdP pass))   -- type constructor
+  = RoleAnnotDecl (XCRoleAnnotDecl pass)
+                  (Located (IdP pass))   -- type constructor
                   [Located (Maybe Role)] -- optional annotations
       -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnType',
       --           'ApiAnnotation.AnnRole'
 
       -- For details on above see note [Api annotations] in ApiAnnotation
+  | XRoleAnnotDecl (XXRoleAnnotDecl pass)
 
-instance OutputableBndr (IdP pass) => Outputable (RoleAnnotDecl pass) where
-  ppr (RoleAnnotDecl ltycon roles)
+type instance XCRoleAnnotDecl (GhcPass _) = PlaceHolder
+type instance XXRoleAnnotDecl (GhcPass _) = PlaceHolder
+
+instance (p ~ GhcPass pass, OutputableBndr (IdP p))
+       => Outputable (RoleAnnotDecl p) where
+  ppr (RoleAnnotDecl _ ltycon roles)
     = text "type role" <+> ppr ltycon <+>
       hsep (map (pp_role . unLoc) roles)
     where
       pp_role Nothing  = underscore
       pp_role (Just r) = ppr r
+  ppr (XRoleAnnotDecl x) = ppr x
 
 roleAnnotDeclName :: RoleAnnotDecl pass -> (IdP pass)
-roleAnnotDeclName (RoleAnnotDecl (L _ name) _) = name
+roleAnnotDeclName (RoleAnnotDecl _ (L _ name) _) = name
+roleAnnotDeclName (XRoleAnnotDecl _) = panic "roleAnnotDeclName"

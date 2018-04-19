@@ -1243,20 +1243,20 @@ tcVect :: VectDecl GhcRn -> TcM (VectDecl GhcTcId)
 --   during type checking.  Instead, constrain the rhs of a vectorisation declaration to be a single
 --   identifier (this is checked in 'rnHsVectDecl').  Fix this by enabling the use of 'vectType'
 --   from the vectoriser here.
-tcVect (HsVect s name rhs)
+tcVect (HsVect _ s name rhs)
   = addErrCtxt (vectCtxt name) $
     do { var <- wrapLocM tcLookupId name
        ; let L rhs_loc (HsVar noExt (L lv rhs_var_name)) = rhs
        ; rhs_id <- tcLookupId rhs_var_name
-       ; return $ HsVect s var (L rhs_loc (HsVar noExt (L lv rhs_id)))
+       ; return $ HsVect noExt s var (L rhs_loc (HsVar noExt (L lv rhs_id)))
        }
 
-tcVect (HsNoVect s name)
+tcVect (HsNoVect _ s name)
   = addErrCtxt (vectCtxt name) $
     do { var <- wrapLocM tcLookupId name
-       ; return $ HsNoVect s var
+       ; return $ HsNoVect noExt s var
        }
-tcVect (HsVectTypeIn _ isScalar lname rhs_name)
+tcVect (HsVectTypeIn _ _ isScalar lname rhs_name)
   = addErrCtxt (vectCtxt lname) $
     do { tycon <- tcLookupLocatedTyCon lname
        ; checkTc (   not isScalar             -- either    we have a non-SCALAR declaration
@@ -1266,25 +1266,27 @@ tcVect (HsVectTypeIn _ isScalar lname rhs_name)
                  scalarTyConMustBeNullary
 
        ; rhs_tycon <- fmapMaybeM (tcLookupTyCon . unLoc) rhs_name
-       ; return $ HsVectTypeOut isScalar tycon rhs_tycon
+       ; return $ HsVectTypeOut noExt isScalar tycon rhs_tycon
        }
-tcVect (HsVectTypeOut _ _ _)
+tcVect (HsVectTypeOut {})
   = panic "TcBinds.tcVect: Unexpected 'HsVectTypeOut'"
-tcVect (HsVectClassIn _ lname)
+tcVect (HsVectClassIn _ _ lname)
   = addErrCtxt (vectCtxt lname) $
     do { cls <- tcLookupLocatedClass lname
-       ; return $ HsVectClassOut cls
+       ; return $ HsVectClassOut noExt cls
        }
-tcVect (HsVectClassOut _)
+tcVect (HsVectClassOut {})
   = panic "TcBinds.tcVect: Unexpected 'HsVectClassOut'"
-tcVect (HsVectInstIn linstTy)
+tcVect (HsVectInstIn _ linstTy)
   = addErrCtxt (vectCtxt linstTy) $
     do { (cls, tys) <- tcHsVectInst linstTy
        ; inst       <- tcLookupInstance cls tys
-       ; return $ HsVectInstOut inst
+       ; return $ HsVectInstOut noExt inst
        }
-tcVect (HsVectInstOut _)
+tcVect (HsVectInstOut {})
   = panic "TcBinds.tcVect: Unexpected 'HsVectInstOut'"
+tcVect (XVectDecl {})
+  = panic "TcBinds.tcVect: Unexpected 'XVectDecl'"
 
 vectCtxt :: Outputable thing => thing -> SDoc
 vectCtxt thing = text "When checking the vectorisation declaration for" <+> ppr thing

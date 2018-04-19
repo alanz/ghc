@@ -316,7 +316,7 @@ mkRoleAnnotDecl :: SrcSpan
                 -> P (LRoleAnnotDecl GhcPs)
 mkRoleAnnotDecl loc tycon roles
   = do { roles' <- mapM parse_role roles
-       ; return $ L loc $ RoleAnnotDecl tycon roles' }
+       ; return $ L loc $ RoleAnnotDecl noExt tycon roles' }
   where
     role_data_type = dataTypeOf (undefined :: Role)
     all_roles = map fromConstr $ dataTypeConstrs role_data_type

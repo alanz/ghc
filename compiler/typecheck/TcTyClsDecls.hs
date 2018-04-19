@@ -3210,7 +3210,7 @@ checkValidRoleAnnots role_annots tc
 
     check_roles
       = whenIsJust role_annot_decl_maybe $
-          \decl@(L loc (RoleAnnotDecl _ the_role_annots)) ->
+          \decl@(L loc (RoleAnnotDecl _ _ the_role_annots)) ->
           addRoleAnnotCtxt name $
           setSrcSpan loc $ do
           { role_annots_ok <- xoptM LangExt.RoleAnnotations
@@ -3541,18 +3541,20 @@ badRoleAnnot var annot inferred
               , text "is required" ])
 
 wrongNumberOfRoles :: [a] -> LRoleAnnotDecl GhcRn -> SDoc
-wrongNumberOfRoles tyvars d@(L _ (RoleAnnotDecl _ annots))
+wrongNumberOfRoles tyvars d@(L _ (RoleAnnotDecl _ _ annots))
   = hang (text "Wrong number of roles listed in role annotation;" $$
           text "Expected" <+> (ppr $ length tyvars) <> comma <+>
           text "got" <+> (ppr $ length annots) <> colon)
        2 (ppr d)
+wrongNumberOfRoles _ (L _ (XRoleAnnotDecl _)) = panic "wrongNumberOfRoles"
 
 illegalRoleAnnotDecl :: LRoleAnnotDecl GhcRn -> TcM ()
-illegalRoleAnnotDecl (L loc (RoleAnnotDecl tycon _))
+illegalRoleAnnotDecl (L loc (RoleAnnotDecl _ tycon _))
   = setErrCtxt [] $
     setSrcSpan loc $
     addErrTc (text "Illegal role annotation for" <+> ppr tycon <> char ';' $$
               text "they are allowed only for datatypes and classes.")
+illegalRoleAnnotDecl (L _ (XRoleAnnotDecl _)) = panic "illegalRoleAnnotDecl"
 
 needXRoleAnnotations :: TyCon -> SDoc
 needXRoleAnnotations tc
