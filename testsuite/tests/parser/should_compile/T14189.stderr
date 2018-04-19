@@ -4,14 +4,17 @@
 (Just
  ((,,,)
   (HsGroup
+   (PlaceHolder)
    (XValBindsLR
     (NValBinds
       []
       []))
    []
    [(TyClGroup
+     (PlaceHolder)
      [({ T14189.hs:6:1-42 }
        (DataDecl
+        (PlaceHolder)
         ({ T14189.hs:6:6-11 }
          {Name: T14189.MyType})
         (HsQTvs
@@ -21,6 +24,7 @@
           []})
         (Prefix)
         (HsDataDefn
+         (PlaceHolder)
          (DataType)
          ({ <no location info> }
           [])
@@ -28,6 +32,7 @@
          (Nothing)
          [({ T14189.hs:6:15-20 }
            (ConDeclH98
+            (PlaceHolder)
             ({ T14189.hs:6:15-16 }
              {Name: T14189.MT})
             (False)
@@ -43,6 +48,7 @@
             (Nothing)))
          ,({ T14189.hs:6:24-25 }
            (ConDeclH98
+            (PlaceHolder)
             ({ T14189.hs:6:24-25 }
              {Name: T14189.NT})
             (False)
@@ -53,6 +59,7 @@
             (Nothing)))
          ,({ T14189.hs:6:29-42 }
            (ConDeclH98
+            (PlaceHolder)
             ({ T14189.hs:6:29 }
              {Name: T14189.F})
             (False)

@@ -4,6 +4,7 @@
 (Just
  ((,,,)
   (HsGroup
+   (PlaceHolder)
    (XValBindsLR
     (NValBinds
      [((,)
@@ -55,8 +56,10 @@
      []))
    []
    [(TyClGroup
+     (PlaceHolder)
      [({ DumpRenamedAst.hs:6:1-30 }
        (DataDecl
+        (PlaceHolder)
         ({ DumpRenamedAst.hs:6:6-10 }
          {Name: DumpRenamedAst.Peano})
         (HsQTvs
@@ -66,6 +69,7 @@
           []})
         (Prefix)
         (HsDataDefn
+         (PlaceHolder)
          (DataType)
          ({ <no location info> }
           [])
@@ -73,6 +77,7 @@
          (Nothing)
          [({ DumpRenamedAst.hs:6:14-17 }
            (ConDeclH98
+            (PlaceHolder)
             ({ DumpRenamedAst.hs:6:14-17 }
              {Name: DumpRenamedAst.Zero})
             (False)
@@ -83,6 +88,7 @@
             (Nothing)))
          ,({ DumpRenamedAst.hs:6:21-30 }
            (ConDeclH98
+            (PlaceHolder)
             ({ DumpRenamedAst.hs:6:21-24 }
              {Name: DumpRenamedAst.Succ})
             (False)
@@ -104,9 +110,12 @@
      []
      [])
    ,(TyClGroup
+     (PlaceHolder)
      [({ DumpRenamedAst.hs:8:1-39 }
        (FamDecl
+        (PlaceHolder)
         (FamilyDecl
+         (PlaceHolder)
          (ClosedTypeFamily
           (Just
            [({ DumpRenamedAst.hs:9:3-36 }
@@ -114,6 +123,7 @@
               [{Name: a}
               ,{Name: as}]
               (FamEqn
+               (PlaceHolder)
                ({ DumpRenamedAst.hs:9:3-8 }
                 {Name: DumpRenamedAst.Length})
                [({ DumpRenamedAst.hs:9:10-17 }
@@ -169,6 +179,7 @@
              (HsIB
               []
               (FamEqn
+               (PlaceHolder)
                ({ DumpRenamedAst.hs:10:3-8 }
                 {Name: DumpRenamedAst.Length})
                [({ DumpRenamedAst.hs:10:10-12 }
@@ -207,6 +218,7 @@
          (Prefix)
          ({ DumpRenamedAst.hs:8:32-39 }
           (KindSig
+           (PlaceHolder)
            ({ DumpRenamedAst.hs:8:35-39 }
             (HsTyVar
              (PlaceHolder)
@@ -217,9 +229,12 @@
      []
      [])
    ,(TyClGroup
+     (PlaceHolder)
      [({ DumpRenamedAst.hs:12:1-30 }
        (FamDecl
+        (PlaceHolder)
         (FamilyDecl
+         (PlaceHolder)
          (DataFamily)
          ({ DumpRenamedAst.hs:12:13-15 }
           {Name: DumpRenamedAst.Nat})
@@ -231,6 +246,7 @@
          (Prefix)
          ({ DumpRenamedAst.hs:12:17-30 }
           (KindSig
+           (PlaceHolder)
            ({ DumpRenamedAst.hs:12:20-30 }
             (HsFunTy
              (PlaceHolder)
@@ -259,11 +275,13 @@
      []
      [({ DumpRenamedAst.hs:(15,1)-(16,45) }
        (DataFamInstD
+        (PlaceHolder)
         (DataFamInstDecl
          (HsIB
           [{Name: k}
           ,{Name: a}]
           (FamEqn
+           (PlaceHolder)
            ({ DumpRenamedAst.hs:15:18-20 }
             {Name: DumpRenamedAst.Nat})
            [({ DumpRenamedAst.hs:15:22-34 }
@@ -292,6 +310,7 @@
                    {Name: GHC.Types.*})))))))]
            (Prefix)
            (HsDataDefn
+            (PlaceHolder)
             (NewType)
             ({ <no location info> }
              [])
@@ -326,6 +345,7 @@
                   {Name: GHC.Types.*}))))))
             [({ DumpRenamedAst.hs:16:3-45 }
               (ConDeclGADT
+               (PlaceHolder)
                [({ DumpRenamedAst.hs:16:3-5 }
                  {Name: DumpRenamedAst.Nat})]
                (False)

@@ -10,7 +10,9 @@
   []
   [({ DumpParsedAst.hs:5:1-30 }
     (TyClD
+     (PlaceHolder)
      (DataDecl
+      (PlaceHolder)
       ({ DumpParsedAst.hs:5:6-10 }
        (Unqual
         {OccName: Peano}))
@@ -20,6 +22,7 @@
        (PlaceHolder))
       (Prefix)
       (HsDataDefn
+       (PlaceHolder)
        (DataType)
        ({ <no location info> }
         [])
@@ -27,6 +30,7 @@
        (Nothing)
        [({ DumpParsedAst.hs:5:14-17 }
          (ConDeclH98
+          (PlaceHolder)
           ({ DumpParsedAst.hs:5:14-17 }
            (Unqual
             {OccName: Zero}))
@@ -38,6 +42,7 @@
           (Nothing)))
        ,({ DumpParsedAst.hs:5:21-30 }
          (ConDeclH98
+          (PlaceHolder)
           ({ DumpParsedAst.hs:5:21-24 }
            (Unqual
             {OccName: Succ}))
@@ -59,14 +64,18 @@
       (PlaceHolder))))
   ,({ DumpParsedAst.hs:7:1-39 }
     (TyClD
+     (PlaceHolder)
      (FamDecl
+      (PlaceHolder)
       (FamilyDecl
+       (PlaceHolder)
        (ClosedTypeFamily
         (Just
          [({ DumpParsedAst.hs:8:3-36 }
            (HsIB
             (PlaceHolder)
             (FamEqn
+             (PlaceHolder)
              ({ DumpParsedAst.hs:8:3-8 }
               (Unqual
                {OccName: Length}))
@@ -150,6 +159,7 @@
            (HsIB
             (PlaceHolder)
             (FamEqn
+             (PlaceHolder)
              ({ DumpParsedAst.hs:9:3-8 }
               (Unqual
                {OccName: Length}))
@@ -192,6 +202,7 @@
        (Prefix)
        ({ DumpParsedAst.hs:7:32-39 }
         (KindSig
+         (PlaceHolder)
          ({ DumpParsedAst.hs:7:35-39 }
           (HsTyVar
            (PlaceHolder)
@@ -202,6 +213,7 @@
        (Nothing)))))
   ,({ DumpParsedAst.hs:11:1-23 }
     (ValD
+     (PlaceHolder)
      (FunBind
       (PlaceHolder)
       ({ DumpParsedAst.hs:11:1-4 }
