@@ -1027,25 +1027,25 @@ topdecl :: { LHsDecl GhcPs }
                                                      [mo $1,mc $3] }
         | '{-# VECTORISE' 'type' gtycon '#-}'
                                 {% ams (sLL $1 $> $
-                                    VectD noExt (HsVectTypeIn noExt (getVECT_PRAGs $1) False $3 Nothing))
+                                    VectD noExt (HsVectType (VectTypePR (getVECT_PRAGs $1) $3 Nothing) False))
                                     [mo $1,mj AnnType $2,mc $4] }
 
         | '{-# VECTORISE_SCALAR' 'type' gtycon '#-}'
                                 {% ams (sLL $1 $> $
-                                    VectD noExt (HsVectTypeIn noExt (getVECT_SCALAR_PRAGs $1) True $3 Nothing))
+                                    VectD noExt (HsVectType (VectTypePR (getVECT_SCALAR_PRAGs $1) $3 Nothing) True))
                                     [mo $1,mj AnnType $2,mc $4] }
 
         | '{-# VECTORISE' 'type' gtycon '=' gtycon '#-}'
                                 {% ams (sLL $1 $> $
-                                    VectD noExt (HsVectTypeIn noExt (getVECT_PRAGs $1) False $3 (Just $5)))
+                                    VectD noExt (HsVectType (VectTypePR (getVECT_PRAGs $1) $3 (Just $5)) False))
                                     [mo $1,mj AnnType $2,mj AnnEqual $4,mc $6] }
         | '{-# VECTORISE_SCALAR' 'type' gtycon '=' gtycon '#-}'
                                 {% ams (sLL $1 $> $
-                                    VectD noExt (HsVectTypeIn noExt (getVECT_SCALAR_PRAGs $1) True $3 (Just $5)))
+                                    VectD noExt (HsVectType (VectTypePR (getVECT_SCALAR_PRAGs $1) $3 (Just $5)) True))
                                     [mo $1,mj AnnType $2,mj AnnEqual $4,mc $6] }
 
         | '{-# VECTORISE' 'class' gtycon '#-}'
-                                         {% ams (sLL $1 $>  $ VectD noExt (HsVectClassIn noExt (getVECT_PRAGs $1) $3))
+                                         {% ams (sLL $1 $>  $ VectD noExt (HsVectClass (VectClassPR (getVECT_PRAGs $1) $3)))
                                                  [mo $1,mj AnnClass $2,mc $4] }
         | annotation { $1 }
         | decl_no_th                            { $1 }

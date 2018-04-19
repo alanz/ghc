@@ -457,23 +457,17 @@ type ForallXRuleBndr (c :: * -> Constraint) (x :: *) =
 -- RuleBndr type families
 type family XHsVect          x
 type family XHsNoVect        x
-type family XHsVectTypeIn    x
-type family XHsVectTypeOut   x
-type family XHsVectClassIn   x
-type family XHsVectClassOut  x
-type family XHsVectInstIn    x
-type family XHsVectInstOut   x
+type family XHsVectType      x
+type family XHsVectClass     x
+type family XHsVectInst      x
 type family XXVectDecl       x
 
 type ForallXVectDecl (c :: * -> Constraint) (x :: *) =
        ( c (XHsVect          x)
        , c (XHsNoVect        x)
-       , c (XHsVectTypeIn    x)
-       , c (XHsVectTypeOut   x)
-       , c (XHsVectClassIn   x)
-       , c (XHsVectClassOut  x)
-       , c (XHsVectInstIn    x)
-       , c (XHsVectInstOut   x)
+       , c (XHsVectType      x)
+       , c (XHsVectClass     x)
+       , c (XHsVectInst      x)
        , c (XXVectDecl       x)
        , c (XXVectDecl       x)
        )
@@ -989,7 +983,15 @@ type OutputableX p =
   , Outputable (XAppTypeE p)
   , Outputable (XAppTypeE GhcRn)
 
-  -- , Outputable (XXParStmtBlock (GhcPass idL) idR)
+  , Outputable (XHsVectType p)
+  , Outputable (XHsVectType GhcRn)
+
+  , Outputable (XHsVectClass p)
+  , Outputable (XHsVectClass GhcRn)
+
+  , Outputable (XHsVectInst p)
+  , Outputable (XHsVectInst GhcRn)
+
   )
 -- TODO: Should OutputableX be included in OutputableBndrId?
 
@@ -1069,8 +1071,6 @@ type DataIdLR pL pR =
   , ForallXPatSynBind     Data pL pR
   , ForallXPatSynBind     Data pL pL
   , ForallXPatSynBind     Data pR pR
-  -- , ForallXPatSynBind     Data GhcPs GhcRn
-  -- , ForallXPatSynBind     Data GhcRn GhcRn
 
   , ForallXParStmtBlock   Data pL pR
   , ForallXParStmtBlock   Data pL pL

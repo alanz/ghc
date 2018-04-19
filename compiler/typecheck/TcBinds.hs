@@ -1256,7 +1256,7 @@ tcVect (HsNoVect _ s name)
     do { var <- wrapLocM tcLookupId name
        ; return $ HsNoVect noExt s var
        }
-tcVect (HsVectTypeIn _ _ isScalar lname rhs_name)
+tcVect (HsVectType (VectTypePR _ lname rhs_name) isScalar)
   = addErrCtxt (vectCtxt lname) $
     do { tycon <- tcLookupLocatedTyCon lname
        ; checkTc (   not isScalar             -- either    we have a non-SCALAR declaration
@@ -1266,25 +1266,19 @@ tcVect (HsVectTypeIn _ _ isScalar lname rhs_name)
                  scalarTyConMustBeNullary
 
        ; rhs_tycon <- fmapMaybeM (tcLookupTyCon . unLoc) rhs_name
-       ; return $ HsVectTypeOut noExt isScalar tycon rhs_tycon
+       ; return $ HsVectType (VectTypeTc tycon rhs_tycon) isScalar
        }
-tcVect (HsVectTypeOut {})
-  = panic "TcBinds.tcVect: Unexpected 'HsVectTypeOut'"
-tcVect (HsVectClassIn _ _ lname)
+tcVect (HsVectClass (VectClassPR _ lname))
   = addErrCtxt (vectCtxt lname) $
     do { cls <- tcLookupLocatedClass lname
-       ; return $ HsVectClassOut noExt cls
+       ; return $ HsVectClass cls
        }
-tcVect (HsVectClassOut {})
-  = panic "TcBinds.tcVect: Unexpected 'HsVectClassOut'"
-tcVect (HsVectInstIn _ linstTy)
+tcVect (HsVectInst linstTy)
   = addErrCtxt (vectCtxt linstTy) $
     do { (cls, tys) <- tcHsVectInst linstTy
        ; inst       <- tcLookupInstance cls tys
-       ; return $ HsVectInstOut noExt inst
+       ; return $ HsVectInst inst
        }
-tcVect (HsVectInstOut {})
-  = panic "TcBinds.tcVect: Unexpected 'HsVectInstOut'"
 tcVect (XVectDecl {})
   = panic "TcBinds.tcVect: Unexpected 'XVectDecl'"
 

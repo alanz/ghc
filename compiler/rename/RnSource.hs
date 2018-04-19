@@ -1129,31 +1129,25 @@ rnHsVectDecl (HsNoVect _ s var)
   = do { var' <- lookupLocatedTopBndrRn var           -- only applies to local (not imported) names
        ; return (HsNoVect noExt s var', unitFV (unLoc var'))
        }
-rnHsVectDecl (HsVectTypeIn _ s isScalar tycon Nothing)
+rnHsVectDecl (HsVectType (VectTypePR s tycon Nothing) isScalar)
   = do { tycon' <- lookupLocatedOccRn tycon
-       ; return ( HsVectTypeIn noExt s isScalar tycon' Nothing
+       ; return ( HsVectType (VectTypePR s tycon' Nothing) isScalar
                 , unitFV (unLoc tycon'))
        }
-rnHsVectDecl (HsVectTypeIn _ s isScalar tycon (Just rhs_tycon))
+rnHsVectDecl (HsVectType (VectTypePR s tycon (Just rhs_tycon)) isScalar)
   = do { tycon'     <- lookupLocatedOccRn tycon
        ; rhs_tycon' <- lookupLocatedOccRn rhs_tycon
-       ; return ( HsVectTypeIn noExt s isScalar tycon' (Just rhs_tycon')
+       ; return ( HsVectType (VectTypePR s tycon' (Just rhs_tycon')) isScalar 
                 , mkFVs [unLoc tycon', unLoc rhs_tycon'])
        }
-rnHsVectDecl (HsVectTypeOut {})
-  = panic "RnSource.rnHsVectDecl: Unexpected 'HsVectTypeOut'"
-rnHsVectDecl (HsVectClassIn _ s cls)
+rnHsVectDecl (HsVectClass (VectClassPR s cls))
   = do { cls' <- lookupLocatedOccRn cls
-       ; return (HsVectClassIn noExt s cls', unitFV (unLoc cls'))
+       ; return (HsVectClass (VectClassPR s cls'), unitFV (unLoc cls'))
        }
-rnHsVectDecl (HsVectClassOut {})
-  = panic "RnSource.rnHsVectDecl: Unexpected 'HsVectClassOut'"
-rnHsVectDecl (HsVectInstIn _ instTy)
+rnHsVectDecl (HsVectInst instTy)
   = do { (instTy', fvs) <- rnLHsInstType (text "a VECTORISE pragma") instTy
-       ; return (HsVectInstIn noExt instTy', fvs)
+       ; return (HsVectInst instTy', fvs)
        }
-rnHsVectDecl (HsVectInstOut {})
-  = panic "RnSource.rnHsVectDecl: Unexpected 'HsVectInstOut'"
 rnHsVectDecl (XVectDecl {})
   = panic "RnSource.rnHsVectDecl: Unexpected 'XVectDecl'"
 

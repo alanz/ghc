@@ -51,7 +51,7 @@ module HsDecls (
   collectRuleBndrSigTys,
   flattenRuleDecls, pprFullRuleName,
   -- ** @VECTORISE@ declarations
-  VectDecl(..), LVectDecl,
+  VectDecl(..), LVectDecl,VectTypePR(..),VectTypeTc(..),VectClassPR(..),
   lvectDeclName, lvectInstDecl,
   -- ** @default@ declarations
   DefaultDecl(..), LDefaultDecl,
@@ -2136,70 +2136,66 @@ data VectDecl pass
         --                                    'ApiAnnotation.AnnClose'
 
         -- For details on above see note [Api annotations] in ApiAnnotation
-  | HsVectTypeIn                -- pre type-checking
-      (XHsVectTypeIn pass)
-      SourceText                -- Note [Pragma source text] in BasicTypes
+  | HsVectType
+      (XHsVectType pass)
       Bool                      -- 'TRUE' => SCALAR declaration
+  | HsVectClass               -- pre type-checking
+      (XHsVectClass pass)
+  | HsVectInst                -- pre type-checking (always SCALAR)  !!!FIXME: should be superfluous now
+      (XHsVectInst pass)
+  | XVectDecl (XXVectDecl pass)
+
+-- Used for XHsVectType for parser and renamer phases
+data VectTypePR pass
+  = VectTypePR
+      SourceText                   -- Note [Pragma source text] in BasicTypes
       (Located (IdP pass))
       (Maybe (Located (IdP pass))) -- 'Nothing' => no right-hand side
-        -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
-        --           'ApiAnnotation.AnnType','ApiAnnotation.AnnClose',
-        --           'ApiAnnotation.AnnEqual'
 
-        -- For details on above see note [Api annotations] in ApiAnnotation
-  | HsVectTypeOut               -- post type-checking
-      (XHsVectTypeOut pass)
-      Bool                      -- 'TRUE' => SCALAR declaration
+-- Used for XHsVectType
+data VectTypeTc
+  = VectTypeTc
       TyCon
-      (Maybe TyCon)             -- 'Nothing' => no right-hand side
-  | HsVectClassIn               -- pre type-checking
-      (XHsVectClassIn pass)
-      SourceText                -- Note [Pragma source text] in BasicTypes
-      (Located (IdP pass))
-        -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnOpen',
-        --           'ApiAnnotation.AnnClass','ApiAnnotation.AnnClose',
+      (Maybe TyCon)                -- 'Nothing' => no right-hand side
+  deriving Data
 
-       -- For details on above see note [Api annotations] in ApiAnnotation
-  | HsVectClassOut              -- post type-checking
-      (XHsVectClassOut pass)
-      Class
-  | HsVectInstIn                -- pre type-checking (always SCALAR)  !!!FIXME: should be superfluous now
-      (XHsVectInstIn pass)
-      (LHsSigType pass)
-  | HsVectInstOut               -- post type-checking (always SCALAR) !!!FIXME: should be superfluous now
-      (XHsVectInstOut pass)
-      ClsInst
-  | XVectDecl (XXVectDecl pass)
+-- Used for XHsVectClass for parser and renamer phases
+data VectClassPR pass
+  = VectClassPR
+      SourceText                   -- Note [Pragma source text] in BasicTypes
+      (Located (IdP pass))
 
 type instance XHsVect        (GhcPass _) = PlaceHolder
 type instance XHsNoVect      (GhcPass _) = PlaceHolder
-type instance XHsVectTypeIn  (GhcPass _) = PlaceHolder
-type instance XHsVectTypeOut (GhcPass _) = PlaceHolder
-type instance XHsVectClassIn (GhcPass _) = PlaceHolder
-type instance XHsVectClassOut(GhcPass _) = PlaceHolder
-type instance XHsVectInstIn  (GhcPass _) = PlaceHolder
-type instance XHsVectInstOut (GhcPass _) = PlaceHolder
+
+type instance XHsVectType  GhcPs = VectTypePR GhcPs
+type instance XHsVectType  GhcRn = VectTypePR GhcRn
+type instance XHsVectType  GhcTc = VectTypeTc
+
+type instance XHsVectClass GhcPs = VectClassPR GhcPs
+type instance XHsVectClass GhcRn = VectClassPR GhcRn
+type instance XHsVectClass GhcTc = Class
+
+type instance XHsVectInst  GhcPs = (LHsSigType GhcPs)
+type instance XHsVectInst  GhcRn = (LHsSigType GhcRn)
+type instance XHsVectInst  GhcTc = ClsInst
+
 type instance XXVectDecl     (GhcPass _) = PlaceHolder
 
 
-lvectDeclName :: NamedThing (IdP pass) => LVectDecl pass -> Name
-lvectDeclName (L _ (HsVect _ _       (L _ name) _))    = getName name
-lvectDeclName (L _ (HsNoVect _ _     (L _ name)))      = getName name
-lvectDeclName (L _ (HsVectTypeIn _ _  _ (L _ name) _)) = getName name
-lvectDeclName (L _ (HsVectTypeOut _ _ tycon _))        = getName tycon
-lvectDeclName (L _ (HsVectClassIn _ _ (L _ name)))     = getName name
-lvectDeclName (L _ (HsVectClassOut _ cls))             = getName cls
-lvectDeclName (L _ (HsVectInstIn {}))
-  = panic "HsDecls.lvectDeclName: HsVectInstIn"
-lvectDeclName (L _ (HsVectInstOut {}))
-  = panic "HsDecls.lvectDeclName: HsVectInstOut"
+lvectDeclName :: LVectDecl GhcTc -> Name
+lvectDeclName (L _ (HsVect _ _       (L _ name) _))     = getName name
+lvectDeclName (L _ (HsNoVect _ _     (L _ name)))       = getName name
+lvectDeclName (L _ (HsVectType (VectTypeTc tycon _) _)) = getName tycon
+lvectDeclName (L _ (HsVectClass cls))                   = getName cls
+lvectDeclName (L _ (HsVectInst {}))
+  = panic "HsDecls.lvectDeclName: HsVectInst"
 lvectDeclName (L _ (XVectDecl {}))
   = panic "HsDecls.lvectDeclName: XVectDecl"
 
 lvectInstDecl :: LVectDecl pass -> Bool
-lvectInstDecl (L _ (HsVectInstIn {}))  = True
-lvectInstDecl (L _ (HsVectInstOut {})) = True
-lvectInstDecl _                        = False
+lvectInstDecl (L _ (HsVectInst {}))  = True
+lvectInstDecl _                      = False
 
 instance (p ~ GhcPass pass, OutputableBndrId p) => Outputable (VectDecl p) where
   ppr (HsVect _ _ v rhs)
@@ -2208,31 +2204,28 @@ instance (p ~ GhcPass pass, OutputableBndrId p) => Outputable (VectDecl p) where
              pprExpr (unLoc rhs) <+> text "#-}" ]
   ppr (HsNoVect _ _ v)
     = sep [text "{-# NOVECTORISE" <+> ppr v <+> text "#-}" ]
-  ppr (HsVectTypeIn _ _ False t Nothing)
-    = sep [text "{-# VECTORISE type" <+> ppr t <+> text "#-}" ]
-  ppr (HsVectTypeIn _ _ False t (Just t'))
-    = sep [text "{-# VECTORISE type" <+> ppr t, text "=", ppr t', text "#-}" ]
-  ppr (HsVectTypeIn _ _ True t Nothing)
-    = sep [text "{-# VECTORISE SCALAR type" <+> ppr t <+> text "#-}" ]
-  ppr (HsVectTypeIn _ _ True t (Just t'))
-    = sep [text "{-# VECTORISE SCALAR type" <+> ppr t, text "=", ppr t', text "#-}" ]
-  ppr (HsVectTypeOut _ False t Nothing)
-    = sep [text "{-# VECTORISE type" <+> ppr t <+> text "#-}" ]
-  ppr (HsVectTypeOut _ False t (Just t'))
-    = sep [text "{-# VECTORISE type" <+> ppr t, text "=", ppr t', text "#-}" ]
-  ppr (HsVectTypeOut _ True t Nothing)
-    = sep [text "{-# VECTORISE SCALAR type" <+> ppr t <+> text "#-}" ]
-  ppr (HsVectTypeOut _ True t (Just t'))
-    = sep [text "{-# VECTORISE SCALAR type" <+> ppr t, text "=", ppr t', text "#-}" ]
-  ppr (HsVectClassIn _ _ c)
+  ppr (HsVectType x False)
+    = sep [text "{-# VECTORISE type" <+> ppr x <+> text "#-}" ]
+  ppr (HsVectType x True)
+    = sep [text "{-# VECTORISE SCALAR type" <+> ppr x <+> text "#-}" ]
+  ppr (HsVectClass c)
     = sep [text "{-# VECTORISE class" <+> ppr c <+> text "#-}" ]
-  ppr (HsVectClassOut _ c)
-    = sep [text "{-# VECTORISE class" <+> ppr c <+> text "#-}" ]
-  ppr (HsVectInstIn _ ty)
-    = sep [text "{-# VECTORISE SCALAR instance" <+> ppr ty <+> text "#-}" ]
-  ppr (HsVectInstOut _ i)
+  ppr (HsVectInst i)
     = sep [text "{-# VECTORISE SCALAR instance" <+> ppr i <+> text "#-}" ]
   ppr (XVectDecl x) = ppr x
+
+instance (p ~ GhcPass pass, OutputableBndrId p)
+        => Outputable (VectTypePR p) where
+  ppr (VectTypePR _ n Nothing) = ppr n
+  ppr (VectTypePR _ n (Just t)) = sep [ppr n, text "=", ppr t]
+
+instance Outputable VectTypeTc where
+  ppr (VectTypeTc n Nothing) = ppr n
+  ppr (VectTypeTc n (Just t)) = sep [ppr n, text "=", ppr t]
+
+instance (p ~ GhcPass pass, OutputableBndrId p)
+        => Outputable (VectClassPR p) where
+  ppr (VectClassPR _ n ) = ppr n
 
 {-
 ************************************************************************

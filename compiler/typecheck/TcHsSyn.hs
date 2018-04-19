@@ -1440,15 +1440,12 @@ zonkVect env (HsNoVect x s v)
   = do { v' <- wrapLocM (zonkIdBndr env) v
        ; return $ HsNoVect x s v'
        }
-zonkVect _env (HsVectTypeOut x s t rt)
-  = return $ HsVectTypeOut x s t rt
-zonkVect _ (HsVectTypeIn _ _ _ _ _) = panic "TcHsSyn.zonkVect: HsVectTypeIn"
-zonkVect _env (HsVectClassOut x c)
-  = return $ HsVectClassOut x c
-zonkVect _ (HsVectClassIn _ _ _) = panic "TcHsSyn.zonkVect: HsVectClassIn"
-zonkVect _env (HsVectInstOut x i)
-  = return $ HsVectInstOut x i
-zonkVect _ (HsVectInstIn _ _) = panic "TcHsSyn.zonkVect: HsVectInstIn"
+zonkVect _env (HsVectType (VectTypeTc t rt) s)
+  = return $ HsVectType (VectTypeTc t rt) s
+zonkVect _env (HsVectClass c)
+  = return $ HsVectClass c
+zonkVect _env (HsVectInst i)
+  = return $ HsVectInst i
 zonkVect _ (XVectDecl _) = panic "TcHsSyn.zonkVect: XVectDecl"
 
 {-

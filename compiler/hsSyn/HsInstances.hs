@@ -212,6 +212,11 @@ deriving instance Data (VectDecl GhcPs)
 deriving instance Data (VectDecl GhcRn)
 deriving instance Data (VectDecl GhcTc)
 
+deriving instance Data (VectTypePR GhcPs)
+deriving instance Data (VectTypePR GhcRn)
+deriving instance Data (VectClassPR GhcPs)
+deriving instance Data (VectClassPR GhcRn)
+
 -- deriving instance (DataId p)     => Data (WarnDecls p)
 deriving instance Data (WarnDecls GhcPs)
 deriving instance Data (WarnDecls GhcRn)
