@@ -22,7 +22,7 @@ module HsDecls (
   HsDerivingClause(..), LHsDerivingClause, NewOrData(..), newOrDataToFlavour,
 
   -- ** Class or type declarations
-  TyClDecl(..), LTyClDecl,
+  TyClDecl(..), LTyClDecl, DataDeclRn(..),
   TyClGroup(..), mkTyClGroup, emptyTyClGroup,
   tyClGroupTyClDecls, tyClGroupInstDecls, tyClGroupRoleDecls,
   isClassDecl, isDataDecl, isSynDecl, tcdName,
@@ -46,7 +46,8 @@ module HsDecls (
   -- ** Standalone deriving declarations
   DerivDecl(..), LDerivDecl,
   -- ** @RULE@ declarations
-  LRuleDecls,RuleDecls(..),RuleDecl(..), LRuleDecl, RuleBndr(..),LRuleBndr,
+  LRuleDecls,RuleDecls(..),RuleDecl(..), LRuleDecl, HsRuleRn(..),
+  RuleBndr(..),LRuleBndr,
   collectRuleBndrSigTys,
   flattenRuleDecls, pprFullRuleName,
   -- ** @VECTORISE@ declarations
@@ -59,7 +60,6 @@ module HsDecls (
   SpliceDecl(..), LSpliceDecl,
   -- ** Foreign function interface declarations
   ForeignDecl(..), LForeignDecl, ForeignImport(..), ForeignExport(..),
-  noForeignImportCoercionYet, noForeignExportCoercionYet,
   CImportSpec(..),
   -- ** Data-constructor declarations
   ConDecl(..), LConDecl,
@@ -99,7 +99,7 @@ import Name
 import BasicTypes
 import Coercion
 import ForeignCall
-import PlaceHolder ( PlaceHolder, placeHolder )
+import PlaceHolder ( PlaceHolder )
 import HsExtension
 import NameSet
 
@@ -511,14 +511,13 @@ data TyClDecl pass
     --             'ApiAnnotation.AnnEqual',
 
     -- For details on above see note [Api annotations] in ApiAnnotation
-    SynDecl { tcdSExt   :: XSynDecl pass
+    SynDecl { tcdSExt   :: XSynDecl pass          -- ^ Post renameer, FVs
             , tcdLName  :: Located (IdP pass)     -- ^ Type constructor
             , tcdTyVars :: LHsQTyVars pass        -- ^ Type variables; for an
                                                   -- associated type these
                                                   -- include outer binders
             , tcdFixity :: LexicalFixity    -- ^ Fixity used in the declaration
-            , tcdRhs    :: LHsType pass           -- ^ RHS of type declaration
-            , tcdFVs    :: PostRn pass NameSet }
+            , tcdRhs    :: LHsType pass }         -- ^ RHS of type declaration
 
   | -- | @data@ declaration
     --
@@ -529,7 +528,7 @@ data TyClDecl pass
     --              'ApiAnnotation.AnnWhere',
 
     -- For details on above see note [Api annotations] in ApiAnnotation
-    DataDecl { tcdDExt     :: XDataDecl pass
+    DataDecl { tcdDExt     :: XDataDecl pass -- ^ Post renamer, CUSK flag, FVs
              , tcdLName    :: Located (IdP pass) -- ^ Type constructor
              , tcdTyVars   :: LHsQTyVars pass  -- ^ Type variables; for an
                                                -- associated type
@@ -540,11 +539,9 @@ data TyClDecl pass
                                                -- Here the type decl for 'f'
                                                -- includes 'a' in its tcdTyVars
              , tcdFixity   :: LexicalFixity -- ^ Fixity used in the declaration
-             , tcdDataDefn :: HsDataDefn pass
-             , tcdDataCusk :: PostRn pass Bool    -- ^ does this have a CUSK?
-             , tcdFVs      :: PostRn pass NameSet }
+             , tcdDataDefn :: HsDataDefn pass }
 
-  | ClassDecl { tcdCExt    :: XClassDecl pass,
+  | ClassDecl { tcdCExt    :: XClassDecl pass,         -- ^ Post renamer, FVs
                 tcdCtxt    :: LHsContext pass,         -- ^ Context...
                 tcdLName   :: Located (IdP pass),      -- ^ Name of the class
                 tcdTyVars  :: LHsQTyVars pass,         -- ^ Class type variables
@@ -556,8 +553,7 @@ data TyClDecl pass
                 tcdATs     :: [LFamilyDecl pass],       -- ^ Associated types;
                 tcdATDefs  :: [LTyFamDefltEqn pass],
                                                    -- ^ Associated type defaults
-                tcdDocs    :: [LDocDecl],               -- ^ Haddock docs
-                tcdFVs     :: PostRn pass NameSet
+                tcdDocs    :: [LDocDecl]                -- ^ Haddock docs
     }
         -- ^ - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnClass',
         --           'ApiAnnotation.AnnWhere','ApiAnnotation.AnnOpen',
@@ -569,10 +565,25 @@ data TyClDecl pass
         -- For details on above see note [Api annotations] in ApiAnnotation
   | XTyClDecl (XXTyClDecl pass)
 
+data DataDeclRn = DataDeclRn
+             { tcdDataCusk :: Bool    -- ^ does this have a CUSK?
+             , tcdFVs      :: NameSet }
+  deriving Data
+
 type instance XFamDecl      (GhcPass _) = PlaceHolder
-type instance XSynDecl      (GhcPass _) = PlaceHolder
-type instance XDataDecl     (GhcPass _) = PlaceHolder
-type instance XClassDecl    (GhcPass _) = PlaceHolder
+
+type instance XSynDecl      GhcPs = PlaceHolder
+type instance XSynDecl      GhcRn = NameSet -- FVs
+type instance XSynDecl      GhcTc = NameSet -- FVs
+
+type instance XDataDecl     GhcPs = PlaceHolder
+type instance XDataDecl     GhcRn = DataDeclRn
+type instance XDataDecl     GhcTc = DataDeclRn
+
+type instance XClassDecl    GhcPs = PlaceHolder
+type instance XClassDecl    GhcRn = NameSet -- FVs
+type instance XClassDecl    GhcTc = NameSet -- FVs
+
 type instance XXTyClDecl    (GhcPass _) = PlaceHolder
 
 -- Simple classifiers for TyClDecl
@@ -672,7 +683,7 @@ hsDeclHasCusk (SynDecl { tcdTyVars = tyvars, tcdRhs = rhs })
       HsParTy _ lty  -> rhs_annotated lty
       HsKindSig {}   -> True
       _              -> False
-hsDeclHasCusk (DataDecl { tcdDataCusk = cusk }) = cusk
+hsDeclHasCusk (DataDecl { tcdDExt = DataDeclRn { tcdDataCusk = cusk }}) = cusk
 hsDeclHasCusk (ClassDecl { tcdTyVars = tyvars }) = hsTvbAllKinded tyvars
 hsDeclHasCusk (XTyClDecl _) = panic "hsDeclHasCusk"
 
@@ -1858,17 +1869,15 @@ type LForeignDecl pass = Located (ForeignDecl pass)
 -- | Foreign Declaration
 data ForeignDecl pass
   = ForeignImport
-      { fd_i_ext  :: XForeignImport pass
+      { fd_i_ext  :: XForeignImport pass   -- Post typechecker, rep_ty ~ sig_ty
       , fd_name   :: Located (IdP pass)    -- defines this name
       , fd_sig_ty :: LHsSigType pass       -- sig_ty
-      , fd_co     :: PostTc pass Coercion  -- rep_ty ~ sig_ty
       , fd_fi     :: ForeignImport }
 
   | ForeignExport
-      { fd_e_ext  :: XForeignExport pass
+      { fd_e_ext  :: XForeignExport pass   -- Post typechecker, rep_ty ~ sig_ty
       , fd_name   :: Located (IdP pass)    -- uses this name
       , fd_sig_ty :: LHsSigType pass       -- sig_ty
-      , fd_co     :: PostTc pass Coercion  -- rep_ty ~ sig_ty
       , fd_fe     :: ForeignExport }
         -- ^
         --  - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnForeign',
@@ -1887,15 +1896,15 @@ data ForeignDecl pass
     such as Int and IO that we know how to make foreign calls with.
 -}
 
-type instance XForeignImport   (GhcPass _) = PlaceHolder
-type instance XForeignExport   (GhcPass _) = PlaceHolder
+type instance XForeignImport   GhcPs = PlaceHolder
+type instance XForeignImport   GhcRn = PlaceHolder
+type instance XForeignImport   GhcTc = Coercion
+
+type instance XForeignExport   GhcPs = PlaceHolder
+type instance XForeignExport   GhcRn = PlaceHolder
+type instance XForeignExport   GhcTc = Coercion
+
 type instance XXForeignDecl    (GhcPass _) = PlaceHolder
-
-noForeignImportCoercionYet :: PlaceHolder
-noForeignImportCoercionYet = placeHolder
-
-noForeignExportCoercionYet :: PlaceHolder
-noForeignExportCoercionYet = placeHolder
 
 -- Specification Of an imported external entity in dependence on the calling
 -- convention
@@ -2011,16 +2020,14 @@ type LRuleDecl pass = Located (RuleDecl pass)
 -- | Rule Declaration
 data RuleDecl pass
   = HsRule                             -- Source rule
-        (XHsRule pass)
+        (XHsRule pass)         -- After renamer, free-vars from the LHS and RHS
         (Located (SourceText,RuleName)) -- Rule name
                -- Note [Pragma source text] in BasicTypes
         Activation
         [LRuleBndr pass]        -- Forall'd vars; after typechecking this
                                 --   includes tyvars
         (Located (HsExpr pass)) -- LHS
-        (PostRn pass NameSet)   -- Free-vars from the LHS
         (Located (HsExpr pass)) -- RHS
-        (PostRn pass NameSet)   -- Free-vars from the RHS
         -- ^
         --  - 'ApiAnnotation.AnnKeywordId' :
         --           'ApiAnnotation.AnnOpen','ApiAnnotation.AnnTilde',
@@ -2032,7 +2039,13 @@ data RuleDecl pass
         -- For details on above see note [Api annotations] in ApiAnnotation
   | XRuleDecl (XXRuleDecl pass)
 
-type instance XHsRule       (GhcPass _) = PlaceHolder
+data HsRuleRn = HsRuleRn NameSet NameSet -- Free-vars from the LHS and RHS
+  deriving Data
+
+type instance XHsRule       GhcPs = PlaceHolder
+type instance XHsRule       GhcRn = HsRuleRn
+type instance XHsRule       GhcTc = HsRuleRn
+
 type instance XXRuleDecl    (GhcPass _) = PlaceHolder
 
 flattenRuleDecls :: [LRuleDecls pass] -> [LRuleDecl pass]
@@ -2070,7 +2083,7 @@ instance (p ~ GhcPass pass, OutputableBndrId p)
   ppr (XRuleDecls x) = ppr x
 
 instance (p ~ GhcPass pass, OutputableBndrId p) => Outputable (RuleDecl p) where
-  ppr (HsRule _ name act ns lhs _fv_lhs rhs _fv_rhs)
+  ppr (HsRule _ name act ns lhs rhs)
         = sep [pprFullRuleName name <+> ppr act,
                nest 4 (pp_forall <+> pprExpr (unLoc lhs)),
                nest 6 (equals <+> pprExpr (unLoc rhs)) ]
@@ -2266,7 +2279,7 @@ type LWarnDecls pass = Located (WarnDecls pass)
  -- Note [Pragma source text] in BasicTypes
 -- | Warning pragma Declarations
 data WarnDecls pass = Warnings { wd_ext      :: XWarnings pass
-                               , wd_src :: SourceText
+                               , wd_src      :: SourceText
                                , wd_warnings :: [LWarnDecl pass]
                                }
   | XWarnDecls (XXWarnDecls pass)

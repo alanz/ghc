@@ -155,8 +155,8 @@ mkClassDecl loc (L _ (mcxt, tycl_hdr)) fds where_cls
                                   , tcdFDs = snd (unLoc fds)
                                   , tcdSigs = mkClassOpSigs sigs
                                   , tcdMeths = binds
-                                  , tcdATs = ats, tcdATDefs = at_defs, tcdDocs  = docs
-                                  , tcdFVs = placeHolderNames })) }
+                                  , tcdATs = ats, tcdATDefs = at_defs
+                                  , tcdDocs  = docs })) }
 
 mkATDefault :: LTyFamInstDecl GhcPs
             -> Either (SrcSpan, SDoc) (LTyFamDefltEqn GhcPs)
@@ -193,9 +193,7 @@ mkTyData loc new_or_data cType (L _ (mcxt, tycl_hdr)) ksig data_cons maybe_deriv
        ; return (L loc (DataDecl { tcdDExt = noExt,
                                    tcdLName = tc, tcdTyVars = tyvars,
                                    tcdFixity = fixity,
-                                   tcdDataDefn = defn,
-                                   tcdDataCusk = placeHolder,
-                                   tcdFVs = placeHolderNames })) }
+                                   tcdDataDefn = defn })) }
 
 mkDataDefn :: NewOrData
            -> Maybe (Located CType)
@@ -226,7 +224,7 @@ mkTySynonym loc lhs rhs
        ; return (L loc (SynDecl { tcdSExt = noExt
                                 , tcdLName = tc, tcdTyVars = tyvars
                                 , tcdFixity = fixity
-                                , tcdRhs = rhs, tcdFVs = placeHolderNames })) }
+                                , tcdRhs = rhs })) }
 
 mkTyFamInstEqn :: LHsType GhcPs
                -> LHsType GhcPs
@@ -1503,7 +1501,6 @@ mkImport cconv safety (L loc (StringLiteral esrc entity), v, ty) =
           { fd_i_ext  = noExt
           , fd_name   = v
           , fd_sig_ty = ty
-          , fd_co     = noForeignImportCoercionYet
           , fd_fi     = spec
           }
 
@@ -1575,7 +1572,6 @@ mkExport :: Located CCallConv
 mkExport (L lc cconv) (L le (StringLiteral esrc entity), v, ty)
  = return $ ForD noExt $
    ForeignExport { fd_e_ext = noExt, fd_name = v, fd_sig_ty = ty
-                 , fd_co = noForeignExportCoercionYet
                  , fd_fe = CExport (L lc (CExportStatic esrc entity' cconv))
                                    (L le esrc) }
   where

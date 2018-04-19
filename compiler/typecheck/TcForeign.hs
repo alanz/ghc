@@ -261,10 +261,9 @@ tcFImport (L dloc fo@(ForeignImport { fd_name = L nloc nm, fd_sig_ty = hs_ty
        ; imp_decl' <- tcCheckFIType arg_tys res_ty imp_decl
           -- Can't use sig_ty here because sig_ty :: Type and
           -- we need HsType Id hence the undefined
-       ; let fi_decl = ForeignImport { fd_i_ext = noExt
-                                     , fd_name = L nloc id
+       ; let fi_decl = ForeignImport { fd_name = L nloc id
                                      , fd_sig_ty = undefined
-                                     , fd_co = mkSymCo norm_co
+                                     , fd_i_ext = mkSymCo norm_co
                                      , fd_fi = imp_decl' }
        ; return (id, L dloc fi_decl, gres) }
 tcFImport d = pprPanic "tcFImport" (ppr d)
@@ -408,10 +407,9 @@ tcFExport fo@(ForeignExport { fd_name = L loc nm, fd_sig_ty = hs_ty, fd_fe = spe
     -- because this name will be referred to by the C code stub.
     id  <- mkStableIdFromName nm sig_ty loc mkForeignExportOcc
     return ( mkVarBind id rhs
-           , ForeignExport { fd_e_ext = noExt
-                           , fd_name = L loc id
+           , ForeignExport { fd_name = L loc id
                            , fd_sig_ty = undefined
-                           , fd_co = norm_co, fd_fe = spec' }
+                           , fd_e_ext = norm_co, fd_fe = spec' }
            , gres)
 tcFExport d = pprPanic "tcFExport" (ppr d)
 

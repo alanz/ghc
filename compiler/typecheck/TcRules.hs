@@ -64,7 +64,7 @@ tcRuleDecls (HsRules _ src decls)
 tcRuleDecls (XRuleDecls _) = panic "tcRuleDecls"
 
 tcRule :: RuleDecl GhcRn -> TcM (RuleDecl GhcTcId)
-tcRule (HsRule _ name act hs_bndrs lhs fv_lhs rhs fv_rhs)
+tcRule (HsRule (HsRuleRn fv_lhs fv_rhs) name act hs_bndrs lhs rhs)
   = addErrCtxt (ruleCtxt $ snd $ unLoc name)  $
     do { traceTc "---- Rule ------" (pprFullRuleName name)
 
@@ -132,10 +132,10 @@ tcRule (HsRule _ name act hs_bndrs lhs fv_lhs rhs fv_rhs)
                                          lhs_evs rhs_wanted
 
        ; emitImplications (lhs_implic `unionBags` rhs_implic)
-       ; return (HsRule noExt name act
+       ; return (HsRule (HsRuleRn fv_lhs fv_rhs)name act
                     (map (noLoc . RuleBndr noExt . noLoc) (qtkvs ++ tpl_ids))
-                    (mkHsDictLet lhs_binds lhs') fv_lhs
-                    (mkHsDictLet rhs_binds rhs') fv_rhs) }
+                    (mkHsDictLet lhs_binds lhs')
+                    (mkHsDictLet rhs_binds rhs')) }
 tcRule (XRuleDecl _) = panic "tcRule"
 
 tcRuleBndrs :: [LRuleBndr GhcRn] -> TcM [Var]

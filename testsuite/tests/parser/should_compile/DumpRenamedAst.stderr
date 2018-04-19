@@ -59,7 +59,10 @@
      (PlaceHolder)
      [({ DumpRenamedAst.hs:6:1-30 }
        (DataDecl
-        (PlaceHolder)
+        (DataDeclRn
+         (True)
+         {NameSet:
+          [{Name: DumpRenamedAst.Peano}]})
         ({ DumpRenamedAst.hs:6:6-10 }
          {Name: DumpRenamedAst.Peano})
         (HsQTvs
@@ -103,10 +106,7 @@
                  {Name: DumpRenamedAst.Peano})))])
             (Nothing)))]
          ({ <no location info> }
-          []))
-        (True)
-        {NameSet:
-         [{Name: DumpRenamedAst.Peano}]}))]
+          []))))]
      []
      [])
    ,(TyClGroup

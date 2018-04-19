@@ -59,9 +59,7 @@
                 {OccName: Peano}))))])
           (Nothing)))]
        ({ <no location info> }
-        []))
-      (PlaceHolder)
-      (PlaceHolder))))
+        [])))))
   ,({ DumpParsedAst.hs:7:1-39 }
     (TyClD
      (PlaceHolder)

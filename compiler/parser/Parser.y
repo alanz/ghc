@@ -1605,8 +1605,7 @@ rule    :: { LRuleDecl GhcPs }
         : STRING rule_activation rule_forall infixexp '=' exp
          {%ams (sLL $1 $> $ (HsRule noExt (L (gl $1) (getSTRINGs $1,getSTRING $1))
                                   ((snd $2) `orElse` AlwaysActive)
-                                  (snd $3) $4 placeHolderNames $6
-                                  placeHolderNames))
+                                  (snd $3) $4 $6))
                (mj AnnEqual $5 : (fst $2) ++ (fst $3)) }
 
 -- Rules can be specified to be NeverActive, unlike inline/specialize pragmas

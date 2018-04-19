@@ -381,7 +381,6 @@ rnHsForeignDecl (ForeignImport { fd_name = name, fd_sig_ty = ty, fd_fi = spec })
 
        ; return (ForeignImport { fd_i_ext = noExt
                                , fd_name = name', fd_sig_ty = ty'
-                               , fd_co = noForeignImportCoercionYet
                                , fd_fi = spec' }, fvs) }
 
 rnHsForeignDecl (ForeignExport { fd_name = name, fd_sig_ty = ty, fd_fe = spec })
@@ -389,7 +388,6 @@ rnHsForeignDecl (ForeignExport { fd_name = name, fd_sig_ty = ty, fd_fe = spec })
        ; (ty', fvs) <- rnHsSigType (ForeignDeclCtx name) ty
        ; return (ForeignExport { fd_e_ext = noExt
                                , fd_name = name', fd_sig_ty = ty'
-                               , fd_co = noForeignExportCoercionYet
                                , fd_fe = spec }
                 , fvs `addOneFV` unLoc name') }
         -- NB: a foreign export is an *occurrence site* for name, so
@@ -989,7 +987,7 @@ rnHsRuleDecls (HsRules _ src rules)
 rnHsRuleDecls (XRuleDecls _) = panic "rnHsRuleDecls"
 
 rnHsRuleDecl :: RuleDecl GhcPs -> RnM (RuleDecl GhcRn, FreeVars)
-rnHsRuleDecl (HsRule _ rule_name act vars lhs _fv_lhs rhs _fv_rhs)
+rnHsRuleDecl (HsRule _ rule_name act vars lhs rhs)
   = do { let rdr_names_w_loc = map get_var vars
        ; checkDupRdrNames rdr_names_w_loc
        ; checkShadowedRdrNames rdr_names_w_loc
@@ -998,7 +996,8 @@ rnHsRuleDecl (HsRule _ rule_name act vars lhs _fv_lhs rhs _fv_rhs)
     do { (lhs', fv_lhs') <- rnLExpr lhs
        ; (rhs', fv_rhs') <- rnLExpr rhs
        ; checkValidRule (snd $ unLoc rule_name) names lhs' fv_lhs'
-       ; return (HsRule noExt rule_name act vars' lhs' fv_lhs' rhs' fv_rhs',
+       ; return (HsRule (HsRuleRn fv_lhs' fv_rhs') rule_name act vars'
+                                                                     lhs' rhs',
                  fv_lhs' `plusFV` fv_rhs') } }
   where
     get_var (L _ (RuleBndrSig _ v _)) = v
@@ -1548,10 +1547,9 @@ rnTyClDecl (SynDecl { tcdLName = tycon, tcdTyVars = tyvars,
        ; traceRn "rntycl-ty" (ppr tycon <+> ppr kvs)
        ; bindHsQTyVars doc Nothing Nothing kvs tyvars $ \ tyvars' _ ->
     do { (rhs', fvs) <- rnTySyn doc rhs
-       ; return (SynDecl { tcdSExt = noExt
-                         , tcdLName = tycon', tcdTyVars = tyvars'
+       ; return (SynDecl { tcdLName = tycon', tcdTyVars = tyvars'
                          , tcdFixity = fixity
-                         , tcdRhs = rhs', tcdFVs = fvs }, fvs) } }
+                         , tcdRhs = rhs', tcdSExt = fvs }, fvs) } }
 
 -- "data", "newtype" declarations
 -- both top level and (for an associated type) in an instance decl
@@ -1568,11 +1566,10 @@ rnTyClDecl (DataDecl { tcdLName = tycon, tcdTyVars = tyvars,
        ; let cusk = hsTvbAllKinded tyvars' &&
                     (not typeintype || no_rhs_kvs)
        ; traceRn "rndata" (ppr tycon <+> ppr cusk <+> ppr no_rhs_kvs)
-       ; return (DataDecl { tcdDExt = noExt
-                          , tcdLName = tycon', tcdTyVars = tyvars'
+       ; return (DataDecl { tcdLName = tycon', tcdTyVars = tyvars'
                           , tcdFixity = fixity
-                          , tcdDataDefn = defn', tcdDataCusk = cusk
-                          , tcdFVs = fvs }, fvs) } }
+                          , tcdDataDefn = defn'
+                          , tcdDExt = DataDeclRn cusk fvs }, fvs) } }
 
 rnTyClDecl (ClassDecl { tcdCtxt = context, tcdLName = lcls,
                         tcdTyVars = tyvars, tcdFixity = fixity,
@@ -1629,12 +1626,11 @@ rnTyClDecl (ClassDecl { tcdCtxt = context, tcdLName = lcls,
         ; docs' <- mapM (wrapLocM rnDocDecl) docs
 
         ; let all_fvs = meth_fvs `plusFV` stuff_fvs `plusFV` fv_at_defs
-        ; return (ClassDecl { tcdCExt = noExt,
-                              tcdCtxt = context', tcdLName = lcls',
+        ; return (ClassDecl { tcdCtxt = context', tcdLName = lcls',
                               tcdTyVars = tyvars', tcdFixity = fixity,
                               tcdFDs = fds', tcdSigs = sigs',
                               tcdMeths = mbinds', tcdATs = ats', tcdATDefs = at_defs',
-                              tcdDocs = docs', tcdFVs = all_fvs },
+                              tcdDocs = docs', tcdCExt = all_fvs },
                   all_fvs ) }
   where
     cls_doc  = ClassDeclCtx lcls

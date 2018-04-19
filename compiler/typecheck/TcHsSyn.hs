@@ -1388,9 +1388,10 @@ zonkForeignExports :: ZonkEnv -> [LForeignDecl GhcTcId]
 zonkForeignExports env ls = mapM (wrapLocM (zonkForeignExport env)) ls
 
 zonkForeignExport :: ZonkEnv -> ForeignDecl GhcTcId -> TcM (ForeignDecl GhcTc)
-zonkForeignExport env (ForeignExport { fd_name = i, fd_co = co, fd_fe = spec })
-  = return (ForeignExport { fd_e_ext = noExt, fd_name = zonkLIdOcc env i
-                          , fd_sig_ty = undefined, fd_co = co
+zonkForeignExport env (ForeignExport { fd_name = i, fd_e_ext = co
+                                     , fd_fe = spec })
+  = return (ForeignExport { fd_name = zonkLIdOcc env i
+                          , fd_sig_ty = undefined, fd_e_ext = co
                           , fd_fe = spec })
 zonkForeignExport _ for_imp
   = return for_imp     -- Foreign imports don't need zonking
@@ -1399,8 +1400,7 @@ zonkRules :: ZonkEnv -> [LRuleDecl GhcTcId] -> TcM [LRuleDecl GhcTc]
 zonkRules env rs = mapM (wrapLocM (zonkRule env)) rs
 
 zonkRule :: ZonkEnv -> RuleDecl GhcTcId -> TcM (RuleDecl GhcTc)
-zonkRule env (HsRule x name act (vars{-::[RuleBndr TcId]-}) lhs fv_lhs rhs
-                                                                         fv_rhs)
+zonkRule env (HsRule fvs name act (vars{-::[RuleBndr TcId]-}) lhs rhs)
   = do { (env_inside, new_bndrs) <- mapAccumLM zonk_bndr env vars
 
        ; let env_lhs = setZonkType env_inside zonkTvSkolemising
@@ -1409,7 +1409,7 @@ zonkRule env (HsRule x name act (vars{-::[RuleBndr TcId]-}) lhs fv_lhs rhs
        ; new_lhs <- zonkLExpr env_lhs    lhs
        ; new_rhs <- zonkLExpr env_inside rhs
 
-       ; return (HsRule x name act new_bndrs new_lhs fv_lhs new_rhs fv_rhs) }
+       ; return (HsRule fvs name act new_bndrs new_lhs new_rhs ) }
   where
    zonk_bndr env (L l (RuleBndr x (L loc v)))
       = do { (env', v') <- zonk_it env v

@@ -617,8 +617,7 @@ getInitialKind decl@(SynDecl { tcdLName = L _ name
         HsKindSig _ _ k   -> Just k
         _                 -> Nothing
 
-getInitialKind (DataDecl _ (L _ _) _ _ (XHsDataDefn _) _ _)
-  = panic "getInitialKind"
+getInitialKind (DataDecl _ (L _ _) _ _ (XHsDataDefn _)) = panic "getInitialKind"
 getInitialKind (XTyClDecl _) = panic "getInitialKind"
 
 ---------------------------------
@@ -719,9 +718,9 @@ kcTyClDecl (FamDecl _ (FamilyDecl { fdLName  = L _ fam_tc_name
         do { fam_tc <- kcLookupTcTyCon fam_tc_name
            ; mapM_ (kcTyFamInstEqn fam_tc) eqns }
       _ -> return ()
-kcTyClDecl (FamDecl _ (XFamilyDecl _))                  = panic "kcTyClDecl"
-kcTyClDecl (DataDecl _ (L _ _) _ _ (XHsDataDefn _) _ _) = panic "kcTyClDecl"
-kcTyClDecl (XTyClDecl _)                                = panic "kcTyClDecl"
+kcTyClDecl (FamDecl _ (XFamilyDecl _))              = panic "kcTyClDecl"
+kcTyClDecl (DataDecl _ (L _ _) _ _ (XHsDataDefn _)) = panic "kcTyClDecl"
+kcTyClDecl (XTyClDecl _)                            = panic "kcTyClDecl"
 
 -------------------
 kcConDecl :: ConDecl GhcRn -> TcM ()

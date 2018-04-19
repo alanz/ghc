@@ -631,7 +631,7 @@ repFixD (L loc (FixitySig _ names (Fixity _ prec dir)))
 repFixD (L _ (XFixitySig _)) = panic "repFixD"
 
 repRuleD :: LRuleDecl GhcRn -> DsM (SrcSpan, Core TH.DecQ)
-repRuleD (L loc (HsRule _ n act bndrs lhs _ rhs _))
+repRuleD (L loc (HsRule _ n act bndrs lhs rhs))
   = do { let bndr_names = concatMap ruleBndrNames bndrs
        ; ss <- mkGenSyms bndr_names
        ; rule1 <- addBinds ss $

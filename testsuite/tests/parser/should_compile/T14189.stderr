@@ -14,7 +14,10 @@
      (PlaceHolder)
      [({ T14189.hs:6:1-42 }
        (DataDecl
-        (PlaceHolder)
+        (DataDeclRn
+          (True)
+          {NameSet:
+           [{Name: GHC.Types.Int}]})
         ({ T14189.hs:6:6-11 }
          {Name: T14189.MyType})
         (HsQTvs
@@ -84,10 +87,7 @@
                  (Nothing)))]))
             (Nothing)))]
          ({ <no location info> }
-          []))
-        (True)
-        {NameSet:
-         [{Name: GHC.Types.Int}]}))]
+          []))))]
      []
      [])]
    []

@@ -374,7 +374,7 @@ Reason
 -}
 
 dsRule :: LRuleDecl GhcTc -> DsM (Maybe CoreRule)
-dsRule (L loc (HsRule _ name rule_act vars lhs _tv_lhs rhs _fv_rhs))
+dsRule (L loc (HsRule _ name rule_act vars lhs rhs))
   = putSrcSpanDs loc $
     do  { let bndrs' = [var | L _ (RuleBndr _ (L _ var)) <- vars]
 

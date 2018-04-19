@@ -190,7 +190,6 @@ cvtDec (TySynD tc tvs rhs)
         ; returnJustL $ TyClD noExt $
           SynDecl { tcdSExt = noExt, tcdLName = tc', tcdTyVars = tvs'
                   , tcdFixity = Prefix
-                  , tcdFVs = placeHolderNames
                   , tcdRhs = rhs' } }
 
 cvtDec (DataD ctxt tc tvs ksig constrs derivs)
@@ -218,9 +217,7 @@ cvtDec (DataD ctxt tc tvs ksig constrs derivs)
                                         { tcdDExt = noExt
                                         , tcdLName = tc', tcdTyVars = tvs'
                                         , tcdFixity = Prefix
-                                        , tcdDataDefn = defn
-                                        , tcdDataCusk = placeHolder
-                                        , tcdFVs = placeHolderNames }) }
+                                        , tcdDataDefn = defn }) }
 
 cvtDec (NewtypeD ctxt tc tvs ksig constr derivs)
   = do  { (ctxt', tc', tvs') <- cvt_tycl_hdr ctxt tc tvs
@@ -237,9 +234,7 @@ cvtDec (NewtypeD ctxt tc tvs ksig constr derivs)
                                     { tcdDExt = noExt
                                     , tcdLName = tc', tcdTyVars = tvs'
                                     , tcdFixity = Prefix
-                                    , tcdDataDefn = defn
-                                    , tcdDataCusk = placeHolder
-                                    , tcdFVs = placeHolderNames }) }
+                                    , tcdDataDefn = defn }) }
 
 cvtDec (ClassD ctxt cl tvs fds decs)
   = do  { (cxt', tc', tvs') <- cvt_tycl_hdr ctxt cl tvs
@@ -256,8 +251,7 @@ cvtDec (ClassD ctxt cl tvs fds decs)
                     , tcdFixity = Prefix
                     , tcdFDs = fds', tcdSigs = Hs.mkClassOpSigs sigs'
                     , tcdMeths = binds'
-                    , tcdATs = fams', tcdATDefs = at_defs, tcdDocs = []
-                    , tcdFVs = placeHolderNames }
+                    , tcdATs = fams', tcdATDefs = at_defs, tcdDocs = [] }
                               -- no docs in TH ^^
         }
   where
@@ -635,7 +629,6 @@ cvtForD (ImportF callconv safety from nm ty)
            ; return (ForeignImport { fd_i_ext = noExt
                                    , fd_name = nm'
                                    , fd_sig_ty = mkLHsSigType ty'
-                                   , fd_co = noForeignImportCoercionYet
                                    , fd_fi = impspec })
            }
     safety' = case safety of
@@ -653,7 +646,6 @@ cvtForD (ExportF callconv as nm ty)
         ; return $ ForeignExport { fd_e_ext = noExt
                                  , fd_name = nm'
                                  , fd_sig_ty = mkLHsSigType ty'
-                                 , fd_co = noForeignExportCoercionYet
                                  , fd_fe = e } }
 
 cvt_conv :: TH.Callconv -> CCallConv
@@ -713,9 +705,7 @@ cvtPragmaD (RuleP nm bndrs lhs rhs phases)
        ; returnJustL $ Hs.RuleD noExt
             $ HsRules noExt (SourceText "{-# RULES")
                       [noLoc $ HsRule noExt (noLoc (SourceText nm,nm')) act
-                                                  bndrs'
-                                                  lhs' placeHolderNames
-                                                  rhs' placeHolderNames]
+                                                  bndrs' lhs' rhs']
        }
 
 cvtPragmaD (AnnP target exp)
