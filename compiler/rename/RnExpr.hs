@@ -594,6 +594,7 @@ methodNamesMatch (MG { mg_alts = L _ ms })
   = plusFVs (map do_one ms)
  where
     do_one (L _ (Match { m_grhss = grhss })) = methodNamesGRHSs grhss
+methodNamesMatch (XMatchGroup _) = panic "methodNamesMatch"
 
 -------------------------------------------------
 -- gaw 2004

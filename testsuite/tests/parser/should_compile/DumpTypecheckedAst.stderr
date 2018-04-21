@@ -323,6 +323,13 @@
         ({ DumpTypecheckedAst.hs:11:1-4 }
          {Var: main})
         (MG
+         (MatchGroupTc
+          []
+          (TyConApp
+           ({abstract:TyCon})
+           [(TyConApp
+             ({abstract:TyCon})
+             [])]))
          ({ DumpTypecheckedAst.hs:11:1-23 }
           [({ DumpTypecheckedAst.hs:11:1-23 }
             (Match
@@ -354,12 +361,6 @@
               ({ <no location info> }
                (EmptyLocalBinds
                 (PlaceHolder))))))])
-         []
-         (TyConApp
-          ({abstract:TyCon})
-          [(TyConApp
-            ({abstract:TyCon})
-            [])])
          (FromSource))
         (WpHole)
         []))]}

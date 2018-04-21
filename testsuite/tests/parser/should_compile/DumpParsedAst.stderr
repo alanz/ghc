@@ -218,6 +218,7 @@
        (Unqual
         {OccName: main}))
       (MG
+       (PlaceHolder)
        ({ DumpParsedAst.hs:11:1-23 }
         [({ DumpParsedAst.hs:11:1-23 }
           (Match
@@ -251,8 +252,6 @@
             ({ <no location info> }
              (EmptyLocalBinds
               (PlaceHolder))))))])
-       []
-       (PlaceHolder)
        (FromSource))
       (WpHole)
       [])))]

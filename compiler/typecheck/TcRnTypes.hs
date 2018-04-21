@@ -3536,6 +3536,7 @@ matchesCtOrigin (MG { mg_alts = alts })
 
   | otherwise
   = Shouldn'tHappenOrigin "multi-way match"
+matchesCtOrigin (XMatchGroup{}) = panic "matchesCtOrigin"
 
 -- | Extract a suitable CtOrigin from guarded RHSs
 grhssCtOrigin :: GRHSs GhcRn (LHsExpr GhcRn) -> CtOrigin

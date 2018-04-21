@@ -674,16 +674,14 @@ tcPatSynMatcher (L loc name) lpat
                     L (getLoc lpat) $
                     HsCase noExt (nlHsVar scrutinee) $
                     MG{ mg_alts = L (getLoc lpat) cases
-                      , mg_arg_tys = [pat_ty]
-                      , mg_res_ty = res_ty
+                      , mg_ext = MatchGroupTc [pat_ty] res_ty
                       , mg_origin = Generated
                       }
              body' = noLoc $
                      HsLam noExt $
                      MG{ mg_alts = noLoc [mkSimpleMatch LambdaExpr
                                                         args body]
-                       , mg_arg_tys = [pat_ty, cont_ty, fail_ty]
-                       , mg_res_ty = res_ty
+                       , mg_ext = MatchGroupTc [pat_ty, cont_ty, fail_ty] res_ty
                        , mg_origin = Generated
                        }
              match = mkMatch (mkPrefixFunRhs (L loc name)) []
@@ -692,8 +690,7 @@ tcPatSynMatcher (L loc name) lpat
                              (noLoc (EmptyLocalBinds noExt))
              mg :: MatchGroup GhcTc (LHsExpr GhcTc)
              mg = MG{ mg_alts = L (getLoc match) [match]
-                    , mg_arg_tys = []
-                    , mg_res_ty = res_ty
+                    , mg_ext = MatchGroupTc [] res_ty
                     , mg_origin = Generated
                     }
 

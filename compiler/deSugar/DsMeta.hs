@@ -1528,6 +1528,8 @@ rep_bind (L loc (FunBind { fun_id = fn
         ; ans <- repFun fn' (nonEmptyCoreList ms1)
         ; return (loc, ans) }
 
+rep_bind (L _ (FunBind { fun_matches = XMatchGroup _ })) = panic "rep_bind"
+
 rep_bind (L loc (PatBind { pat_lhs = pat
                          , pat_rhs = GRHSs guards (L _ wheres) }))
  =   do { patcore <- repLP pat
@@ -1626,6 +1628,7 @@ repPatSynDir ImplicitBidirectional = rep2 implBidirPatSynName []
 repPatSynDir (ExplicitBidirectional (MG { mg_alts = L _ clauses }))
   = do { clauses' <- mapM repClauseTup clauses
        ; repExplBidirPatSynDir (nonEmptyCoreList clauses') }
+repPatSynDir (ExplicitBidirectional (XMatchGroup _)) = panic "repPatSynDir"
 
 repExplBidirPatSynDir :: Core [TH.ClauseQ] -> DsM (Core TH.PatSynDirQ)
 repExplBidirPatSynDir (MkC cls) = rep2 explBidirPatSynName [cls]

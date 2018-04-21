@@ -1421,6 +1421,7 @@ checkPrecMatch op (MG { mg_alts = L _ ms })
         -- but the second eqn has no args (an error, but not discovered
         -- until the type checker).  So we don't want to crash on the
         -- second eqn.
+checkPrecMatch _ (XMatchGroup {}) = panic "checkPrecMatch"
 
 checkPrec :: Name -> Pat GhcRn -> Bool -> IOEnv (Env TcGblEnv TcLclEnv) ()
 checkPrec op (ConPatIn op1 (InfixCon _ _)) right = do

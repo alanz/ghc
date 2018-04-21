@@ -1580,15 +1580,26 @@ a function defined by pattern matching must have the same number of
 patterns in each equation.
 -}
 
--- AZ:TODO complete TTG on this, once DataId etc is resolved
 data MatchGroup p body
-  = MG { mg_alts    :: Located [LMatch p body]  -- The alternatives
-       , mg_arg_tys :: [PostTc p Type]  -- Types of the arguments, t1..tn
-       , mg_res_ty  :: PostTc p Type    -- Type of the result, tr
+  = MG { mg_ext     :: XMG p body -- Posr typechecker, types of args and result
+       , mg_alts    :: Located [LMatch p body]  -- The alternatives
        , mg_origin  :: Origin }
      -- The type is the type of the entire group
      --      t1 -> ... -> tn -> tr
      -- where there are n patterns
+  | XMatchGroup (XXMatchGroup p body)
+
+data MatchGroupTc
+  = MatchGroupTc
+       { mg_arg_tys :: [Type]  -- Types of the arguments, t1..tn
+       , mg_res_ty  :: Type    -- Type of the result, tr
+       } deriving Data
+
+type instance XMG         GhcPs b = PlaceHolder
+type instance XMG         GhcRn b = PlaceHolder
+type instance XMG         GhcTc b = MatchGroupTc
+
+type instance XXMatchGroup (GhcPass _) b = PlaceHolder
 
 -- | Located Match
 type LMatch id body = Located (Match id body)
@@ -1653,6 +1664,7 @@ isInfixMatch match = case m_ctxt match of
 
 isEmptyMatchGroup :: MatchGroup id body -> Bool
 isEmptyMatchGroup (MG { mg_alts = ms }) = null $ unLoc ms
+isEmptyMatchGroup (XMatchGroup{}) = panic "isEmptyMatchGroup"
 
 -- | Is there only one RHS in this list of matches?
 isSingletonMatchGroup :: [LMatch id body] -> Bool
@@ -1669,6 +1681,7 @@ matchGroupArity :: MatchGroup id body -> Arity
 matchGroupArity (MG { mg_alts = alts })
   | L _ (alt1:_) <- alts = length (hsLMatchPats alt1)
   | otherwise        = panic "matchGroupArity"
+matchGroupArity (XMatchGroup{}) = panic "matchGroupArity"
 
 hsLMatchPats :: LMatch id body -> [LPat id]
 hsLMatchPats (L _ (Match { m_pats = pats })) = pats
@@ -1705,6 +1718,7 @@ pprMatches :: (OutputableBndrId (GhcPass idR), Outputable body)
 pprMatches MG { mg_alts = matches }
     = vcat (map pprMatch (map unLoc (unLoc matches)))
       -- Don't print the type; it's only a place-holder before typechecking
+pprMatches (XMatchGroup x) = ppr x
 
 -- Exported to HsBinds, which can't see the defn of HsMatchContext
 pprFunBind :: (OutputableBndrId (GhcPass idR), Outputable body)

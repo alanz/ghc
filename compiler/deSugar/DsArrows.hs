@@ -554,7 +554,8 @@ case bodies, containing the following fields:
 -}
 
 dsCmd ids local_vars stack_ty res_ty
-      (HsCmdCase _ exp (MG { mg_alts = L l matches, mg_arg_tys = arg_tys
+      (HsCmdCase _ exp (MG { mg_alts = L l matches
+                           , mg_ext = MatchGroupTc arg_tys _
                            , mg_origin = origin }))
       env_ids = do
     stack_id <- newSysLocalDs stack_ty
@@ -602,8 +603,8 @@ dsCmd ids local_vars stack_ty res_ty
 
     core_body <- dsExpr (HsCase noExt exp
                          (MG { mg_alts = L l matches'
-                             , mg_arg_tys = arg_tys
-                             , mg_res_ty = sum_ty, mg_origin = origin }))
+                             , mg_ext = MatchGroupTc arg_tys sum_ty
+                             , mg_origin = origin }))
         -- Note that we replace the HsCase result type by sum_ty,
         -- which is the type of matches'
 

@@ -1155,6 +1155,7 @@ rnMatchGroup ctxt rnBody (MG { mg_alts = L _ ms, mg_origin = origin })
        ; when (null ms && not empty_case_ok) (addErr (emptyCaseErr ctxt))
        ; (new_ms, ms_fvs) <- mapFvRn (rnMatch ctxt rnBody) ms
        ; return (mkMatchGroup origin new_ms, ms_fvs) }
+rnMatchGroup _ _ (XMatchGroup {}) = panic "rnMatchGroup"
 
 rnMatch :: Outputable (body GhcPs) => HsMatchContext Name
         -> (Located (body GhcPs) -> RnM (Located (body GhcRn), FreeVars))

@@ -644,6 +644,7 @@ addTickMatchGroup is_lam mg@(MG { mg_alts = L l matches }) = do
   let isOneOfMany = matchesOneOfMany matches
   matches' <- mapM (liftL (addTickMatch isOneOfMany is_lam)) matches
   return $ mg { mg_alts = L l matches' }
+addTickMatchGroup _ (XMatchGroup _) = panic "addTickMatchGroup"
 
 addTickMatch :: Bool -> Bool -> Match GhcTc (LHsExpr GhcTc)
              -> TM (Match GhcTc (LHsExpr GhcTc))
@@ -896,6 +897,7 @@ addTickCmdMatchGroup :: MatchGroup GhcTc (LHsCmd GhcTc)
 addTickCmdMatchGroup mg@(MG { mg_alts = L l matches }) = do
   matches' <- mapM (liftL addTickCmdMatch) matches
   return $ mg { mg_alts = L l matches' }
+addTickCmdMatchGroup (XMatchGroup _) = panic "addTickCmdMatchGroup"
 
 addTickCmdMatch :: Match GhcTc (LHsCmd GhcTc) -> TM (Match GhcTc (LHsCmd GhcTc))
 addTickCmdMatch match@(Match { m_pats = pats, m_grhss = gRHSs }) =

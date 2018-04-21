@@ -690,6 +690,16 @@ type ForallXCmdTop (c :: * -> Constraint) (x :: *) =
        , c (XXCmdTop x)
        )
 
+-- -------------------------------------
+
+type family XMG           x b
+type family XXMatchGroup  x b
+
+type ForallXMatchGroup (c :: * -> Constraint) (x :: *) (b :: *) =
+       ( c (XMG          x b)
+       , c (XXMatchGroup x b)
+       )
+
 -- ---------------------------------------------------------------------
 
 type family XCmdArrApp  x

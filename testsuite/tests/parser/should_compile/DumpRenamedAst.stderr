@@ -17,6 +17,7 @@
            ({ DumpRenamedAst.hs:18:1-4 }
             {Name: DumpRenamedAst.main})
            (MG
+            (PlaceHolder)
             ({ DumpRenamedAst.hs:18:1-23 }
              [({ DumpRenamedAst.hs:18:1-23 }
                (Match
@@ -48,8 +49,6 @@
                  ({ <no location info> }
                   (EmptyLocalBinds
                    (PlaceHolder))))))])
-            []
-            (PlaceHolder)
             (FromSource))
            (WpHole)
            []))]})]

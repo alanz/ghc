@@ -220,9 +220,9 @@ tcMatches ctxt pat_tys rhs_ty (MG { mg_alts = L l matches
        ; pat_tys  <- mapM readExpType pat_tys
        ; rhs_ty   <- readExpType rhs_ty
        ; return (MG { mg_alts = L l matches'
-                    , mg_arg_tys = pat_tys
-                    , mg_res_ty = rhs_ty
+                    , mg_ext = MatchGroupTc pat_tys rhs_ty
                     , mg_origin = origin }) }
+tcMatches _ _ _ (XMatchGroup {}) = panic "tcMatches"
 
 -------------
 tcMatch :: (Outputable (body GhcRn)) => TcMatchCtxt body
@@ -1134,3 +1134,4 @@ checkArgs fun (MG { mg_alts = L _ (match1:matches) })
 
     args_in_match :: LMatch GhcRn body -> Int
     args_in_match (L _ (Match { m_pats = pats })) = length pats
+checkArgs _ (XMatchGroup{}) = panic "checkArgs"

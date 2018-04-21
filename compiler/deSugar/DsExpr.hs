@@ -627,11 +627,12 @@ ds_expr _ expr@(RecordUpd { rupd_expr = record_expr, rupd_flds = fields
         -- constructor arguments.
         ; alts <- mapM (mk_alt upd_fld_env) cons_to_upd
         ; ([discrim_var], matching_code)
-                <- matchWrapper RecUpd Nothing (MG { mg_alts = noLoc alts
-                                                   , mg_arg_tys = [in_ty]
-                                                   , mg_res_ty = out_ty, mg_origin = FromSource })
-                                                   -- FromSource is not strictly right, but we
-                                                   -- want incomplete pattern-match warnings
+                <- matchWrapper RecUpd Nothing
+                                      (MG { mg_alts = noLoc alts
+                                          , mg_ext = MatchGroupTc [in_ty] out_ty
+                                          , mg_origin = FromSource })
+                                     -- FromSource is not strictly right, but we
+                                     -- want incomplete pattern-match warnings
 
         ; return (add_field_binds field_binds' $
                   bindNonRec discrim_var record_expr' matching_code) }
@@ -951,8 +952,7 @@ dsDo stmts
            ; let fun = L noSrcSpan $ HsLam noExt $
                    MG { mg_alts = noLoc [mkSimpleMatch LambdaExpr pats
                                                        body']
-                      , mg_arg_tys = arg_tys
-                      , mg_res_ty = body_ty
+                      , mg_ext = MatchGroupTc arg_tys body_ty
                       , mg_origin = Generated }
 
            ; fun' <- dsLExpr fun
@@ -984,7 +984,7 @@ dsDo stmts
                            (MG { mg_alts = noLoc [mkSimpleMatch
                                                     LambdaExpr
                                                     [mfix_pat] body]
-                               , mg_arg_tys = [tup_ty], mg_res_ty = body_ty
+                               , mg_ext = MatchGroupTc [tup_ty] body_ty
                                , mg_origin = Generated })
         mfix_pat     = noLoc $ LazyPat noExt $ mkBigLHsPatTupId rec_tup_pats
         body         = noLoc $ HsDo body_ty

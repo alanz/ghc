@@ -1375,10 +1375,11 @@ checkCmdMatchGroup :: MatchGroup GhcPs (LHsExpr GhcPs)
                    -> P (MatchGroup GhcPs (LHsCmd GhcPs))
 checkCmdMatchGroup mg@(MG { mg_alts = L l ms }) = do
     ms' <- mapM (locMap $ const convert) ms
-    return $ mg { mg_alts = L l ms' }
+    return $ mg { mg_ext = noExt, mg_alts = L l ms' }
     where convert match@(Match { m_grhss = grhss }) = do
             grhss' <- checkCmdGRHSs grhss
             return $ match { m_grhss = grhss'}
+checkCmdMatchGroup (XMatchGroup {}) = panic "checkCmdMatchGroup"
 
 checkCmdGRHSs :: GRHSs GhcPs (LHsExpr GhcPs) -> P (GRHSs GhcPs (LHsCmd GhcPs))
 checkCmdGRHSs (GRHSs grhss binds) = do

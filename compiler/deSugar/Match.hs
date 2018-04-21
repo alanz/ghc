@@ -707,8 +707,7 @@ JJQC 30-Nov-1997
 -}
 
 matchWrapper ctxt mb_scr (MG { mg_alts = L _ matches
-                             , mg_arg_tys = arg_tys
-                             , mg_res_ty = rhs_ty
+                             , mg_ext = MatchGroupTc arg_tys rhs_ty
                              , mg_origin = origin })
   = do  { dflags <- getDynFlags
         ; locn   <- getSrcSpanDs
@@ -743,7 +742,7 @@ matchWrapper ctxt mb_scr (MG { mg_alts = L _ matches
     handleWarnings = if isGenerated origin
                      then discardWarningsDs
                      else id
-
+matchWrapper _ _ (XMatchGroup _) = panic "matchWrapper"
 
 matchEquations  :: HsMatchContext Name
                 -> [MatchId] -> [EquationInfo] -> Type
