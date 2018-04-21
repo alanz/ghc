@@ -333,6 +333,7 @@
          ({ DumpTypecheckedAst.hs:11:1-23 }
           [({ DumpTypecheckedAst.hs:11:1-23 }
             (Match
+             (PlaceHolder)
              (FunRhs
               ({ DumpTypecheckedAst.hs:11:1-4 }
                {Name: main})
@@ -340,8 +341,10 @@
               (NoSrcStrict))
              []
              (GRHSs
+              (PlaceHolder)
               [({ DumpTypecheckedAst.hs:11:6-23 }
                 (GRHS
+                 (PlaceHolder)
                  []
                  ({ DumpTypecheckedAst.hs:11:8-23 }
                   (HsApp

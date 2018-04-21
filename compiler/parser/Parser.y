@@ -2313,10 +2313,10 @@ decl    :: { LHsDecl GhcPs }
 rhs     :: { Located ([AddAnn],GRHSs GhcPs (LHsExpr GhcPs)) }
         : '=' exp wherebinds    { sL (comb3 $1 $2 $3)
                                     ((mj AnnEqual $1 : (fst $ unLoc $3))
-                                    ,GRHSs (unguardedRHS (comb3 $1 $2 $3) $2)
+                                    ,GRHSs noExt (unguardedRHS (comb3 $1 $2 $3) $2)
                                    (snd $ unLoc $3)) }
         | gdrhs wherebinds      { sLL $1 $>  (fst $ unLoc $2
-                                    ,GRHSs (reverse (unLoc $1))
+                                    ,GRHSs noExt (reverse (unLoc $1))
                                                     (snd $ unLoc $2)) }
 
 gdrhs :: { Located [LGRHS GhcPs (LHsExpr GhcPs)] }
@@ -2324,7 +2324,7 @@ gdrhs :: { Located [LGRHS GhcPs (LHsExpr GhcPs)] }
         | gdrh                  { sL1 $1 [$1] }
 
 gdrh :: { LGRHS GhcPs (LHsExpr GhcPs) }
-        : '|' guardquals '=' exp  {% ams (sL (comb2 $1 $>) $ GRHS (unLoc $2) $4)
+        : '|' guardquals '=' exp  {% ams (sL (comb2 $1 $>) $ GRHS noExt (unLoc $2) $4)
                                          [mj AnnVbar $1,mj AnnEqual $3] }
 
 sigdecl :: { LHsDecl GhcPs }
@@ -2530,7 +2530,8 @@ aexp    :: { LHsExpr GhcPs }
 
         | '\\' apat apats '->' exp
                    {% ams (sLL $1 $> $ HsLam noExt (mkMatchGroup FromSource
-                            [sLL $1 $> $ Match { m_ctxt = LambdaExpr
+                            [sLL $1 $> $ Match { m_ext = noExt
+                                               , m_ctxt = LambdaExpr
                                                , m_pats = $2:$3
                                                , m_grhss = unguardedGRHSs $5 }]))
                           [mj AnnLam $1, mu AnnRarrow $4] }
@@ -2762,9 +2763,9 @@ flattenedpquals :: { Located [LStmt GhcPs (LHsExpr GhcPs)] }
                     -- We just had one thing in our "parallel" list so
                     -- we simply return that thing directly
 
-                    qss -> sL1 $1 [sL1 $1 $ ParStmt [ParStmtBlock noExt qs [] noSyntaxExpr |
+                    qss -> sL1 $1 [sL1 $1 $ ParStmt noExt [ParStmtBlock noExt qs [] noSyntaxExpr |
                                             qs <- qss]
-                                            noExpr noSyntaxExpr placeHolderType]
+                                            noExpr noSyntaxExpr]
                     -- We actually found some actual parallel lists so
                     -- we wrap them into as a ParStmt
                 }
@@ -2876,14 +2877,15 @@ alts1   :: { Located ([AddAnn],[LMatch GhcPs (LHsExpr GhcPs)]) }
         | alt                   { sL1 $1 ([],[$1]) }
 
 alt     :: { LMatch GhcPs (LHsExpr GhcPs) }
-        : pat alt_rhs  {%ams (sLL $1 $> (Match { m_ctxt = CaseAlt
-                                               , m_pats = [$1]
-                                               , m_grhss = snd $ unLoc $2 }))
+           : pat alt_rhs  {%ams (sLL $1 $> (Match { m_ext = noExt
+                                                  , m_ctxt = CaseAlt
+                                                  , m_pats = [$1]
+                                                  , m_grhss = snd $ unLoc $2 }))
                                       (fst $ unLoc $2)}
 
 alt_rhs :: { Located ([AddAnn],GRHSs GhcPs (LHsExpr GhcPs)) }
         : ralt wherebinds           { sLL $1 $> (fst $ unLoc $2,
-                                            GRHSs (unLoc $1) (snd $ unLoc $2)) }
+                                            GRHSs noExt (unLoc $1) (snd $ unLoc $2)) }
 
 ralt :: { Located [LGRHS GhcPs (LHsExpr GhcPs)] }
         : '->' exp            {% ams (sLL $1 $> (unguardedRHS (comb2 $1 $2) $2))
@@ -2903,7 +2905,7 @@ ifgdpats :: { Located ([AddAnn],[LGRHS GhcPs (LHsExpr GhcPs)]) }
 
 gdpat   :: { LGRHS GhcPs (LHsExpr GhcPs) }
         : '|' guardquals '->' exp
-                                  {% ams (sL (comb2 $1 $>) $ GRHS (unLoc $2) $4)
+                                  {% ams (sL (comb2 $1 $>) $ GRHS noExt (unLoc $2) $4)
                                          [mj AnnVbar $1,mu AnnRarrow $3] }
 
 -- 'pat' recognises a pattern, including one with a bang at the top
@@ -2983,7 +2985,7 @@ qual  :: { LStmt GhcPs (LHsExpr GhcPs) }
     : bindpat '<-' exp                  {% ams (sLL $1 $> $ mkBindStmt $1 $3)
                                                [mu AnnLarrow $2] }
     | exp                               { sL1 $1 $ mkBodyStmt $1 }
-    | 'let' binds                       {% ams (sLL $1 $>$ LetStmt (snd $ unLoc $2))
+    | 'let' binds                       {% ams (sLL $1 $>$ LetStmt noExt (snd $ unLoc $2))
                                                (mj AnnLet $1:(fst $ unLoc $2)) }
 
 -----------------------------------------------------------------------------

@@ -63,6 +63,7 @@ module HsUtils(
   mkLastStmt,
   emptyTransStmt, mkGroupUsingStmt, mkGroupByUsingStmt,
   emptyRecStmt, emptyRecStmtName, emptyRecStmtId, mkRecStmt,
+  unitRecStmtTc,
 
   -- Template Haskell
   mkHsSpliceTy, mkHsSpliceE, mkHsSpliceTE, mkUntypedSplice,
@@ -148,7 +149,7 @@ mkSimpleMatch :: HsMatchContext (NameOrRdrName (IdP (GhcPass p)))
               -> LMatch (GhcPass p) (Located (body (GhcPass p)))
 mkSimpleMatch ctxt pats rhs
   = L loc $
-    Match { m_ctxt = ctxt, m_pats = pats
+    Match { m_ext = noExt, m_ctxt = ctxt, m_pats = pats
           , m_grhss = unguardedGRHSs rhs }
   where
     loc = case pats of
@@ -158,10 +159,11 @@ mkSimpleMatch ctxt pats rhs
 unguardedGRHSs :: Located (body (GhcPass p))
                -> GRHSs (GhcPass p) (Located (body (GhcPass p)))
 unguardedGRHSs rhs@(L loc _)
-  = GRHSs (unguardedRHS loc rhs) (noLoc emptyLocalBinds)
+  = GRHSs noExt (unguardedRHS loc rhs) (noLoc emptyLocalBinds)
 
-unguardedRHS :: SrcSpan -> Located (body id) -> [LGRHS id (Located (body id))]
-unguardedRHS loc rhs = [L loc (GRHS [] rhs)]
+unguardedRHS :: SrcSpan -> Located (body (GhcPass p))
+             -> [LGRHS (GhcPass p) (Located (body (GhcPass p)))]
+unguardedRHS loc rhs = [L loc (GRHS noExt [] rhs)]
 
 mkMatchGroup :: (XMG name (Located (body name)) ~ PlaceHolder)
              => Origin -> [LMatch name (Located (body name))]
@@ -245,17 +247,19 @@ mkNPlusKPat :: Located RdrName -> Located (HsOverLit GhcPs) -> Pat GhcPs
 mkLastStmt :: Located (bodyR (GhcPass idR))
            -> StmtLR (GhcPass idL) (GhcPass idR) (Located (bodyR (GhcPass idR)))
 mkBodyStmt :: Located (bodyR GhcPs)
-           -> StmtLR idL GhcPs (Located (bodyR GhcPs))
-mkBindStmt :: (PostTc (GhcPass idR) Type ~ PlaceHolder)
+           -> StmtLR (GhcPass idL) GhcPs (Located (bodyR GhcPs))
+mkBindStmt :: (XBindStmt (GhcPass idL) (GhcPass idR)
+                         (Located (bodyR (GhcPass idR))) ~ PlaceHolder)
            => LPat (GhcPass idL) -> Located (bodyR (GhcPass idR))
            -> StmtLR (GhcPass idL) (GhcPass idR) (Located (bodyR (GhcPass idR)))
 mkTcBindStmt :: LPat GhcTc -> Located (bodyR GhcTc)
              -> StmtLR GhcTc GhcTc (Located (bodyR GhcTc))
 
-emptyRecStmt     :: StmtLR (GhcPass idL)  GhcPs bodyR
+emptyRecStmt     :: StmtLR (GhcPass idL) GhcPs bodyR
 emptyRecStmtName :: StmtLR GhcRn GhcRn bodyR
 emptyRecStmtId   :: StmtLR GhcTc GhcTc bodyR
-mkRecStmt    :: [LStmtLR idL GhcPs bodyR] -> StmtLR idL GhcPs bodyR
+mkRecStmt        :: [LStmtLR (GhcPass idL) GhcPs bodyR]
+                 -> StmtLR (GhcPass idL) GhcPs bodyR
 
 
 mkHsIntegral     i  = OverLit noExt (HsIntegral       i) noExpr
@@ -278,55 +282,58 @@ mkNPat lit neg     = NPat noExt lit neg noSyntaxExpr
 mkNPlusKPat id lit
   = NPlusKPat noExt id lit (unLoc lit) noSyntaxExpr noSyntaxExpr
 
-mkTransformStmt    :: (PostTc (GhcPass idR) Type ~ PlaceHolder)
-                   => [ExprLStmt (GhcPass idL)] -> LHsExpr (GhcPass idR)
-                   -> StmtLR (GhcPass idL) (GhcPass idR) (LHsExpr (GhcPass idL))
-mkTransformByStmt  :: (PostTc (GhcPass idR) Type ~ PlaceHolder)
-                   => [ExprLStmt (GhcPass idL)] -> LHsExpr (GhcPass idR)
-                   -> LHsExpr (GhcPass idR)
-                   -> StmtLR (GhcPass idL) (GhcPass idR) (LHsExpr (GhcPass idL))
-mkGroupUsingStmt   :: (PostTc (GhcPass idR) Type ~ PlaceHolder)
-                   => [ExprLStmt (GhcPass idL)] -> LHsExpr (GhcPass idR)
-                   -> StmtLR (GhcPass idL) (GhcPass idR) (LHsExpr (GhcPass idL))
-mkGroupByUsingStmt :: (PostTc (GhcPass idR) Type ~ PlaceHolder)
-                   => [ExprLStmt (GhcPass idL)] -> LHsExpr (GhcPass idR)
-                   -> LHsExpr (GhcPass idR)
-                   -> StmtLR (GhcPass idL) (GhcPass idR) (LHsExpr (GhcPass idL))
+mkTransformStmt    :: [ExprLStmt GhcPs] -> LHsExpr GhcPs
+                   -> StmtLR GhcPs GhcPs (LHsExpr GhcPs)
+mkTransformByStmt  :: [ExprLStmt GhcPs] -> LHsExpr GhcPs
+                   -> LHsExpr GhcPs -> StmtLR GhcPs GhcPs (LHsExpr GhcPs)
+mkGroupUsingStmt   :: [ExprLStmt GhcPs] -> LHsExpr GhcPs
+                   -> StmtLR GhcPs GhcPs (LHsExpr GhcPs)
+mkGroupByUsingStmt :: [ExprLStmt GhcPs] -> LHsExpr GhcPs
+                   -> LHsExpr GhcPs
+                   -> StmtLR GhcPs GhcPs (LHsExpr GhcPs)
 
-emptyTransStmt :: (PostTc (GhcPass idR) Type ~ PlaceHolder)
-               => StmtLR idL (GhcPass idR) (LHsExpr (GhcPass idR))
-emptyTransStmt = TransStmt { trS_form = panic "emptyTransStmt: form"
+emptyTransStmt :: StmtLR GhcPs GhcPs (LHsExpr GhcPs)
+emptyTransStmt = TransStmt { trS_ext = noExt
+                           , trS_form = panic "emptyTransStmt: form"
                            , trS_stmts = [], trS_bndrs = []
                            , trS_by = Nothing, trS_using = noLoc noExpr
                            , trS_ret = noSyntaxExpr, trS_bind = noSyntaxExpr
-                           , trS_bind_arg_ty = placeHolder
                            , trS_fmap = noExpr }
 mkTransformStmt    ss u   = emptyTransStmt { trS_form = ThenForm,  trS_stmts = ss, trS_using = u }
 mkTransformByStmt  ss u b = emptyTransStmt { trS_form = ThenForm,  trS_stmts = ss, trS_using = u, trS_by = Just b }
 mkGroupUsingStmt   ss u   = emptyTransStmt { trS_form = GroupForm, trS_stmts = ss, trS_using = u }
 mkGroupByUsingStmt ss b u = emptyTransStmt { trS_form = GroupForm, trS_stmts = ss, trS_using = u, trS_by = Just b }
 
-mkLastStmt body     = LastStmt body False noSyntaxExpr
-mkBodyStmt body     = BodyStmt body noSyntaxExpr noSyntaxExpr placeHolderType
-mkBindStmt pat body = BindStmt pat body noSyntaxExpr noSyntaxExpr placeHolder
-mkTcBindStmt pat body = BindStmt pat body noSyntaxExpr noSyntaxExpr unitTy
+mkLastStmt body = LastStmt noExt body False noSyntaxExpr
+mkBodyStmt body
+  = BodyStmt noExt body noSyntaxExpr noSyntaxExpr
+mkBindStmt pat body
+  = BindStmt noExt pat body noSyntaxExpr noSyntaxExpr
+mkTcBindStmt pat body = BindStmt unitTy pat body noSyntaxExpr noSyntaxExpr
   -- don't use placeHolderTypeTc above, because that panics during zonking
 
 emptyRecStmt' :: forall idL idR body.
-           PostTc (GhcPass idR) Type -> StmtLR (GhcPass idL) (GhcPass idR) body
+                 XRecStmt (GhcPass idL) (GhcPass idR) body
+              -> StmtLR (GhcPass idL) (GhcPass idR) body
 emptyRecStmt' tyVal =
    RecStmt
      { recS_stmts = [], recS_later_ids = []
      , recS_rec_ids = []
      , recS_ret_fn = noSyntaxExpr
      , recS_mfix_fn = noSyntaxExpr
-     , recS_bind_fn = noSyntaxExpr, recS_bind_ty = tyVal
-     , recS_later_rets = []
-     , recS_rec_rets = [], recS_ret_ty = tyVal }
+     , recS_bind_fn = noSyntaxExpr
+     , recS_ext = tyVal }
+
+unitRecStmtTc :: RecStmtTc
+unitRecStmtTc = RecStmtTc { recS_bind_ty = unitTy
+                          , recS_later_rets = []
+                          , recS_rec_rets = []
+                          , recS_ret_ty = unitTy }
 
 emptyRecStmt     = emptyRecStmt' placeHolderType
 emptyRecStmtName = emptyRecStmt' placeHolderType
-emptyRecStmtId   = emptyRecStmt' unitTy -- a panic might trigger during zonking
+emptyRecStmtId   = emptyRecStmt' unitRecStmtTc
+                                        -- a panic might trigger during zonking
 mkRecStmt stmts  = emptyRecStmt { recS_stmts = stmts }
 
 -------------------------------
@@ -850,9 +857,10 @@ mkMatch :: HsMatchContext (NameOrRdrName (IdP (GhcPass p)))
         -> Located (HsLocalBinds (GhcPass p))
         -> LMatch (GhcPass p) (LHsExpr (GhcPass p))
 mkMatch ctxt pats expr lbinds
-  = noLoc (Match { m_ctxt  = ctxt
+  = noLoc (Match { m_ext   = noExt
+                 , m_ctxt  = ctxt
                  , m_pats  = map paren pats
-                 , m_grhss = GRHSs (unguardedRHS noSrcSpan expr) lbinds })
+                 , m_grhss = GRHSs noExt (unguardedRHS noSrcSpan expr) lbinds })
   where
     paren lp@(L l p) | hsPatNeedsParens p = L l (ParPat noExt lp)
                      | otherwise          = lp
@@ -1018,15 +1026,16 @@ collectLStmtBinders = collectStmtBinders . unLoc
 collectStmtBinders :: StmtLR (GhcPass idL) (GhcPass idR) body
                    -> [IdP (GhcPass idL)]
   -- Id Binders for a Stmt... [but what about pattern-sig type vars]?
-collectStmtBinders (BindStmt pat _ _ _ _)= collectPatBinders pat
-collectStmtBinders (LetStmt (L _ binds)) = collectLocalBinders binds
-collectStmtBinders (BodyStmt {})         = []
-collectStmtBinders (LastStmt {})         = []
-collectStmtBinders (ParStmt xs _ _ _)  = collectLStmtsBinders
+collectStmtBinders (BindStmt _ pat _ _ _)  = collectPatBinders pat
+collectStmtBinders (LetStmt _ (L _ binds)) = collectLocalBinders binds
+collectStmtBinders (BodyStmt {})           = []
+collectStmtBinders (LastStmt {})           = []
+collectStmtBinders (ParStmt _ xs _ _)      = collectLStmtsBinders
                                     $ [s | ParStmtBlock _ ss _ _ <- xs, s <- ss]
 collectStmtBinders (TransStmt { trS_stmts = stmts }) = collectLStmtsBinders stmts
 collectStmtBinders (RecStmt { recS_stmts = ss })     = collectLStmtsBinders ss
 collectStmtBinders ApplicativeStmt{} = []
+collectStmtBinders XStmtLR{} = panic "collectStmtBinders"
 
 
 ----------------- Patterns --------------------------
@@ -1295,17 +1304,19 @@ lStmtsImplicits = hs_lstmts
 
     hs_stmt :: StmtLR GhcRn (GhcPass idR) (Located (body (GhcPass idR)))
             -> NameSet
-    hs_stmt (BindStmt pat _ _ _ _) = lPatImplicits pat
-    hs_stmt (ApplicativeStmt args _ _) = unionNameSets (map do_arg args)
-      where do_arg (_, ApplicativeArgOne pat _ _) = lPatImplicits pat
-            do_arg (_, ApplicativeArgMany stmts _ _) = hs_lstmts stmts
-    hs_stmt (LetStmt binds)      = hs_local_binds (unLoc binds)
-    hs_stmt (BodyStmt {})        = emptyNameSet
-    hs_stmt (LastStmt {})        = emptyNameSet
-    hs_stmt (ParStmt xs _ _ _)   = hs_lstmts [s | ParStmtBlock _ ss _ _ <- xs
+    hs_stmt (BindStmt _ pat _ _ _) = lPatImplicits pat
+    hs_stmt (ApplicativeStmt _ args _) = unionNameSets (map do_arg args)
+      where do_arg (_, ApplicativeArgOne _ pat _ _) = lPatImplicits pat
+            do_arg (_, ApplicativeArgMany _ stmts _ _) = hs_lstmts stmts
+            do_arg (_, XApplicativeArg _) = panic "lStmtsImplicits"
+    hs_stmt (LetStmt _ binds)     = hs_local_binds (unLoc binds)
+    hs_stmt (BodyStmt {})         = emptyNameSet
+    hs_stmt (LastStmt {})         = emptyNameSet
+    hs_stmt (ParStmt _ xs _ _)    = hs_lstmts [s | ParStmtBlock _ ss _ _ <- xs
                                                 , s <- ss]
     hs_stmt (TransStmt { trS_stmts = stmts }) = hs_lstmts stmts
     hs_stmt (RecStmt { recS_stmts = ss })     = hs_lstmts ss
+    hs_stmt (XStmtLR {})          = panic "lStmtsImplicits"
 
     hs_local_binds (HsValBinds _ val_binds) = hsValBindsImplicits val_binds
     hs_local_binds (HsIPBinds {})           = emptyNameSet

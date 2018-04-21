@@ -2141,7 +2141,8 @@ data VectDecl pass
       Bool                      -- 'TRUE' => SCALAR declaration
   | HsVectClass               -- pre type-checking
       (XHsVectClass pass)
-  | HsVectInst                -- pre type-checking (always SCALAR)  !!!FIXME: should be superfluous now
+  | HsVectInst                -- pre type-checking (always SCALAR)
+                              -- !!!FIXME: should be superfluous now
       (XHsVectInst pass)
   | XVectDecl (XXVectDecl pass)
 

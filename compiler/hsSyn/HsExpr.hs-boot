@@ -18,7 +18,7 @@ import HsExtension ( OutputableBndrId, GhcPass )
 type role HsExpr nominal
 type role HsCmd nominal
 type role MatchGroup nominal nominal
-type role GRHSs nominal representational
+type role GRHSs nominal nominal
 type role HsSplice nominal
 type role SyntaxExpr nominal
 data HsExpr (i :: *)

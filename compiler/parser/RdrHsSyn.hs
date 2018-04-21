@@ -446,6 +446,7 @@ has_args ((L _ (Match { m_pats = args })) : _) = not (null args)
         -- no arguments.  This is necessary now that variable bindings
         -- with no arguments are now treated as FunBinds rather
         -- than pattern bindings (tests/rename/should_fail/rnfail002).
+has_args ((L _ (XMatch _)) : _) = panic "has_args"
 
 {- **********************************************************************
 
@@ -576,12 +577,15 @@ mkPatSynMatchGroup (L loc patsyn_name) (L _ decls) =
         do { unless (name == patsyn_name) $
                wrongNameBindingErr loc decl
            ; match <- case details of
-               PrefixCon pats -> return $ Match { m_ctxt = ctxt, m_pats = pats
+               PrefixCon pats -> return $ Match { m_ext = noExt
+                                                , m_ctxt = ctxt, m_pats = pats
                                                 , m_grhss = rhs }
                    where
                      ctxt = FunRhs { mc_fun = ln, mc_fixity = Prefix, mc_strictness = NoSrcStrict }
 
-               InfixCon p1 p2 -> return $ Match { m_ctxt = ctxt, m_pats = [p1, p2]
+               InfixCon p1 p2 -> return $ Match { m_ext = noExt
+                                                , m_ctxt = ctxt
+                                                , m_pats = [p1, p2]
                                                 , m_grhss = rhs }
                    where
                      ctxt = FunRhs { mc_fun = ln, mc_fixity = Infix, mc_strictness = NoSrcStrict }
@@ -1092,7 +1096,8 @@ checkFunBind msg strictness ann lhs_loc fun is_infix pats (L rhs_span grhss)
         -- Add back the annotations stripped from any HsPar values in the lhs
         -- mapM_ (\a -> a match_span) ann
         return (ann, makeFunBind fun
-                  [L match_span (Match { m_ctxt = FunRhs { mc_fun    = fun
+                  [L match_span (Match { m_ext = noExt
+                                       , m_ctxt = FunRhs { mc_fun    = fun
                                                          , mc_fixity = is_infix
                                                          , mc_strictness = strictness }
                                        , m_pats = ps
@@ -1359,16 +1364,17 @@ checkCmdLStmt :: ExprLStmt GhcPs -> P (CmdLStmt GhcPs)
 checkCmdLStmt = locMap checkCmdStmt
 
 checkCmdStmt :: SrcSpan -> ExprStmt GhcPs -> P (CmdStmt GhcPs)
-checkCmdStmt _ (LastStmt e s r) =
-    checkCommand e >>= (\c -> return $ LastStmt c s r)
-checkCmdStmt _ (BindStmt pat e b f t) =
-    checkCommand e >>= (\c -> return $ BindStmt pat c b f t)
-checkCmdStmt _ (BodyStmt e t g ty) =
-    checkCommand e >>= (\c -> return $ BodyStmt c t g ty)
-checkCmdStmt _ (LetStmt bnds) = return $ LetStmt bnds
+checkCmdStmt _ (LastStmt x e s r) =
+    checkCommand e >>= (\c -> return $ LastStmt x c s r)
+checkCmdStmt _ (BindStmt x pat e b f) =
+    checkCommand e >>= (\c -> return $ BindStmt x pat c b f)
+checkCmdStmt _ (BodyStmt x e t g) =
+    checkCommand e >>= (\c -> return $ BodyStmt x c t g)
+checkCmdStmt _ (LetStmt x bnds) = return $ LetStmt x bnds
 checkCmdStmt _ stmt@(RecStmt { recS_stmts = stmts }) = do
     ss <- mapM checkCmdLStmt stmts
-    return $ stmt { recS_stmts = ss }
+    return $ stmt { recS_ext = noExt, recS_stmts = ss }
+checkCmdStmt _ (XStmtLR _) = panic "checkCmdStmt"
 checkCmdStmt l stmt = cmdStmtFail l stmt
 
 checkCmdMatchGroup :: MatchGroup GhcPs (LHsExpr GhcPs)
@@ -1378,21 +1384,24 @@ checkCmdMatchGroup mg@(MG { mg_alts = L l ms }) = do
     return $ mg { mg_ext = noExt, mg_alts = L l ms' }
     where convert match@(Match { m_grhss = grhss }) = do
             grhss' <- checkCmdGRHSs grhss
-            return $ match { m_grhss = grhss'}
+            return $ match { m_ext = noExt, m_grhss = grhss'}
+          convert (XMatch _) = panic "checkCmdMatchGroup.XMatch"
 checkCmdMatchGroup (XMatchGroup {}) = panic "checkCmdMatchGroup"
 
 checkCmdGRHSs :: GRHSs GhcPs (LHsExpr GhcPs) -> P (GRHSs GhcPs (LHsCmd GhcPs))
-checkCmdGRHSs (GRHSs grhss binds) = do
+checkCmdGRHSs (GRHSs x grhss binds) = do
     grhss' <- mapM checkCmdGRHS grhss
-    return $ GRHSs grhss' binds
+    return $ GRHSs x grhss' binds
+checkCmdGRHSs (XGRHSs _) = panic "checkCmdGRHSs"
 
 checkCmdGRHS :: LGRHS GhcPs (LHsExpr GhcPs) -> P (LGRHS GhcPs (LHsCmd GhcPs))
 checkCmdGRHS = locMap $ const convert
   where
-    convert (GRHS stmts e) = do
+    convert (GRHS x stmts e) = do
         c <- checkCommand e
 --        cmdStmts <- mapM checkCmdLStmt stmts
-        return $ GRHS {- cmdStmts -} stmts c
+        return $ GRHS x {- cmdStmts -} stmts c
+    convert (XGRHS _) = panic "checkCmdGRHS"
 
 
 cmdFail :: SrcSpan -> HsExpr GhcPs -> P a

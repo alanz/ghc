@@ -588,7 +588,7 @@ checkCanonicalInstances cls poly_ty mbinds = do
     -- binding, and return @Just rhsName@ if this is the case
     isAliasMG :: MatchGroup GhcRn (LHsExpr GhcRn) -> Maybe Name
     isAliasMG MG {mg_alts = L _ [L _ (Match { m_pats = [], m_grhss = grhss })]}
-        | GRHSs [L _ (GRHS [] body)] lbinds <- grhss
+        | GRHSs _ [L _ (GRHS _ [] body)] lbinds <- grhss
         , L _ (EmptyLocalBinds _) <- lbinds
         , L _ (HsVar _ (L _ rhsName)) <- body  = Just rhsName
     isAliasMG _ = Nothing
@@ -1137,7 +1137,7 @@ rnHsVectDecl (HsVectType (VectTypePR s tycon Nothing) isScalar)
 rnHsVectDecl (HsVectType (VectTypePR s tycon (Just rhs_tycon)) isScalar)
   = do { tycon'     <- lookupLocatedOccRn tycon
        ; rhs_tycon' <- lookupLocatedOccRn rhs_tycon
-       ; return ( HsVectType (VectTypePR s tycon' (Just rhs_tycon')) isScalar 
+       ; return ( HsVectType (VectTypePR s tycon' (Just rhs_tycon')) isScalar
                 , mkFVs [unLoc tycon', unLoc rhs_tycon'])
        }
 rnHsVectDecl (HsVectClass (VectClassPR s cls))

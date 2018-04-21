@@ -222,6 +222,7 @@
        ({ DumpParsedAst.hs:11:1-23 }
         [({ DumpParsedAst.hs:11:1-23 }
           (Match
+           (PlaceHolder)
            (FunRhs
             ({ DumpParsedAst.hs:11:1-4 }
              (Unqual
@@ -230,8 +231,10 @@
             (NoSrcStrict))
            []
            (GRHSs
+            (PlaceHolder)
             [({ DumpParsedAst.hs:11:6-23 }
               (GRHS
+               (PlaceHolder)
                []
                ({ DumpParsedAst.hs:11:8-23 }
                 (HsApp

@@ -1331,7 +1331,8 @@ repE e                     = notHandled "Expression form" (ppr e)
 -- Building representations of auxillary structures like Match, Clause, Stmt,
 
 repMatchTup ::  LMatch GhcRn (LHsExpr GhcRn) -> DsM (Core TH.MatchQ)
-repMatchTup (L _ (Match { m_pats = [p], m_grhss = GRHSs guards (L _ wheres) })) =
+repMatchTup (L _ (Match { m_pats = [p]
+                        , m_grhss = GRHSs _ guards (L _ wheres) })) =
   do { ss1 <- mkGenSyms (collectPatBinders p)
      ; addBinds ss1 $ do {
      ; p1 <- repLP p
@@ -1343,7 +1344,8 @@ repMatchTup (L _ (Match { m_pats = [p], m_grhss = GRHSs guards (L _ wheres) })) 
 repMatchTup _ = panic "repMatchTup: case alt with more than one arg"
 
 repClauseTup ::  LMatch GhcRn (LHsExpr GhcRn) -> DsM (Core TH.ClauseQ)
-repClauseTup (L _ (Match { m_pats = ps, m_grhss = GRHSs guards (L _ wheres) })) =
+repClauseTup (L _ (Match { m_pats = ps
+                         , m_grhss = GRHSs _ guards (L _ wheres) })) =
   do { ss1 <- mkGenSyms (collectPatsBinders ps)
      ; addBinds ss1 $ do {
        ps1 <- repLPs ps
@@ -1352,9 +1354,11 @@ repClauseTup (L _ (Match { m_pats = ps, m_grhss = GRHSs guards (L _ wheres) })) 
        gs <- repGuards guards
      ; clause <- repClause ps1 gs ds
      ; wrapGenSyms (ss1++ss2) clause }}}
+repClauseTup (L _ (Match _ _ _ (XGRHSs _))) = panic "repClauseTup"
+repClauseTup (L _ (XMatch _)) = panic "repClauseTup"
 
 repGuards ::  [LGRHS GhcRn (LHsExpr GhcRn)] ->  DsM (Core TH.BodyQ)
-repGuards [L _ (GRHS [] e)]
+repGuards [L _ (GRHS _ [] e)]
   = do {a <- repLE e; repNormal a }
 repGuards other
   = do { zs <- mapM repLGRHS other
@@ -1364,14 +1368,15 @@ repGuards other
 
 repLGRHS :: LGRHS GhcRn (LHsExpr GhcRn)
          -> DsM ([GenSymBind], (Core (TH.Q (TH.Guard, TH.Exp))))
-repLGRHS (L _ (GRHS [L _ (BodyStmt e1 _ _ _)] e2))
+repLGRHS (L _ (GRHS _ [L _ (BodyStmt _ e1 _ _)] e2))
   = do { guarded <- repLNormalGE e1 e2
        ; return ([], guarded) }
-repLGRHS (L _ (GRHS ss rhs))
+repLGRHS (L _ (GRHS _ ss rhs))
   = do { (gs, ss') <- repLSts ss
        ; rhs' <- addBinds gs $ repLE rhs
        ; guarded <- repPatGE (nonEmptyCoreList ss') rhs'
        ; return (gs, guarded) }
+repLGRHS (L _ (XGRHS _)) = panic "repLGRHS"
 
 repFields :: HsRecordBinds GhcRn -> DsM (Core [TH.Q TH.FieldExp])
 repFields (HsRecFields { rec_flds = flds })
@@ -1424,7 +1429,7 @@ repLSts :: [LStmt GhcRn (LHsExpr GhcRn)] -> DsM ([GenSymBind], [Core TH.StmtQ])
 repLSts stmts = repSts (map unLoc stmts)
 
 repSts :: [Stmt GhcRn (LHsExpr GhcRn)] -> DsM ([GenSymBind], [Core TH.StmtQ])
-repSts (BindStmt p e _ _ _ : ss) =
+repSts (BindStmt _ p e _ _ : ss) =
    do { e2 <- repLE e
       ; ss1 <- mkGenSyms (collectPatBinders p)
       ; addBinds ss1 $ do {
@@ -1432,17 +1437,17 @@ repSts (BindStmt p e _ _ _ : ss) =
       ; (ss2,zs) <- repSts ss
       ; z <- repBindSt p1 e2
       ; return (ss1++ss2, z : zs) }}
-repSts (LetStmt (L _ bs) : ss) =
+repSts (LetStmt _ (L _ bs) : ss) =
    do { (ss1,ds) <- repBinds bs
       ; z <- repLetSt ds
       ; (ss2,zs) <- addBinds ss1 (repSts ss)
       ; return (ss1++ss2, z : zs) }
-repSts (BodyStmt e _ _ _ : ss) =
+repSts (BodyStmt _ e _ _ : ss) =
    do { e2 <- repLE e
       ; z <- repNoBindSt e2
       ; (ss2,zs) <- repSts ss
       ; return (ss2, z : zs) }
-repSts (ParStmt stmt_blocks _ _ _ : ss) =
+repSts (ParStmt _ stmt_blocks _ _ : ss) =
    do { (ss_s, stmt_blocks1) <- mapAndUnzipM rep_stmt_block stmt_blocks
       ; let stmt_blocks2 = nonEmptyCoreList stmt_blocks1
             ss1 = concat ss_s
@@ -1457,7 +1462,7 @@ repSts (ParStmt stmt_blocks _ _ _ : ss) =
           ; zs1 <- coreList stmtQTyConName zs
           ; return (ss1, zs1) }
      rep_stmt_block (XParStmtBlock{}) = panic "repSts"
-repSts [LastStmt e _ _]
+repSts [LastStmt _ e _ _]
   = do { e2 <- repLE e
        ; z <- repNoBindSt e2
        ; return ([], [z]) }
@@ -1511,8 +1516,10 @@ rep_bind :: LHsBind GhcRn -> DsM (SrcSpan, Core TH.DecQ)
 rep_bind (L loc (FunBind
                  { fun_id = fn,
                    fun_matches = MG { mg_alts
-                           = L _ [L _ (Match { m_pats = []
-                                             , m_grhss = GRHSs guards (L _ wheres) })] } }))
+                           = L _ [L _ (Match
+                                       { m_pats = []
+                                       , m_grhss = GRHSs _ guards (L _ wheres) }
+                                      )] } }))
  = do { (ss,wherecore) <- repBinds wheres
         ; guardcore <- addBinds ss (repGuards guards)
         ; fn'  <- lookupLBinder fn
@@ -1531,13 +1538,14 @@ rep_bind (L loc (FunBind { fun_id = fn
 rep_bind (L _ (FunBind { fun_matches = XMatchGroup _ })) = panic "rep_bind"
 
 rep_bind (L loc (PatBind { pat_lhs = pat
-                         , pat_rhs = GRHSs guards (L _ wheres) }))
+                         , pat_rhs = GRHSs _ guards (L _ wheres) }))
  =   do { patcore <- repLP pat
         ; (ss,wherecore) <- repBinds wheres
         ; guardcore <- addBinds ss (repGuards guards)
         ; ans  <- repVal patcore guardcore wherecore
         ; ans' <- wrapGenSyms ss ans
         ; return (loc, ans') }
+rep_bind (L _ (PatBind _ _ (XGRHSs _) _)) = panic "rep_bind"
 
 rep_bind (L _ (VarBind { var_id = v, var_rhs = e}))
  =   do { v' <- lookupBinder v
@@ -1660,8 +1668,8 @@ repExplBidirPatSynDir (MkC cls) = rep2 explBidirPatSynName [cls]
 
 repLambda :: LMatch GhcRn (LHsExpr GhcRn) -> DsM (Core TH.ExpQ)
 repLambda (L _ (Match { m_pats = ps
-                      , m_grhss = GRHSs [L _ (GRHS [] e)]
-                                        (L _ (EmptyLocalBinds _)) } ))
+                      , m_grhss = GRHSs _ [L _ (GRHS _ [] e)]
+                                          (L _ (EmptyLocalBinds _)) } ))
  = do { let bndrs = collectPatsBinders ps ;
       ; ss  <- mkGenSyms bndrs
       ; lam <- addBinds ss (

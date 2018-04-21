@@ -1716,7 +1716,7 @@ hscParseExpr expr = do
   hsc_env <- getHscEnv
   maybe_stmt <- hscParseStmt expr
   case maybe_stmt of
-    Just (L _ (BodyStmt expr _ _ _)) -> return expr
+    Just (L _ (BodyStmt _ expr _ _)) -> return expr
     _ -> throwErrors $ unitBag $ mkPlainErrMsg (hsc_dflags hsc_env) noSrcSpan
       (text "not an expression:" <+> quotes (text expr))
 

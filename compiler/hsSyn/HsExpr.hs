@@ -83,12 +83,6 @@ type PostTcExpr  = HsExpr GhcTc
 -- than is convenient to keep individually.
 type PostTcTable = [(Name, PostTcExpr)]
 
-noPostTcExpr :: PostTcExpr
-noPostTcExpr = HsLit noExt (HsString NoSourceText (fsLit "noPostTcExpr"))
-
-noPostTcTable :: PostTcTable
-noPostTcTable = []
-
 -------------------------
 -- | Syntax Expression
 --
@@ -1095,13 +1089,14 @@ ppr_expr (HsIf _ _ e1 e2 e3)
 
 ppr_expr (HsMultiIf _ alts)
   = hang (text "if") 3  (vcat (map ppr_alt alts))
-  where ppr_alt (L _ (GRHS guards expr)) =
+  where ppr_alt (L _ (GRHS _ guards expr)) =
           hang vbar 2 (ppr_one one_alt)
           where
             ppr_one [] = panic "ppr_exp HsMultiIf"
             ppr_one (h:t) = hang h 2 (sep t)
             one_alt = [ interpp'SP guards
                       , text "->" <+> pprDeeper (ppr expr) ]
+        ppr_alt (L _ (XGRHS x)) = ppr x
 
 -- special case: let ... in let ...
 ppr_expr (HsLet _ (L _ binds) expr@(L _ (HsLet _ _ _)))
@@ -1606,15 +1601,19 @@ type LMatch id body = Located (Match id body)
 -- ^ May have 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnSemi' when in a
 --   list
 
--- AZ:TODO complete TTG on this, once DataId etc is resolved
 -- For details on above see note [Api annotations] in ApiAnnotation
 data Match p body
   = Match {
+        m_ext :: XCMatch p body,
         m_ctxt :: HsMatchContext (NameOrRdrName (IdP p)),
           -- See note [m_ctxt in Match]
         m_pats :: [LPat p], -- The patterns
         m_grhss :: (GRHSs p body)
   }
+  | XMatch (XXMatch p body)
+
+type instance XCMatch (GhcPass _) b = PlaceHolder
+type instance XXMatch (GhcPass _) b = PlaceHolder
 
 instance (idR ~ GhcPass pr, OutputableBndrId idR, Outputable body)
             => Outputable (Match idR body) where
@@ -1685,6 +1684,7 @@ matchGroupArity (XMatchGroup{}) = panic "matchGroupArity"
 
 hsLMatchPats :: LMatch id body -> [LPat id]
 hsLMatchPats (L _ (Match { m_pats = pats })) = pats
+hsLMatchPats (L _ (XMatch _)) = panic "hsLMatchPats"
 
 -- | Guarded Right-Hand Sides
 --
@@ -1695,21 +1695,29 @@ hsLMatchPats (L _ (Match { m_pats = pats })) = pats
 --        'ApiAnnotation.AnnOpen','ApiAnnotation.AnnClose'
 --        'ApiAnnotation.AnnRarrow','ApiAnnotation.AnnSemi'
 
--- AZ:TODO complete TTG on this, once DataId etc is resolved
 -- For details on above see note [Api annotations] in ApiAnnotation
 data GRHSs p body
   = GRHSs {
+      grhssExt :: XCGRHSs p body,
       grhssGRHSs :: [LGRHS p body],      -- ^ Guarded RHSs
       grhssLocalBinds :: LHsLocalBinds p -- ^ The where clause
     }
+  | XGRHSs (XXGRHSs p body)
+
+type instance XCGRHSs (GhcPass _) b = PlaceHolder
+type instance XXGRHSs (GhcPass _) b = PlaceHolder
 
 -- | Located Guarded Right-Hand Side
 type LGRHS id body = Located (GRHS id body)
 
--- AZ:TODO complete TTG on this, once DataId etc is resolved
 -- | Guarded Right Hand Side.
-data GRHS id body = GRHS [GuardLStmt id] -- Guards
-                         body            -- Right hand side
+data GRHS p body = GRHS (XCGRHS p body)
+                        [GuardLStmt p] -- Guards
+                        body           -- Right hand side
+                  | XGRHS (XXGRHS p body)
+
+type instance XCGRHS (GhcPass _) b = PlaceHolder
+type instance XXGRHS (GhcPass _) b = PlaceHolder
 
 -- We know the list must have at least one @Match@ in it.
 
@@ -1772,20 +1780,23 @@ pprMatch match
 
 pprGRHSs :: (OutputableBndrId (GhcPass idR), Outputable body)
          => HsMatchContext idL -> GRHSs (GhcPass idR) body -> SDoc
-pprGRHSs ctxt (GRHSs grhss (L _ binds))
+pprGRHSs ctxt (GRHSs _ grhss (L _ binds))
   = vcat (map (pprGRHS ctxt . unLoc) grhss)
   -- Print the "where" even if the contents of the binds is empty. Only
   -- EmptyLocalBinds means no "where" keyword
  $$ ppUnless (eqEmptyLocalBinds binds)
       (text "where" $$ nest 4 (pprBinds binds))
+pprGRHSs _ (XGRHSs x) = ppr x
 
 pprGRHS :: (OutputableBndrId (GhcPass idR), Outputable body)
         => HsMatchContext idL -> GRHS (GhcPass idR) body -> SDoc
-pprGRHS ctxt (GRHS [] body)
+pprGRHS ctxt (GRHS _ [] body)
  =  pp_rhs ctxt body
 
-pprGRHS ctxt (GRHS guards body)
+pprGRHS ctxt (GRHS _ guards body)
  = sep [vbar <+> interpp'SP guards, pp_rhs ctxt body]
+
+pprGRHS _ (XGRHS x) = ppr x
 
 pp_rhs :: Outputable body => HsMatchContext idL -> body -> SDoc
 pp_rhs ctxt rhs = matchSeparator ctxt <+> pprDeeper (ppr rhs)
@@ -1844,6 +1855,7 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
   = LastStmt  -- Always the last Stmt in ListComp, MonadComp, PArrComp,
               -- and (after the renamer) DoExpr, MDoExpr
               -- Not used for GhciStmtCtxt, PatGuard, which scope over other stuff
+          (XLastStmt idL idR body)
           body
           Bool               -- True <=> return was stripped by ApplicativeDo
           (SyntaxExpr idR)   -- The return operator, used only for
@@ -1855,15 +1867,15 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
                              -- 'ApiAnnotation.AnnLarrow'
 
   -- For details on above see note [Api annotations] in ApiAnnotation
-  | BindStmt (LPat idL)
+  | BindStmt (XBindStmt idL idR body) -- Post typechecking,
+                                -- result type of the function passed to bind;
+                                -- that is, S in (>>=) :: Q -> (R -> S) -> T
+             (LPat idL)
              body
              (SyntaxExpr idR) -- The (>>=) operator; see Note [The type of bind in Stmts]
              (SyntaxExpr idR) -- The fail operator
              -- The fail operator is noSyntaxExpr
              -- if the pattern match can't fail
-
-             (PostTc idR Type)  -- result type of the function passed to bind;
-                                -- that is, S in (>>=) :: Q -> (R -> S) -> T
 
   -- | 'ApplicativeStmt' represents an applicative expression built with
   -- <$> and <*>.  It is generated by the renamer, and is desugared into the
@@ -1873,34 +1885,38 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
   -- For full details, see Note [ApplicativeDo] in RnExpr
   --
   | ApplicativeStmt
+             (XApplicativeStmt idL idR body) -- Post typecheck, Type of the body
              [ ( SyntaxExpr idR
                , ApplicativeArg idL) ]
                       -- [(<$>, e1), (<*>, e2), ..., (<*>, en)]
              (Maybe (SyntaxExpr idR))  -- 'join', if necessary
-             (PostTc idR Type)     -- Type of the body
 
-  | BodyStmt body              -- See Note [BodyStmt]
+  | BodyStmt (XBodyStmt idL idR body) -- Post typecheck, element type
+                                      -- of the RHS (used for arrows)
+             body              -- See Note [BodyStmt]
              (SyntaxExpr idR)  -- The (>>) operator
              (SyntaxExpr idR)  -- The `guard` operator; used only in MonadComp
                                -- See notes [Monad Comprehensions]
-             (PostTc idR Type) -- Element type of the RHS (used for arrows)
 
   -- | - 'ApiAnnotation.AnnKeywordId' : 'ApiAnnotation.AnnLet'
   --          'ApiAnnotation.AnnOpen' @'{'@,'ApiAnnotation.AnnClose' @'}'@,
 
   -- For details on above see note [Api annotations] in ApiAnnotation
-  | LetStmt  (LHsLocalBindsLR idL idR)
+  | LetStmt  (XLetStmt idL idR body) (LHsLocalBindsLR idL idR)
 
   -- ParStmts only occur in a list/monad comprehension
-  | ParStmt  [ParStmtBlock idL idR]
+  | ParStmt  (XParStmt idL idR body)    -- Post typecheck,
+                                        -- S in (>>=) :: Q -> (R -> S) -> T
+             [ParStmtBlock idL idR]
              (HsExpr idR)               -- Polymorphic `mzip` for monad comprehensions
              (SyntaxExpr idR)           -- The `>>=` operator
                                         -- See notes [Monad Comprehensions]
-             (PostTc idR Type)          -- S in (>>=) :: Q -> (R -> S) -> T
             -- After renaming, the ids are the binders
             -- bound by the stmts and used after themp
 
   | TransStmt {
+      trS_ext   :: XTransStmt idL idR body, -- Post typecheck,
+                                            -- R in (>>=) :: Q -> (R -> S) -> T
       trS_form  :: TransForm,
       trS_stmts :: [ExprLStmt idL],   -- Stmts to the *left* of the 'group'
                                       -- which generates the tuples to be grouped
@@ -1914,7 +1930,6 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
       trS_ret :: SyntaxExpr idR,      -- The monomorphic 'return' function for
                                       -- the inner monad comprehensions
       trS_bind :: SyntaxExpr idR,     -- The '(>>=)' operator
-      trS_bind_arg_ty :: PostTc idR Type,  -- R in (>>=) :: Q -> (R -> S) -> T
       trS_fmap :: HsExpr idR          -- The polymorphic 'fmap' function for desugaring
                                       -- Only for 'group' forms
                                       -- Just a simple HsExpr, because it's
@@ -1926,7 +1941,8 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
 
   -- For details on above see note [Api annotations] in ApiAnnotation
   | RecStmt
-     { recS_stmts :: [LStmtLR idL idR body]
+     { recS_ext :: XRecStmt idL idR body
+     , recS_stmts :: [LStmtLR idL idR body]
 
         -- The next two fields are only valid after renaming
      , recS_later_ids :: [IdP idR]
@@ -1945,24 +1961,59 @@ data StmtLR idL idR body -- body should always be (LHs**** idR)
      , recS_bind_fn :: SyntaxExpr idR -- The bind function
      , recS_ret_fn  :: SyntaxExpr idR -- The return function
      , recS_mfix_fn :: SyntaxExpr idR -- The mfix function
-     , recS_bind_ty :: PostTc idR Type  -- S in (>>=) :: Q -> (R -> S) -> T
+      }
+  | XStmtLR (XXStmtLR idL idR body)
 
-        -- These fields are only valid after typechecking
+-- Extra fields available post typechecking for RecStmt.
+data RecStmtTc =
+  RecStmtTc
+     { recS_bind_ty :: Type       -- S in (>>=) :: Q -> (R -> S) -> T
      , recS_later_rets :: [PostTcExpr] -- (only used in the arrow version)
      , recS_rec_rets :: [PostTcExpr] -- These expressions correspond 1-to-1
-                                     -- with recS_later_ids and recS_rec_ids,
-                                     -- and are the expressions that should be
-                                     -- returned by the recursion.
-                                     -- They may not quite be the Ids themselves,
-                                     -- because the Id may be *polymorphic*, but
-                                     -- the returned thing has to be *monomorphic*,
-                                     -- so they may be type applications
+                                  -- with recS_later_ids and recS_rec_ids,
+                                  -- and are the expressions that should be
+                                  -- returned by the recursion.
+                                  -- They may not quite be the Ids themselves,
+                                  -- because the Id may be *polymorphic*, but
+                                  -- the returned thing has to be *monomorphic*,
+                                  -- so they may be type applications
 
-      , recS_ret_ty :: PostTc idR Type -- The type of
-                                       -- do { stmts; return (a,b,c) }
+      , recS_ret_ty :: Type        -- The type of
+                                   -- do { stmts; return (a,b,c) }
                                    -- With rebindable syntax the type might not
                                    -- be quite as simple as (m (tya, tyb, tyc)).
       }
+
+
+type instance XLastStmt        (GhcPass _) (GhcPass _) b = PlaceHolder
+
+type instance XBindStmt        (GhcPass _) GhcPs b = PlaceHolder
+type instance XBindStmt        (GhcPass _) GhcRn b = PlaceHolder
+type instance XBindStmt        (GhcPass _) GhcTc b = Type
+
+type instance XApplicativeStmt (GhcPass _) GhcPs b = PlaceHolder
+type instance XApplicativeStmt (GhcPass _) GhcRn b = PlaceHolder
+type instance XApplicativeStmt (GhcPass _) GhcTc b = Type
+
+type instance XBodyStmt        (GhcPass _) GhcPs b = PlaceHolder
+type instance XBodyStmt        (GhcPass _) GhcRn b = PlaceHolder
+type instance XBodyStmt        (GhcPass _) GhcTc b = Type
+
+type instance XLetStmt         (GhcPass _) (GhcPass _) b = PlaceHolder
+
+type instance XParStmt         (GhcPass _) GhcPs b = PlaceHolder
+type instance XParStmt         (GhcPass _) GhcRn b = PlaceHolder
+type instance XParStmt         (GhcPass _) GhcTc b = Type
+
+type instance XTransStmt       (GhcPass _) GhcPs b = PlaceHolder
+type instance XTransStmt       (GhcPass _) GhcRn b = PlaceHolder
+type instance XTransStmt       (GhcPass _) GhcTc b = Type
+
+type instance XRecStmt         (GhcPass _) GhcPs b = PlaceHolder
+type instance XRecStmt         (GhcPass _) GhcRn b = PlaceHolder
+type instance XRecStmt         (GhcPass _) GhcTc b = RecStmtTc
+
+type instance XXStmtLR         (GhcPass _) (GhcPass _) b = PlaceHolder
 
 data TransForm   -- The 'f' below is the 'using' function, 'e' is the by function
   = ThenForm     -- then f               or    then f by e             (depending on trS_by)
@@ -1984,6 +2035,7 @@ type instance XXParStmtBlock (GhcPass pL) (GhcPass pR) = PlaceHolder
 -- | Applicative Argument
 data ApplicativeArg idL
   = ApplicativeArgOne      -- A single statement (BindStmt or BodyStmt)
+      (XApplicativeArgOne idL)
       (LPat idL)           -- WildPat if it was a BodyStmt (see below)
       (LHsExpr idL)
       Bool                 -- True <=> was a BodyStmt
@@ -1991,11 +2043,15 @@ data ApplicativeArg idL
                            -- See Note [Applicative BodyStmt]
 
   | ApplicativeArgMany     -- do { stmts; return vars }
+      (XApplicativeArgMany idL)
       [ExprLStmt idL]      -- stmts
       (HsExpr idL)         -- return (v1,..,vn), or just (v1,..,vn)
       (LPat idL)           -- (v1,...,vn)
+  | XApplicativeArg (XXApplicativeArg idL)
 
--- AZ: May need to bring back idR?
+type instance XApplicativeArgOne  (GhcPass _) = PlaceHolder
+type instance XApplicativeArgMany (GhcPass _) = PlaceHolder
+type instance XXApplicativeArg    (GhcPass _) = PlaceHolder
 
 {-
 Note [The type of bind in Stmts]
@@ -2178,14 +2234,14 @@ pprStmt :: forall idL idR body . (OutputableBndrId (GhcPass idL),
                                   OutputableBndrId (GhcPass idR),
                                   Outputable body)
         => (StmtLR (GhcPass idL) (GhcPass idR) body) -> SDoc
-pprStmt (LastStmt expr ret_stripped _)
+pprStmt (LastStmt _ expr ret_stripped _)
   = whenPprDebug (text "[last]") <+>
        (if ret_stripped then text "return" else empty) <+>
        ppr expr
-pprStmt (BindStmt pat expr _ _ _) = hsep [ppr pat, larrow, ppr expr]
-pprStmt (LetStmt (L _ binds))     = hsep [text "let", pprBinds binds]
-pprStmt (BodyStmt expr _ _ _)     = ppr expr
-pprStmt (ParStmt stmtss _ _ _)    = sep (punctuate (text " | ") (map ppr stmtss))
+pprStmt (BindStmt _ pat expr _ _) = hsep [ppr pat, larrow, ppr expr]
+pprStmt (LetStmt _ (L _ binds))   = hsep [text "let", pprBinds binds]
+pprStmt (BodyStmt _ expr _ _)     = ppr expr
+pprStmt (ParStmt _ stmtss _ _)   = sep (punctuate (text " | ") (map ppr stmtss))
 
 pprStmt (TransStmt { trS_stmts = stmts, trS_by = by
                    , trS_using = using, trS_form = form })
@@ -2198,7 +2254,7 @@ pprStmt (RecStmt { recS_stmts = segment, recS_rec_ids = rec_ids
          , whenPprDebug (vcat [ text "rec_ids=" <> ppr rec_ids
                             , text "later_ids=" <> ppr later_ids])]
 
-pprStmt (ApplicativeStmt args mb_join _)
+pprStmt (ApplicativeStmt _ args mb_join)
   = getPprStyle $ \style ->
       if userStyle style
          then pp_for_user
@@ -2213,19 +2269,20 @@ pprStmt (ApplicativeStmt args mb_join _)
    -- inject a "return" which is hard when we're polymorphic in the id
    -- type.
    flattenStmt :: ExprLStmt (GhcPass idL) -> [SDoc]
-   flattenStmt (L _ (ApplicativeStmt args _ _)) = concatMap flattenArg args
+   flattenStmt (L _ (ApplicativeStmt _ args _)) = concatMap flattenArg args
    flattenStmt stmt = [ppr stmt]
 
    flattenArg :: forall a . (a, ApplicativeArg (GhcPass idL)) -> [SDoc]
-   flattenArg (_, ApplicativeArgOne pat expr isBody)
+   flattenArg (_, ApplicativeArgOne _ pat expr isBody)
      | isBody =  -- See Note [Applicative BodyStmt]
-     [ppr (BodyStmt expr noSyntaxExpr noSyntaxExpr (panic "pprStmt")
+     [ppr (BodyStmt (panic "pprStmt") expr noSyntaxExpr noSyntaxExpr
              :: ExprStmt (GhcPass idL))]
      | otherwise =
-     [ppr (BindStmt pat expr noSyntaxExpr noSyntaxExpr (panic "pprStmt")
+     [ppr (BindStmt (panic "pprStmt") pat expr noSyntaxExpr noSyntaxExpr
              :: ExprStmt (GhcPass idL))]
-   flattenArg (_, ApplicativeArgMany stmts _ _) =
+   flattenArg (_, ApplicativeArgMany _ stmts _ _) =
      concatMap flattenStmt stmts
+   flattenArg (_, XApplicativeArg _) = panic "flattenArg"
 
    pp_debug =
      let
@@ -2236,18 +2293,22 @@ pprStmt (ApplicativeStmt args mb_join _)
           else text "join" <+> parens ap_expr
 
    pp_arg :: (a, ApplicativeArg (GhcPass idL)) -> SDoc
-   pp_arg (_, ApplicativeArgOne pat expr isBody)
+   pp_arg (_, ApplicativeArgOne _ pat expr isBody)
      | isBody =  -- See Note [Applicative BodyStmt]
-     ppr (BodyStmt expr noSyntaxExpr noSyntaxExpr (panic "pprStmt")
+     ppr (BodyStmt (panic "pprStmt") expr noSyntaxExpr noSyntaxExpr
             :: ExprStmt (GhcPass idL))
      | otherwise =
-     ppr (BindStmt pat expr noSyntaxExpr noSyntaxExpr (panic "pprStmt")
+     ppr (BindStmt (panic "pprStmt") pat expr noSyntaxExpr noSyntaxExpr
             :: ExprStmt (GhcPass idL))
-   pp_arg (_, ApplicativeArgMany stmts return pat) =
+   pp_arg (_, ApplicativeArgMany _ stmts return pat) =
      ppr pat <+>
      text "<-" <+>
      ppr (HsDo (panic "pprStmt") DoExpr (noLoc
-               (stmts ++ [noLoc (LastStmt (noLoc return) False noSyntaxExpr)])))
+               (stmts ++
+                   [noLoc (LastStmt noExt (noLoc return) False noSyntaxExpr)])))
+   pp_arg (_, XApplicativeArg x) = ppr x
+
+pprStmt (XStmtLR x) = ppr x
 
 pprTransformStmt :: (OutputableBndrId (GhcPass p))
                  => [IdP (GhcPass p)] -> LHsExpr (GhcPass p)
@@ -2287,7 +2348,7 @@ ppr_do_stmts stmts = pprDeeperList vcat (map ppr stmts)
 pprComp :: (OutputableBndrId (GhcPass p), Outputable body)
         => [LStmt (GhcPass p) body] -> SDoc
 pprComp quals     -- Prints:  body | qual1, ..., qualn
-  | Just (initStmts, L _ (LastStmt body _ _)) <- snocView quals
+  | Just (initStmts, L _ (LastStmt _ body _ _)) <- snocView quals
   = if null initStmts
        -- If there are no statements in a list comprehension besides the last
        -- one, we simply treat it like a normal list. This does arise
@@ -2836,7 +2897,7 @@ pprStmtInCtxt :: (OutputableBndrId (GhcPass idL),
               => HsStmtContext (IdP (GhcPass idL))
               -> StmtLR (GhcPass idL) (GhcPass idR) body
               -> SDoc
-pprStmtInCtxt ctxt (LastStmt e _ _)
+pprStmtInCtxt ctxt (LastStmt _ e _ _)
   | isListCompExpr ctxt      -- For [ e | .. ], do not mutter about "stmts"
   = hang (text "In the expression:") 2 (ppr e)
 

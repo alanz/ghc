@@ -738,6 +738,7 @@ matchWrapper ctxt mb_scr (MG { mg_alts = L _ matches
                              addTmCsDs tm_cs  $ -- See Note [Type and Term Equality Propagation]
                              dsGRHSs ctxt grhss rhs_ty
            ; return (EqnInfo { eqn_pats = upats, eqn_rhs  = match_result}) }
+    mk_eqn_info _ (L _ (XMatch _)) = panic "matchWrapper"
 
     handleWarnings = if isGenerated origin
                      then discardWarningsDs

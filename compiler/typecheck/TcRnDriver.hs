@@ -1981,7 +1981,7 @@ runPlans (p:ps) = tryTcDiscardingErrs (runPlans ps) p
 tcUserStmt :: GhciLStmt GhcPs -> TcM (PlanResult, FixityEnv)
 
 -- An expression typed at the prompt is treated very specially
-tcUserStmt (L loc (BodyStmt expr _ _ _))
+tcUserStmt (L loc (BodyStmt _ expr _ _))
   = do  { (rn_expr, fvs) <- checkNoErrs (rnLExpr expr)
                -- Don't try to typecheck if the renamer fails!
         ; ghciStep <- getGhciStepIO
@@ -1998,36 +1998,38 @@ tcUserStmt (L loc (BodyStmt expr _ _ _))
                           -- (if we are at a breakpoint, say).  We must put those free vars
 
               -- [let it = expr]
-              let_stmt  = L loc $ LetStmt $ noLoc $ HsValBinds noExt
+              let_stmt  = L loc $ LetStmt noExt $ noLoc $ HsValBinds noExt
                            $ XValBindsLR
                                (NValBinds [(NonRecursive,unitBag the_bind)] [])
 
               -- [it <- e]
-              bind_stmt = L loc $ BindStmt
+              bind_stmt = L loc $ BindStmt placeHolder
                                        (L loc (VarPat noExt (L loc fresh_it)))
                                        (nlHsApp ghciStep rn_expr)
                                        (mkRnSyntaxExpr bindIOName)
                                        noSyntaxExpr
-                                       placeHolder
 
               -- [; print it]
-              print_it  = L loc $ BodyStmt (nlHsApp (nlHsVar interPrintName) (nlHsVar fresh_it))
+              print_it  = L loc $ BodyStmt placeHolderType
+                                           (nlHsApp (nlHsVar interPrintName)
+                                           (nlHsVar fresh_it))
                                            (mkRnSyntaxExpr thenIOName)
-                                                  noSyntaxExpr placeHolderType
+                                                  noSyntaxExpr
 
               -- NewA
-              no_it_a = L loc $ BodyStmt (nlHsApps bindIOName
+              no_it_a = L loc $ BodyStmt placeHolderType (nlHsApps bindIOName
                                        [rn_expr , nlHsVar interPrintName])
                                        (mkRnSyntaxExpr thenIOName)
-                                       noSyntaxExpr placeHolderType
+                                       noSyntaxExpr
 
-              no_it_b = L loc $ BodyStmt (rn_expr)
+              no_it_b = L loc $ BodyStmt placeHolderType (rn_expr)
                                        (mkRnSyntaxExpr thenIOName)
-                                       noSyntaxExpr placeHolderType
+                                       noSyntaxExpr
 
-              no_it_c = L loc $ BodyStmt (nlHsApp (nlHsVar interPrintName) rn_expr)
-                                       (mkRnSyntaxExpr thenIOName)
-                                       noSyntaxExpr placeHolderType
+              no_it_c = L loc $ BodyStmt placeHolderType
+                                      (nlHsApp (nlHsVar interPrintName) rn_expr)
+                                      (mkRnSyntaxExpr thenIOName)
+                                      noSyntaxExpr
 
               -- See Note [GHCi Plans]
 
@@ -2083,8 +2085,8 @@ tcUserStmt rdr_stmt@(L loc _)
 
        ; ghciStep <- getGhciStepIO
        ; let gi_stmt
-               | (L loc (BindStmt pat expr op1 op2 ty)) <- rn_stmt
-                           = L loc $ BindStmt pat (nlHsApp ghciStep expr) op1 op2 ty
+               | (L loc (BindStmt ty pat expr op1 op2)) <- rn_stmt
+                     = L loc $ BindStmt ty pat (nlHsApp ghciStep expr) op1 op2
                | otherwise = rn_stmt
 
        ; opt_pr_flag <- goptM Opt_PrintBindResult
@@ -2106,9 +2108,9 @@ tcUserStmt rdr_stmt@(L loc _)
            ; when (isUnitTy v_ty || not (isTauTy v_ty)) failM
            ; return stuff }
       where
-        print_v  = L loc $ BodyStmt (nlHsApp (nlHsVar printName) (nlHsVar v))
+        print_v  = L loc $ BodyStmt placeHolderType (nlHsApp (nlHsVar printName)
+                                    (nlHsVar v))
                                     (mkRnSyntaxExpr thenIOName) noSyntaxExpr
-                                    placeHolderType
 
 {-
 Note [GHCi Plans]

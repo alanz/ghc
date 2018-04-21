@@ -700,6 +700,60 @@ type ForallXMatchGroup (c :: * -> Constraint) (x :: *) (b :: *) =
        , c (XXMatchGroup x b)
        )
 
+-- -------------------------------------
+
+type family XCMatch  x b
+type family XXMatch  x b
+
+type ForallXMatch (c :: * -> Constraint) (x :: *) (b :: *) =
+       ( c (XCMatch  x b)
+       , c (XXMatch  x b)
+       )
+
+-- -------------------------------------
+
+type family XCGRHSs  x b
+type family XXGRHSs  x b
+
+type ForallXGRHSs (c :: * -> Constraint) (x :: *) (b :: *) =
+       ( c (XCGRHSs  x b)
+       , c (XXGRHSs  x b)
+       )
+
+-- -------------------------------------
+
+type family XCGRHS  x b
+type family XXGRHS  x b
+
+type ForallXGRHS (c :: * -> Constraint) (x :: *) (b :: *) =
+       ( c (XCGRHS  x b)
+       , c (XXGRHS  x b)
+       )
+
+-- -------------------------------------
+
+type family XLastStmt        x x' b
+type family XBindStmt        x x' b
+type family XApplicativeStmt x x' b
+type family XBodyStmt        x x' b
+type family XLetStmt         x x' b
+type family XParStmt         x x' b
+type family XTransStmt       x x' b
+type family XRecStmt         x x' b
+type family XXStmtLR         x x' b
+
+type ForallXStmtLR (c :: * -> Constraint) (x :: *)  (x' :: *) (b :: *) =
+       ( c (XLastStmt         x x' b)
+       , c (XBindStmt         x x' b)
+       , c (XApplicativeStmt  x x' b)
+       , c (XBodyStmt         x x' b)
+       , c (XLetStmt          x x' b)
+       , c (XParStmt          x x' b)
+       , c (XTransStmt        x x' b)
+       , c (XRecStmt          x x' b)
+       , c (XXStmtLR          x x' b)
+       )
+
 -- ---------------------------------------------------------------------
 
 type family XCmdArrApp  x
@@ -736,6 +790,18 @@ type family XXParStmtBlock x x'
 type ForallXParStmtBlock (c :: * -> Constraint) (x :: *) (x' :: *) =
        ( c (XParStmtBlock  x x')
        , c (XXParStmtBlock x x')
+       )
+
+-- ---------------------------------------------------------------------
+
+type family XApplicativeArgOne   x
+type family XApplicativeArgMany  x
+type family XXApplicativeArg     x
+
+type ForallXApplicativeArg (c :: * -> Constraint) (x :: *) =
+       ( c (XApplicativeArgOne   x)
+       , c (XApplicativeArgMany  x)
+       , c (XXApplicativeArg     x)
        )
 
 -- =====================================================================

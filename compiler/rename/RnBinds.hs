@@ -1175,8 +1175,9 @@ rnMatch' ctxt rnBody (Match { m_ctxt = mf, m_pats = pats, m_grhss = grhss })
                       (FunRhs { mc_fun = L _ funid }, FunRhs { mc_fun = L lf _ })
                                             -> mf { mc_fun = L lf funid }
                       _                     -> ctxt
-        ; return (Match { m_ctxt = mf', m_pats = pats'
+        ; return (Match { m_ext = noExt, m_ctxt = mf', m_pats = pats'
                         , m_grhss = grhss'}, grhss_fvs ) }}
+rnMatch' _ _ (XMatch _) = panic "rnMatch'"
 
 emptyCaseErr :: HsMatchContext Name -> SDoc
 emptyCaseErr ctxt = hang (text "Empty list of alternatives in" <+> pp_ctxt)
@@ -1199,10 +1200,11 @@ rnGRHSs :: HsMatchContext Name
         -> (Located (body GhcPs) -> RnM (Located (body GhcRn), FreeVars))
         -> GRHSs GhcPs (Located (body GhcPs))
         -> RnM (GRHSs GhcRn (Located (body GhcRn)), FreeVars)
-rnGRHSs ctxt rnBody (GRHSs grhss (L l binds))
+rnGRHSs ctxt rnBody (GRHSs _ grhss (L l binds))
   = rnLocalBindsAndThen binds   $ \ binds' _ -> do
     (grhss', fvGRHSs) <- mapFvRn (rnGRHS ctxt rnBody) grhss
-    return (GRHSs grhss' (L l binds'), fvGRHSs)
+    return (GRHSs noExt grhss' (L l binds'), fvGRHSs)
+rnGRHSs _ _ (XGRHSs _) = panic "rnGRHSs"
 
 rnGRHS :: HsMatchContext Name
        -> (Located (body GhcPs) -> RnM (Located (body GhcRn), FreeVars))
@@ -1214,7 +1216,7 @@ rnGRHS' :: HsMatchContext Name
         -> (Located (body GhcPs) -> RnM (Located (body GhcRn), FreeVars))
         -> GRHS GhcPs (Located (body GhcPs))
         -> RnM (GRHS GhcRn (Located (body GhcRn)), FreeVars)
-rnGRHS' ctxt rnBody (GRHS guards rhs)
+rnGRHS' ctxt rnBody (GRHS _ guards rhs)
   = do  { pattern_guards_allowed <- xoptM LangExt.PatternGuards
         ; ((guards', rhs'), fvs) <- rnStmts (PatGuard ctxt) rnLExpr guards $ \ _ ->
                                     rnBody rhs
@@ -1222,14 +1224,15 @@ rnGRHS' ctxt rnBody (GRHS guards rhs)
         ; unless (pattern_guards_allowed || is_standard_guard guards')
                  (addWarn NoReason (nonStdGuardErr guards'))
 
-        ; return (GRHS guards' rhs', fvs) }
+        ; return (GRHS noExt guards' rhs', fvs) }
   where
         -- Standard Haskell 1.4 guards are just a single boolean
         -- expression, rather than a list of qualifiers as in the
         -- Glasgow extension
-    is_standard_guard []                       = True
-    is_standard_guard [L _ (BodyStmt _ _ _ _)] = True
-    is_standard_guard _                        = False
+    is_standard_guard []                  = True
+    is_standard_guard [L _ (BodyStmt {})] = True
+    is_standard_guard _                   = False
+rnGRHS' _ _ (XGRHS _) = panic "rnGRHS'"
 
 {-
 *********************************************************
