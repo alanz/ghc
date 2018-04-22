@@ -832,9 +832,9 @@ expdoclist :: { OrdList (LIE GhcPs) }
         | {- empty -}                                  { nilOL }
 
 exp_doc :: { OrdList (LIE GhcPs) }
-        : docsection    { unitOL (sL1 $1 (case (unLoc $1) of (n, doc) -> IEGroup n doc)) }
-        | docnamed      { unitOL (sL1 $1 (IEDocNamed ((fst . unLoc) $1))) }
-        | docnext       { unitOL (sL1 $1 (IEDoc (unLoc $1))) }
+        : docsection    { unitOL (sL1 $1 (case (unLoc $1) of (n, doc) -> IEGroup noExt n doc)) }
+        | docnamed      { unitOL (sL1 $1 (IEDocNamed noExt ((fst . unLoc) $1))) }
+        | docnext       { unitOL (sL1 $1 (IEDoc noExt (unLoc $1))) }
 
 
    -- No longer allow things like [] and (,,,) to be exported
@@ -842,9 +842,9 @@ exp_doc :: { OrdList (LIE GhcPs) }
 export  :: { OrdList (LIE GhcPs) }
         : qcname_ext export_subspec  {% mkModuleImpExp $1 (snd $ unLoc $2)
                                           >>= \ie -> amsu (sLL $1 $> ie) (fst $ unLoc $2) }
-        |  'module' modid            {% amsu (sLL $1 $> (IEModuleContents $2))
+        |  'module' modid            {% amsu (sLL $1 $> (IEModuleContents noExt $2))
                                              [mj AnnModule $1] }
-        |  'pattern' qcon            {% amsu (sLL $1 $> (IEVar (sLL $1 $> (IEPattern $2))))
+        |  'pattern' qcon            {% amsu (sLL $1 $> (IEVar noExt (sLL $1 $> (IEPattern $2))))
                                              [mj AnnPattern $1] }
 
 export_subspec :: { Located ([AddAnn],ImpExpSubSpec) }

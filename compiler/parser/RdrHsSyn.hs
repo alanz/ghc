@@ -1615,11 +1615,11 @@ mkModuleImpExp (L l specname) subs =
   case subs of
     ImpExpAbs
       | isVarNameSpace (rdrNameSpace name)
-                               -> return $ IEVar (L l (ieNameFromSpec specname))
-      | otherwise              -> IEThingAbs . L l <$> nameT
-    ImpExpAll                  -> IEThingAll . L l <$> nameT
-    ImpExpList xs              ->
-      (\newName -> IEThingWith (L l newName) NoIEWildcard (wrapped xs) [])
+                         -> return $ IEVar noExt (L l (ieNameFromSpec specname))
+      | otherwise        -> IEThingAbs noExt . L l <$> nameT
+    ImpExpAll            -> IEThingAll noExt . L l <$> nameT
+    ImpExpList xs        ->
+      (\newName -> IEThingWith noExt (L l newName) NoIEWildcard (wrapped xs) [])
         <$> nameT
     ImpExpAllWith xs                       ->
       do allowed <- extension patternSynonymsEnabled
@@ -1629,7 +1629,8 @@ mkModuleImpExp (L l specname) subs =
                 pos   = maybe NoIEWildcard IEWildcard
                           (findIndex isImpExpQcWildcard withs)
                 ies   = wrapped $ filter (not . isImpExpQcWildcard . unLoc) xs
-            in (\newName -> IEThingWith (L l newName) pos ies []) <$> nameT
+            in (\newName
+                        -> IEThingWith noExt (L l newName) pos ies []) <$> nameT
           else parseErrorSDoc l
             (text "Illegal export form (use PatternSynonyms to enable)")
   where
@@ -1666,7 +1667,7 @@ mkTypeImpExp name =
 
 checkImportSpec :: Located [LIE GhcPs] -> P (Located [LIE GhcPs])
 checkImportSpec ie@(L _ specs) =
-    case [l | (L l (IEThingWith _ (IEWildcard _) _ _)) <- specs] of
+    case [l | (L l (IEThingWith _ _ (IEWildcard _) _ _)) <- specs] of
       [] -> return ie
       (l:_) -> importSpecError l
   where

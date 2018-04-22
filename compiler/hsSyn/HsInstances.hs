@@ -16,6 +16,7 @@ module HsInstances where
 
 import Data.Data hiding ( Fixity )
 
+import GhcPrelude
 import HsExtension
 import HsBinds
 import HsDecls
@@ -23,6 +24,7 @@ import HsExpr
 import HsLit
 import HsTypes
 import HsPat
+import HsImpExp
 
 -- ---------------------------------------------------------------------
 -- Data derivations from HsSyn -----------------------------------------
@@ -405,5 +407,20 @@ deriving instance Data (AmbiguousFieldOcc GhcPs)
 deriving instance Data (AmbiguousFieldOcc GhcRn)
 deriving instance Data (AmbiguousFieldOcc GhcTc)
 
+
+-- deriving instance (DataId name) => Data (ImportDecl name)
+deriving instance Data (ImportDecl GhcPs)
+deriving instance Data (ImportDecl GhcRn)
+deriving instance Data (ImportDecl GhcTc)
+
+-- deriving instance (DataId name)             => Data (IE name)
+deriving instance Data (IE GhcPs)
+deriving instance Data (IE GhcRn)
+deriving instance Data (IE GhcTc)
+
+-- deriving instance (Eq name, Eq (IdP name)) => Eq (IE name)
+deriving instance Eq (IE GhcPs)
+deriving instance Eq (IE GhcRn)
+deriving instance Eq (IE GhcTc)
 
 -- ---------------------------------------------------------------------

@@ -1022,6 +1022,44 @@ type ForallXFieldOcc (c :: * -> Constraint) (x :: *) =
 
 
 -- =====================================================================
+-- Type families for the HsImpExp type families
+
+type family XCImportDecl       x
+type family XXImportDecl       x
+
+type ForallXImportDecl (c :: * -> Constraint) (x :: *) =
+       ( c (XCImportDecl x)
+       , c (XXImportDecl x)
+       )
+
+-- -------------------------------------
+
+type family XIEVar             x
+type family XIEThingAbs        x
+type family XIEThingAll        x
+type family XIEThingWith       x
+type family XIEModuleContents  x
+type family XIEGroup           x
+type family XIEDoc             x
+type family XIEDocNamed        x
+type family XXIE               x
+
+type ForallXIE (c :: * -> Constraint) (x :: *) =
+       ( c (XIEVar x)
+       , c (XIEThingAbs        x)
+       , c (XIEThingAll        x)
+       , c (XIEThingWith       x)
+       , c (XIEModuleContents  x)
+       , c (XIEGroup           x)
+       , c (XIEDoc             x)
+       , c (XIEDocNamed        x)
+       , c (XXIE               x)
+       )
+
+-- -------------------------------------
+
+
+-- =====================================================================
 -- End of Type family definitions
 -- =====================================================================
 
@@ -1140,33 +1178,6 @@ type DataId p =
   , Data (NameOrRdrName (IdP p))
 
   , Data (IdP p)
-  )
-
-type DataIdLR pL pR =
-  ( DataId pL
-  , DataId pR
-
-  , ForallXHsLocalBindsLR Data pL pR
-  , ForallXHsLocalBindsLR Data pL pL
-  , ForallXHsLocalBindsLR Data pR pR
-
-  , ForallXValBindsLR     Data pL pR
-  , ForallXValBindsLR     Data pL pL
-  , ForallXValBindsLR     Data pR pR
-
-  , ForallXHsBindsLR      Data pL pR
-  , ForallXHsBindsLR      Data pL pL
-  , ForallXHsBindsLR      Data pR pR
-
-  , ForallXPatSynBind     Data pL pR
-  , ForallXPatSynBind     Data pL pL
-  , ForallXPatSynBind     Data pR pR
-
-  , ForallXParStmtBlock   Data pL pR
-  , ForallXParStmtBlock   Data pL pL
-  , ForallXParStmtBlock   Data pR pR
-
-  , ForallXParStmtBlock Data GhcRn GhcRn
   )
 
 -- |Constraint type to bundle up the requirement for 'OutputableBndr' on both

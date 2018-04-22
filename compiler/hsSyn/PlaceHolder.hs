@@ -6,15 +6,11 @@
 
 module PlaceHolder where
 
-import GhcPrelude ( Eq(..), Ord(..) )
-
-import Outputable hiding ( (<>) )
 import Name
 import NameSet
 import RdrName
 import Var
 
-import Data.Data hiding ( Fixity )
 
 
 {-
