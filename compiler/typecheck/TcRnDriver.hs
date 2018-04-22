@@ -2003,30 +2003,30 @@ tcUserStmt (L loc (BodyStmt _ expr _ _))
                                (NValBinds [(NonRecursive,unitBag the_bind)] [])
 
               -- [it <- e]
-              bind_stmt = L loc $ BindStmt placeHolder
+              bind_stmt = L loc $ BindStmt noExt
                                        (L loc (VarPat noExt (L loc fresh_it)))
                                        (nlHsApp ghciStep rn_expr)
                                        (mkRnSyntaxExpr bindIOName)
                                        noSyntaxExpr
 
               -- [; print it]
-              print_it  = L loc $ BodyStmt placeHolderType
+              print_it  = L loc $ BodyStmt noExt
                                            (nlHsApp (nlHsVar interPrintName)
                                            (nlHsVar fresh_it))
                                            (mkRnSyntaxExpr thenIOName)
                                                   noSyntaxExpr
 
               -- NewA
-              no_it_a = L loc $ BodyStmt placeHolderType (nlHsApps bindIOName
+              no_it_a = L loc $ BodyStmt noExt (nlHsApps bindIOName
                                        [rn_expr , nlHsVar interPrintName])
                                        (mkRnSyntaxExpr thenIOName)
                                        noSyntaxExpr
 
-              no_it_b = L loc $ BodyStmt placeHolderType (rn_expr)
+              no_it_b = L loc $ BodyStmt noExt (rn_expr)
                                        (mkRnSyntaxExpr thenIOName)
                                        noSyntaxExpr
 
-              no_it_c = L loc $ BodyStmt placeHolderType
+              no_it_c = L loc $ BodyStmt noExt
                                       (nlHsApp (nlHsVar interPrintName) rn_expr)
                                       (mkRnSyntaxExpr thenIOName)
                                       noSyntaxExpr
@@ -2108,7 +2108,7 @@ tcUserStmt rdr_stmt@(L loc _)
            ; when (isUnitTy v_ty || not (isTauTy v_ty)) failM
            ; return stuff }
       where
-        print_v  = L loc $ BodyStmt placeHolderType (nlHsApp (nlHsVar printName)
+        print_v  = L loc $ BodyStmt noExt (nlHsApp (nlHsVar printName)
                                     (nlHsVar v))
                                     (mkRnSyntaxExpr thenIOName) noSyntaxExpr
 

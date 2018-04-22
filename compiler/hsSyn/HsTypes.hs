@@ -73,7 +73,6 @@ import GhcPrelude
 
 import {-# SOURCE #-} HsExpr ( HsSplice, pprSplice )
 
-import PlaceHolder ( PlaceHolder(..), placeHolder )
 import HsExtension
 import HsLit () -- for instances
 
@@ -276,11 +275,11 @@ data HsQTvsRn
                -- See Note [Dependent LHsQTyVars] in TcHsType
            } deriving Data
 
-type instance XHsQTvs       GhcPs = PlaceHolder
+type instance XHsQTvs       GhcPs = NoExt
 type instance XHsQTvs       GhcRn = HsQTvsRn
 type instance XHsQTvs       GhcTc = HsQTvsRn
 
-type instance XXLHsQTyVars  (GhcPass _) = PlaceHolder
+type instance XXLHsQTyVars  (GhcPass _) = NoExt
 
 mkHsQTvs :: [LHsTyVarBndr GhcPs] -> LHsQTyVars GhcPs
 mkHsQTvs tvs = HsQTvs { hsq_ext = noExt, hsq_explicit = tvs }
@@ -315,11 +314,11 @@ data HsIBRn
                                  -- TcHsType.decideKindGeneralisationPlan
     } deriving Data
 
-type instance XHsIB              GhcPs _ = PlaceHolder
+type instance XHsIB              GhcPs _ = NoExt
 type instance XHsIB              GhcRn _ = HsIBRn
 type instance XHsIB              GhcTc _ = HsIBRn
 
-type instance XXHsImplicitBndrs  (GhcPass _) _ = PlaceHolder
+type instance XXHsImplicitBndrs  (GhcPass _) _ = NoExt
 
 -- | Haskell Wildcard Binders
 data HsWildCardBndrs pass thing
@@ -336,11 +335,11 @@ data HsWildCardBndrs pass thing
     }
   | XHsWildCardBndrs (XXHsWildCardBndrs pass thing)
 
-type instance XHsWC              GhcPs b = PlaceHolder
+type instance XHsWC              GhcPs b = NoExt
 type instance XHsWC              GhcRn b = [Name]
 type instance XHsWC              GhcTc b = [Name]
 
-type instance XXHsWildCardBndrs  (GhcPass _) b = PlaceHolder
+type instance XXHsWildCardBndrs  (GhcPass _) b = NoExt
 
 -- | Located Haskell Signature Type
 type LHsSigType   pass = HsImplicitBndrs pass (LHsType pass)    -- Implicit only
@@ -446,9 +445,9 @@ data HsTyVarBndr pass
   | XTyVarBndr
       (XXTyVarBndr pass)
 
-type instance XUserTyVar    (GhcPass _) = PlaceHolder
-type instance XKindedTyVar  (GhcPass _) = PlaceHolder
-type instance XXTyVarBndr   (GhcPass _) = PlaceHolder
+type instance XUserTyVar    (GhcPass _) = NoExt
+type instance XKindedTyVar  (GhcPass _) = NoExt
+type instance XXTyVarBndr   (GhcPass _) = NoExt
 
 -- | Does this 'HsTyVarBndr' come with an explicit kind annotation?
 isHsKindedTyVar :: HsTyVarBndr pass -> Bool
@@ -663,41 +662,41 @@ data NewHsTypeX
 instance Outputable NewHsTypeX where
   ppr (NHsCoreTy ty) = ppr ty
 
-type instance XForAllTy        (GhcPass _) = PlaceHolder
-type instance XQualTy          (GhcPass _) = PlaceHolder
-type instance XTyVar           (GhcPass _) = PlaceHolder
-type instance XAppsTy          (GhcPass _) = PlaceHolder
-type instance XAppTy           (GhcPass _) = PlaceHolder
-type instance XFunTy           (GhcPass _) = PlaceHolder
-type instance XListTy          (GhcPass _) = PlaceHolder
-type instance XPArrTy          (GhcPass _) = PlaceHolder
-type instance XTupleTy         (GhcPass _) = PlaceHolder
-type instance XSumTy           (GhcPass _) = PlaceHolder
-type instance XOpTy            (GhcPass _) = PlaceHolder
-type instance XParTy           (GhcPass _) = PlaceHolder
-type instance XIParamTy        (GhcPass _) = PlaceHolder
-type instance XEqTy            (GhcPass _) = PlaceHolder
-type instance XKindSig         (GhcPass _) = PlaceHolder
+type instance XForAllTy        (GhcPass _) = NoExt
+type instance XQualTy          (GhcPass _) = NoExt
+type instance XTyVar           (GhcPass _) = NoExt
+type instance XAppsTy          (GhcPass _) = NoExt
+type instance XAppTy           (GhcPass _) = NoExt
+type instance XFunTy           (GhcPass _) = NoExt
+type instance XListTy          (GhcPass _) = NoExt
+type instance XPArrTy          (GhcPass _) = NoExt
+type instance XTupleTy         (GhcPass _) = NoExt
+type instance XSumTy           (GhcPass _) = NoExt
+type instance XOpTy            (GhcPass _) = NoExt
+type instance XParTy           (GhcPass _) = NoExt
+type instance XIParamTy        (GhcPass _) = NoExt
+type instance XEqTy            (GhcPass _) = NoExt
+type instance XKindSig         (GhcPass _) = NoExt
 
-type instance XSpliceTy        GhcPs = PlaceHolder
-type instance XSpliceTy        GhcRn = PlaceHolder
+type instance XSpliceTy        GhcPs = NoExt
+type instance XSpliceTy        GhcRn = NoExt
 type instance XSpliceTy        GhcTc = Kind
 
-type instance XDocTy           (GhcPass _) = PlaceHolder
-type instance XBangTy          (GhcPass _) = PlaceHolder
-type instance XRecTy           (GhcPass _) = PlaceHolder
+type instance XDocTy           (GhcPass _) = NoExt
+type instance XBangTy          (GhcPass _) = NoExt
+type instance XRecTy           (GhcPass _) = NoExt
 
-type instance XExplicitListTy  GhcPs = PlaceHolder
-type instance XExplicitListTy  GhcRn = PlaceHolder
+type instance XExplicitListTy  GhcPs = NoExt
+type instance XExplicitListTy  GhcRn = NoExt
 type instance XExplicitListTy  GhcTc = Kind
 
-type instance XExplicitTupleTy GhcPs = PlaceHolder
-type instance XExplicitTupleTy GhcRn = PlaceHolder
+type instance XExplicitTupleTy GhcPs = NoExt
+type instance XExplicitTupleTy GhcRn = NoExt
 type instance XExplicitTupleTy GhcTc = [Kind]
 
-type instance XTyLit           (GhcPass _) = PlaceHolder
+type instance XTyLit           (GhcPass _) = NoExt
 
-type instance XWildCardTy      GhcPs = PlaceHolder
+type instance XWildCardTy      GhcPs = NoExt
 type instance XWildCardTy      GhcRn = HsWildCardInfo
 type instance XWildCardTy      GhcTc = HsWildCardInfo
 
@@ -731,9 +730,9 @@ data HsAppType pass
   | XAppType
       (XXAppType pass)
 
-type instance XAppInfix   (GhcPass _) = PlaceHolder
-type instance XAppPrefix  (GhcPass _) = PlaceHolder
-type instance XXAppType   (GhcPass _) = PlaceHolder
+type instance XAppInfix   (GhcPass _) = NoExt
+type instance XAppPrefix  (GhcPass _) = NoExt
+type instance XXAppType   (GhcPass _) = NoExt
 
 instance (p ~ GhcPass pass, OutputableBndrId p)
        => Outputable (HsAppType p) where
@@ -881,8 +880,8 @@ data ConDeclField pass  -- Record fields have Haddoc docs on them
       -- For details on above see note [Api annotations] in ApiAnnotation
   | XConDeclField (XXConDeclField pass)
 
-type instance XConDeclField  (GhcPass _) = PlaceHolder
-type instance XXConDeclField (GhcPass _) = PlaceHolder
+type instance XConDeclField  (GhcPass _) = NoExt
+type instance XXConDeclField (GhcPass _) = NoExt
 
 instance (p ~ GhcPass pass, OutputableBndrId p)
        => Outputable (ConDeclField p) where
@@ -1055,7 +1054,7 @@ mkHsAppsTy :: [LHsAppType GhcPs] -> HsType GhcPs
 -- In the common case of a singleton non-operator,
 -- avoid the clutter of wrapping in a HsAppsTy
 mkHsAppsTy [L _ (HsAppPrefix _ (L _ ty))] = ty
-mkHsAppsTy app_tys                        = HsAppsTy PlaceHolder app_tys
+mkHsAppsTy app_tys                        = HsAppsTy NoExt app_tys
 
 {-
 ************************************************************************
@@ -1229,17 +1228,17 @@ data FieldOcc pass = FieldOcc { extFieldOcc     :: XFieldOcc pass
 deriving instance (p ~ GhcPass pass, Eq (XFieldOcc p)) => Eq  (FieldOcc p)
 deriving instance (p ~ GhcPass pass, Ord (XFieldOcc p)) => Ord (FieldOcc p)
 
-type instance XFieldOcc GhcPs = PlaceHolder
+type instance XFieldOcc GhcPs = NoExt
 type instance XFieldOcc GhcRn = Name
 type instance XFieldOcc GhcTc = Id
 
-type instance XXFieldOcc (GhcPass _) = PlaceHolder
+type instance XXFieldOcc (GhcPass _) = NoExt
 
 instance Outputable (FieldOcc pass) where
   ppr = ppr . rdrNameFieldOcc
 
 mkFieldOcc :: Located RdrName -> FieldOcc GhcPs
-mkFieldOcc rdr = FieldOcc placeHolder rdr
+mkFieldOcc rdr = FieldOcc noExt rdr
 
 
 -- | Ambiguous Field Occurrence
@@ -1259,15 +1258,15 @@ data AmbiguousFieldOcc pass
   | Ambiguous   (XAmbiguous pass)   (Located RdrName)
   | XAmbiguousFieldOcc (XXAmbiguousFieldOcc pass)
 
-type instance XUnambiguous GhcPs = PlaceHolder
+type instance XUnambiguous GhcPs = NoExt
 type instance XUnambiguous GhcRn = Name
 type instance XUnambiguous GhcTc = Id
 
-type instance XAmbiguous GhcPs = PlaceHolder
-type instance XAmbiguous GhcRn = PlaceHolder
+type instance XAmbiguous GhcPs = NoExt
+type instance XAmbiguous GhcRn = NoExt
 type instance XAmbiguous GhcTc = Id
 
-type instance XXAmbiguousFieldOcc (GhcPass _) = PlaceHolder
+type instance XXAmbiguousFieldOcc (GhcPass _) = NoExt
 
 instance p ~ GhcPass pass => Outputable (AmbiguousFieldOcc p) where
   ppr = ppr . rdrNameAmbiguousFieldOcc
@@ -1536,5 +1535,5 @@ isCompoundHsType _                = False
 -- returns @ty@.
 parenthesizeCompoundHsType :: LHsType (GhcPass p) -> LHsType (GhcPass p)
 parenthesizeCompoundHsType ty@(L loc _)
-  | isCompoundHsType ty = L loc (HsParTy PlaceHolder ty)
+  | isCompoundHsType ty = L loc (HsParTy NoExt ty)
   | otherwise           = ty

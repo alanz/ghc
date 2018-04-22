@@ -51,7 +51,6 @@ import HsExtension
 import HsTypes
 import TcEvidence
 import BasicTypes
-import PlaceHolder
 -- others:
 import PprCore          ( {- instance OutputableBndr TyVar -} )
 import TysWiredIn
@@ -286,56 +285,56 @@ data ListPatTc
       Type                             -- The type of the elements
       (Maybe (Type, SyntaxExpr GhcTc)) -- For rebindable syntax
 
-type instance XWildPat GhcPs = PlaceHolder
-type instance XWildPat GhcRn = PlaceHolder
+type instance XWildPat GhcPs = NoExt
+type instance XWildPat GhcRn = NoExt
 type instance XWildPat GhcTc = Type
 
-type instance XVarPat  (GhcPass _) = PlaceHolder
-type instance XLazyPat (GhcPass _) = PlaceHolder
-type instance XAsPat   (GhcPass _) = PlaceHolder
-type instance XParPat  (GhcPass _) = PlaceHolder
-type instance XBangPat (GhcPass _) = PlaceHolder
+type instance XVarPat  (GhcPass _) = NoExt
+type instance XLazyPat (GhcPass _) = NoExt
+type instance XAsPat   (GhcPass _) = NoExt
+type instance XParPat  (GhcPass _) = NoExt
+type instance XBangPat (GhcPass _) = NoExt
 
 -- Note: XListPat cannot be extended when using GHC 8.0.2 as the bootstrap
 -- compiler, as it triggers https://ghc.haskell.org/trac/ghc/ticket/14396 for
 -- `SyntaxExpr`
-type instance XListPat GhcPs = PlaceHolder
+type instance XListPat GhcPs = NoExt
 type instance XListPat GhcRn = Maybe (SyntaxExpr GhcRn)
 type instance XListPat GhcTc = ListPatTc
 
-type instance XTuplePat GhcPs = PlaceHolder
-type instance XTuplePat GhcRn = PlaceHolder
+type instance XTuplePat GhcPs = NoExt
+type instance XTuplePat GhcRn = NoExt
 type instance XTuplePat GhcTc = [Type]
 
-type instance XSumPat GhcPs = PlaceHolder
-type instance XSumPat GhcRn = PlaceHolder
+type instance XSumPat GhcPs = NoExt
+type instance XSumPat GhcRn = NoExt
 type instance XSumPat GhcTc = [Type]
 
-type instance XPArrPat GhcPs = PlaceHolder
-type instance XPArrPat GhcRn = PlaceHolder
+type instance XPArrPat GhcPs = NoExt
+type instance XPArrPat GhcRn = NoExt
 type instance XPArrPat GhcTc = Type
 
-type instance XViewPat GhcPs = PlaceHolder
-type instance XViewPat GhcRn = PlaceHolder
+type instance XViewPat GhcPs = NoExt
+type instance XViewPat GhcRn = NoExt
 type instance XViewPat GhcTc = Type
 
-type instance XSplicePat (GhcPass _) = PlaceHolder
-type instance XLitPat    (GhcPass _) = PlaceHolder
+type instance XSplicePat (GhcPass _) = NoExt
+type instance XLitPat    (GhcPass _) = NoExt
 
-type instance XNPat GhcPs = PlaceHolder
-type instance XNPat GhcRn = PlaceHolder
+type instance XNPat GhcPs = NoExt
+type instance XNPat GhcRn = NoExt
 type instance XNPat GhcTc = Type
 
-type instance XNPlusKPat GhcPs = PlaceHolder
-type instance XNPlusKPat GhcRn = PlaceHolder
+type instance XNPlusKPat GhcPs = NoExt
+type instance XNPlusKPat GhcRn = NoExt
 type instance XNPlusKPat GhcTc = Type
 
 type instance XSigPat GhcPs = (LHsSigWcType GhcPs)
 type instance XSigPat GhcRn = (LHsSigWcType GhcRn)
 type instance XSigPat GhcTc = Type
 
-type instance XCoPat  (GhcPass _) = PlaceHolder
-type instance XXPat   (GhcPass _) = PlaceHolder
+type instance XCoPat  (GhcPass _) = NoExt
+type instance XXPat   (GhcPass _) = NoExt
 
 -- ---------------------------------------------------------------------
 
@@ -442,11 +441,11 @@ data HsRecField' id arg = HsRecField {
 --
 -- The parsed HsRecUpdField corresponding to the record update will have:
 --
---     hsRecFieldLbl = Unambiguous "x" PlaceHolder :: AmbiguousFieldOcc RdrName
+--     hsRecFieldLbl = Unambiguous "x" NoExt :: AmbiguousFieldOcc RdrName
 --
 -- After the renamer, this will become:
 --
---     hsRecFieldLbl = Ambiguous   "x" PlaceHolder :: AmbiguousFieldOcc Name
+--     hsRecFieldLbl = Ambiguous   "x" NoExt :: AmbiguousFieldOcc Name
 --
 -- (note that the Unambiguous constructor is not type-correct here).
 -- The typechecker will determine the particular selector:
@@ -602,7 +601,7 @@ mkNilPat ty = mkPrefixConPat nilDataCon [] [ty]
 
 mkCharLitPat :: SourceText -> Char -> OutPat (GhcPass p)
 mkCharLitPat src c = mkPrefixConPat charDataCon
-                          [noLoc $ LitPat PlaceHolder (HsCharPrim src c)] []
+                          [noLoc $ LitPat NoExt (HsCharPrim src c)] []
 
 {-
 ************************************************************************
@@ -814,7 +813,7 @@ isCompoundConPat (RecCon {})      = False
 -- if so, surrounds @p@ with a 'ParPat'. Otherwise, it simply returns @p@.
 parenthesizeCompoundPat :: LPat (GhcPass p) -> LPat (GhcPass p)
 parenthesizeCompoundPat lp@(L loc p)
-  | isCompoundPat p = L loc (ParPat PlaceHolder lp)
+  | isCompoundPat p = L loc (ParPat NoExt lp)
   | otherwise       = lp
 
 {-

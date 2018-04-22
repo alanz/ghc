@@ -69,9 +69,6 @@ module HsUtils(
   mkHsSpliceTy, mkHsSpliceE, mkHsSpliceTE, mkUntypedSplice,
   mkHsQuasiQuote, unqualQuasiQuote,
 
-  -- Flags
-  noRebindableInfo,
-
   -- Collecting binders
   isUnliftedHsBind, isBangedHsBind,
 
@@ -165,7 +162,7 @@ unguardedRHS :: SrcSpan -> Located (body (GhcPass p))
              -> [LGRHS (GhcPass p) (Located (body (GhcPass p)))]
 unguardedRHS loc rhs = [L loc (GRHS noExt [] rhs)]
 
-mkMatchGroup :: (XMG name (Located (body name)) ~ PlaceHolder)
+mkMatchGroup :: (XMG name (Located (body name)) ~ NoExt)
              => Origin -> [LMatch name (Located (body name))]
              -> MatchGroup name (Located (body name))
 mkMatchGroup origin matches = MG { mg_ext = noExt
@@ -249,7 +246,7 @@ mkLastStmt :: Located (bodyR (GhcPass idR))
 mkBodyStmt :: Located (bodyR GhcPs)
            -> StmtLR (GhcPass idL) GhcPs (Located (bodyR GhcPs))
 mkBindStmt :: (XBindStmt (GhcPass idL) (GhcPass idR)
-                         (Located (bodyR (GhcPass idR))) ~ PlaceHolder)
+                         (Located (bodyR (GhcPass idR))) ~ NoExt)
            => LPat (GhcPass idL) -> Located (bodyR (GhcPass idR))
            -> StmtLR (GhcPass idL) (GhcPass idR) (Located (bodyR (GhcPass idR)))
 mkTcBindStmt :: LPat GhcTc -> Located (bodyR GhcTc)
@@ -265,9 +262,6 @@ mkRecStmt        :: [LStmtLR (GhcPass idL) GhcPs bodyR]
 mkHsIntegral     i  = OverLit noExt (HsIntegral       i) noExpr
 mkHsFractional   f  = OverLit noExt (HsFractional     f) noExpr
 mkHsIsString src s  = OverLit noExt (HsIsString   src s) noExpr
-
-noRebindableInfo :: PlaceHolder
-noRebindableInfo = placeHolder -- Just another placeholder;
 
 mkHsDo ctxt stmts = HsDo noExt ctxt (mkLocatedList stmts)
 mkHsComp ctxt stmts expr = mkHsDo ctxt (stmts ++ [last_stmt])
@@ -330,8 +324,8 @@ unitRecStmtTc = RecStmtTc { recS_bind_ty = unitTy
                           , recS_rec_rets = []
                           , recS_ret_ty = unitTy }
 
-emptyRecStmt     = emptyRecStmt' placeHolderType
-emptyRecStmtName = emptyRecStmt' placeHolderType
+emptyRecStmt     = emptyRecStmt' noExt
+emptyRecStmtName = emptyRecStmt' noExt
 emptyRecStmtId   = emptyRecStmt' unitRecStmtTc
                                         -- a panic might trigger during zonking
 mkRecStmt stmts  = emptyRecStmt { recS_stmts = stmts }
@@ -665,14 +659,14 @@ typeToLHsType ty
     go (TyVarTy tv)         = nlHsTyVar (getRdrName tv)
     go (AppTy t1 t2)        = nlHsAppTy (go t1) (go t2)
     go (LitTy (NumTyLit n))
-      = noLoc $ HsTyLit PlaceHolder (HsNumTy NoSourceText n)
+      = noLoc $ HsTyLit NoExt (HsNumTy NoSourceText n)
     go (LitTy (StrTyLit s))
-      = noLoc $ HsTyLit PlaceHolder (HsStrTy NoSourceText s)
+      = noLoc $ HsTyLit NoExt (HsStrTy NoSourceText s)
     go ty@(TyConApp tc args)
       | any isInvisibleTyConBinder (tyConBinders tc)
         -- We must produce an explicit kind signature here to make certain
         -- programs kind-check. See Note [Kind signatures in typeToLHsType].
-      = noLoc $ HsKindSig PlaceHolder lhs_ty (go (typeKind ty))
+      = noLoc $ HsKindSig NoExt lhs_ty (go (typeKind ty))
       | otherwise = lhs_ty
        where
         lhs_ty = nlHsTyConApp (getRdrName tc) (map go args')

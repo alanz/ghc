@@ -849,7 +849,7 @@ cvtl e = wrapL (cvt e)
     cvt (MultiIfE alts)
       | null alts      = failWith (text "Multi-way if-expression with no alternatives")
       | otherwise      = do { alts' <- mapM cvtpair alts
-                            ; return $ HsMultiIf placeHolderType alts' }
+                            ; return $ HsMultiIf noExt alts' }
     cvt (LetE ds e)    = do { ds' <- cvtLocalDecs (text "a let expression") ds
                             ; e' <- cvtl e; return $ HsLet noExt (noLoc ds') e'}
     cvt (CaseE e ms)   = do { e' <- cvtl e; ms' <- mapM (cvtMatch CaseAlt) ms
@@ -864,7 +864,7 @@ cvtl e = wrapL (cvt e)
                                           ; return (HsLit noExt l') }
              -- Note [Converting strings]
       | otherwise       = do { xs' <- mapM cvtl xs
-                             ; return $ ExplicitList placeHolderType Nothing xs'
+                             ; return $ ExplicitList noExt Nothing xs'
                              }
 
     -- Infix expressions

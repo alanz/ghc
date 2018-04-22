@@ -688,7 +688,7 @@ tcStandaloneDerivInstType
                  , hsib_body
                      = L (getLoc deriv_ty_body) $
                        HsForAllTy { hst_bndrs = tvs
-                                  , hst_xforall = PlaceHolder
+                                  , hst_xforall = noExt
                                   , hst_body  = rho }}
        pure (deriv_tvs, InferContext (Just wc_span), deriv_cls, deriv_inst_tys)
   | otherwise

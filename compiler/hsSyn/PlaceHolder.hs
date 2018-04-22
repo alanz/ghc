@@ -28,22 +28,6 @@ import Data.Data hiding ( Fixity )
 -- NB: These are intentionally open, allowing API consumers (like Haddock)
 -- to declare new instances
 
--- | used as place holder in TTG values
-data PlaceHolder = PlaceHolder
-  deriving (Data,Eq,Ord)
-
-instance Outputable PlaceHolder where
-  ppr _ = text "PlaceHolder"
-
-placeHolder :: PlaceHolder
-placeHolder = PlaceHolder
-
-placeHolderType :: PlaceHolder
-placeHolderType = PlaceHolder
-
-placeHolderNames :: PlaceHolder
-placeHolderNames = PlaceHolder
-
 placeHolderNamesTc :: NameSet
 placeHolderNamesTc = emptyNameSet
 

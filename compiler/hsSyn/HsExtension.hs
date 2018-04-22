@@ -52,9 +52,16 @@ haskell-src-exts ASTs as well.
 
 -}
 
+-- | used as place holder in TTG values
+data NoExt = NoExt
+  deriving (Data,Eq,Ord)
+
+instance Outputable NoExt where
+  ppr _ = text "NoExt"
+
 -- | Used when constructing a term with an unused extension point.
-noExt :: PlaceHolder
-noExt = PlaceHolder
+noExt :: NoExt
+noExt = NoExt
 
 -- | Used as a data type index for the hsSyn AST
 data GhcPass (c :: Pass)

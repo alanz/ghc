@@ -99,7 +99,6 @@ import Name
 import BasicTypes
 import Coercion
 import ForeignCall
-import PlaceHolder ( PlaceHolder )
 import HsExtension
 import NameSet
 
@@ -149,21 +148,21 @@ data HsDecl p
   | RoleAnnotD (XRoleAnnotD p) (RoleAnnotDecl p) -- ^Role annotation declaration
   | XHsDecl    (XXHsDecl p)
 
-type instance XTyClD      (GhcPass _) = PlaceHolder
-type instance XInstD      (GhcPass _) = PlaceHolder
-type instance XDerivD     (GhcPass _) = PlaceHolder
-type instance XValD       (GhcPass _) = PlaceHolder
-type instance XSigD       (GhcPass _) = PlaceHolder
-type instance XDefD       (GhcPass _) = PlaceHolder
-type instance XForD       (GhcPass _) = PlaceHolder
-type instance XWarningD   (GhcPass _) = PlaceHolder
-type instance XAnnD       (GhcPass _) = PlaceHolder
-type instance XRuleD      (GhcPass _) = PlaceHolder
-type instance XVectD      (GhcPass _) = PlaceHolder
-type instance XSpliceD    (GhcPass _) = PlaceHolder
-type instance XDocD       (GhcPass _) = PlaceHolder
-type instance XRoleAnnotD (GhcPass _) = PlaceHolder
-type instance XXHsDecl    (GhcPass _) = PlaceHolder
+type instance XTyClD      (GhcPass _) = NoExt
+type instance XInstD      (GhcPass _) = NoExt
+type instance XDerivD     (GhcPass _) = NoExt
+type instance XValD       (GhcPass _) = NoExt
+type instance XSigD       (GhcPass _) = NoExt
+type instance XDefD       (GhcPass _) = NoExt
+type instance XForD       (GhcPass _) = NoExt
+type instance XWarningD   (GhcPass _) = NoExt
+type instance XAnnD       (GhcPass _) = NoExt
+type instance XRuleD      (GhcPass _) = NoExt
+type instance XVectD      (GhcPass _) = NoExt
+type instance XSpliceD    (GhcPass _) = NoExt
+type instance XDocD       (GhcPass _) = NoExt
+type instance XRoleAnnotD (GhcPass _) = NoExt
+type instance XXHsDecl    (GhcPass _) = NoExt
 
 -- NB: all top-level fixity decls are contained EITHER
 -- EITHER SigDs
@@ -211,8 +210,8 @@ data HsGroup p
     }
   | XHsGroup (XXHsGroup p)
 
-type instance XCHsGroup (GhcPass _) = PlaceHolder
-type instance XXHsGroup (GhcPass _) = PlaceHolder
+type instance XCHsGroup (GhcPass _) = NoExt
+type instance XXHsGroup (GhcPass _) = NoExt
 
 
 emptyGroup, emptyRdrGroup, emptyRnGroup :: HsGroup (GhcPass p)
@@ -340,8 +339,8 @@ data SpliceDecl p
         SpliceExplicitFlag
   | XSpliceDecl (XXSpliceDecl p)
 
-type instance XSpliceDecl      (GhcPass _) = PlaceHolder
-type instance XXSpliceDecl     (GhcPass _) = PlaceHolder
+type instance XSpliceDecl      (GhcPass _) = NoExt
+type instance XXSpliceDecl     (GhcPass _) = NoExt
 
 instance (p ~ GhcPass pass, OutputableBndrId p)
        => Outputable (SpliceDecl p) where
@@ -570,21 +569,21 @@ data DataDeclRn = DataDeclRn
              , tcdFVs      :: NameSet }
   deriving Data
 
-type instance XFamDecl      (GhcPass _) = PlaceHolder
+type instance XFamDecl      (GhcPass _) = NoExt
 
-type instance XSynDecl      GhcPs = PlaceHolder
+type instance XSynDecl      GhcPs = NoExt
 type instance XSynDecl      GhcRn = NameSet -- FVs
 type instance XSynDecl      GhcTc = NameSet -- FVs
 
-type instance XDataDecl     GhcPs = PlaceHolder
+type instance XDataDecl     GhcPs = NoExt
 type instance XDataDecl     GhcRn = DataDeclRn
 type instance XDataDecl     GhcTc = DataDeclRn
 
-type instance XClassDecl    GhcPs = PlaceHolder
+type instance XClassDecl    GhcPs = NoExt
 type instance XClassDecl    GhcRn = NameSet -- FVs
 type instance XClassDecl    GhcTc = NameSet -- FVs
 
-type instance XXTyClDecl    (GhcPass _) = PlaceHolder
+type instance XXTyClDecl    (GhcPass _) = NoExt
 
 -- Simple classifiers for TyClDecl
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -843,8 +842,8 @@ data TyClGroup pass  -- See Note [TyClGroups and dependency analysis]
               , group_instds :: [LInstDecl pass] }
   | XTyClGroup (XXTyClGroup pass)
 
-type instance XCTyClGroup (GhcPass _) = PlaceHolder
-type instance XXTyClGroup (GhcPass _) = PlaceHolder
+type instance XCTyClGroup (GhcPass _) = NoExt
+type instance XXTyClGroup (GhcPass _) = NoExt
 
 
 emptyTyClGroup :: TyClGroup (GhcPass p)
@@ -964,10 +963,10 @@ data FamilyResultSig pass = -- see Note [FamilyResultSig]
 
   -- For details on above see note [Api annotations] in ApiAnnotation
 
-type instance XNoSig            (GhcPass _) = PlaceHolder
-type instance XCKindSig         (GhcPass _) = PlaceHolder
-type instance XTyVarSig         (GhcPass _) = PlaceHolder
-type instance XXFamilyResultSig (GhcPass _) = PlaceHolder
+type instance XNoSig            (GhcPass _) = NoExt
+type instance XCKindSig         (GhcPass _) = NoExt
+type instance XTyVarSig         (GhcPass _) = NoExt
+type instance XXFamilyResultSig (GhcPass _) = NoExt
 
 
 -- | Located type Family Declaration
@@ -993,8 +992,8 @@ data FamilyDecl pass = FamilyDecl
 
   -- For details on above see note [Api annotations] in ApiAnnotation
 
-type instance XCFamilyDecl    (GhcPass _) = PlaceHolder
-type instance XXFamilyDecl    (GhcPass _) = PlaceHolder
+type instance XCFamilyDecl    (GhcPass _) = NoExt
+type instance XXFamilyDecl    (GhcPass _) = NoExt
 
 
 -- | Located Injectivity Annotation
@@ -1133,8 +1132,8 @@ data HsDataDefn pass   -- The payload of a data type defn
    }
   | XHsDataDefn (XXHsDataDefn pass)
 
-type instance XCHsDataDefn    (GhcPass _) = PlaceHolder
-type instance XXHsDataDefn    (GhcPass _) = PlaceHolder
+type instance XCHsDataDefn    (GhcPass _) = NoExt
+type instance XXHsDataDefn    (GhcPass _) = NoExt
 
 -- | Haskell Deriving clause
 type HsDeriving pass = Located [LHsDerivingClause pass]
@@ -1173,8 +1172,8 @@ data HsDerivingClause pass
     }
   | XHsDerivingClause (XXHsDerivingClause pass)
 
-type instance XCHsDerivingClause    (GhcPass _) = PlaceHolder
-type instance XXHsDerivingClause    (GhcPass _) = PlaceHolder
+type instance XCHsDerivingClause    (GhcPass _) = NoExt
+type instance XXHsDerivingClause    (GhcPass _) = NoExt
 
 instance (p ~ GhcPass pass, OutputableBndrId p)
        => Outputable (HsDerivingClause p) where
@@ -1273,9 +1272,9 @@ data ConDecl pass
       }
   | XConDecl (XXConDecl pass)
 
-type instance XConDeclGADT (GhcPass _) = PlaceHolder
-type instance XConDeclH98  (GhcPass _) = PlaceHolder
-type instance XXConDecl    (GhcPass _) = PlaceHolder
+type instance XConDeclGADT (GhcPass _) = NoExt
+type instance XConDeclH98  (GhcPass _) = NoExt
+type instance XXConDecl    (GhcPass _) = NoExt
 
 {- Note [GADT abstract syntax]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1561,8 +1560,8 @@ data FamEqn pass pats rhs
 
     -- For details on above see note [Api annotations] in ApiAnnotation
 
-type instance XCFamEqn    (GhcPass _) p r = PlaceHolder
-type instance XXFamEqn    (GhcPass _) p r = PlaceHolder
+type instance XCFamEqn    (GhcPass _) p r = NoExt
+type instance XXFamEqn    (GhcPass _) p r = NoExt
 
 ----------------- Class instances -------------
 
@@ -1594,8 +1593,8 @@ data ClsInstDecl pass
     -- For details on above see note [Api annotations] in ApiAnnotation
   | XClsInstDecl (XXClsInstDecl pass)
 
-type instance XCClsInstDecl    (GhcPass _) = PlaceHolder
-type instance XXClsInstDecl    (GhcPass _) = PlaceHolder
+type instance XCClsInstDecl    (GhcPass _) = NoExt
+type instance XXClsInstDecl    (GhcPass _) = NoExt
 
 ----------------- Instances of all kinds -------------
 
@@ -1615,10 +1614,10 @@ data InstDecl pass  -- Both class and family instances
       , tfid_inst :: TyFamInstDecl pass }
   | XInstDecl (XXInstDecl pass)
 
-type instance XClsInstD     (GhcPass _) = PlaceHolder
-type instance XDataFamInstD (GhcPass _) = PlaceHolder
-type instance XTyFamInstD   (GhcPass _) = PlaceHolder
-type instance XXInstDecl    (GhcPass _) = PlaceHolder
+type instance XClsInstD     (GhcPass _) = NoExt
+type instance XDataFamInstD (GhcPass _) = NoExt
+type instance XTyFamInstD   (GhcPass _) = NoExt
+type instance XXInstDecl    (GhcPass _) = NoExt
 
 instance (p ~ GhcPass pass, OutputableBndrId p)
        => Outputable (TyFamInstDecl p) where
@@ -1809,8 +1808,8 @@ data DerivDecl pass = DerivDecl
         }
   | XDerivDecl (XXDerivDecl pass)
 
-type instance XCDerivDecl    (GhcPass _) = PlaceHolder
-type instance XXDerivDecl    (GhcPass _) = PlaceHolder
+type instance XCDerivDecl    (GhcPass _) = NoExt
+type instance XXDerivDecl    (GhcPass _) = NoExt
 
 instance (p ~ GhcPass pass, OutputableBndrId p)
        => Outputable (DerivDecl p) where
@@ -1848,8 +1847,8 @@ data DefaultDecl pass
         -- For details on above see note [Api annotations] in ApiAnnotation
   | XDefaultDecl (XXDefaultDecl pass)
 
-type instance XCDefaultDecl    (GhcPass _) = PlaceHolder
-type instance XXDefaultDecl    (GhcPass _) = PlaceHolder
+type instance XCDefaultDecl    (GhcPass _) = NoExt
+type instance XXDefaultDecl    (GhcPass _) = NoExt
 
 instance (p ~ GhcPass pass, OutputableBndrId p)
        => Outputable (DefaultDecl p) where
@@ -1904,15 +1903,15 @@ data ForeignDecl pass
     such as Int and IO that we know how to make foreign calls with.
 -}
 
-type instance XForeignImport   GhcPs = PlaceHolder
-type instance XForeignImport   GhcRn = PlaceHolder
+type instance XForeignImport   GhcPs = NoExt
+type instance XForeignImport   GhcRn = NoExt
 type instance XForeignImport   GhcTc = Coercion
 
-type instance XForeignExport   GhcPs = PlaceHolder
-type instance XForeignExport   GhcRn = PlaceHolder
+type instance XForeignExport   GhcPs = NoExt
+type instance XForeignExport   GhcRn = NoExt
 type instance XForeignExport   GhcTc = Coercion
 
-type instance XXForeignDecl    (GhcPass _) = PlaceHolder
+type instance XXForeignDecl    (GhcPass _) = NoExt
 
 -- Specification Of an imported external entity in dependence on the calling
 -- convention
@@ -2019,8 +2018,8 @@ data RuleDecls pass = HsRules { rds_ext   :: XCRuleDecls pass
                               , rds_rules :: [LRuleDecl pass] }
   | XRuleDecls (XXRuleDecls pass)
 
-type instance XCRuleDecls    (GhcPass _) = PlaceHolder
-type instance XXRuleDecls    (GhcPass _) = PlaceHolder
+type instance XCRuleDecls    (GhcPass _) = NoExt
+type instance XXRuleDecls    (GhcPass _) = NoExt
 
 -- | Located Rule Declaration
 type LRuleDecl pass = Located (RuleDecl pass)
@@ -2050,11 +2049,11 @@ data RuleDecl pass
 data HsRuleRn = HsRuleRn NameSet NameSet -- Free-vars from the LHS and RHS
   deriving Data
 
-type instance XHsRule       GhcPs = PlaceHolder
+type instance XHsRule       GhcPs = NoExt
 type instance XHsRule       GhcRn = HsRuleRn
 type instance XHsRule       GhcTc = HsRuleRn
 
-type instance XXRuleDecl    (GhcPass _) = PlaceHolder
+type instance XXRuleDecl    (GhcPass _) = NoExt
 
 flattenRuleDecls :: [LRuleDecls pass] -> [LRuleDecl pass]
 flattenRuleDecls decls = concatMap (rds_rules . unLoc) decls
@@ -2073,9 +2072,9 @@ data RuleBndr pass
 
         -- For details on above see note [Api annotations] in ApiAnnotation
 
-type instance XCRuleBndr    (GhcPass _) = PlaceHolder
-type instance XRuleBndrSig  (GhcPass _) = PlaceHolder
-type instance XXRuleBndr    (GhcPass _) = PlaceHolder
+type instance XCRuleBndr    (GhcPass _) = NoExt
+type instance XRuleBndrSig  (GhcPass _) = NoExt
+type instance XXRuleBndr    (GhcPass _) = NoExt
 
 collectRuleBndrSigTys :: [RuleBndr pass] -> [LHsSigWcType pass]
 collectRuleBndrSigTys bndrs = [ty | RuleBndrSig _ _ ty <- bndrs]
@@ -2174,8 +2173,8 @@ data VectClassPR pass
       SourceText                   -- Note [Pragma source text] in BasicTypes
       (Located (IdP pass))
 
-type instance XHsVect        (GhcPass _) = PlaceHolder
-type instance XHsNoVect      (GhcPass _) = PlaceHolder
+type instance XHsVect        (GhcPass _) = NoExt
+type instance XHsNoVect      (GhcPass _) = NoExt
 
 type instance XHsVectType  GhcPs = VectTypePR GhcPs
 type instance XHsVectType  GhcRn = VectTypePR GhcRn
@@ -2189,7 +2188,7 @@ type instance XHsVectInst  GhcPs = (LHsSigType GhcPs)
 type instance XHsVectInst  GhcRn = (LHsSigType GhcRn)
 type instance XHsVectInst  GhcTc = ClsInst
 
-type instance XXVectDecl     (GhcPass _) = PlaceHolder
+type instance XXVectDecl     (GhcPass _) = NoExt
 
 
 lvectDeclName :: LVectDecl GhcTc -> Name
@@ -2286,8 +2285,8 @@ data WarnDecls pass = Warnings { wd_ext      :: XWarnings pass
                                }
   | XWarnDecls (XXWarnDecls pass)
 
-type instance XWarnings      (GhcPass _) = PlaceHolder
-type instance XXWarnDecls    (GhcPass _) = PlaceHolder
+type instance XWarnings      (GhcPass _) = NoExt
+type instance XXWarnDecls    (GhcPass _) = NoExt
 
 -- | Located Warning pragma Declaration
 type LWarnDecl pass = Located (WarnDecl pass)
@@ -2296,8 +2295,8 @@ type LWarnDecl pass = Located (WarnDecl pass)
 data WarnDecl pass = Warning (XWarning pass) [Located (IdP pass)] WarningTxt
                    | XWarnDecl (XXWarnDecl pass)
 
-type instance XWarning      (GhcPass _) = PlaceHolder
-type instance XXWarnDecl    (GhcPass _) = PlaceHolder
+type instance XWarning      (GhcPass _) = NoExt
+type instance XXWarnDecl    (GhcPass _) = NoExt
 
 
 instance (p ~ GhcPass pass,OutputableBndr (IdP p))
@@ -2338,8 +2337,8 @@ data AnnDecl pass = HsAnnotation
       -- For details on above see note [Api annotations] in ApiAnnotation
   | XAnnDecl (XXAnnDecl pass)
 
-type instance XHsAnnotation (GhcPass _) = PlaceHolder
-type instance XXAnnDecl     (GhcPass _) = PlaceHolder
+type instance XHsAnnotation (GhcPass _) = NoExt
+type instance XXAnnDecl     (GhcPass _) = NoExt
 
 instance (p ~ GhcPass pass, OutputableBndrId p) => Outputable (AnnDecl p) where
     ppr (HsAnnotation _ _ provenance expr)
@@ -2391,8 +2390,8 @@ data RoleAnnotDecl pass
       -- For details on above see note [Api annotations] in ApiAnnotation
   | XRoleAnnotDecl (XXRoleAnnotDecl pass)
 
-type instance XCRoleAnnotDecl (GhcPass _) = PlaceHolder
-type instance XXRoleAnnotDecl (GhcPass _) = PlaceHolder
+type instance XCRoleAnnotDecl (GhcPass _) = NoExt
+type instance XXRoleAnnotDecl (GhcPass _) = NoExt
 
 instance (p ~ GhcPass pass, OutputableBndr (IdP p))
        => Outputable (RoleAnnotDecl p) where
