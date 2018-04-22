@@ -644,6 +644,8 @@ data HsType pass
 
   | HsWildCardTy (XWildCardTy pass)  -- A type wildcard
       -- See Note [The wildcard story for types]
+      -- A anonymous wild card ('_'). A fresh Name is generated for
+      -- each individual anonymous wildcard during renaming
       -- ^ - 'ApiAnnotation.AnnKeywordId' : None
 
       -- For details on above see note [Api annotations] in ApiAnnotation
@@ -696,8 +698,8 @@ type instance XExplicitTupleTy GhcTc = [Kind]
 type instance XTyLit           (GhcPass _) = PlaceHolder
 
 type instance XWildCardTy      GhcPs = PlaceHolder
-type instance XWildCardTy      GhcRn = HsWildCardInfo GhcRn
-type instance XWildCardTy      GhcTc = HsWildCardInfo GhcTc
+type instance XWildCardTy      GhcRn = HsWildCardInfo
+type instance XWildCardTy      GhcTc = HsWildCardInfo
 
 type instance XXType         (GhcPass _) = NewHsTypeX
 
@@ -710,9 +712,9 @@ data HsTyLit
   | HsStrTy SourceText FastString
     deriving Data
 
--- AZ: fold this into the XWildCardTy completely, removing the type
-newtype HsWildCardInfo pass        -- See Note [The wildcard story for types]
-    = AnonWildCard (PostRn pass (Located Name))
+newtype HsWildCardInfo        -- See Note [The wildcard story for types]
+    = AnonWildCard (Located Name)
+      deriving Data
       -- A anonymous wild card ('_'). A fresh Name is generated for
       -- each individual anonymous wildcard during renaming
 
@@ -1011,12 +1013,11 @@ hsLTyVarBndrsToTypes (HsQTvs { hsq_explicit = tvbs }) = map hsLTyVarBndrToType t
 hsLTyVarBndrsToTypes (XLHsQTyVars _) = panic "hsLTyVarBndrsToTypes"
 
 ---------------------
-wildCardName :: HsWildCardInfo GhcRn -> Name
+wildCardName :: HsWildCardInfo -> Name
 wildCardName (AnonWildCard  (L _ n)) = n
 
 -- Two wild cards are the same when they have the same location
-sameWildCard :: Located (HsWildCardInfo pass)
-             -> Located (HsWildCardInfo pass) -> Bool
+sameWildCard :: Located HsWildCardInfo -> Located HsWildCardInfo -> Bool
 sameWildCard (L l1 (AnonWildCard _))   (L l2 (AnonWildCard _))   = l1 == l2
 
 ignoreParens :: LHsType pass -> LHsType pass
@@ -1334,7 +1335,7 @@ instance (p ~ GhcPass pass,Outputable thing)
     ppr (HsWC { hswc_body = ty }) = ppr ty
     ppr (XHsWildCardBndrs x) = ppr x
 
-instance Outputable (HsWildCardInfo pass) where
+instance Outputable HsWildCardInfo where
     ppr (AnonWildCard _)  = char '_'
 
 pprAnonWildCard :: SDoc

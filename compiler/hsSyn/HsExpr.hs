@@ -99,7 +99,7 @@ type PostTcTable = [(Name, PostTcExpr)]
 -- >                         (syn_arg_wraps[1] arg1) ...
 --
 -- where the actual arguments come from elsewhere in the AST.
--- This could be defined using @PostRn@ and @PostTc@ and such, but it's
+-- This could be defined using @GhcPass p@ and such, but it's
 -- harder to get it all to work out that way. ('noSyntaxExpr' is hard to
 -- write, for example.)
 data SyntaxExpr p = SyntaxExpr { syn_expr      :: HsExpr p
@@ -2456,7 +2456,6 @@ type SplicePointName = Name
 
 -- | Pending Renamer Splice
 data PendingRnSplice
-  -- AZ:TODO: The hard-coded GhcRn feels wrong. How to force the PostRn?
   = PendingRnSplice UntypedSpliceFlavour SplicePointName (LHsExpr GhcRn)
 
 data UntypedSpliceFlavour
@@ -2468,7 +2467,7 @@ data UntypedSpliceFlavour
 
 -- | Pending Type-checker Splice
 data PendingTcSplice
-  -- AZ:TODO: The hard-coded GhcTc feels wrong. How to force the PostTc?
+  -- AZ:TODO: The hard-coded GhcTc feels wrong.
   = PendingTcSplice SplicePointName (LHsExpr GhcTc)
 
 {-

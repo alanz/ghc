@@ -28,7 +28,7 @@ import Data.Data hiding ( Fixity )
 -- NB: These are intentionally open, allowing API consumers (like Haddock)
 -- to declare new instances
 
--- | used as place holder in PostTc and PostRn values
+-- | used as place holder in TTG values
 data PlaceHolder = PlaceHolder
   deriving (Data,Eq,Ord)
 
@@ -48,6 +48,7 @@ placeHolderNamesTc :: NameSet
 placeHolderNamesTc = emptyNameSet
 
 {-
+TODO:AZ: remove this, and check if we still need all the UndecidableInstances
 
 Note [Pass sensitive types]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -837,7 +837,7 @@ wildCardsAllowed env
        HsTypeCtx {}        -> True
        _                   -> False
 
-rnAnonWildCard :: RnM (HsWildCardInfo GhcRn)
+rnAnonWildCard :: RnM HsWildCardInfo
 rnAnonWildCard
   = do { loc <- getSrcSpanM
        ; uniq <- newUnique

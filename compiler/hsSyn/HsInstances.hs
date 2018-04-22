@@ -385,11 +385,6 @@ deriving instance Data (HsType GhcPs)
 deriving instance Data (HsType GhcRn)
 deriving instance Data (HsType GhcTc)
 
--- deriving instance (DataId p)     => Data (HsWildCardInfo p)
-deriving instance Data (HsWildCardInfo GhcPs)
-deriving instance Data (HsWildCardInfo GhcRn)
-deriving instance Data (HsWildCardInfo GhcTc)
-
 -- deriving instance (DataIdLR p p) => Data (HsAppType p)
 deriving instance Data (HsAppType GhcPs)
 deriving instance Data (HsAppType GhcRn)

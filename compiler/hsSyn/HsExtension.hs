@@ -21,17 +21,11 @@ import GhcPrelude
 import GHC.Exts (Constraint)
 import Data.Data hiding ( Fixity )
 import PlaceHolder
-import BasicTypes
-import ConLike
-import NameSet
 import Name
 import RdrName
 import Var
-import Type       ( Type )
 import Outputable
 import SrcLoc (Located)
-import Coercion
-import TcEvidence
 
 {-
 Note [Trees that grow]
@@ -75,19 +69,6 @@ type GhcPs   = GhcPass 'Parsed      -- Old 'RdrName' type param
 type GhcRn   = GhcPass 'Renamed     -- Old 'Name' type param
 type GhcTc   = GhcPass 'Typechecked -- Old 'Id' type para,
 type GhcTcId = GhcTc                -- Old 'TcId' type param
-
-
--- | Types that are not defined until after type checking
-type family PostTc x ty -- Note [Pass sensitive types] in PlaceHolder
-type instance PostTc GhcPs ty = PlaceHolder
-type instance PostTc GhcRn ty = PlaceHolder
-type instance PostTc GhcTc ty = ty
-
--- | Types that are not defined until after renaming
-type family PostRn x ty  -- Note [Pass sensitive types] in PlaceHolder
-type instance PostRn GhcPs ty = PlaceHolder
-type instance PostRn GhcRn ty = ty
-type instance PostRn GhcTc ty = ty
 
 -- | Maps the "normal" id type for a given pass
 type family IdP p
@@ -1152,20 +1133,6 @@ type DataId p =
   , Data (NameOrRdrName (IdP p))
 
   , Data (IdP p)
-  , Data (PostRn p (IdP p))
-  , Data (PostRn p (Located Name))
-  , Data (PostRn p Bool)
-  , Data (PostRn p Fixity)
-  , Data (PostRn p NameSet)
-  , Data (PostRn p [Name])
-
-  , Data (PostTc p (IdP p))
-  , Data (PostTc p Coercion)
-  , Data (PostTc p ConLike)
-  , Data (PostTc p HsWrapper)
-  , Data (PostTc p Type)
-  , Data (PostTc p [ConLike])
-  , Data (PostTc p [Type])
   )
 
 type DataIdLR pL pR =
