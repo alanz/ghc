@@ -299,7 +299,7 @@ rnValBindsRHS ctxt (ValBinds _ mbinds sigs)
        ; binds_w_dus <- mapBagM (rnLBind (mkSigTvFn sigs')) mbinds
        ; let !(anal_binds, anal_dus) = depAnalBinds binds_w_dus
 
-       ; let patsyn_fvs = foldr (unionNameSet . psb_fvs) emptyNameSet $
+       ; let patsyn_fvs = foldr (unionNameSet . psb_ext) emptyNameSet $
                           getPatSynBinds anal_binds
                 -- The uses in binds_w_dus for PatSynBinds do not include
                 -- variables used in the patsyn builders; see
@@ -705,11 +705,10 @@ rnPatSynBind sig_fn bind@(PSB { psb_id = L l name
                 -- As well as dependency analysis, we need these for the
                 -- MonoLocalBinds test in TcBinds.decideGeneralisationPlan
 
-              bind' = bind{ psb_ext = noExt
-                          , psb_args = details'
+              bind' = bind{ psb_args = details'
                           , psb_def = pat'
                           , psb_dir = dir'
-                          , psb_fvs = fvs' }
+                          , psb_ext = fvs' }
               selector_names = case details' of
                                  RecCon names ->
                                   map (unLoc . recordPatSynSelectorId) names

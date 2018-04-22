@@ -737,7 +737,7 @@ kcConDecl (ConDeclH98 { con_name = name, con_ex_tvs = ex_tvs
 kcConDecl (ConDeclGADT { con_names = names
                        , con_qvars = qtvs, con_mb_cxt = cxt
                        , con_args = args, con_res_ty = res_ty })
-  | HsQTvs { hsq_implicit = implicit_tkv_nms
+  | HsQTvs { hsq_ext = HsQTvsRn { hsq_implicit = implicit_tkv_nms }
            , hsq_explicit = explicit_tkv_nms } <- qtvs
   = -- Even though the data constructor's type is closed, we
     -- must still kind-check the type, because that may influence
@@ -755,6 +755,7 @@ kcConDecl (ConDeclGADT { con_names = names
        ; _ <- tcHsOpenType res_ty
        ; return () }
 kcConDecl (XConDecl _) = panic "kcConDecl"
+kcConDecl (ConDeclGADT _ _ _ (XLHsQTyVars _) _ _ _ _) = panic "kcConDecl"
 
 {-
 Note [Recursion and promoting data constructors]
@@ -1265,7 +1266,8 @@ tcDefaultAssocDecl _ (d1:_:_)
 tcDefaultAssocDecl fam_tc [L loc (FamEqn { feqn_tycon = L _ tc_name
                                          , feqn_pats = hs_tvs
                                          , feqn_rhs = rhs })]
-  | HsQTvs { hsq_implicit = imp_vars, hsq_explicit = exp_vars } <- hs_tvs
+  | HsQTvs { hsq_ext = HsQTvsRn { hsq_implicit = imp_vars}
+           , hsq_explicit = exp_vars } <- hs_tvs
   = -- See Note [Type-checking default assoc decls]
     setSrcSpan loc $
     tcAddFamInstCtxt (text "default type instance") tc_name $
@@ -1314,6 +1316,8 @@ tcDefaultAssocDecl fam_tc [L loc (FamEqn { feqn_tycon = L _ tc_name
            -- in checkValidClass
      }
 tcDefaultAssocDecl _ [L _ (XFamEqn _)] = panic "tcDefaultAssocDecl"
+tcDefaultAssocDecl _ [L _ (FamEqn _ (L _ _) (XLHsQTyVars _) _ _)]
+  = panic "tcDefaultAssocDecl"
 
 {- Note [Type-checking default assoc decls]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1339,7 +1343,7 @@ proper tcMatchTys here.)  -}
 -------------------------
 kcTyFamInstEqn :: TcTyCon -> LTyFamInstEqn GhcRn -> TcM ()
 kcTyFamInstEqn tc_fam_tc
-    (L loc (HsIB { hsib_vars = tv_names
+    (L loc (HsIB { hsib_ext = HsIBRn { hsib_vars = tv_names }
                  , hsib_body = FamEqn { feqn_tycon  = L _ eqn_tc_name
                                       , feqn_pats   = pats
                                       , feqn_rhs    = hs_ty }}))
@@ -1359,7 +1363,8 @@ kcTyFamInstEqn tc_fam_tc
   where
     fam_name = tyConName tc_fam_tc
     vis_arity = length (tyConVisibleTyVars tc_fam_tc)
-kcTyFamInstEqn _ (L _ (HsIB _ (XFamEqn _) _)) = panic "kcTyFamInstEqn"
+kcTyFamInstEqn _ (L _ (XHsImplicitBndrs _)) = panic "kcTyFamInstEqn"
+kcTyFamInstEqn _ (L _ (HsIB _ (XFamEqn _))) = panic "kcTyFamInstEqn"
 
 -- Infer the kind of the type on the RHS of a type family eqn. Then use
 -- this kind to check the kind of the LHS of the equation. This is useful
@@ -1391,7 +1396,7 @@ tcTyFamInstEqn :: TcTyCon -> Maybe ClsInstInfo -> LTyFamInstEqn GhcRn
 -- Needs to be here, not in TcInstDcls, because closed families
 -- (typechecked here) have TyFamInstEqns
 tcTyFamInstEqn fam_tc mb_clsinfo
-    (L loc (HsIB { hsib_vars = tv_names
+    (L loc (HsIB { hsib_ext = HsIBRn { hsib_vars = tv_names }
                  , hsib_body = FamEqn { feqn_tycon  = L _ eqn_tc_name
                                       , feqn_pats   = pats
                                       , feqn_rhs    = hs_ty }}))
@@ -1410,7 +1415,8 @@ tcTyFamInstEqn fam_tc mb_clsinfo
        ; return (mkCoAxBranch tvs' [] pats' rhs_ty'
                               (map (const Nominal) tvs')
                               loc) }
-tcTyFamInstEqn _ _ (L _ (HsIB _ (XFamEqn _) _)) = panic "tcTyFamInstEqn"
+tcTyFamInstEqn _ _ (L _ (XHsImplicitBndrs _)) = panic "tcTyFamInstEqn"
+tcTyFamInstEqn _ _ (L _ (HsIB _ (XFamEqn _))) = panic "tcTyFamInstEqn"
 
 kcDataDefn :: Maybe (VarEnv Kind) -- ^ Possibly, instantiations for vars
                                   -- (associated types only)
@@ -1473,9 +1479,11 @@ kcDataDefn mb_kind_env
   where
     bogus_ty   = pprPanic "kcDataDefn" (ppr fam_name <+> ppr pats)
     pp_fam_app = pprFamInstLHS fam_name pats fixity (unLoc ctxt) mb_kind
-kcDataDefn _ (DataFamInstDecl (HsIB _ (FamEqn _ _ _ _ (XHsDataDefn _)) _)) _
+kcDataDefn _ (DataFamInstDecl (XHsImplicitBndrs _)) _
   = panic "kcDataDefn"
-kcDataDefn _ (DataFamInstDecl (HsIB _ (XFamEqn _) _)) _
+kcDataDefn _ (DataFamInstDecl (HsIB _ (FamEqn _ _ _ _ (XHsDataDefn _)))) _
+  = panic "kcDataDefn"
+kcDataDefn _ (DataFamInstDecl (HsIB _ (XFamEqn _))) _
   = panic "kcDataDefn"
 
 {-
@@ -1887,7 +1895,7 @@ tcConDecl rep_tycon tag_map tmpl_bndrs res_tmpl
                        , con_qvars = qtvs
                        , con_mb_cxt = cxt, con_args = hs_args
                        , con_res_ty = res_ty })
-  | HsQTvs { hsq_implicit = implicit_tkv_nms
+  | HsQTvs { hsq_ext = HsQTvsRn { hsq_implicit = implicit_tkv_nms }
            , hsq_explicit = explicit_tkv_nms } <- qtvs
   = addErrCtxt (dataConCtxtName names) $
     do { traceTc "tcConDecl 1" (ppr names)
@@ -1958,6 +1966,8 @@ tcConDecl rep_tycon tag_map tmpl_bndrs res_tmpl
        ; traceTc "tcConDecl 2" (ppr names)
        ; mapM buildOneDataCon names
        }
+tcConDecl _ _ _ _ (ConDeclGADT _ _ _ (XLHsQTyVars _) _ _ _ _)
+  = panic "tcConDecl"
 tcConDecl _ _ _ _ (XConDecl _) = panic "tcConDecl"
 
 -- | Produce the telescope of kind variables that this datacon is
@@ -3335,6 +3345,8 @@ tcMkDataFamInstCtxt decl@(DataFamInstDecl { dfid_eqn =
                             HsIB { hsib_body = eqn }})
   = tcMkFamInstCtxt (pprDataFamInstFlavour decl <+> text "instance")
                     (unLoc (feqn_tycon eqn))
+tcMkDataFamInstCtxt (DataFamInstDecl (XHsImplicitBndrs _))
+  = panic "tcMkDataFamInstCtxt"
 
 tcAddDataFamInstCtxt :: DataFamInstDecl GhcRn -> TcM a -> TcM a
 tcAddDataFamInstCtxt decl

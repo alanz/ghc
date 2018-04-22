@@ -751,6 +751,7 @@ getLocalNonValBinders fixity_env
                                   -- main_name is not bound here!
                    fld_env  = mk_fld_env (feqn_rhs ti_decl) sub_names flds'
              ; return (avail, fld_env) }
+    new_di _ _ (DataFamInstDecl (XHsImplicitBndrs _)) = panic "new_di"
 
     new_loc_di :: Bool -> Maybe Name -> LDataFamInstDecl GhcPs
                    -> RnM (AvailInfo, [(Name, [FieldLabel])])

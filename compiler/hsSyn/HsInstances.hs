@@ -350,6 +350,8 @@ deriving instance Data (Pat GhcPs)
 deriving instance Data (Pat GhcRn)
 deriving instance Data (Pat GhcTc)
 
+deriving instance Data ListPatTc
+
 -- deriving instance (DataIdLR p p, Data body) => Data (HsRecFields p body)
 deriving instance (Data body) => Data (HsRecFields GhcPs body)
 deriving instance (Data body) => Data (HsRecFields GhcRn body)

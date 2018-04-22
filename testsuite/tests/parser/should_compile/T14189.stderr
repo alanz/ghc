@@ -21,10 +21,11 @@
         ({ T14189.hs:6:6-11 }
          {Name: T14189.MyType})
         (HsQTvs
-         []
+         (HsQTvsRn
          []
          {NameSet:
           []})
+          [])
         (Prefix)
         (HsDataDefn
          (PlaceHolder)
@@ -72,6 +73,7 @@
              ({ T14189.hs:6:31-42 }
               [({ T14189.hs:6:33-40 }
                 (ConDeclField
+                 (PlaceHolder)
                  [({ T14189.hs:6:33 }
                    (FieldOcc
                     {Name: T14189.f}

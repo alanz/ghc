@@ -895,7 +895,7 @@ tcPatToExpr name args pat = go pat
     go1 (ParPat _ pat)          = fmap (HsPar noExt) $ go pat
     go1 (PArrPat _ pats)        = do { exprs <- mapM go pats
                                      ; return $ ExplicitPArr noExt exprs }
-    go1 p@(ListPat _ pats _ty reb)
+    go1 p@(ListPat reb pats)
       | Nothing <- reb = do { exprs <- mapM go pats
                             ; return $ ExplicitList noExt Nothing exprs }
       | otherwise                   = notInvertibleListPat p
@@ -1061,7 +1061,7 @@ tcCollectEx pat = go pat
     go1 (AsPat _ _ p)      = go p
     go1 (ParPat _ p)       = go p
     go1 (BangPat _ p)      = go p
-    go1 (ListPat _ ps _ _) = mergeMany . map go $ ps
+    go1 (ListPat _ ps)     = mergeMany . map go $ ps
     go1 (TuplePat _ ps _)  = mergeMany . map go $ ps
     go1 (SumPat _ p _ _)   = go p
     go1 (PArrPat _ ps)     = mergeMany . map go $ ps

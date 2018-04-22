@@ -642,7 +642,9 @@ tyFamInstDeclLName :: TyFamInstDecl pass -> Located (IdP pass)
 tyFamInstDeclLName (TyFamInstDecl { tfid_eqn =
                      (HsIB { hsib_body = FamEqn { feqn_tycon = ln }}) })
   = ln
-tyFamInstDeclLName (TyFamInstDecl (HsIB _ (XFamEqn _) _))
+tyFamInstDeclLName (TyFamInstDecl (HsIB _ (XFamEqn _)))
+  = panic "tyFamInstDeclLName"
+tyFamInstDeclLName (TyFamInstDecl (XHsImplicitBndrs _))
   = panic "tyFamInstDeclLName"
 
 tyClDeclLName :: TyClDecl pass -> Located (IdP pass)
@@ -754,6 +756,7 @@ pp_vanilla_decl_head thing (HsQTvs { hsq_explicit = tyvars }) fixity context
       | otherwise = hsep [ pprPrefixOcc (unLoc thing)
                   , hsep (map (ppr.unLoc) (varl:varsr))]
     pp_tyvars [] = ppr thing
+pp_vanilla_decl_head _ (XLHsQTyVars x) _ _ = ppr x
 
 pprTyClDeclFlavour :: TyClDecl (GhcPass p) -> SDoc
 pprTyClDeclFlavour (ClassDecl {})   = text "class"
@@ -1638,6 +1641,7 @@ ppr_fam_inst_eqn (HsIB { hsib_body = FamEqn { feqn_tycon  = tycon
                                             , feqn_rhs    = rhs }})
     = pprFamInstLHS tycon pats fixity [] Nothing <+> equals <+> ppr rhs
 ppr_fam_inst_eqn (HsIB { hsib_body = XFamEqn x }) = ppr x
+ppr_fam_inst_eqn (XHsImplicitBndrs x) = ppr x
 
 ppr_fam_deflt_eqn :: (OutputableBndrId (GhcPass p))
                   => LTyFamDefltEqn (GhcPass p) -> SDoc
@@ -1667,7 +1671,9 @@ pprDataFamInstDecl top_lvl (DataFamInstDecl { dfid_eqn = HsIB { hsib_body =
                     -- No need to pass an explicit kind signature to
                     -- pprFamInstLHS here, since pp_data_defn already
                     -- pretty-prints that. See #14817.
-pprDataFamInstDecl _ (DataFamInstDecl (HsIB _ (XFamEqn x) _))
+pprDataFamInstDecl _ (DataFamInstDecl (HsIB _ (XFamEqn x)))
+  = ppr x
+pprDataFamInstDecl _ (DataFamInstDecl (XHsImplicitBndrs x))
   = ppr x
 
 pprDataFamInstFlavour :: DataFamInstDecl (GhcPass p) -> SDoc
@@ -1677,7 +1683,9 @@ pprDataFamInstFlavour (DataFamInstDecl { dfid_eqn = HsIB { hsib_body =
 pprDataFamInstFlavour (DataFamInstDecl { dfid_eqn = HsIB { hsib_body =
                         FamEqn { feqn_rhs = XHsDataDefn x}}})
   = ppr x
-pprDataFamInstFlavour (DataFamInstDecl (HsIB _ (XFamEqn x) _))
+pprDataFamInstFlavour (DataFamInstDecl (HsIB _ (XFamEqn x)))
+  = ppr x
+pprDataFamInstFlavour (DataFamInstDecl (XHsImplicitBndrs x))
   = ppr x
 
 pprFamInstLHS :: (OutputableBndrId (GhcPass p))

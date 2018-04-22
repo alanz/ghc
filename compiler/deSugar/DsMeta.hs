@@ -208,10 +208,12 @@ get_scoped_tvs (L _ signature)
       -- Both implicit and explicit quantified variables
       -- We need the implicit ones for   f :: forall (a::k). blah
       --    here 'k' scopes too
-      | HsIB { hsib_vars = implicit_vars
+      | HsIB { hsib_ext = HsIBRn { hsib_vars = implicit_vars }
              , hsib_body = hs_ty } <- sig
       , (explicit_vars, _) <- splitLHsForAllTy hs_ty
       = implicit_vars ++ map hsLTyVarName explicit_vars
+    get_scoped_tvs_from_sig (XHsImplicitBndrs _)
+      = panic "get_scoped_tvs_from_sig"
 
 {- Notes
 
@@ -389,8 +391,10 @@ repFamilyDecl decl@(L loc (FamilyDecl { fdInfo      = info,
                                         fdInjectivityAnn = injectivity }))
   = do { tc1 <- lookupLOcc tc           -- See note [Binders and occurrences]
        ; let mkHsQTvs :: [LHsTyVarBndr GhcRn] -> LHsQTyVars GhcRn
-             mkHsQTvs tvs = HsQTvs { hsq_implicit = [], hsq_explicit = tvs
-                                   , hsq_dependent = emptyNameSet }
+             mkHsQTvs tvs = HsQTvs { hsq_ext =HsQTvsRn
+                                               { hsq_implicit = []
+                                               , hsq_dependent = emptyNameSet }
+                                   , hsq_explicit = tvs }
              resTyVar = case resultSig of
                      TyVarSig _ bndr -> mkHsQTvs [bndr]
                      _               -> mkHsQTvs []
@@ -546,33 +550,38 @@ repTyFamInstD decl@(TyFamInstDecl { tfid_eqn = eqn })
        ; repTySynInst tc eqn1 }
 
 repTyFamEqn :: TyFamInstEqn GhcRn -> DsM (Core TH.TySynEqnQ)
-repTyFamEqn (HsIB { hsib_vars = var_names
+repTyFamEqn (HsIB { hsib_ext = HsIBRn { hsib_vars = var_names }
                   , hsib_body = FamEqn { feqn_pats = tys
                                        , feqn_rhs  = rhs }})
-  = do { let hs_tvs = HsQTvs { hsq_implicit = var_names
-                             , hsq_explicit = []
-                             , hsq_dependent = emptyNameSet }   -- Yuk
+  = do { let hs_tvs = HsQTvs { hsq_ext = HsQTvsRn
+                               { hsq_implicit = var_names
+                               , hsq_dependent = emptyNameSet }   -- Yuk
+                             , hsq_explicit = [] }
        ; addTyClTyVarBinds hs_tvs $ \ _ ->
          do { tys1 <- repLTys tys
             ; tys2 <- coreList typeQTyConName tys1
             ; rhs1 <- repLTy rhs
             ; repTySynEqn tys2 rhs1 } }
-repTyFamEqn (HsIB _ (XFamEqn _) _) = panic "repTyFamEqn"
+repTyFamEqn (XHsImplicitBndrs _) = panic "repTyFamEqn"
+repTyFamEqn (HsIB _ (XFamEqn _)) = panic "repTyFamEqn"
 
 repDataFamInstD :: DataFamInstDecl GhcRn -> DsM (Core TH.DecQ)
 repDataFamInstD (DataFamInstDecl { dfid_eqn =
-                  (HsIB { hsib_vars = var_names
+                  (HsIB { hsib_ext = HsIBRn { hsib_vars = var_names }
                         , hsib_body = FamEqn { feqn_tycon = tc_name
                                              , feqn_pats  = tys
                                              , feqn_rhs   = defn }})})
   = do { tc <- lookupLOcc tc_name               -- See note [Binders and occurrences]
-       ; let hs_tvs = HsQTvs { hsq_implicit = var_names
-                             , hsq_explicit = []
-                             , hsq_dependent = emptyNameSet }   -- Yuk
+       ; let hs_tvs = HsQTvs { hsq_ext = HsQTvsRn
+                                 { hsq_implicit = var_names
+                                 , hsq_dependent = emptyNameSet }   -- Yuk
+                             , hsq_explicit = [] }
        ; addTyClTyVarBinds hs_tvs $ \ bndrs ->
          do { tys1 <- repList typeQTyConName repLTy tys
             ; repDataDefn tc bndrs (Just tys1) defn } }
-repDataFamInstD (DataFamInstDecl (HsIB _ (XFamEqn _) _))
+repDataFamInstD (DataFamInstDecl (XHsImplicitBndrs _))
+  = panic "repDataFamInstD"
+repDataFamInstD (DataFamInstDecl (HsIB _ (XFamEqn _)))
   = panic "repDataFamInstD"
 
 repForD :: Located (ForeignDecl GhcRn) -> DsM (SrcSpan, Core TH.DecQ)
@@ -648,8 +657,11 @@ repRuleD (L _ (XRuleDecl _)) = panic "repRuleD"
 ruleBndrNames :: LRuleBndr GhcRn -> [Name]
 ruleBndrNames (L _ (RuleBndr _ n))      = [unLoc n]
 ruleBndrNames (L _ (RuleBndrSig _ n sig))
-  | HsWC { hswc_body = HsIB { hsib_vars = vars }} <- sig
+  | HsWC { hswc_body = HsIB { hsib_ext = HsIBRn { hsib_vars = vars } }} <- sig
   = unLoc n : vars
+ruleBndrNames (L _ (RuleBndrSig _ _ (HsWC _ (XHsImplicitBndrs _))))
+  = panic "ruleBndrNames"
+ruleBndrNames (L _ (RuleBndrSig _ _ (XHsWildCardBndrs _))) = panic "ruleBndrNames"
 ruleBndrNames (L _ (XRuleBndr _)) = panic "ruleBndrNames"
 
 repRuleBndr :: LRuleBndr GhcRn -> DsM (Core TH.RuleBndrQ)
@@ -835,6 +847,7 @@ rep_ty_sig mk_sig loc sig_ty nm
                        else repTForall th_explicit_tvs th_ctxt th_ty
        ; sig     <- repProto mk_sig nm1 ty1
        ; return (loc, sig) }
+rep_ty_sig _ _ (XHsImplicitBndrs _) _ = panic "rep_ty_sig"
 
 rep_patsyn_ty_sig :: SrcSpan -> LHsSigType GhcRn -> Located Name
                   -> DsM (SrcSpan, Core TH.DecQ)
@@ -863,6 +876,7 @@ rep_patsyn_ty_sig loc sig_ty nm
                        repTForall th_exis th_provs th_ty
        ; sig      <- repProto patSynSigDName nm1 ty1
        ; return (loc, sig) }
+rep_patsyn_ty_sig _ (XHsImplicitBndrs _) _ = panic "rep_patsyn_ty_sig"
 
 rep_wc_ty_sig :: Name -> SrcSpan -> LHsSigWcType GhcRn -> Located Name
               -> DsM (SrcSpan, Core TH.DecQ)
@@ -969,11 +983,13 @@ addTyVarBinds :: LHsQTyVars GhcRn                    -- the binders to be added
 -- gensym a list of type variables and enter them into the meta environment;
 -- the computations passed as the second argument is executed in that extended
 -- meta environment and gets the *new* names on Core-level as an argument
-addTyVarBinds (HsQTvs { hsq_implicit = imp_tvs, hsq_explicit = exp_tvs })
+addTyVarBinds (HsQTvs { hsq_ext = HsQTvsRn { hsq_implicit = imp_tvs}
+                      , hsq_explicit = exp_tvs })
               thing_inside
   = addSimpleTyVarBinds imp_tvs $
     addHsTyVarBinds exp_tvs $
     thing_inside
+addTyVarBinds (XLHsQTyVars _) _ = panic "addTyVarBinds"
 
 addTyClTyVarBinds :: LHsQTyVars GhcRn
                   -> (Core [TH.TyVarBndrQ] -> DsM (Core (TH.Q a)))
@@ -1031,7 +1047,7 @@ repContext ctxt = do preds <- repList typeQTyConName repLTy ctxt
                      repCtxt preds
 
 repHsSigType :: LHsSigType GhcRn -> DsM (Core TH.TypeQ)
-repHsSigType (HsIB { hsib_vars = implicit_tvs
+repHsSigType (HsIB { hsib_ext = HsIBRn { hsib_vars = implicit_tvs }
                    , hsib_body = body })
   | (explicit_tvs, ctxt, ty) <- splitLHsSigmaTy body
   = addSimpleTyVarBinds implicit_tvs $
@@ -1042,10 +1058,12 @@ repHsSigType (HsIB { hsib_vars = implicit_tvs
        ; if null explicit_tvs && null (unLoc ctxt)
          then return th_ty
          else repTForall th_explicit_tvs th_ctxt th_ty }
+repHsSigType (XHsImplicitBndrs _) = panic "repHsSigType"
 
 repHsSigWcType :: LHsSigWcType GhcRn -> DsM (Core TH.TypeQ)
 repHsSigWcType (HsWC { hswc_body = sig1 })
   = repHsSigType sig1
+repHsSigWcType (XHsWildCardBndrs _) = panic "repHsSigWcType"
 
 -- yield the representation of a list of types
 repLTys :: [LHsType GhcRn] -> DsM [Core TH.TypeQ]
@@ -1558,7 +1576,6 @@ rep_bind (L _ (VarBind { var_id = v, var_rhs = e}))
 
 rep_bind (L _ (AbsBinds {}))  = panic "rep_bind: AbsBinds"
 rep_bind (L loc (PatSynBind _ (PSB { psb_id   = syn
-                                   , psb_fvs  = _fvs
                                    , psb_args = args
                                    , psb_def  = pat
                                    , psb_dir  = dir })))
@@ -1702,10 +1719,10 @@ repP (BangPat _ p)      = do { p1 <- repLP p; repPbang p1 }
 repP (AsPat _ x p)      = do { x' <- lookupLBinder x; p1 <- repLP p
                              ; repPaspat x' p1 }
 repP (ParPat _ p)       = repLP p
-repP (ListPat _ ps _ Nothing)    = do { qs <- repLPs ps; repPlist qs }
-repP (ListPat x ps ty1 (Just (_,e))) = do { p <- repP (ListPat x ps ty1 Nothing)
-                                          ; e' <- repE (syn_expr e)
-                                          ; repPview e' p}
+repP (ListPat Nothing ps)  = do { qs <- repLPs ps; repPlist qs }
+repP (ListPat (Just e) ps) = do { p <- repP (ListPat Nothing ps)
+                                ; e' <- repE (syn_expr e)
+                                ; repPview e' p}
 repP (TuplePat _ ps boxed)
   | isBoxed boxed       = do { qs <- repLPs ps; repPtup qs }
   | otherwise           = do { qs <- repLPs ps; repPunboxedTup qs }

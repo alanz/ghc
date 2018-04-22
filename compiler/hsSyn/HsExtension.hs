@@ -904,6 +904,36 @@ type ForallXPat (c :: * -> Constraint) (x :: *) =
 -- =====================================================================
 -- Type families for the HsTypes type families
 
+type family XHsQTvs       x
+type family XXLHsQTyVars  x
+
+type ForallXLHsQTyVars (c :: * -> Constraint) (x :: *) =
+       ( c (XHsQTvs       x)
+       , c (XXLHsQTyVars  x)
+       )
+
+-- -------------------------------------
+
+type family XHsIB              x b
+type family XXHsImplicitBndrs  x b
+
+type ForallXHsImplicitBndrs (c :: * -> Constraint) (x :: *) (b :: *) =
+       ( c (XHsIB              x b)
+       , c (XXHsImplicitBndrs  x b)
+       )
+
+-- -------------------------------------
+
+type family XHsWC              x b
+type family XXHsWildCardBndrs  x b
+
+type ForallXHsWildCardBndrs(c :: * -> Constraint) (x :: *) (b :: *) =
+       ( c (XHsWC              x b)
+       , c (XXHsWildCardBndrs  x b)
+       )
+
+-- -------------------------------------
+
 type family XForAllTy        x
 type family XQualTy          x
 type family XTyVar           x
@@ -980,6 +1010,16 @@ type ForallXAppType (c :: * -> Constraint) (x :: *) =
        ( c (XAppInfix   x)
        , c (XAppPrefix  x)
        , c (XXAppType   x)
+       )
+
+-- ---------------------------------------------------------------------
+
+type family XConDeclField  x
+type family XXConDeclField x
+
+type ForallXConDeclField (c :: * -> Constraint) (x :: *) =
+       ( c (XConDeclField  x)
+       , c (XXConDeclField x)
        )
 
 -- ---------------------------------------------------------------------

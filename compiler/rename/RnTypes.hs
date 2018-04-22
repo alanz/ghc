@@ -127,18 +127,23 @@ rn_hs_sig_wc_type always_bind_free_tvs ctxt
              bind_free_tvs = always_bind_free_tvs || not (isLHsForAllTy hs_ty)
        ; rnImplicitBndrs bind_free_tvs ctxt tv_rdrs $ \ vars ->
     do { (wcs, hs_ty', fvs1) <- rnWcBody ctxt nwc_rdrs hs_ty
-       ; let sig_ty' = HsWC { hswc_wcs = wcs, hswc_body = ib_ty' }
+       ; let sig_ty' = HsWC { hswc_ext = wcs, hswc_body = ib_ty' }
              ib_ty'  = mk_implicit_bndrs vars hs_ty' fvs1
        ; (res, fvs2) <- thing_inside sig_ty'
        ; return (res, fvs1 `plusFV` fvs2) } }
+rn_hs_sig_wc_type _ _ (HsWC _ (XHsImplicitBndrs _)) _
+  = panic "rn_hs_sig_wc_type"
+rn_hs_sig_wc_type _ _ (XHsWildCardBndrs _) _
+  = panic "rn_hs_sig_wc_type"
 
 rnHsWcType :: HsDocContext -> LHsWcType GhcPs -> RnM (LHsWcType GhcRn, FreeVars)
 rnHsWcType ctxt (HsWC { hswc_body = hs_ty })
   = do { free_vars <- extractFilteredRdrTyVars hs_ty
        ; (_, nwc_rdrs) <- partition_nwcs free_vars
        ; (wcs, hs_ty', fvs) <- rnWcBody ctxt nwc_rdrs hs_ty
-       ; let sig_ty' = HsWC { hswc_wcs = wcs, hswc_body = hs_ty' }
+       ; let sig_ty' = HsWC { hswc_ext = wcs, hswc_body = hs_ty' }
        ; return (sig_ty', fvs) }
+rnHsWcType _ (XHsWildCardBndrs _) = panic "rnHsWcType"
 
 rnWcBody :: HsDocContext -> [Located RdrName] -> LHsType GhcPs
          -> RnM ([Name], LHsType GhcRn, FreeVars)
@@ -297,6 +302,7 @@ rnHsSigType ctx (HsIB { hsib_body = hs_ty })
        ; rnImplicitBndrs (not (isLHsForAllTy hs_ty)) ctx vars $ \ vars ->
     do { (body', fvs) <- rnLHsType ctx hs_ty
        ; return ( mk_implicit_bndrs vars body' fvs, fvs ) } }
+rnHsSigType _ (XHsImplicitBndrs _) = panic "rnHsSigType"
 
 rnImplicitBndrs :: Bool    -- True <=> bring into scope any free type variables
                            -- E.g.  f :: forall a. a->b
@@ -356,9 +362,10 @@ mk_implicit_bndrs :: [Name]  -- implicitly bound
                   -> FreeVars    -- FreeVars of payload
                   -> HsImplicitBndrs GhcRn a
 mk_implicit_bndrs vars body fvs
-  = HsIB { hsib_vars = vars
-         , hsib_body = body
-         , hsib_closed = nameSetAll (not . isTyVarName) (vars `delFVs` fvs) }
+  = HsIB { hsib_ext = HsIBRn
+           { hsib_vars = vars
+           , hsib_closed = nameSetAll (not . isTyVarName) (vars `delFVs` fvs) }
+         , hsib_body = body }
 
 
 
@@ -945,9 +952,10 @@ bindHsQTyVars doc mb_in_doc mb_assoc body_kv_occs hsq_bndrs thing_inside
          bindLHsTyVarBndrs doc mb_in_doc mb_assoc hs_tv_bndrs $ \ rn_bndrs ->
     do { traceRn "bindHsQTyVars" (ppr hsq_bndrs $$ ppr implicit_kv_nms $$ ppr rn_bndrs)
        ; dep_bndr_nms <- mapM (lookupLocalOccRn . unLoc) dep_bndrs
-       ; thing_inside (HsQTvs { hsq_implicit  = implicit_kv_nms
-                              , hsq_explicit  = rn_bndrs
-                              , hsq_dependent = mkNameSet dep_bndr_nms })
+       ; thing_inside (HsQTvs { hsq_ext = HsQTvsRn
+                                   { hsq_implicit  = implicit_kv_nms
+                                   , hsq_dependent = mkNameSet dep_bndr_nms }
+                              , hsq_explicit  = rn_bndrs })
                       all_bound_on_lhs } }
 
   where
@@ -1173,11 +1181,12 @@ rnConDeclFields ctxt fls fields
 
 rnField :: FastStringEnv FieldLabel -> RnTyKiEnv -> LConDeclField GhcPs
         -> RnM (LConDeclField GhcRn, FreeVars)
-rnField fl_env env (L l (ConDeclField names ty haddock_doc))
+rnField fl_env env (L l (ConDeclField _ names ty haddock_doc))
   = do { let new_names = map (fmap lookupField) names
        ; (new_ty, fvs) <- rnLHsTyKi env ty
        ; new_haddock_doc <- rnMbLHsDoc haddock_doc
-       ; return (L l (ConDeclField new_names new_ty new_haddock_doc), fvs) }
+       ; return (L l (ConDeclField noExt new_names new_ty new_haddock_doc)
+                , fvs) }
   where
     lookupField :: FieldOcc GhcPs -> FieldOcc GhcRn
     lookupField (FieldOcc _ (L lr rdr)) = FieldOcc (flSelector fl) (L lr rdr)
@@ -1185,6 +1194,7 @@ rnField fl_env env (L l (ConDeclField names ty haddock_doc))
         lbl = occNameFS $ rdrNameOcc rdr
         fl  = expectJust "rnField" $ lookupFsEnv fl_env lbl
     lookupField (XFieldOcc{}) = panic "rnField"
+rnField _ _ (L _ (XConDeclField _)) = panic "rnField"
 
 {-
 ************************************************************************

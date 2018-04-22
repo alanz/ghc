@@ -379,7 +379,7 @@ cvtDec (TH.PatSynD nm args dir pat)
        ; dir'  <- cvtDir nm' dir
        ; pat'  <- cvtPat pat
        ; returnJustL $ Hs.ValD noExt $ PatSynBind noExt $
-           PSB noExt nm' placeHolderType args' pat' dir' }
+           PSB noExt nm' args' pat' dir' }
   where
     cvtArgs (TH.PrefixPatSyn args) = Hs.PrefixCon <$> mapM vNameL args
     cvtArgs (TH.InfixPatSyn a1 a2) = Hs.InfixCon <$> vNameL a1 <*> vNameL a2
@@ -587,7 +587,8 @@ cvt_id_arg (i, str, ty)
   = do  { L li i' <- vNameL i
         ; ty' <- cvt_arg (str,ty)
         ; return $ noLoc (ConDeclField
-                          { cd_fld_names
+                          { cd_fld_ext = noExt
+                          , cd_fld_names
                               = [L li $ FieldOcc noExt (L li i')]
                           , cd_fld_type =  ty'
                           , cd_fld_doc = Nothing}) }
@@ -1164,7 +1165,7 @@ cvtp (RecP c fs)       = do { c' <- cNameL c; fs' <- mapM cvtPatFld fs
                                      $ Hs.RecCon (HsRecFields fs' Nothing) }
 cvtp (ListP ps)        = do { ps' <- cvtPats ps
                             ; return
-                                   $ ListPat noExt ps' placeHolderType Nothing }
+                                   $ ListPat noExt ps'}
 cvtp (SigP p t)        = do { p' <- cvtPat p; t' <- cvtType t
                             ; return $ SigPat (mkLHsSigWcType t') p' }
 cvtp (ViewP e p)       = do { e' <- cvtl e; p' <- cvtPat p

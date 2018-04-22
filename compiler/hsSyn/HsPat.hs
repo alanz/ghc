@@ -18,6 +18,7 @@
 
 module HsPat (
         Pat(..), InPat, OutPat, LPat,
+        ListPatTc(..),
 
         HsConPatDetails, hsConPatArgs,
         HsRecFields(..), HsRecField'(..), LHsRecField',
@@ -117,8 +118,6 @@ data Pat p
         ------------ Lists, tuples, arrays ---------------
   | ListPat     (XListPat p)
                 [LPat p]
-                (PostTc p Type)                      -- The type of the elements
-                (Maybe (PostTc p Type, SyntaxExpr p)) -- For rebindable syntax
                    -- For OverloadedLists a Just (ty,fn) gives
                    -- overall type of the pattern, and the toList
 -- function to convert the scrutinee to a list value
@@ -282,6 +281,11 @@ data Pat p
 
 -- ---------------------------------------------------------------------
 
+data ListPatTc
+  = ListPatTc
+      Type                             -- The type of the elements
+      (Maybe (Type, SyntaxExpr GhcTc)) -- For rebindable syntax
+
 type instance XWildPat GhcPs = PlaceHolder
 type instance XWildPat GhcRn = PlaceHolder
 type instance XWildPat GhcTc = Type
@@ -295,7 +299,9 @@ type instance XBangPat (GhcPass _) = PlaceHolder
 -- Note: XListPat cannot be extended when using GHC 8.0.2 as the bootstrap
 -- compiler, as it triggers https://ghc.haskell.org/trac/ghc/ticket/14396 for
 -- `SyntaxExpr`
-type instance XListPat (GhcPass _) = PlaceHolder
+type instance XListPat GhcPs = PlaceHolder
+type instance XListPat GhcRn = Maybe (SyntaxExpr GhcRn)
+type instance XListPat GhcTc = ListPatTc
 
 type instance XTuplePat GhcPs = PlaceHolder
 type instance XTuplePat GhcRn = PlaceHolder
@@ -528,7 +534,7 @@ pprPat (CoPat _ co pat _)       = pprHsWrapper co (\parens
                                                         then pprParendPat pat
                                                         else pprPat pat)
 pprPat (SigPat ty pat)          = ppr pat <+> dcolon <+> ppr ty
-pprPat (ListPat _ pats _ _)     = brackets (interpp'SP pats)
+pprPat (ListPat _ pats)         = brackets (interpp'SP pats)
 pprPat (PArrPat _ pats)         = paBrackets (interpp'SP pats)
 pprPat (TuplePat _ pats bx)     = tupleParens (boxityTupleSort bx)
                                               (pprWithCommas ppr pats)
@@ -829,7 +835,7 @@ collectEvVarsPat pat =
     AsPat _ _ p      -> collectEvVarsLPat p
     ParPat  _ p      -> collectEvVarsLPat p
     BangPat _ p      -> collectEvVarsLPat p
-    ListPat _ ps _ _ -> unionManyBags $ map collectEvVarsLPat ps
+    ListPat _ ps     -> unionManyBags $ map collectEvVarsLPat ps
     TuplePat _ ps _  -> unionManyBags $ map collectEvVarsLPat ps
     SumPat _ p _ _   -> collectEvVarsLPat p
     PArrPat _ ps     -> unionManyBags $ map collectEvVarsLPat ps

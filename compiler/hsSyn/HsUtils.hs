@@ -826,8 +826,7 @@ mkPatSynBind name details lpat dir = PatSynBind noExt psb
              , psb_id = name
              , psb_args = details
              , psb_def = lpat
-             , psb_dir = dir
-             , psb_fvs = placeHolderNames }
+             , psb_dir = dir }
 
 -- |If any of the matches in the 'FunBind' are infix, the 'FunBind' is
 -- considered infix.
@@ -1058,7 +1057,7 @@ collect_lpat (L _ pat) bndrs
     go (ViewPat _ _ pat)          = collect_lpat pat bndrs
     go (ParPat _ pat)             = collect_lpat pat bndrs
 
-    go (ListPat _ pats _ _)       = foldr collect_lpat bndrs pats
+    go (ListPat _ pats)           = foldr collect_lpat bndrs pats
     go (PArrPat _ pats)           = foldr collect_lpat bndrs pats
     go (TuplePat _ pats _)        = foldr collect_lpat bndrs pats
     go (SumPat _ pat _ _)         = collect_lpat pat bndrs
@@ -1207,6 +1206,8 @@ hsDataFamInstBinders (DataFamInstDecl { dfid_eqn = HsIB { hsib_body =
 hsDataFamInstBinders (DataFamInstDecl
                                     { dfid_eqn = HsIB { hsib_body = XFamEqn _}})
   = panic "hsDataFamInstBinders"
+hsDataFamInstBinders (DataFamInstDecl (XHsImplicitBndrs _))
+  = panic "hsDataFamInstBinders"
 
 -------------------
 -- the SrcLoc returned are for the whole declarations, not just the names
@@ -1347,7 +1348,7 @@ lPatImplicits = hs_lpat
     hs_pat (AsPat _ _ pat)      = hs_lpat pat
     hs_pat (ViewPat _ _ pat)    = hs_lpat pat
     hs_pat (ParPat _ pat)       = hs_lpat pat
-    hs_pat (ListPat _ pats _ _) = hs_lpats pats
+    hs_pat (ListPat _ pats)     = hs_lpats pats
     hs_pat (PArrPat _ pats)     = hs_lpats pats
     hs_pat (TuplePat _ pats _)  = hs_lpats pats
 

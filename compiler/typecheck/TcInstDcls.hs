@@ -632,8 +632,9 @@ tcDataFamInstDecl :: Maybe ClsInstInfo
                   -> LDataFamInstDecl GhcRn -> TcM (FamInst, Maybe DerivInfo)
   -- "newtype instance" and "data instance"
 tcDataFamInstDecl mb_clsinfo
-    (L loc decl@(DataFamInstDecl { dfid_eqn = HsIB { hsib_vars = tv_names
-                                                   , hsib_body =
+    (L loc decl@(DataFamInstDecl { dfid_eqn = HsIB { hsib_ext
+                                               = HsIBRn { hsib_vars = tv_names }
+                                 , hsib_body =
       FamEqn { feqn_pats   = pats
              , feqn_tycon  = fam_tc_name
              , feqn_fixity = fixity
@@ -761,7 +762,9 @@ tcDataFamInstDecl _
     (L _ (DataFamInstDecl
          { dfid_eqn = HsIB { hsib_body = FamEqn { feqn_rhs = XHsDataDefn _ }}}))
   = panic "tcDataFamInstDecl"
-tcDataFamInstDecl _ (L _ (DataFamInstDecl (HsIB _ (XFamEqn _) _)))
+tcDataFamInstDecl _ (L _ (DataFamInstDecl (XHsImplicitBndrs _)))
+  = panic "tcDataFamInstDecl"
+tcDataFamInstDecl _ (L _ (DataFamInstDecl (HsIB _ (XFamEqn _))))
   = panic "tcDataFamInstDecl"
 
 

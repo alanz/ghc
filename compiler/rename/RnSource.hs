@@ -771,8 +771,8 @@ rnFamInstEqn doc mb_cls rhs_kvars
              all_fvs  = fvs `addOneFV` unLoc tycon'
                         -- type instance => use, hence addOneFV
 
-       ; return (HsIB { hsib_vars = all_ibs
-                      , hsib_closed = True
+       ; return (HsIB { hsib_ext = HsIBRn { hsib_vars = all_ibs
+                                          , hsib_closed = True }
                       , hsib_body
                           = FamEqn { feqn_ext    = noExt
                                    , feqn_tycon  = tycon'
@@ -780,7 +780,8 @@ rnFamInstEqn doc mb_cls rhs_kvars
                                    , feqn_fixity = fixity
                                    , feqn_rhs    = payload' } },
                  all_fvs) }
-rnFamInstEqn _ _ _ (HsIB _ (XFamEqn _) _) _ = panic "rnFamInstEqn"
+rnFamInstEqn _ _ _ (HsIB _ (XFamEqn _)) _ = panic "rnFamInstEqn"
+rnFamInstEqn _ _ _ (XHsImplicitBndrs _) _ = panic "rnFamInstEqn"
 
 rnTyFamInstDecl :: Maybe (Name, [Name])
                 -> TyFamInstDecl GhcPs
@@ -796,7 +797,8 @@ rnTyFamInstEqn mb_cls eqn@(HsIB { hsib_body = FamEqn { feqn_tycon = tycon
                                                      , feqn_rhs   = rhs }})
   = do { rhs_kvs <- extractHsTyRdrTyVarsKindVars rhs
        ; rnFamInstEqn (TySynCtx tycon) mb_cls rhs_kvs eqn rnTySyn }
-rnTyFamInstEqn _ (HsIB _ (XFamEqn _) _) = panic "rnTyFamInstEqn"
+rnTyFamInstEqn _ (HsIB _ (XFamEqn _)) = panic "rnTyFamInstEqn"
+rnTyFamInstEqn _ (XHsImplicitBndrs _) = panic "rnTyFamInstEqn"
 
 rnTyFamDefltEqn :: Name
                 -> TyFamDefltEqn GhcPs
@@ -828,7 +830,9 @@ rnDataFamInstDecl mb_cls (DataFamInstDecl { dfid_eqn = eqn@(HsIB { hsib_body =
        ; (eqn', fvs) <-
            rnFamInstEqn (TyDataCtx tycon) mb_cls rhs_kvs eqn rnDataDefn
        ; return (DataFamInstDecl { dfid_eqn = eqn' }, fvs) }
-rnDataFamInstDecl _ (DataFamInstDecl (HsIB _ (XFamEqn _) _))
+rnDataFamInstDecl _ (DataFamInstDecl (HsIB _ (XFamEqn _)))
+  = panic "rnDataFamInstDecl"
+rnDataFamInstDecl _ (DataFamInstDecl (XHsImplicitBndrs _))
   = panic "rnDataFamInstDecl"
 
 -- Renaming of the associated types in instances.
@@ -1982,9 +1986,10 @@ rnConDecl decl@(ConDeclGADT { con_names   = names
                                       -- See Note [GADT abstract syntax] in HsDecls
                                       (PrefixCon arg_tys, final_res_ty)
 
-              new_qtvs =  HsQTvs { hsq_implicit  = implicit_tkvs
-                                 , hsq_explicit  = explicit_tkvs
-                                 , hsq_dependent = emptyNameSet }
+              new_qtvs =  HsQTvs { hsq_ext = HsQTvsRn
+                                     { hsq_implicit  = implicit_tkvs
+                                     , hsq_dependent = emptyNameSet }
+                                 , hsq_explicit  = explicit_tkvs }
 
         ; traceRn "rnConDecl2" (ppr names $$ ppr implicit_tkvs $$ ppr explicit_tkvs)
         ; return (decl { con_g_ext = noExt, con_names = new_names

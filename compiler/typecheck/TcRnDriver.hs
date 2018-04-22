@@ -2302,7 +2302,7 @@ tcRnType :: HscEnv
 tcRnType hsc_env normalise rdr_type
   = runTcInteractive hsc_env $
     setXOptM LangExt.PolyKinds $   -- See Note [Kind-generalise in tcRnType]
-    do { (HsWC { hswc_wcs = wcs, hswc_body = rn_type }, _fvs)
+    do { (HsWC { hswc_ext = wcs, hswc_body = rn_type }, _fvs)
                <- rnHsWcType GHCiCtx (mkHsWildCardBndrs rdr_type)
                   -- The type can have wild cards, but no implicit
                   -- generalisation; e.g.   :kind (T _)

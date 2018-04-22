@@ -175,7 +175,8 @@ mkATDefault (L loc (TyFamInstDecl { tfid_eqn = HsIB { hsib_body = e }}))
                                    , feqn_pats   = tvs
                                    , feqn_fixity = fixity
                                    , feqn_rhs    = rhs })) }
-mkATDefault (L _ (TyFamInstDecl (HsIB _ (XFamEqn _) _))) = panic "mkATDefault"
+mkATDefault (L _ (TyFamInstDecl (HsIB _ (XFamEqn _)))) = panic "mkATDefault"
+mkATDefault (L _ (TyFamInstDecl (XHsImplicitBndrs _))) = panic "mkATDefault"
 
 mkTyData :: SrcSpan
          -> NewOrData
@@ -1013,7 +1014,7 @@ checkAPat msg loc e0 = do
 
    HsPar _ e          -> checkLPat msg e >>= (return . (ParPat noExt))
    ExplicitList _ _ es -> do ps <- mapM (checkLPat msg) es
-                             return (ListPat noExt ps placeHolderType Nothing)
+                             return (ListPat noExt ps)
    ExplicitPArr _ es  -> do ps <- mapM (checkLPat msg) es
                             return (PArrPat noExt ps)
 

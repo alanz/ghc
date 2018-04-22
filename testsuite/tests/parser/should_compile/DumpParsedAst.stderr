@@ -18,8 +18,7 @@
         {OccName: Peano}))
       (HsQTvs
        (PlaceHolder)
-       []
-       (PlaceHolder))
+       [])
       (Prefix)
       (HsDataDefn
        (PlaceHolder)
@@ -151,8 +150,7 @@
                            (NotPromoted)
                            ({ DumpParsedAst.hs:8:34-35 }
                             (Unqual
-                             {OccName: as}))))))]))))))])))
-            (PlaceHolder)))
+                             {OccName: as}))))))]))))))])))))
          ,({ DumpParsedAst.hs:9:3-24 }
            (HsIB
             (PlaceHolder)
@@ -173,8 +171,7 @@
                (NotPromoted)
                ({ DumpParsedAst.hs:9:21-24 }
                 (Unqual
-                 {OccName: Zero})))))
-            (PlaceHolder)))]))
+                 {OccName: Zero})))))))]))
        ({ DumpParsedAst.hs:7:13-18 }
         (Unqual
          {OccName: Length}))
@@ -195,8 +192,7 @@
                (NotPromoted)
                ({ DumpParsedAst.hs:7:28 }
                 (Unqual
-                 {OccName: k}))))))))]
-        (PlaceHolder))
+                 {OccName: k}))))))))])
        (Prefix)
        ({ DumpParsedAst.hs:7:32-39 }
         (KindSig

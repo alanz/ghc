@@ -651,7 +651,8 @@ tcAddDataFamConPlaceholders inst_decls thing_inside
     get_fi_cons (DataFamInstDecl { dfid_eqn = HsIB { hsib_body =
                   FamEqn { feqn_rhs = XHsDataDefn _ }}})
       = panic "get_fi_cons"
-    get_fi_cons (DataFamInstDecl (HsIB _ (XFamEqn _) _)) = panic "get_fi_cons"
+    get_fi_cons (DataFamInstDecl (HsIB _ (XFamEqn _))) = panic "get_fi_cons"
+    get_fi_cons (DataFamInstDecl (XHsImplicitBndrs _)) = panic "get_fi_cons"
 
 
 tcAddPatSynPlaceholders :: [PatSynBind GhcRn GhcRn] -> TcM a -> TcM a

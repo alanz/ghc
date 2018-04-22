@@ -370,9 +370,9 @@ type instance XXABExport (GhcPass p) = PlaceHolder
 
 -- | Pattern Synonym binding
 data PatSynBind idL idR
-  = PSB { psb_ext  :: XPSB idL idR,
+  = PSB { psb_ext  :: XPSB idL idR,            -- ^ Post renaming, FVs.
+                                               -- See Note [Bind free vars]
           psb_id   :: Located (IdP idL),       -- ^ Name of the pattern synonym
-          psb_fvs  :: PostRn idR NameSet,      -- ^ See Note [Bind free vars]
           psb_args :: HsPatSynDetails (Located (IdP idR)),
                                                -- ^ Formal parameter names
           psb_def  :: LPat idR,                -- ^ Right-hand side
@@ -380,7 +380,10 @@ data PatSynBind idL idR
      }
    | XPatSynBind (XXPatSynBind idL idR)
 
-type instance XPSB         (GhcPass idL) (GhcPass idR) = PlaceHolder
+type instance XPSB         (GhcPass idL) GhcPs = PlaceHolder
+type instance XPSB         (GhcPass idL) GhcRn = NameSet
+type instance XPSB         (GhcPass idL) GhcTc = NameSet
+
 type instance XXPatSynBind (GhcPass idL) (GhcPass idR) = PlaceHolder
 
 {-

@@ -99,8 +99,8 @@ hsPatType (LazyPat _ pat)               = hsLPatType pat
 hsPatType (LitPat _ lit)                = hsLitType lit
 hsPatType (AsPat _ var _)               = idType (unLoc var)
 hsPatType (ViewPat ty _ _)              = ty
-hsPatType (ListPat _ _  ty Nothing)     = mkListTy ty
-hsPatType (ListPat _ _ _ (Just (ty,_))) = ty
+hsPatType (ListPat (ListPatTc ty Nothing) _)      = mkListTy ty
+hsPatType (ListPat (ListPatTc _ (Just (ty,_))) _) = ty
 hsPatType (PArrPat ty _)                = mkPArrTy ty
 hsPatType (TuplePat tys _ bx)           = mkTupleTy bx tys
 hsPatType (SumPat tys _ _ _ )           = mkSumTy tys
@@ -1272,17 +1272,17 @@ zonk_pat env (ViewPat ty expr pat)
         ; ty' <- zonkTcTypeToType env ty
         ; return (env', ViewPat ty' expr' pat') }
 
-zonk_pat env (ListPat x pats ty Nothing)
+zonk_pat env (ListPat (ListPatTc ty Nothing) pats)
   = do  { ty' <- zonkTcTypeToType env ty
         ; (env', pats') <- zonkPats env pats
-        ; return (env', ListPat x pats' ty' Nothing) }
+        ; return (env', ListPat (ListPatTc ty' Nothing) pats') }
 
-zonk_pat env (ListPat x pats ty (Just (ty2,wit)))
+zonk_pat env (ListPat (ListPatTc ty (Just (ty2,wit))) pats)
   = do  { (env', wit') <- zonkSyntaxExpr env wit
         ; ty2' <- zonkTcTypeToType env' ty2
         ; ty' <- zonkTcTypeToType env' ty
         ; (env'', pats') <- zonkPats env' pats
-        ; return (env'', ListPat x pats' ty' (Just (ty2',wit'))) }
+        ; return (env'', ListPat (ListPatTc ty' (Just (ty2',wit'))) pats') }
 
 zonk_pat env (PArrPat ty pats)
   = do  { ty' <- zonkTcTypeToType env ty
